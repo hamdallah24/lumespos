@@ -1285,6 +1285,9 @@ components:
           minLength: 1
         unit:
           type: string
+        costPricePerUnit:
+          type: number
+          default: 0
         minimalStock:
           type: number
           default: 0
@@ -1297,6 +1300,8 @@ components:
           minLength: 1
         unit:
           type: string
+        costPricePerUnit:
+          type: number
         minimalStock:
           type: number
 

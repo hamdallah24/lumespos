@@ -420,12 +420,14 @@ export const ListIngredientsResponse = zod.array(ListIngredientsResponseItem)
  * @summary Create an ingredient
  */
 
+export const createIngredientBodyCostPricePerUnitDefault = 0;
 export const createIngredientBodyMinimalStockDefault = 0;
 
 export const CreateIngredientBody = zod.object({
   "branchId": zod.number(),
   "name": zod.string().min(1),
   "unit": zod.string(),
+  "costPricePerUnit": zod.number().default(createIngredientBodyCostPricePerUnitDefault),
   "minimalStock": zod.number().default(createIngredientBodyMinimalStockDefault)
 })
 
@@ -443,6 +445,7 @@ export const UpdateIngredientParams = zod.object({
 export const UpdateIngredientBody = zod.object({
   "name": zod.string().min(1).optional(),
   "unit": zod.string().optional(),
+  "costPricePerUnit": zod.number().optional(),
   "minimalStock": zod.number().optional()
 })
 

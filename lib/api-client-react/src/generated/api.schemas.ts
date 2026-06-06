@@ -226,6 +226,7 @@ export interface IngredientInput {
   /** @minLength 1 */
   name: string;
   unit: string;
+  costPricePerUnit?: number;
   minimalStock?: number;
 }
 
@@ -233,6 +234,7 @@ export interface IngredientUpdate {
   /** @minLength 1 */
   name?: string;
   unit?: string;
+  costPricePerUnit?: number;
   minimalStock?: number;
 }
 

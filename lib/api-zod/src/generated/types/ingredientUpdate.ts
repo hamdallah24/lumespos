@@ -10,5 +10,6 @@ export interface IngredientUpdate {
   /** @minLength 1 */
   name?: string;
   unit?: string;
+  costPricePerUnit?: number;
   minimalStock?: number;
 }

@@ -192,17 +192,26 @@ function IngredientsTab({ branchId }: { branchId: number }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("");
+  const [costPricePerUnit, setCostPricePerUnit] = useState("");
   const [minStock, setMinStock] = useState("");
 
   const submit = () => {
     if (!branchId) return;
     if (!name.trim() || !unit.trim()) { toast.error("Nama dan satuan wajib diisi"); return; }
     createIng.mutate(
-      { data: { branchId, name: name.trim(), unit: unit.trim(), minimalStock: minStock ? parseFloat(minStock) : undefined } },
+      {
+        data: {
+          branchId,
+          name: name.trim(),
+          unit: unit.trim(),
+          costPricePerUnit: costPricePerUnit ? parseFloat(costPricePerUnit) : undefined,
+          minimalStock: minStock ? parseFloat(minStock) : undefined,
+        },
+      },
       {
         onSuccess: () => {
           toast.success("Bahan baku ditambahkan");
-          setOpen(false); setName(""); setUnit(""); setMinStock("");
+          setOpen(false); setName(""); setUnit(""); setCostPricePerUnit(""); setMinStock("");
           qc.invalidateQueries({ queryKey: getListIngredientsQueryKey({ branchId }) });
           qc.invalidateQueries({ queryKey: getListInventoryQueryKey({ branchId }) });
         },
@@ -246,6 +255,11 @@ function IngredientsTab({ branchId }: { branchId: number }) {
           <div className="space-y-4 py-2">
             <div className="space-y-1.5"><label className="text-sm font-medium">Nama</label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="cth. Kopi Arabika" autoFocus /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Satuan</label><Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="cth. gram, ml, pcs" /></div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Harga Satuan (Rp / unit)</label>
+              <Input type="number" value={costPricePerUnit} onChange={(e) => setCostPricePerUnit(e.target.value)} placeholder="cth. 5000" />
+              <p className="text-[11px] text-muted-foreground">Harga dasar per satuan. Dipakai untuk menghitung HPP otomatis saat produk dijual.</p>
+            </div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Stok Minimal (alert)</label><Input type="number" value={minStock} onChange={(e) => setMinStock(e.target.value)} placeholder="200" /></div>
           </div>
           <DialogFooter>

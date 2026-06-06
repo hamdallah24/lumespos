@@ -43,10 +43,11 @@ router.get("/ingredients", requireAuth, async (req, res) => {
 });
 
 router.post("/ingredients", requireRole("owner", "manager"), async (req, res) => {
-  const { branchId, name, unit, minimalStock } = req.body as {
+  const { branchId, name, unit, costPricePerUnit, minimalStock } = req.body as {
     branchId: number;
     name: string;
     unit: string;
+    costPricePerUnit?: number;
     minimalStock?: number;
   };
   if (!branchId || !name?.trim() || !unit?.trim()) {
@@ -59,6 +60,7 @@ router.post("/ingredients", requireRole("owner", "manager"), async (req, res) =>
       branchId,
       name: name.trim(),
       unit: unit.trim(),
+      costPricePerUnit: String(costPricePerUnit ?? 0),
       minimalStock: String(minimalStock ?? 0),
     })
     .returning();
@@ -72,14 +74,16 @@ router.post("/ingredients", requireRole("owner", "manager"), async (req, res) =>
 
 router.patch("/ingredients/:id", requireRole("owner", "manager"), async (req, res) => {
   const id = Number(req.params["id"]);
-  const { name, unit, minimalStock } = req.body as {
+  const { name, unit, costPricePerUnit, minimalStock } = req.body as {
     name?: string;
     unit?: string;
+    costPricePerUnit?: number;
     minimalStock?: number;
   };
   const update: Record<string, string> = {};
   if (name !== undefined) update["name"] = name.trim();
   if (unit !== undefined) update["unit"] = unit.trim();
+  if (costPricePerUnit !== undefined) update["costPricePerUnit"] = String(costPricePerUnit);
   if (minimalStock !== undefined) update["minimalStock"] = String(minimalStock);
   if (Object.keys(update).length === 0) {
     res.status(400).json({ error: "No fields to update" });
