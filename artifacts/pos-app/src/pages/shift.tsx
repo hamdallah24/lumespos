@@ -154,13 +154,13 @@ export default function ShiftPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-16 border-b px-6 flex items-center bg-card shrink-0">
-        <h1 className="font-bold text-xl tracking-tight">Tutup Shift</h1>
+      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
+        <h1 className="font-bold text-lg md:text-xl tracking-tight">Tutup Shift</h1>
         {currentBranch && <Badge variant="outline" className="ml-3 text-xs">{currentBranch.name}</Badge>}
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           <div className="lg:col-span-2 space-y-4">
             <Card>
               <CardContent className="p-4">
@@ -178,7 +178,7 @@ export default function ShiftPage() {
                 ) : (
                   <div className="space-y-2">
                     {expected.map((it) => (
-                      <div key={keyOf(it)} className="flex items-center gap-3 p-2 rounded-lg border">
+                      <div key={keyOf(it)} className="flex items-center gap-2 md:gap-3 p-2 rounded-lg border">
                         <div className="w-8 h-8 rounded bg-primary/10 text-primary flex items-center justify-center shrink-0">
                           {it.itemType === "semi_finished" ? <FlaskConical className="w-4 h-4" /> : <Package className="w-4 h-4" />}
                         </div>
@@ -188,7 +188,7 @@ export default function ShiftPage() {
                         </div>
                         <Input
                           type="number"
-                          className="w-28"
+                          className="w-24 md:w-28"
                           placeholder="Fisik"
                           value={counts[keyOf(it)] ?? ""}
                           onChange={(e) => setCounts((p) => ({ ...p, [keyOf(it)]: e.target.value }))}

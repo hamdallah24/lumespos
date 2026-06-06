@@ -18,7 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ShieldCheck } from "lucide-react";
+import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ShieldCheck, ChevronRight } from "lucide-react";
 
 function statusBadge(status: string) {
   if (status === "verified") return <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1" />Terverifikasi</Badge>;
@@ -33,13 +33,13 @@ export default function AuditsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-16 border-b px-6 flex items-center bg-card shrink-0">
-        <h1 className="font-bold text-xl tracking-tight">Audit Shift</h1>
+      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
+        <h1 className="font-bold text-lg md:text-xl tracking-tight">Audit Shift</h1>
         {currentBranch && <Badge variant="outline" className="ml-3 text-xs">{currentBranch.name}</Badge>}
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-6 space-y-3">
+        <div className="p-4 md:p-6 space-y-3">
           {isLoading ? (
             [1, 2, 3].map((i) => <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />)
           ) : audits.length === 0 ? (
@@ -50,20 +50,21 @@ export default function AuditsPage() {
           ) : (
             audits.map((a) => (
               <Card key={a.id} className="cursor-pointer hover:ring-2 hover:ring-primary transition-all" onClick={() => setSelected(a)}>
-                <CardContent className="p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                    <ClipboardCheck className="w-5 h-5" />
+                <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
+                  <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                    <ClipboardCheck className="w-4 h-4 md:w-5 md:h-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{a.cashierName ?? "Kasir"}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm">{a.cashierName ?? "Kasir"}</span>
                       {statusBadge(a.status)}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {a.shiftEnd ? formatDate(a.shiftEnd) : "—"}
                     </p>
                   </div>
-                  <Button variant="ghost" size="sm">Periksa</Button>
+                  <Button variant="ghost" size="sm" className="hidden sm:flex">Periksa</Button>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground sm:hidden" />
                 </CardContent>
               </Card>
             ))

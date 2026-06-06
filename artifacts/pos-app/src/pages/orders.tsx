@@ -109,11 +109,11 @@ export default function OrdersPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-16 border-b px-6 flex items-center gap-4 bg-card shrink-0">
-        <h1 className="font-bold text-xl tracking-tight">Riwayat Transaksi</h1>
-        <div className="ml-auto flex items-center gap-3">
+      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
+        <h1 className="font-bold text-lg md:text-xl tracking-tight shrink-0">Riwayat Transaksi</h1>
+        <div className="ml-auto flex items-center gap-2 md:gap-3">
           {orders.length > 0 && (
-            <div className="text-right">
+            <div className="text-right hidden sm:block">
               <p className="text-xs text-muted-foreground">Total {dateFilter ? "tanggal ini" : "hari ini"}</p>
               <p className="font-bold text-primary">{formatRp(totalToday)}</p>
             </div>
@@ -122,7 +122,7 @@ export default function OrdersPage() {
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
             <Input
               type="date"
-              className="pl-9 w-44"
+              className="pl-9 w-40 md:w-44"
               value={dateFilter}
               onChange={e => setDateFilter(e.target.value)}
             />
@@ -135,7 +135,7 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-6">
+      <ScrollArea className="flex-1 p-4 md:p-6">
         {isLoading ? (
           <div className="space-y-3">
             {[1, 2, 3, 4, 5].map(i => (
@@ -157,13 +157,13 @@ export default function OrdersPage() {
                 className="w-full text-left"
               >
                 <Card className="hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group">
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                      <Receipt className="w-5 h-5" />
+                  <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
+                    <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                      <Receipt className="w-4 h-4 md:w-5 md:h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold">#{String(order.id).padStart(4, "0")}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm">#{String(order.id).padStart(4, "0")}</p>
                         <Badge variant="outline" className="text-xs flex items-center gap-1 text-muted-foreground">
                           {paymentIcon(order.paymentMethod)}
                           {paymentLabel(order.paymentMethod)}
@@ -172,11 +172,11 @@ export default function OrdersPage() {
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{formatDate(order.createdAt)} · {order.itemCount} item</p>
                     </div>
-                    <div className="text-right">
-                      <p className="font-bold text-primary">{formatRp(order.total)}</p>
-                      {order.cashierName && <p className="text-xs text-muted-foreground">{order.cashierName}</p>}
+                    <div className="text-right shrink-0">
+                      <p className="font-bold text-sm md:text-base text-primary">{formatRp(order.total)}</p>
+                      {order.cashierName && <p className="text-xs text-muted-foreground hidden sm:block">{order.cashierName}</p>}
                     </div>
-                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                   </CardContent>
                 </Card>
               </button>
@@ -186,7 +186,7 @@ export default function OrdersPage() {
       </ScrollArea>
 
       <Dialog open={selectedOrderId !== null} onOpenChange={() => setSelectedOrderId(null)}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-w-[calc(100vw-2rem)] mx-auto">
           <DialogHeader>
             <DialogTitle>Detail Transaksi #{selectedOrderId ? String(selectedOrderId).padStart(4, "0") : ""}</DialogTitle>
           </DialogHeader>

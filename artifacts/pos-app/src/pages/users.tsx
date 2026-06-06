@@ -60,12 +60,12 @@ export default function UsersPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-16 border-b px-6 flex items-center bg-card shrink-0">
-        <h1 className="font-bold text-xl tracking-tight">Manajemen Pengguna</h1>
+      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
+        <h1 className="font-bold text-lg md:text-xl tracking-tight">Manajemen Pengguna</h1>
         <Badge variant="secondary" className="ml-3">{users.length} pengguna</Badge>
       </div>
 
-      <ScrollArea className="flex-1 p-6">
+      <ScrollArea className="flex-1 p-4 md:p-6">
         {isLoading ? (
           <div className="space-y-3">
             {[1,2,3].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}
@@ -79,13 +79,13 @@ export default function UsersPage() {
           <div className="max-w-3xl mx-auto space-y-2">
             {users.map((user) => (
               <Card key={user.id}>
-                <CardContent className="p-4 flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary shrink-0">
+                <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
+                  <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary shrink-0">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="font-semibold truncate">{user.name}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-semibold text-sm truncate">{user.name}</p>
                       <RoleBadge role={user.role} />
                     </div>
                     <p className="text-xs text-muted-foreground">{user.email} · Bergabung {formatDate(user.createdAt)}</p>
@@ -96,7 +96,7 @@ export default function UsersPage() {
                       onValueChange={(val) => handleRoleChange(user, val)}
                       disabled={updatingId === user.id || (user.role === "owner" && ownerCount <= 1)}
                     >
-                      <SelectTrigger className="w-36 h-8 text-xs">
+                      <SelectTrigger className="w-32 md:w-36 h-8 text-xs">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -106,7 +106,7 @@ export default function UsersPage() {
                       </SelectContent>
                     </Select>
                     {user.role === "owner" && ownerCount <= 1 && (
-                      <p className="text-xs text-muted-foreground mt-1 text-right">Owner terakhir</p>
+                      <p className="text-xs text-muted-foreground mt-1 text-right hidden sm:block">Owner terakhir</p>
                     )}
                   </div>
                 </CardContent>
@@ -115,7 +115,7 @@ export default function UsersPage() {
           </div>
         )}
 
-        <div className="max-w-3xl mx-auto mt-6 p-4 rounded-xl bg-muted/50 border text-sm text-muted-foreground">
+        <div className="max-w-3xl mx-auto mt-4 md:mt-6 p-3 md:p-4 rounded-xl bg-muted/50 border text-sm text-muted-foreground">
           <p className="font-medium text-foreground mb-1">Hak Akses per Role</p>
           <div className="space-y-1">
             <p><span className="font-medium text-yellow-600">Owner</span> — Akses penuh: Kasir, Riwayat, Produk, Laporan, Pengguna</p>

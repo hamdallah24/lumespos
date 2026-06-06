@@ -1,7 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
 import { useClerk } from "@clerk/react";
-import { LayoutGrid, ShoppingBag, Receipt, PieChart, Store, Users, LogOut, Crown, Shield, Boxes, ClipboardCheck, ClipboardList } from "lucide-react";
+import { LayoutGrid, ShoppingBag, Receipt, PieChart, Store, Users, LogOut, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, Menu, X } from "lucide-react";
 import type { AppUser } from "@workspace/api-client-react";
 import { useBranch } from "@/lib/branch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -29,6 +29,7 @@ function roleIcon(role?: string) {
 export function Layout({ children, role, user }: LayoutProps) {
   const [location] = useLocation();
   const { signOut } = useClerk();
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   const canManage = role === "owner" || role === "manager";
 
@@ -49,14 +50,27 @@ export function Layout({ children, role, user }: LayoutProps) {
     ? user.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase()
     : "?";
 
+  const closeSidebar = () => setSidebarOpen(false);
+
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      <aside className="w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col flex-shrink-0">
+      {/* Mobile overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={closeSidebar} />
+      )}
+
+      {/* Sidebar — hidden on mobile until toggled */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground border-r border-sidebar-border flex flex-col flex-shrink-0 transition-transform duration-200 md:translate-x-0 md:static md:z-auto ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+      >
         <div className="h-16 flex items-center px-6 border-b border-sidebar-border gap-3">
           <div className="w-8 h-8 rounded-md bg-sidebar-primary flex items-center justify-center text-sidebar-primary-foreground">
             <Store size={18} />
           </div>
           <span className="font-bold text-lg tracking-tight">Sayq POS</span>
+          <button className="ml-auto md:hidden text-sidebar-foreground/60" onClick={closeSidebar}>
+            <X size={20} />
+          </button>
         </div>
 
         <div className="px-3 pt-4">
@@ -91,6 +105,7 @@ export function Layout({ children, role, user }: LayoutProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={closeSidebar}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors ${
                     isActive
                       ? "bg-sidebar-primary text-sidebar-primary-foreground font-medium"
@@ -128,6 +143,16 @@ export function Layout({ children, role, user }: LayoutProps) {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        {/* Mobile header bar */}
+        <div className="md:hidden h-14 border-b px-4 flex items-center gap-3 bg-card shrink-0">
+          <button className="text-muted-foreground" onClick={() => setSidebarOpen(true)}>
+            <Menu size={22} />
+          </button>
+          <span className="font-bold text-base tracking-tight">Sayq POS</span>
+          <div className="ml-auto">
+            <span className="text-xs text-muted-foreground">{roleLabel(role)}</span>
+          </div>
+        </div>
         {children}
       </main>
     </div>

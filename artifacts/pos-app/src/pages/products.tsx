@@ -255,17 +255,17 @@ export default function ProductsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-16 border-b px-6 flex items-center gap-4 bg-card shrink-0">
-        <h1 className="font-bold text-xl tracking-tight">Manajemen Produk</h1>
-        <Button className="ml-auto" onClick={() => { setEditingProduct(null); setFormOpen(true); }}>
-          <Plus className="w-4 h-4 mr-1.5" /> Tambah Produk
+      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
+        <h1 className="font-bold text-lg md:text-xl tracking-tight">Manajemen Produk</h1>
+        <Button className="ml-auto shrink-0 text-sm md:text-base" size="sm" onClick={() => { setEditingProduct(null); setFormOpen(true); }}>
+          <Plus className="w-4 h-4 mr-1.5" /> <span className="hidden sm:inline">Tambah Produk</span><span className="sm:hidden">Tambah</span>
         </Button>
       </div>
 
-      <div className="flex-1 p-6 flex flex-col gap-4 overflow-hidden">
+      <div className="flex-1 p-4 md:p-6 flex flex-col gap-4 overflow-hidden">
         <Tabs defaultValue="products" className="flex flex-col flex-1 overflow-hidden">
           <div className="flex items-center gap-4 shrink-0">
-            <TabsList>
+            <TabsList className="flex-wrap h-auto">
               <TabsTrigger value="products" className="gap-1.5">
                 <Package className="w-4 h-4" /> Produk
               </TabsTrigger>
@@ -275,14 +275,14 @@ export default function ProductsPage() {
             </TabsList>
           </div>
 
-          <TabsContent value="products" className="flex-1 overflow-hidden flex flex-col mt-4 gap-3">
-            <div className="flex gap-3 shrink-0">
-              <div className="relative flex-1 max-w-sm">
+          <TabsContent value="products" className="flex-1 overflow-hidden flex flex-col mt-3 md:mt-4 gap-3">
+            <div className="flex gap-2 md:gap-3 shrink-0 flex-wrap">
+              <div className="relative flex-1 max-w-sm min-w-[140px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                 <Input className="pl-9" placeholder="Cari produk..." value={search} onChange={e => setSearch(e.target.value)} />
               </div>
               <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-44">
+                <SelectTrigger className="w-40 md:w-44">
                   <SelectValue placeholder="Semua Kategori" />
                 </SelectTrigger>
                 <SelectContent>
@@ -310,21 +310,21 @@ export default function ProductsPage() {
               ) : (
                 <div className="border rounded-lg overflow-hidden">
                   {filtered.map((p, idx) => (
-                    <div key={p.id} className={`flex items-center gap-4 px-4 py-3 hover:bg-muted/30 transition-colors ${idx < filtered.length - 1 ? "border-b" : ""}`}>
-                      <div className="w-10 h-10 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center text-muted-foreground font-bold">
+                    <div key={p.id} className={`flex items-center gap-3 md:gap-4 px-3 md:px-4 py-3 hover:bg-muted/30 transition-colors ${idx < filtered.length - 1 ? "border-b" : ""}`}>
+                      <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center text-muted-foreground font-bold">
                         {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : p.name.charAt(0)}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{p.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
+                        <p className="font-medium text-sm truncate">{p.name}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                           {p.categoryName && <Badge variant="secondary" className="text-xs">{p.categoryName}</Badge>}
                           {!p.isActive && <Badge variant="outline" className="text-xs text-muted-foreground">Nonaktif</Badge>}
-                          <span className="text-xs text-muted-foreground">{p.stock} stok</span>
+                          <span className="text-xs text-muted-foreground hidden sm:inline">{p.stock} stok</span>
                           {p.stock <= 5 && p.stock > 0 && <Badge variant="outline" className="text-xs text-orange-600 border-orange-200 bg-orange-50">Stok Rendah</Badge>}
                           {p.stock === 0 && <Badge variant="outline" className="text-xs text-destructive border-destructive/20 bg-destructive/10">Habis</Badge>}
                         </div>
                       </div>
-                      <p className="font-bold text-primary shrink-0">{formatRp(p.price)}</p>
+                      <p className="font-bold text-sm md:text-base text-primary shrink-0">{formatRp(p.price)}</p>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEdit(p)}>
                           <Pencil className="w-3.5 h-3.5" />

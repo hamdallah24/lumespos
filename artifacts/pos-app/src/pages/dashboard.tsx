@@ -24,22 +24,22 @@ function StatCard({
   const isPositive = (diff ?? 0) >= 0;
   return (
     <Card>
-      <CardContent className="p-5">
+      <CardContent className="p-4 md:p-5">
         <div className="flex items-start justify-between">
-          <div>
-            <p className="text-sm text-muted-foreground font-medium">{title}</p>
-            <p className="text-2xl font-bold mt-1.5 tracking-tight">
+          <div className="min-w-0">
+            <p className="text-xs md:text-sm text-muted-foreground font-medium">{title}</p>
+            <p className="text-xl md:text-2xl font-bold mt-1 md:mt-1.5 tracking-tight truncate">
               {format === "currency" ? formatRp(value) : value.toLocaleString("id-ID")}
             </p>
             {diff !== undefined && (
-              <div className={`flex items-center gap-1 mt-1.5 text-xs font-medium ${isPositive ? "text-green-600" : "text-destructive"}`}>
+              <div className={`flex items-center gap-1 mt-1 md:mt-1.5 text-xs font-medium ${isPositive ? "text-green-600" : "text-destructive"}`}>
                 {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                 <span>{Math.abs(diff).toFixed(1)}% vs kemarin</span>
               </div>
             )}
           </div>
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-            <Icon className="w-5 h-5" />
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 ml-2">
+            <Icon className="w-4 h-4 md:w-5 md:h-5" />
           </div>
         </div>
       </CardContent>
@@ -83,13 +83,13 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-16 border-b px-6 flex items-center bg-card shrink-0">
-        <h1 className="font-bold text-xl tracking-tight">Laporan Penjualan</h1>
+      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
+        <h1 className="font-bold text-lg md:text-xl tracking-tight">Laporan Penjualan</h1>
         {currentBranch && <Badge variant="outline" className="ml-3 text-xs">{currentBranch.name}</Badge>}
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-6 space-y-6">
+        <div className="p-4 md:p-6 space-y-4 md:space-y-6">
           {(loadingLow || lowStock.length > 0) && (
             <Card className={lowStock.length > 0 ? "border-destructive/50 bg-destructive/5 animate-pulse-slow" : ""}>
               <CardContent className="p-4">
@@ -128,13 +128,13 @@ export default function DashboardPage() {
                   <StatCard title="Total HPP (COGS)" value={financial.totalCogs} icon={Receipt} format="currency" />
                   <StatCard title="Laba Kotor" value={financial.grossProfit} icon={Banknote} format="currency" />
                   <Card>
-                    <CardContent className="p-5">
+                    <CardContent className="p-4 md:p-5">
                       <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-sm text-muted-foreground font-medium">Margin Kotor</p>
-                          <p className="text-2xl font-bold mt-1.5 tracking-tight">{financial.grossMarginPct.toFixed(1)}%</p>
+                        <div className="min-w-0">
+                          <p className="text-xs md:text-sm text-muted-foreground font-medium">Margin Kotor</p>
+                          <p className="text-xl md:text-2xl font-bold mt-1 md:mt-1.5 tracking-tight">{financial.grossMarginPct.toFixed(1)}%</p>
                         </div>
-                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Percent className="w-5 h-5" /></div>
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 ml-2"><Percent className="w-4 h-4 md:w-5 md:h-5" /></div>
                       </div>
                     </CardContent>
                   </Card>

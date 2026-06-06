@@ -46,13 +46,13 @@ export default function InventoryPage() {
   const { branchId } = useBranch();
   return (
     <div className="flex flex-col h-full">
-      <div className="h-16 border-b px-6 flex items-center bg-card shrink-0">
-        <h1 className="font-bold text-xl tracking-tight">Stok & Bahan</h1>
+      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
+        <h1 className="font-bold text-lg md:text-xl tracking-tight">Stok & Bahan</h1>
         <Badge variant="outline" className="ml-3 text-xs">Multi-Cabang</Badge>
       </div>
       <Tabs defaultValue="stock" className="flex-1 flex flex-col min-h-0">
-        <div className="px-6 pt-4 shrink-0">
-          <TabsList>
+        <div className="px-4 md:px-6 pt-3 md:pt-4 shrink-0">
+          <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="stock"><Boxes className="w-4 h-4 mr-1.5" />Stok</TabsTrigger>
             <TabsTrigger value="ingredients"><Package className="w-4 h-4 mr-1.5" />Bahan Baku</TabsTrigger>
             <TabsTrigger value="semi"><FlaskConical className="w-4 h-4 mr-1.5" />Setengah Jadi</TabsTrigger>
@@ -111,7 +111,7 @@ function StockTab({ branchId }: { branchId: number }) {
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-6 space-y-3">
+      <div className="p-4 md:p-6 space-y-3">
         {isLoading ? (
           [1, 2, 3, 4].map((i) => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)
         ) : items.length === 0 ? (
@@ -121,13 +121,13 @@ function StockTab({ branchId }: { branchId: number }) {
             const low = isLow(item);
             return (
               <Card key={`${item.itemType}-${item.itemId}`} className={low ? "border-destructive/40 bg-destructive/5" : ""}>
-                <CardContent className="p-4 flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${low ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
-                    {item.itemType === "semi_finished" ? <FlaskConical className="w-5 h-5" /> : <Package className="w-5 h-5" />}
+                <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
+                  <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center shrink-0 ${low ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
+                    {item.itemType === "semi_finished" ? <FlaskConical className="w-4 h-4 md:w-5 md:h-5" /> : <Package className="w-4 h-4 md:w-5 md:h-5" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium truncate">{item.name}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm truncate">{item.name}</span>
                       {item.itemType === "semi_finished" && <Badge variant="secondary" className="text-[10px]">Setengah Jadi</Badge>}
                       {low && <Badge variant="destructive" className="text-[10px] animate-pulse">Stok Menipis</Badge>}
                     </div>
@@ -137,10 +137,10 @@ function StockTab({ branchId }: { branchId: number }) {
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`text-lg font-bold ${low ? "text-destructive" : ""}`}>{item.currentStock}</p>
+                    <p className={`text-base md:text-lg font-bold ${low ? "text-destructive" : ""}`}>{item.currentStock}</p>
                     <p className="text-[11px] text-muted-foreground">{item.unit}</p>
                   </div>
-                  <Button size="sm" variant="outline" className="shrink-0" onClick={() => setRestockItem(item)}>
+                  <Button size="sm" variant="outline" className="shrink-0 hidden sm:flex" onClick={() => setRestockItem(item)}>
                     <PackagePlus className="w-4 h-4 mr-1.5" />Barang Masuk
                   </Button>
                 </CardContent>
@@ -213,7 +213,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-6 space-y-3">
+      <div className="p-4 md:p-6 space-y-3">
         <div className="flex justify-end">
           <Button size="sm" onClick={() => setOpen(true)}><Plus className="w-4 h-4 mr-1.5" />Tambah Bahan</Button>
         </div>
@@ -224,14 +224,14 @@ function IngredientsTab({ branchId }: { branchId: number }) {
         ) : (
           ingredients.map((ing) => (
             <Card key={ing.id}>
-              <CardContent className="p-4 flex items-center gap-4">
+              <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
                 <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><Package className="w-4 h-4" /></div>
                 <div className="flex-1 min-w-0">
-                  <span className="font-medium">{ing.name}</span>
+                  <span className="font-medium text-sm">{ing.name}</span>
                   <p className="text-xs text-muted-foreground">HPP {formatRp(ing.costPricePerUnit)} / {ing.unit} · Min {ing.minimalStock}</p>
                 </div>
-                <div className="text-right">
-                  <p className="font-bold">{ing.currentStock}</p>
+                <div className="text-right shrink-0">
+                  <p className="font-bold text-sm md:text-base">{ing.currentStock}</p>
                   <p className="text-[11px] text-muted-foreground">{ing.unit}</p>
                 </div>
               </CardContent>
@@ -302,7 +302,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
 
   return (
     <ScrollArea className="h-full">
-      <div className="p-6 space-y-3">
+      <div className="p-4 md:p-6 space-y-3">
         <div className="flex justify-end">
           <Button size="sm" onClick={() => setOpen(true)}><Plus className="w-4 h-4 mr-1.5" />Tambah Item</Button>
         </div>
@@ -313,14 +313,16 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
         ) : (
           items.map((sf) => (
             <Card key={sf.id}>
-              <CardContent className="p-4 flex items-center gap-4">
+              <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
                 <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><FlaskConical className="w-4 h-4" /></div>
                 <div className="flex-1 min-w-0">
-                  <span className="font-medium">{sf.name}</span>
+                  <span className="font-medium text-sm">{sf.name}</span>
                   <p className="text-xs text-muted-foreground">HPP {formatRp(sf.costPricePerUnit)} / {sf.unit} · Stok {sf.currentStock}</p>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setRecipeFor({ id: sf.id, name: sf.name })}><ChefHat className="w-4 h-4 mr-1.5" />Resep</Button>
-                <Button size="sm" variant="outline" onClick={() => setProduceFor({ id: sf.id, name: sf.name, unit: sf.unit })}><PackagePlus className="w-4 h-4 mr-1.5" />Produksi</Button>
+                <div className="flex gap-1 shrink-0">
+                  <Button size="sm" variant="ghost" className="hidden sm:flex" onClick={() => setRecipeFor({ id: sf.id, name: sf.name })}><ChefHat className="w-4 h-4 mr-1.5" />Resep</Button>
+                  <Button size="sm" variant="outline" onClick={() => setProduceFor({ id: sf.id, name: sf.name, unit: sf.unit })}><PackagePlus className="w-4 h-4 mr-1.5" />Produksi</Button>
+                </div>
               </CardContent>
             </Card>
           ))
