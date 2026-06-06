@@ -10,6 +10,8 @@ export interface Order {
   id: number;
   /** @nullable */
   cashierName?: string | null;
+  /** @nullable */
+  cashierId?: number | null;
   total: number;
   amountPaid?: number;
   change?: number;

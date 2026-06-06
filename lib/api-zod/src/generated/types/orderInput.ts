@@ -10,6 +10,8 @@ import type { OrderItemInput } from './orderItemInput';
 
 export interface OrderInput {
   cashierName?: string;
+  /** @nullable */
+  cashierId?: number | null;
   paymentMethod: OrderInputPaymentMethod;
   amountPaid: number;
   items: OrderItemInput[];

@@ -17,6 +17,72 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary JIT provision or update current user
+ */
+export const SyncUserBody = zod.object({
+  "email": zod.string(),
+  "name": zod.string()
+})
+
+export const SyncUserResponse = zod.object({
+  "id": zod.number(),
+  "clerkId": zod.string(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'manager', 'cashier']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get current authenticated user
+ */
+export const GetMeResponse = zod.object({
+  "id": zod.number(),
+  "clerkId": zod.string(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'manager', 'cashier']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary List all users (owner/manager only)
+ */
+export const ListUsersResponseItem = zod.object({
+  "id": zod.number(),
+  "clerkId": zod.string(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'manager', 'cashier']),
+  "createdAt": zod.coerce.date()
+})
+export const ListUsersResponse = zod.array(ListUsersResponseItem)
+
+
+/**
+ * @summary Update user role (owner only)
+ */
+export const UpdateUserRoleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateUserRoleBody = zod.object({
+  "role": zod.enum(['owner', 'manager', 'cashier'])
+})
+
+export const UpdateUserRoleResponse = zod.object({
+  "id": zod.number(),
+  "clerkId": zod.string(),
+  "email": zod.string(),
+  "name": zod.string(),
+  "role": zod.enum(['owner', 'manager', 'cashier']),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
  * @summary List all categories
  */
 export const ListCategoriesResponseItem = zod.object({
@@ -182,6 +248,7 @@ export const ListOrdersQueryParams = zod.object({
 export const ListOrdersResponseItem = zod.object({
   "id": zod.number(),
   "cashierName": zod.string().nullish(),
+  "cashierId": zod.number().nullish(),
   "total": zod.number(),
   "amountPaid": zod.number().optional(),
   "change": zod.number().optional(),
@@ -201,6 +268,7 @@ export const ListOrdersResponse = zod.array(ListOrdersResponseItem)
 
 export const CreateOrderBody = zod.object({
   "cashierName": zod.string().optional(),
+  "cashierId": zod.number().nullish(),
   "paymentMethod": zod.enum(['cash', 'card', 'qris']),
   "amountPaid": zod.number(),
   "items": zod.array(zod.object({
@@ -220,6 +288,7 @@ export const GetOrderParams = zod.object({
 export const GetOrderResponse = zod.object({
   "id": zod.number(),
   "cashierName": zod.string().nullish(),
+  "cashierId": zod.number().nullish(),
   "total": zod.number(),
   "amountPaid": zod.number().optional(),
   "change": zod.number().optional(),
@@ -277,5 +346,17 @@ export const GetSalesChartResponseItem = zod.object({
   "orders": zod.number()
 })
 export const GetSalesChartResponse = zod.array(GetSalesChartResponseItem)
+
+
+/**
+ * @summary Get cashier performance stats
+ */
+export const GetCashierPerformanceResponseItem = zod.object({
+  "cashierId": zod.number(),
+  "cashierName": zod.string(),
+  "totalOrders": zod.number(),
+  "totalRevenue": zod.number()
+})
+export const GetCashierPerformanceResponse = zod.array(GetCashierPerformanceResponseItem)
 
 

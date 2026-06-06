@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './appUser';
+export * from './appUserRole';
+export * from './cashierPerformance';
 export * from './category';
 export * from './categoryInput';
 export * from './categoryUpdate';
@@ -24,4 +27,7 @@ export * from './product';
 export * from './productInput';
 export * from './productUpdate';
 export * from './salesChartPoint';
+export * from './syncUserInput';
 export * from './topProduct';
+export * from './updateRoleInput';
+export * from './updateRoleInputRole';

@@ -1,0 +1,2 @@
+- [Clerk Auth Setup](clerk-auth-setup.md) — Clerk provisioned; first user auto-gets owner role; subsequent users get cashier
+- [RBAC Design](rbac-design.md) — 3 roles: owner/manager/cashier; enforced on both API (requireRole) and frontend (route guards + sidebar)

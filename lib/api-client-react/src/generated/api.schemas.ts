@@ -9,6 +9,42 @@ export interface HealthStatus {
   status: string;
 }
 
+export type AppUserRole = typeof AppUserRole[keyof typeof AppUserRole];
+
+
+export const AppUserRole = {
+  owner: 'owner',
+  manager: 'manager',
+  cashier: 'cashier',
+} as const;
+
+export interface AppUser {
+  id: number;
+  clerkId: string;
+  email: string;
+  name: string;
+  role: AppUserRole;
+  createdAt: string;
+}
+
+export interface SyncUserInput {
+  email: string;
+  name: string;
+}
+
+export type UpdateRoleInputRole = typeof UpdateRoleInputRole[keyof typeof UpdateRoleInputRole];
+
+
+export const UpdateRoleInputRole = {
+  owner: 'owner',
+  manager: 'manager',
+  cashier: 'cashier',
+} as const;
+
+export interface UpdateRoleInput {
+  role: UpdateRoleInputRole;
+}
+
 export interface Category {
   id: number;
   name: string;
@@ -84,6 +120,8 @@ export const OrderInputPaymentMethod = {
 
 export interface OrderInput {
   cashierName?: string;
+  /** @nullable */
+  cashierId?: number | null;
   paymentMethod: OrderInputPaymentMethod;
   amountPaid: number;
   items: OrderItemInput[];
@@ -102,6 +140,8 @@ export interface Order {
   id: number;
   /** @nullable */
   cashierName?: string | null;
+  /** @nullable */
+  cashierId?: number | null;
   total: number;
   amountPaid?: number;
   change?: number;
@@ -115,6 +155,8 @@ export interface OrderDetail {
   id: number;
   /** @nullable */
   cashierName?: string | null;
+  /** @nullable */
+  cashierId?: number | null;
   total: number;
   amountPaid?: number;
   change?: number;
@@ -144,6 +186,13 @@ export interface SalesChartPoint {
   date: string;
   revenue: number;
   orders: number;
+}
+
+export interface CashierPerformance {
+  cashierId: number;
+  cashierName: string;
+  totalOrders: number;
+  totalRevenue: number;
 }
 
 export type ListProductsParams = {

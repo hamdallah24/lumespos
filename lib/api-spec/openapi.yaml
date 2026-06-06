@@ -9,6 +9,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User management
   - name: categories
     description: Product categories
   - name: products
@@ -30,6 +32,84 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /users/sync:
+    post:
+      operationId: syncUser
+      tags: [users]
+      summary: JIT provision or update current user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncUserInput"
+      responses:
+        "200":
+          description: Existing user updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppUser"
+        "201":
+          description: New user created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppUser"
+
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppUser"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users (owner/manager only)
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AppUser"
+
+  /users/{id}/role:
+    patch:
+      operationId: updateUserRole
+      tags: [users]
+      summary: Update user role (owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRoleInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppUser"
 
   /categories:
     get:
@@ -311,6 +391,21 @@ paths:
                 items:
                   $ref: "#/components/schemas/SalesChartPoint"
 
+  /dashboard/cashier-performance:
+    get:
+      operationId: getCashierPerformance
+      tags: [dashboard]
+      summary: Get cashier performance stats
+      responses:
+        "200":
+          description: Cashier performance
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CashierPerformance"
+
 components:
   schemas:
     HealthStatus:
@@ -320,6 +415,42 @@ components:
           type: string
       required:
         - status
+
+    AppUser:
+      type: object
+      required: [id, clerkId, email, name, role, createdAt]
+      properties:
+        id:
+          type: integer
+        clerkId:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [owner, manager, cashier]
+        createdAt:
+          type: string
+          format: date-time
+
+    SyncUserInput:
+      type: object
+      required: [email, name]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+
+    UpdateRoleInput:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [owner, manager, cashier]
 
     Category:
       type: object
@@ -423,6 +554,8 @@ components:
       properties:
         cashierName:
           type: string
+        cashierId:
+          type: ["integer", "null"]
         paymentMethod:
           type: string
           enum: [cash, card, qris]
@@ -458,6 +591,8 @@ components:
           type: integer
         cashierName:
           type: ["string", "null"]
+        cashierId:
+          type: ["integer", "null"]
         total:
           type: number
         amountPaid:
@@ -482,6 +617,8 @@ components:
           type: integer
         cashierName:
           type: ["string", "null"]
+        cashierId:
+          type: ["integer", "null"]
         total:
           type: number
         amountPaid:
@@ -540,3 +677,16 @@ components:
           type: number
         orders:
           type: integer
+
+    CashierPerformance:
+      type: object
+      required: [cashierId, cashierName, totalOrders, totalRevenue]
+      properties:
+        cashierId:
+          type: integer
+        cashierName:
+          type: string
+        totalOrders:
+          type: integer
+        totalRevenue:
+          type: number

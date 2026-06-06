@@ -1,10 +1,12 @@
 import { pgTable, serial, text, timestamp, numeric, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { usersTable } from "./users";
 
 export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
   cashierName: text("cashier_name"),
+  cashierId: integer("cashier_id").references(() => usersTable.id, { onDelete: "set null" }),
   total: numeric("total", { precision: 12, scale: 2 }).notNull(),
   amountPaid: numeric("amount_paid", { precision: 12, scale: 2 }).notNull().default("0"),
   change: numeric("change", { precision: 12, scale: 2 }).notNull().default("0"),

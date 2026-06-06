@@ -1,12 +1,14 @@
 import { Router } from "express";
 import { db, ordersTable, orderItemsTable, productsTable } from "@workspace/db";
 import { eq, and, gte, lte, count, sql } from "drizzle-orm";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 
 const toOrder = (row: typeof ordersTable.$inferSelect & { itemCount?: number }) => ({
   id: row.id,
   cashierName: row.cashierName,
+  cashierId: row.cashierId,
   total: parseFloat(row.total),
   amountPaid: parseFloat(row.amountPaid),
   change: parseFloat(row.change),
@@ -16,7 +18,7 @@ const toOrder = (row: typeof ordersTable.$inferSelect & { itemCount?: number }) 
   itemCount: row.itemCount ?? 0,
 });
 
-router.get("/orders", async (req, res) => {
+router.get("/orders", requireAuth, async (req, res) => {
   const { date, status } = req.query as { date?: string; status?: string };
   const conditions = [];
   if (date) {
@@ -33,6 +35,7 @@ router.get("/orders", async (req, res) => {
     .select({
       id: ordersTable.id,
       cashierName: ordersTable.cashierName,
+      cashierId: ordersTable.cashierId,
       total: ordersTable.total,
       amountPaid: ordersTable.amountPaid,
       change: ordersTable.change,
@@ -50,9 +53,10 @@ router.get("/orders", async (req, res) => {
   res.json(rows.map(toOrder));
 });
 
-router.post("/orders", async (req, res) => {
-  const { cashierName, paymentMethod, amountPaid, items } = req.body as {
+router.post("/orders", requireAuth, async (req, res) => {
+  const { cashierName, cashierId, paymentMethod, amountPaid, items } = req.body as {
     cashierName?: string;
+    cashierId?: number | null;
     paymentMethod: string;
     amountPaid: number;
     items: Array<{ productId: number; quantity: number }>;
@@ -73,10 +77,7 @@ router.post("/orders", async (req, res) => {
   }> = [];
 
   for (const item of items) {
-    const [prod] = await db
-      .select()
-      .from(productsTable)
-      .where(eq(productsTable.id, item.productId));
+    const [prod] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
     if (!prod) {
       res.status(400).json({ error: `Product ${item.productId} not found` });
       return;
@@ -91,7 +92,6 @@ router.post("/orders", async (req, res) => {
       priceAtSale: String(price),
       subtotal: String(subtotal),
     });
-
     await db
       .update(productsTable)
       .set({ stock: Math.max(0, prod.stock - item.quantity) })
@@ -103,6 +103,7 @@ router.post("/orders", async (req, res) => {
     .insert(ordersTable)
     .values({
       cashierName: cashierName ?? null,
+      cashierId: cashierId ?? null,
       total: String(total),
       amountPaid: String(amountPaid),
       change: String(change),
@@ -118,17 +119,14 @@ router.post("/orders", async (req, res) => {
   res.status(201).json(toOrder({ ...order, itemCount: itemRows.length }));
 });
 
-router.get("/orders/:id", async (req, res) => {
+router.get("/orders/:id", requireAuth, async (req, res) => {
   const id = Number(req.params["id"]);
   const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
   if (!order) {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  const items = await db
-    .select()
-    .from(orderItemsTable)
-    .where(eq(orderItemsTable.orderId, id));
+  const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, id));
 
   res.json({
     ...toOrder({ ...order, itemCount: items.length }),
