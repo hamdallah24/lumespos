@@ -103,6 +103,30 @@ export interface ProductUpdate {
   isActive?: boolean;
 }
 
+export interface ProductVariant {
+  id: number;
+  productId: number;
+  name: string;
+  price: number;
+  sortOrder: number;
+}
+
+export interface ProductVariantInput {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 0 */
+  price: number;
+  sortOrder?: number;
+}
+
+export interface ProductVariantUpdate {
+  /** @minLength 1 */
+  name?: string;
+  /** @minimum 0 */
+  price?: number;
+  sortOrder?: number;
+}
+
 export interface OrderItemInput {
   productId: number;
   /** @minimum 1 */

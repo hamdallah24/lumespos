@@ -1,6 +1,7 @@
 export * from "./branches";
 export * from "./categories";
 export * from "./products";
+export * from "./productVariants";
 export * from "./orders";
 export * from "./users";
 export * from "./ingredients";

@@ -238,6 +238,77 @@ export const DeleteProductParams = zod.object({
 
 
 /**
+ * @summary List variants of a product
+ */
+export const ListProductVariantsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListProductVariantsResponseItem = zod.object({
+  "id": zod.number(),
+  "productId": zod.number(),
+  "name": zod.string(),
+  "price": zod.number(),
+  "sortOrder": zod.number()
+})
+export const ListProductVariantsResponse = zod.array(ListProductVariantsResponseItem)
+
+
+/**
+ * @summary Add a variant to a product
+ */
+export const CreateProductVariantParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const createProductVariantBodyPriceMin = 0;
+
+export const createProductVariantBodySortOrderDefault = 0;
+
+export const CreateProductVariantBody = zod.object({
+  "name": zod.string().min(1),
+  "price": zod.number().min(createProductVariantBodyPriceMin),
+  "sortOrder": zod.number().default(createProductVariantBodySortOrderDefault)
+})
+
+
+/**
+ * @summary Update a variant
+ */
+export const UpdateProductVariantParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+export const updateProductVariantBodyPriceMin = 0;
+
+
+
+export const UpdateProductVariantBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "price": zod.number().min(updateProductVariantBodyPriceMin).optional(),
+  "sortOrder": zod.number().optional()
+})
+
+export const UpdateProductVariantResponse = zod.object({
+  "id": zod.number(),
+  "productId": zod.number(),
+  "name": zod.string(),
+  "price": zod.number(),
+  "sortOrder": zod.number()
+})
+
+
+/**
+ * @summary Delete a variant
+ */
+export const DeleteProductVariantParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
  * @summary List orders
  */
 export const ListOrdersQueryParams = zod.object({

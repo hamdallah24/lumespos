@@ -293,6 +293,88 @@ paths:
         "204":
           description: Deleted
 
+  /products/{id}/variants:
+    get:
+      operationId: listProductVariants
+      tags: [products]
+      summary: List variants of a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of variants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProductVariant"
+    post:
+      operationId: createProductVariant
+      tags: [products]
+      summary: Add a variant to a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductVariantInput"
+      responses:
+        "201":
+          description: Created variant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductVariant"
+
+  /variants/{id}:
+    patch:
+      operationId: updateProductVariant
+      tags: [products]
+      summary: Update a variant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductVariantUpdate"
+      responses:
+        "200":
+          description: Updated variant
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductVariant"
+    delete:
+      operationId: deleteProductVariant
+      tags: [products]
+      summary: Delete a variant
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   /orders:
     get:
       operationId: listOrders
@@ -1078,6 +1160,47 @@ components:
           type: ["string", "null"]
         isActive:
           type: boolean
+
+    ProductVariant:
+      type: object
+      required: [id, productId, name, price, sortOrder]
+      properties:
+        id:
+          type: integer
+        productId:
+          type: integer
+        name:
+          type: string
+        price:
+          type: number
+        sortOrder:
+          type: integer
+
+    ProductVariantInput:
+      type: object
+      required: [name, price]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        price:
+          type: number
+          minimum: 0
+        sortOrder:
+          type: integer
+          default: 0
+
+    ProductVariantUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        price:
+          type: number
+          minimum: 0
+        sortOrder:
+          type: integer
 
     OrderItemInput:
       type: object
