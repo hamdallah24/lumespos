@@ -6,7 +6,7 @@ import {
   useCreateCategory, useDeleteCategory,
   getListProductsQueryKey, getListCategoriesQueryKey,
 } from "@workspace/api-client-react";
-import type { Product, Category } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Product, Category } from "@workspace/api-client-react";
 import { formatRp } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";

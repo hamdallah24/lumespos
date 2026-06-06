@@ -267,6 +267,7 @@ export const ListOrdersResponse = zod.array(ListOrdersResponseItem)
 
 
 export const CreateOrderBody = zod.object({
+  "branchId": zod.number().nullish(),
   "cashierName": zod.string().optional(),
   "cashierId": zod.number().nullish(),
   "paymentMethod": zod.enum(['cash', 'card', 'qris']),
@@ -309,6 +310,10 @@ export const GetOrderResponse = zod.object({
 /**
  * @summary Get today's sales summary
  */
+export const GetDashboardSummaryQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
 export const GetDashboardSummaryResponse = zod.object({
   "todayRevenue": zod.number(),
   "todayOrders": zod.number(),
@@ -325,7 +330,8 @@ export const GetDashboardSummaryResponse = zod.object({
 export const getTopProductsQueryLimitDefault = 5;
 
 export const GetTopProductsQueryParams = zod.object({
-  "limit": zod.coerce.number().default(getTopProductsQueryLimitDefault)
+  "limit": zod.coerce.number().default(getTopProductsQueryLimitDefault),
+  "branchId": zod.coerce.number().optional()
 })
 
 export const GetTopProductsResponseItem = zod.object({
@@ -340,6 +346,10 @@ export const GetTopProductsResponse = zod.array(GetTopProductsResponseItem)
 /**
  * @summary Get sales data for chart (last 7 days)
  */
+export const GetSalesChartQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
 export const GetSalesChartResponseItem = zod.object({
   "date": zod.string(),
   "revenue": zod.number(),
@@ -351,6 +361,10 @@ export const GetSalesChartResponse = zod.array(GetSalesChartResponseItem)
 /**
  * @summary Get cashier performance stats
  */
+export const GetCashierPerformanceQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
 export const GetCashierPerformanceResponseItem = zod.object({
   "cashierId": zod.number(),
   "cashierName": zod.string(),
@@ -358,5 +372,481 @@ export const GetCashierPerformanceResponseItem = zod.object({
   "totalRevenue": zod.number()
 })
 export const GetCashierPerformanceResponse = zod.array(GetCashierPerformanceResponseItem)
+
+
+/**
+ * @summary List all branches
+ */
+export const ListBranchesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "location": zod.string().nullish()
+})
+export const ListBranchesResponse = zod.array(ListBranchesResponseItem)
+
+
+/**
+ * @summary Create a branch
+ */
+
+
+
+export const CreateBranchBody = zod.object({
+  "name": zod.string().min(1),
+  "location": zod.string().nullish()
+})
+
+
+/**
+ * @summary List ingredients (raw materials) with live stock
+ */
+export const ListIngredientsQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
+export const ListIngredientsResponseItem = zod.object({
+  "id": zod.number(),
+  "branchId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "costPricePerUnit": zod.number(),
+  "minimalStock": zod.number(),
+  "currentStock": zod.number()
+})
+export const ListIngredientsResponse = zod.array(ListIngredientsResponseItem)
+
+
+/**
+ * @summary Create an ingredient
+ */
+
+export const createIngredientBodyMinimalStockDefault = 0;
+
+export const CreateIngredientBody = zod.object({
+  "branchId": zod.number(),
+  "name": zod.string().min(1),
+  "unit": zod.string(),
+  "minimalStock": zod.number().default(createIngredientBodyMinimalStockDefault)
+})
+
+
+/**
+ * @summary Update an ingredient
+ */
+export const UpdateIngredientParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateIngredientBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "unit": zod.string().optional(),
+  "minimalStock": zod.number().optional()
+})
+
+export const UpdateIngredientResponse = zod.object({
+  "id": zod.number(),
+  "branchId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "costPricePerUnit": zod.number(),
+  "minimalStock": zod.number(),
+  "currentStock": zod.number()
+})
+
+
+/**
+ * @summary Delete an ingredient
+ */
+export const DeleteIngredientParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List semi-finished goods with live stock
+ */
+export const ListSemiFinishedQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
+export const ListSemiFinishedResponseItem = zod.object({
+  "id": zod.number(),
+  "branchId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "costPricePerUnit": zod.number(),
+  "currentStock": zod.number()
+})
+export const ListSemiFinishedResponse = zod.array(ListSemiFinishedResponseItem)
+
+
+/**
+ * @summary Create a semi-finished good
+ */
+
+
+
+export const CreateSemiFinishedBody = zod.object({
+  "branchId": zod.number(),
+  "name": zod.string().min(1),
+  "unit": zod.string()
+})
+
+
+/**
+ * @summary Update a semi-finished good
+ */
+export const UpdateSemiFinishedParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const UpdateSemiFinishedBody = zod.object({
+  "name": zod.string().min(1).optional(),
+  "unit": zod.string().optional()
+})
+
+export const UpdateSemiFinishedResponse = zod.object({
+  "id": zod.number(),
+  "branchId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "costPricePerUnit": zod.number(),
+  "currentStock": zod.number()
+})
+
+
+/**
+ * @summary Delete a semi-finished good
+ */
+export const DeleteSemiFinishedParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Record production of a semi-finished good (deducts ingredients, computes COGS)
+ */
+export const ProduceSemiFinishedParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const produceSemiFinishedBodyQuantityMin = 0;
+
+
+
+export const ProduceSemiFinishedBody = zod.object({
+  "quantity": zod.number().min(produceSemiFinishedBodyQuantityMin)
+})
+
+export const ProduceSemiFinishedResponse = zod.object({
+  "id": zod.number(),
+  "branchId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "costPricePerUnit": zod.number(),
+  "currentStock": zod.number()
+})
+
+
+/**
+ * @summary Get the BOM components for a parent
+ */
+export const GetRecipeQueryParams = zod.object({
+  "parentType": zod.enum(['product', 'semi_finished']),
+  "parentId": zod.coerce.number()
+})
+
+export const GetRecipeResponseItem = zod.object({
+  "id": zod.number().optional(),
+  "componentType": zod.enum(['ingredient', 'semi_finished']),
+  "componentId": zod.number(),
+  "componentName": zod.string().optional(),
+  "unit": zod.string().optional(),
+  "quantity": zod.number()
+})
+export const GetRecipeResponse = zod.array(GetRecipeResponseItem)
+
+
+/**
+ * @summary Replace the BOM for a parent
+ */
+export const SetRecipeBody = zod.object({
+  "parentType": zod.enum(['product', 'semi_finished']),
+  "parentId": zod.number(),
+  "components": zod.array(zod.object({
+  "componentType": zod.enum(['ingredient', 'semi_finished']),
+  "componentId": zod.number(),
+  "quantity": zod.number()
+}))
+})
+
+export const SetRecipeResponseItem = zod.object({
+  "id": zod.number().optional(),
+  "componentType": zod.enum(['ingredient', 'semi_finished']),
+  "componentId": zod.number(),
+  "componentName": zod.string().optional(),
+  "unit": zod.string().optional(),
+  "quantity": zod.number()
+})
+export const SetRecipeResponse = zod.array(SetRecipeResponseItem)
+
+
+/**
+ * @summary Get live inventory for a branch
+ */
+export const ListInventoryQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
+export const ListInventoryResponseItem = zod.object({
+  "itemType": zod.enum(['ingredient', 'semi_finished']),
+  "itemId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "currentStock": zod.number(),
+  "minimalStock": zod.number().nullish(),
+  "costPricePerUnit": zod.number().optional()
+})
+export const ListInventoryResponse = zod.array(ListInventoryResponseItem)
+
+
+/**
+ * @summary Get inventory items below the low-stock threshold
+ */
+export const getLowStockQueryThresholdDefault = 200;
+
+export const GetLowStockQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional(),
+  "threshold": zod.coerce.number().default(getLowStockQueryThresholdDefault)
+})
+
+export const GetLowStockResponseItem = zod.object({
+  "itemType": zod.enum(['ingredient', 'semi_finished']),
+  "itemId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "currentStock": zod.number(),
+  "minimalStock": zod.number().nullish(),
+  "costPricePerUnit": zod.number().optional()
+})
+export const GetLowStockResponse = zod.array(GetLowStockResponseItem)
+
+
+/**
+ * @summary List stock adjustment history
+ */
+export const ListStockAdjustmentsQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
+export const ListStockAdjustmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "branchId": zod.number(),
+  "itemType": zod.string(),
+  "itemId": zod.number(),
+  "itemName": zod.string().optional(),
+  "adjustmentType": zod.enum(['in', 'out', 'loss']),
+  "quantity": zod.number(),
+  "purchasePriceTotal": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListStockAdjustmentsResponse = zod.array(ListStockAdjustmentsResponseItem)
+
+
+/**
+ * @summary Record a stock adjustment (in/out/loss); 'in' triggers moving-average COGS
+ */
+export const createStockAdjustmentBodyQuantityMin = 0;
+
+
+
+export const CreateStockAdjustmentBody = zod.object({
+  "branchId": zod.number(),
+  "itemType": zod.enum(['ingredient', 'semi_finished']),
+  "itemId": zod.number(),
+  "adjustmentType": zod.enum(['in', 'out', 'loss']),
+  "quantity": zod.number().min(createStockAdjustmentBodyQuantityMin),
+  "purchasePriceTotal": zod.number().nullish(),
+  "notes": zod.string().nullish()
+})
+
+
+/**
+ * @summary List shift audits
+ */
+export const ListShiftAuditsQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
+export const ListShiftAuditsResponseItem = zod.object({
+  "id": zod.number(),
+  "branchId": zod.number(),
+  "cashierId": zod.number().nullish(),
+  "cashierName": zod.string().nullish(),
+  "shiftStart": zod.coerce.date().nullish(),
+  "shiftEnd": zod.coerce.date().nullish(),
+  "photoProofUrl": zod.string().nullish(),
+  "status": zod.enum(['pending', 'verified', 'discrepancy']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "maxDiscrepancyPct": zod.number().optional()
+})
+export const ListShiftAuditsResponse = zod.array(ListShiftAuditsResponseItem)
+
+
+/**
+ * @summary Close a shift and submit physical counts
+ */
+export const CreateShiftAuditBody = zod.object({
+  "branchId": zod.number(),
+  "cashierId": zod.number().nullish(),
+  "shiftStart": zod.coerce.date().nullish(),
+  "actualStock": zod.array(zod.object({
+  "itemType": zod.string(),
+  "itemId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "quantity": zod.number()
+})),
+  "photoProofUrl": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get current expected stock snapshot for closing a shift
+ */
+export const GetExpectedStockQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
+export const GetExpectedStockResponseItem = zod.object({
+  "itemType": zod.enum(['ingredient', 'semi_finished']),
+  "itemId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "currentStock": zod.number(),
+  "minimalStock": zod.number().nullish(),
+  "costPricePerUnit": zod.number().optional()
+})
+export const GetExpectedStockResponse = zod.array(GetExpectedStockResponseItem)
+
+
+/**
+ * @summary Get a shift audit with reconciliation detail
+ */
+export const GetShiftAuditParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetShiftAuditResponse = zod.object({
+  "id": zod.number(),
+  "branchId": zod.number(),
+  "cashierId": zod.number().nullish(),
+  "cashierName": zod.string().nullish(),
+  "shiftStart": zod.coerce.date().nullish(),
+  "shiftEnd": zod.coerce.date().nullish(),
+  "photoProofUrl": zod.string().nullish(),
+  "status": zod.string(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "maxDiscrepancyPct": zod.number().optional(),
+  "reconciliation": zod.array(zod.object({
+  "itemType": zod.string(),
+  "itemId": zod.number(),
+  "name": zod.string(),
+  "unit": zod.string(),
+  "expected": zod.number(),
+  "actual": zod.number(),
+  "diff": zod.number(),
+  "diffPct": zod.number(),
+  "isWarning": zod.boolean()
+}))
+})
+
+
+/**
+ * @summary Validate audit and sync physical stock to inventory
+ */
+export const VerifyShiftAuditParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const VerifyShiftAuditResponse = zod.object({
+  "id": zod.number(),
+  "branchId": zod.number(),
+  "cashierId": zod.number().nullish(),
+  "cashierName": zod.string().nullish(),
+  "shiftStart": zod.coerce.date().nullish(),
+  "shiftEnd": zod.coerce.date().nullish(),
+  "photoProofUrl": zod.string().nullish(),
+  "status": zod.enum(['pending', 'verified', 'discrepancy']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "maxDiscrepancyPct": zod.number().optional()
+})
+
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+
+
+
+
+
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().min(1),
+  "contentType": zod.string().min(1)
+})
+
+
+
+
+
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string().url(),
+  "objectPath": zod.string(),
+  "metadata": zod.object({
+  "name": zod.string().min(1),
+  "size": zod.number().min(1),
+  "contentType": zod.string().min(1)
+}).optional()
+})
+
+
+/**
+ * @summary Serve an object entity from PRIVATE_OBJECT_DIR
+ */
+export const GetStorageObjectParams = zod.object({
+  "objectPath": zod.coerce.string()
+})
+
+
+/**
+ * @summary Get gross revenue, COGS and gross profit
+ */
+export const getFinancialReportQueryDaysDefault = 30;
+
+export const GetFinancialReportQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional(),
+  "days": zod.coerce.number().default(getFinancialReportQueryDaysDefault)
+})
+
+export const GetFinancialReportResponse = zod.object({
+  "grossRevenue": zod.number(),
+  "totalCogs": zod.number(),
+  "grossProfit": zod.number(),
+  "grossMarginPct": zod.number()
+})
 
 

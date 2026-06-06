@@ -12,8 +12,12 @@ import OrdersPage from "./pages/orders";
 import ProductsPage from "./pages/products";
 import DashboardPage from "./pages/dashboard";
 import UsersPage from "./pages/users";
+import InventoryPage from "./pages/inventory";
+import ShiftPage from "./pages/shift";
+import AuditsPage from "./pages/audits";
 import NotFound from "@/pages/not-found";
 import { useSyncUser, useGetMe } from "@workspace/api-client-react";
+import { BranchProvider } from "@/lib/branch";
 
 const queryClient = new QueryClient();
 
@@ -151,26 +155,33 @@ function ProtectedApp() {
   const canManage = role === "owner" || role === "manager";
 
   return (
-    <Layout role={role} user={me}>
-      <Switch>
-        <Route path="/" component={CashierPage} />
-        <Route path="/orders" component={OrdersPage} />
-        {canManage && <Route path="/products" component={ProductsPage} />}
-        {canManage && <Route path="/dashboard" component={DashboardPage} />}
-        {role === "owner" && <Route path="/users" component={UsersPage} />}
-        {!canManage && (
-          <Route path="/products">
-            {() => <Redirect to="/" />}
-          </Route>
-        )}
-        {!canManage && (
-          <Route path="/dashboard">
-            {() => <Redirect to="/" />}
-          </Route>
-        )}
-        <Route component={NotFound} />
-      </Switch>
-    </Layout>
+    <BranchProvider>
+      <Layout role={role} user={me}>
+        <Switch>
+          <Route path="/" component={CashierPage} />
+          <Route path="/orders" component={OrdersPage} />
+          <Route path="/shift" component={ShiftPage} />
+          {canManage && <Route path="/inventory" component={InventoryPage} />}
+          {canManage && <Route path="/products" component={ProductsPage} />}
+          {canManage && <Route path="/audits" component={AuditsPage} />}
+          {canManage && <Route path="/dashboard" component={DashboardPage} />}
+          {role === "owner" && <Route path="/users" component={UsersPage} />}
+          {!canManage && (
+            <Route path="/inventory">{() => <Redirect to="/" />}</Route>
+          )}
+          {!canManage && (
+            <Route path="/products">{() => <Redirect to="/" />}</Route>
+          )}
+          {!canManage && (
+            <Route path="/audits">{() => <Redirect to="/" />}</Route>
+          )}
+          {!canManage && (
+            <Route path="/dashboard">{() => <Redirect to="/" />}</Route>
+          )}
+          <Route component={NotFound} />
+        </Switch>
+      </Layout>
+    </BranchProvider>
   );
 }
 
@@ -223,7 +234,10 @@ function ClerkProviderWithRoutes() {
             <Route path="/sign-in/*?" component={SignInPage} />
             <Route path="/sign-up/*?" component={SignUpPage} />
             <Route path="/orders" component={HomeRedirect} />
+            <Route path="/shift" component={HomeRedirect} />
+            <Route path="/inventory" component={HomeRedirect} />
             <Route path="/products" component={HomeRedirect} />
+            <Route path="/audits" component={HomeRedirect} />
             <Route path="/dashboard" component={HomeRedirect} />
             <Route path="/users" component={HomeRedirect} />
             <Route component={NotFound} />

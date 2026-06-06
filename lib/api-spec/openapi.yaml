@@ -19,6 +19,18 @@ tags:
     description: Order/transaction management
   - name: dashboard
     description: Dashboard and reporting
+  - name: branches
+    description: Branch management
+  - name: ingredients
+    description: Raw material management
+  - name: semiFinished
+    description: Semi-finished goods management
+  - name: recipes
+    description: Bill of materials
+  - name: inventory
+    description: Live inventory and stock adjustments
+  - name: shiftAudits
+    description: Shift audit and reconciliation
 paths:
   /healthz:
     get:
@@ -347,6 +359,11 @@ paths:
       operationId: getDashboardSummary
       tags: [dashboard]
       summary: Get today's sales summary
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Dashboard summary
@@ -366,6 +383,10 @@ paths:
           schema:
             type: integer
             default: 5
+        - name: branchId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Top products
@@ -381,6 +402,11 @@ paths:
       operationId: getSalesChart
       tags: [dashboard]
       summary: Get sales data for chart (last 7 days)
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Sales chart data
@@ -396,6 +422,11 @@ paths:
       operationId: getCashierPerformance
       tags: [dashboard]
       summary: Get cashier performance stats
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Cashier performance
@@ -405,6 +436,516 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CashierPerformance"
+
+  /branches:
+    get:
+      operationId: listBranches
+      tags: [branches]
+      summary: List all branches
+      responses:
+        "200":
+          description: List of branches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Branch"
+    post:
+      operationId: createBranch
+      tags: [branches]
+      summary: Create a branch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+
+  /ingredients:
+    get:
+      operationId: listIngredients
+      tags: [ingredients]
+      summary: List ingredients (raw materials) with live stock
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of ingredients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Ingredient"
+    post:
+      operationId: createIngredient
+      tags: [ingredients]
+      summary: Create an ingredient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngredientInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ingredient"
+
+  /ingredients/{id}:
+    patch:
+      operationId: updateIngredient
+      tags: [ingredients]
+      summary: Update an ingredient
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IngredientUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ingredient"
+    delete:
+      operationId: deleteIngredient
+      tags: [ingredients]
+      summary: Delete an ingredient
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /semi-finished:
+    get:
+      operationId: listSemiFinished
+      tags: [semiFinished]
+      summary: List semi-finished goods with live stock
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of semi-finished goods
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SemiFinished"
+    post:
+      operationId: createSemiFinished
+      tags: [semiFinished]
+      summary: Create a semi-finished good
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SemiFinishedInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SemiFinished"
+
+  /semi-finished/{id}:
+    patch:
+      operationId: updateSemiFinished
+      tags: [semiFinished]
+      summary: Update a semi-finished good
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SemiFinishedUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SemiFinished"
+    delete:
+      operationId: deleteSemiFinished
+      tags: [semiFinished]
+      summary: Delete a semi-finished good
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /semi-finished/{id}/produce:
+    post:
+      operationId: produceSemiFinished
+      tags: [semiFinished]
+      summary: Record production of a semi-finished good (deducts ingredients, computes COGS)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProduceInput"
+      responses:
+        "200":
+          description: Produced
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SemiFinished"
+
+  /recipes:
+    get:
+      operationId: getRecipe
+      tags: [recipes]
+      summary: Get the BOM components for a parent
+      parameters:
+        - name: parentType
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [product, semi_finished]
+        - name: parentId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recipe components
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecipeComponent"
+    put:
+      operationId: setRecipe
+      tags: [recipes]
+      summary: Replace the BOM for a parent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetRecipeInput"
+      responses:
+        "200":
+          description: Updated recipe
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecipeComponent"
+
+  /inventory:
+    get:
+      operationId: listInventory
+      tags: [inventory]
+      summary: Get live inventory for a branch
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Inventory items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+
+  /inventory/low-stock:
+    get:
+      operationId: getLowStock
+      tags: [inventory]
+      summary: Get inventory items below the low-stock threshold
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
+        - name: threshold
+          in: query
+          schema:
+            type: number
+            default: 200
+      responses:
+        "200":
+          description: Low stock items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+
+  /stock-adjustments:
+    get:
+      operationId: listStockAdjustments
+      tags: [inventory]
+      summary: List stock adjustment history
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Adjustment history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StockAdjustment"
+    post:
+      operationId: createStockAdjustment
+      tags: [inventory]
+      summary: Record a stock adjustment (in/out/loss); 'in' triggers moving-average COGS
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockAdjustmentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockAdjustment"
+
+  /shift-audits:
+    get:
+      operationId: listShiftAudits
+      tags: [shiftAudits]
+      summary: List shift audits
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Shift audits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShiftAudit"
+    post:
+      operationId: createShiftAudit
+      tags: [shiftAudits]
+      summary: Close a shift and submit physical counts
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShiftAuditInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShiftAudit"
+
+  /shift-audits/expected:
+    get:
+      operationId: getExpectedStock
+      tags: [shiftAudits]
+      summary: Get current expected stock snapshot for closing a shift
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Expected stock snapshot
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryItem"
+
+  /shift-audits/{id}:
+    get:
+      operationId: getShiftAudit
+      tags: [shiftAudits]
+      summary: Get a shift audit with reconciliation detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Shift audit detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShiftAuditDetail"
+
+  /shift-audits/{id}/verify:
+    patch:
+      operationId: verifyShiftAudit
+      tags: [shiftAudits]
+      summary: Validate audit and sync physical stock to inventory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShiftAudit"
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+        "400":
+          description: Missing or invalid required fields.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "500":
+          description: Failed to generate upload URL.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity from PRIVATE_OBJECT_DIR
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Object content streamed with correct Content-Type.
+          content:
+            "*/*":
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Object not found.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  /dashboard/financial:
+    get:
+      operationId: getFinancialReport
+      tags: [dashboard]
+      summary: Get gross revenue, COGS and gross profit
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        "200":
+          description: Financial report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FinancialReport"
 
 components:
   schemas:
@@ -552,6 +1093,8 @@ components:
       type: object
       required: [items, paymentMethod, amountPaid]
       properties:
+        branchId:
+          type: ["integer", "null"]
         cashierName:
           type: string
         cashierId:
@@ -689,4 +1232,393 @@ components:
         totalOrders:
           type: integer
         totalRevenue:
+          type: number
+
+    Branch:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        location:
+          type: ["string", "null"]
+
+    BranchInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        location:
+          type: ["string", "null"]
+
+    Ingredient:
+      type: object
+      required: [id, branchId, name, unit, costPricePerUnit, minimalStock, currentStock]
+      properties:
+        id:
+          type: integer
+        branchId:
+          type: integer
+        name:
+          type: string
+        unit:
+          type: string
+        costPricePerUnit:
+          type: number
+        minimalStock:
+          type: number
+        currentStock:
+          type: number
+
+    IngredientInput:
+      type: object
+      required: [branchId, name, unit]
+      properties:
+        branchId:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+        minimalStock:
+          type: number
+          default: 0
+
+    IngredientUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+        minimalStock:
+          type: number
+
+    SemiFinished:
+      type: object
+      required: [id, branchId, name, unit, costPricePerUnit, currentStock]
+      properties:
+        id:
+          type: integer
+        branchId:
+          type: integer
+        name:
+          type: string
+        unit:
+          type: string
+        costPricePerUnit:
+          type: number
+        currentStock:
+          type: number
+
+    SemiFinishedInput:
+      type: object
+      required: [branchId, name, unit]
+      properties:
+        branchId:
+          type: integer
+        name:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+
+    SemiFinishedUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+        unit:
+          type: string
+
+    ProduceInput:
+      type: object
+      required: [quantity]
+      properties:
+        quantity:
+          type: number
+          minimum: 0
+
+    RecipeComponent:
+      type: object
+      required: [componentType, componentId, quantity]
+      properties:
+        id:
+          type: integer
+        componentType:
+          type: string
+          enum: [ingredient, semi_finished]
+        componentId:
+          type: integer
+        componentName:
+          type: string
+        unit:
+          type: string
+        quantity:
+          type: number
+
+    SetRecipeInput:
+      type: object
+      required: [parentType, parentId, components]
+      properties:
+        parentType:
+          type: string
+          enum: [product, semi_finished]
+        parentId:
+          type: integer
+        components:
+          type: array
+          items:
+            type: object
+            required: [componentType, componentId, quantity]
+            properties:
+              componentType:
+                type: string
+                enum: [ingredient, semi_finished]
+              componentId:
+                type: integer
+              quantity:
+                type: number
+
+    InventoryItem:
+      type: object
+      required: [itemType, itemId, name, unit, currentStock]
+      properties:
+        itemType:
+          type: string
+          enum: [ingredient, semi_finished]
+        itemId:
+          type: integer
+        name:
+          type: string
+        unit:
+          type: string
+        currentStock:
+          type: number
+        minimalStock:
+          type: ["number", "null"]
+        costPricePerUnit:
+          type: number
+
+    StockAdjustment:
+      type: object
+      required: [id, branchId, itemType, itemId, adjustmentType, quantity, createdAt]
+      properties:
+        id:
+          type: integer
+        branchId:
+          type: integer
+        itemType:
+          type: string
+        itemId:
+          type: integer
+        itemName:
+          type: string
+        adjustmentType:
+          type: string
+          enum: [in, out, loss]
+        quantity:
+          type: number
+        purchasePriceTotal:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    StockAdjustmentInput:
+      type: object
+      required: [branchId, itemType, itemId, adjustmentType, quantity]
+      properties:
+        branchId:
+          type: integer
+        itemType:
+          type: string
+          enum: [ingredient, semi_finished]
+        itemId:
+          type: integer
+        adjustmentType:
+          type: string
+          enum: [in, out, loss]
+        quantity:
+          type: number
+          minimum: 0
+        purchasePriceTotal:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+
+    ShiftAuditStockEntry:
+      type: object
+      required: [itemType, itemId, name, unit, quantity]
+      properties:
+        itemType:
+          type: string
+        itemId:
+          type: integer
+        name:
+          type: string
+        unit:
+          type: string
+        quantity:
+          type: number
+
+    ShiftAuditInput:
+      type: object
+      required: [branchId, actualStock]
+      properties:
+        branchId:
+          type: integer
+        cashierId:
+          type: ["integer", "null"]
+        shiftStart:
+          type: ["string", "null"]
+          format: date-time
+        actualStock:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShiftAuditStockEntry"
+        photoProofUrl:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    ShiftAudit:
+      type: object
+      required: [id, branchId, status, createdAt]
+      properties:
+        id:
+          type: integer
+        branchId:
+          type: integer
+        cashierId:
+          type: ["integer", "null"]
+        cashierName:
+          type: ["string", "null"]
+        shiftStart:
+          type: ["string", "null"]
+          format: date-time
+        shiftEnd:
+          type: ["string", "null"]
+          format: date-time
+        photoProofUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [pending, verified, discrepancy]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        maxDiscrepancyPct:
+          type: number
+
+    ShiftAuditReconLine:
+      type: object
+      required: [itemType, itemId, name, unit, expected, actual, diff, diffPct, isWarning]
+      properties:
+        itemType:
+          type: string
+        itemId:
+          type: integer
+        name:
+          type: string
+        unit:
+          type: string
+        expected:
+          type: number
+        actual:
+          type: number
+        diff:
+          type: number
+        diffPct:
+          type: number
+        isWarning:
+          type: boolean
+
+    ShiftAuditDetail:
+      type: object
+      required: [id, branchId, status, createdAt, reconciliation]
+      properties:
+        id:
+          type: integer
+        branchId:
+          type: integer
+        cashierId:
+          type: ["integer", "null"]
+        cashierName:
+          type: ["string", "null"]
+        shiftStart:
+          type: ["string", "null"]
+          format: date-time
+        shiftEnd:
+          type: ["string", "null"]
+          format: date-time
+        photoProofUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        maxDiscrepancyPct:
+          type: number
+        reconciliation:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShiftAuditReconLine"
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        size:
+          type: integer
+          minimum: 1
+        contentType:
+          type: string
+          minLength: 1
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+          format: uri
+        objectPath:
+          type: string
+        metadata:
+          $ref: "#/components/schemas/UploadUrlRequest"
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    FinancialReport:
+      type: object
+      required: [grossRevenue, totalCogs, grossProfit, grossMarginPct]
+      properties:
+        grossRevenue:
+          type: number
+        totalCogs:
+          type: number
+        grossProfit:
+          type: number
+        grossMarginPct:
           type: number

@@ -8,4 +8,5 @@
 
 export type GetTopProductsParams = {
 limit?: number;
+branchId?: number;
 };

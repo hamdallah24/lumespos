@@ -2,14 +2,17 @@ import { Router } from "express";
 import { db, ordersTable, orderItemsTable, productsTable } from "@workspace/db";
 import { eq, and, gte, lte, count, sql } from "drizzle-orm";
 import { requireAuth } from "../middlewares/requireAuth";
+import { deductForProduct, type Executor } from "../services/inventory";
 
 const router = Router();
 
 const toOrder = (row: typeof ordersTable.$inferSelect & { itemCount?: number }) => ({
   id: row.id,
+  branchId: row.branchId,
   cashierName: row.cashierName,
   cashierId: row.cashierId,
   total: parseFloat(row.total),
+  totalCogs: parseFloat(row.totalCogs),
   amountPaid: parseFloat(row.amountPaid),
   change: parseFloat(row.change),
   paymentMethod: row.paymentMethod,
@@ -34,9 +37,11 @@ router.get("/orders", requireAuth, async (req, res) => {
   const rows = await db
     .select({
       id: ordersTable.id,
+      branchId: ordersTable.branchId,
       cashierName: ordersTable.cashierName,
       cashierId: ordersTable.cashierId,
       total: ordersTable.total,
+      totalCogs: ordersTable.totalCogs,
       amountPaid: ordersTable.amountPaid,
       change: ordersTable.change,
       paymentMethod: ordersTable.paymentMethod,
@@ -54,7 +59,8 @@ router.get("/orders", requireAuth, async (req, res) => {
 });
 
 router.post("/orders", requireAuth, async (req, res) => {
-  const { cashierName, cashierId, paymentMethod, amountPaid, items } = req.body as {
+  const { branchId, cashierName, cashierId, paymentMethod, amountPaid, items } = req.body as {
+    branchId?: number | null;
     cashierName?: string;
     cashierId?: number | null;
     paymentMethod: string;
@@ -67,56 +73,72 @@ router.post("/orders", requireAuth, async (req, res) => {
     return;
   }
 
-  let total = 0;
-  const itemRows: Array<{
-    productId: number;
-    productName: string;
-    quantity: number;
-    priceAtSale: string;
-    subtotal: string;
-  }> = [];
+  const effectiveBranchId = branchId ?? 1;
 
-  for (const item of items) {
-    const [prod] = await db.select().from(productsTable).where(eq(productsTable.id, item.productId));
-    if (!prod) {
-      res.status(400).json({ error: `Product ${item.productId} not found` });
-      return;
-    }
-    const price = parseFloat(prod.price);
-    const subtotal = price * item.quantity;
-    total += subtotal;
-    itemRows.push({
-      productId: prod.id,
-      productName: prod.name,
-      quantity: item.quantity,
-      priceAtSale: String(price),
-      subtotal: String(subtotal),
+  try {
+    const order = await db.transaction(async (tx: Executor) => {
+      let total = 0;
+      let totalCogs = 0;
+      const itemRows: Array<{
+        productId: number;
+        productName: string;
+        quantity: number;
+        priceAtSale: string;
+        subtotal: string;
+      }> = [];
+
+      for (const item of items) {
+        const [prod] = await tx.select().from(productsTable).where(eq(productsTable.id, item.productId));
+        if (!prod) {
+          throw new Error(`Product ${item.productId} not found`);
+        }
+        const price = parseFloat(prod.price);
+        const subtotal = price * item.quantity;
+        total += subtotal;
+        itemRows.push({
+          productId: prod.id,
+          productName: prod.name,
+          quantity: item.quantity,
+          priceAtSale: String(price),
+          subtotal: String(subtotal),
+        });
+
+        await tx
+          .update(productsTable)
+          .set({ stock: Math.max(0, prod.stock - item.quantity) })
+          .where(eq(productsTable.id, prod.id));
+
+        // Auto-deduct raw materials / semi-finished per recipe and accumulate COGS.
+        totalCogs += await deductForProduct(tx, effectiveBranchId, prod.id, item.quantity);
+      }
+
+      const change = Math.max(0, amountPaid - total);
+      const [created] = await tx
+        .insert(ordersTable)
+        .values({
+          branchId: effectiveBranchId,
+          cashierName: cashierName ?? null,
+          cashierId: cashierId ?? null,
+          total: String(total),
+          totalCogs: String(totalCogs),
+          amountPaid: String(amountPaid),
+          change: String(change),
+          paymentMethod: paymentMethod ?? "cash",
+          status: "completed",
+        })
+        .returning();
+
+      await tx.insert(orderItemsTable).values(itemRows.map((r) => ({ ...r, orderId: created.id })));
+
+      return { ...created, itemCount: itemRows.length };
     });
-    await db
-      .update(productsTable)
-      .set({ stock: Math.max(0, prod.stock - item.quantity) })
-      .where(eq(productsTable.id, prod.id));
+
+    res.status(201).json(toOrder(order));
+  } catch (err) {
+    req.log.error({ err }, "Failed to create order");
+    const message = err instanceof Error ? err.message : "Failed to create order";
+    res.status(400).json({ error: message });
   }
-
-  const change = Math.max(0, amountPaid - total);
-  const [order] = await db
-    .insert(ordersTable)
-    .values({
-      cashierName: cashierName ?? null,
-      cashierId: cashierId ?? null,
-      total: String(total),
-      amountPaid: String(amountPaid),
-      change: String(change),
-      paymentMethod: paymentMethod ?? "cash",
-      status: "completed",
-    })
-    .returning();
-
-  await db.insert(orderItemsTable).values(
-    itemRows.map((r) => ({ ...r, orderId: order.id }))
-  );
-
-  res.status(201).json(toOrder({ ...order, itemCount: itemRows.length }));
 });
 
 router.get("/orders/:id", requireAuth, async (req, res) => {

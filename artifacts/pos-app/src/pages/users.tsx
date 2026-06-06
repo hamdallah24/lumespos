@@ -5,7 +5,7 @@ import {
   useUpdateUserRole,
   getListUsersQueryKey,
 } from "@workspace/api-client-react";
-import type { AppUser } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { AppUser } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";

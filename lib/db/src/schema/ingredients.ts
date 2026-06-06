@@ -1,0 +1,26 @@
+import { pgTable, serial, text, integer, numeric, timestamp } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+import { z } from "zod/v4";
+import { branchesTable } from "./branches";
+
+// Raw materials (bahan mentah)
+export const ingredientsTable = pgTable("ingredients", {
+  id: serial("id").primaryKey(),
+  branchId: integer("branch_id")
+    .notNull()
+    .references(() => branchesTable.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  unit: text("unit").notNull().default("gram"), // gram | ml | pcs
+  costPricePerUnit: numeric("cost_price_per_unit", { precision: 14, scale: 4 })
+    .notNull()
+    .default("0"),
+  minimalStock: numeric("minimal_stock", { precision: 14, scale: 2 }).notNull().default("0"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertIngredientSchema = createInsertSchema(ingredientsTable).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertIngredient = z.infer<typeof insertIngredientSchema>;
+export type Ingredient = typeof ingredientsTable.$inferSelect;

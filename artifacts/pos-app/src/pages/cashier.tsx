@@ -8,7 +8,8 @@ import {
   useGetMe,
   getListProductsQueryKey,
 } from "@workspace/api-client-react";
-import type { Product } from "@workspace/api-client-react/src/generated/api.schemas";
+import type { Product } from "@workspace/api-client-react";
+import { useBranch } from "@/lib/branch";
 import { formatRp } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ type PayMethod = "cash" | "card" | "qris";
 export default function CashierPage() {
   const queryClient = useQueryClient();
   const { data: me } = useGetMe();
+  const { branchId } = useBranch();
 
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -80,6 +82,7 @@ export default function CashierPage() {
     createOrder.mutate(
       {
         data: {
+          branchId,
           cashierName: me?.name ?? "Kasir",
           cashierId: me?.id ?? null,
           paymentMethod,

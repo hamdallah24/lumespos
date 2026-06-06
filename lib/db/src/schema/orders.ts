@@ -2,12 +2,15 @@ import { pgTable, serial, text, timestamp, numeric, integer } from "drizzle-orm/
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
+import { branchesTable } from "./branches";
 
 export const ordersTable = pgTable("orders", {
   id: serial("id").primaryKey(),
+  branchId: integer("branch_id").references(() => branchesTable.id, { onDelete: "set null" }),
   cashierName: text("cashier_name"),
   cashierId: integer("cashier_id").references(() => usersTable.id, { onDelete: "set null" }),
   total: numeric("total", { precision: 12, scale: 2 }).notNull(),
+  totalCogs: numeric("total_cogs", { precision: 14, scale: 2 }).notNull().default("0"),
   amountPaid: numeric("amount_paid", { precision: 12, scale: 2 }).notNull().default("0"),
   change: numeric("change", { precision: 12, scale: 2 }).notNull().default("0"),
   paymentMethod: text("payment_method").notNull().default("cash"),

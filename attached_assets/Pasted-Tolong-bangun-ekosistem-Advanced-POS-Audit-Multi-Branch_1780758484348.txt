@@ -1,0 +1,28 @@
+Tolong bangun ekosistem 'Advanced POS, Audit, & Multi-Branch' untuk bisnis F&B saya yang memiliki banyak cabang. Kerjakan secara bertahap dengan arsitektur berikut:
+
+TAHAP 1: DATABASE SCHEMA (Multi-Branch, COGS, & BOM)
+1. Buat tabel `branches` (id, name, location). Tambahkan `branch_id` ke tabel `users`, `orders`, `shift_audits`, dan inventori.
+2. Buat tabel `ingredients` (bahan mentah: id, branch_id, name, unit, cost_price_per_unit, minimal_stock).
+3. Buat tabel `semi_finished` (bahan setengah jadi: id, branch_id, name, unit, cost_price_per_unit).
+4. Buat tabel `recipes` (Bill of Materials) untuk memetakan produk jadi ke bahan mentah/setengah jadi beserta takarannya.
+5. Buat tabel `current_inventory` (id, branch_id, item_type, item_id, current_stock).
+6. Buat tabel `stock_adjustments` (id, branch_id, item_type, item_id, adjustment_type [in/out/loss], quantity, purchase_price_total, notes, timestamp).
+7. Update tabel `orders`: Tambahkan kolom `total_cogs` (Harga Pokok Penjualan) untuk mencatat modal.
+8. Buat tabel `shift_audits` (id, branch_id, cashier_id, shift_start, shift_end, expected_stock_json, actual_stock_json, photo_proof_url, status [pending/verified/discrepancy], notes).
+
+TAHAP 2: BACKEND LOGIC (Auto-Deduct, Alerts, & Moving Average COGS)
+1. Moving Average Bahan Mentah: Saat ada barang masuk di `stock_adjustments`, wajibkan input `purchase_price_total`. Buat fungsi backend yang otomatis menghitung dan mengupdate `cost_price_per_unit` di tabel `ingredients` menggunakan rumus: ((Stok Lama * Harga Lama) + Total Harga Beli Baru) / (Stok Lama + Stok Baru).
+2. COGS Bahan Setengah Jadi: Saat produksi bahan setengah jadi dicatat, ambil total nilai `cost_price_per_unit` dari bahan mentah yang digunakan, lalu simpan sebagai harga modal bahan setengah jadi tersebut.
+3. Fungsi Transaksi (Auto-Deduct): Saat order selesai, potong stok di `current_inventory` sesuai komposisi resep. Hitung `total_cogs` pesanan dari harga rata-rata bahan dan simpan ke data transaksi.
+4. Low Stock Alert: Buat endpoint yang memonitor `current_inventory` dan mengembalikan data item yang stoknya di bawah 200 (gram/ml).
+
+TAHAP 3: SISTEM KASIR, AUDIT SHIFT & RESTOCK
+1. Tambahkan fitur 'Barang Masuk (Restock)' di UI Kasir/Manajer agar bisa menambah stok di tengah shift jika supplier datang.
+2. Halaman Tutup Shift: Hilangkan input stok awal manual (ambil otomatis dari database). Kasir wajib menginput angka sisa fisik cup dan menimbang sisa bahan.
+3. Integrasikan Web Camera di form Tutup Shift agar kasir wajib mengambil foto bukti timbangan sebelum mengirim laporan.
+
+TAHAP 4: DASHBOARD OWNER UI
+1. Filter Cabang: Buat 'Branch Switcher' di Navbar agar saya bisa melihat data per cabang atau akumulasi semua cabang.
+2. Notifikasi Inventori: Tambahkan widget tabel 'LOW STOCK ALERT' (berkedip/merah) di dashboard utama untuk item dengan stok < 200.
+3. Laporan Keuangan: Tampilkan Gross Revenue, Total COGS, dan Gross Profit yang dihitung secara mutakhir.
+4. Verifikasi Audit: Buat halaman komparasi yang menandingkan Data POS vs Input Fisik Kasir. Beri label 'WARNING' merah jika terdapat selisih (discrepancy) > 5%, beserta tombol untuk validasi dan sinkronisasi stok ke shift berikutnya.

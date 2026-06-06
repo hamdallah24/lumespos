@@ -1,9 +1,15 @@
 import { Router } from "express";
 import { db, ordersTable, orderItemsTable, productsTable, usersTable } from "@workspace/db";
-import { eq, gte, lte, and, sum, count, sql } from "drizzle-orm";
+import { eq, gte, lte, and, sum, count, sql, type SQL } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireAuth";
 
 const router = Router();
+
+function branchFilter(req: { query: Record<string, unknown> }): SQL | undefined {
+  const raw = req.query["branchId"];
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  return eq(ordersTable.branchId, Number(raw));
+}
 
 router.get("/dashboard/summary", requireRole("owner", "manager"), async (req, res) => {
   const today = new Date();
@@ -16,15 +22,17 @@ router.get("/dashboard/summary", requireRole("owner", "manager"), async (req, re
   const yesterdayEnd = new Date(todayEnd);
   yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
 
+  const branch = branchFilter(req);
+
   const [todayStats] = await db
     .select({ revenue: sum(ordersTable.total), orders: count(ordersTable.id) })
     .from(ordersTable)
-    .where(and(gte(ordersTable.createdAt, today), lte(ordersTable.createdAt, todayEnd)));
+    .where(and(gte(ordersTable.createdAt, today), lte(ordersTable.createdAt, todayEnd), branch));
 
   const [yesterdayStats] = await db
     .select({ revenue: sum(ordersTable.total), orders: count(ordersTable.id) })
     .from(ordersTable)
-    .where(and(gte(ordersTable.createdAt, yesterday), lte(ordersTable.createdAt, yesterdayEnd)));
+    .where(and(gte(ordersTable.createdAt, yesterday), lte(ordersTable.createdAt, yesterdayEnd), branch));
 
   const [productCounts] = await db
     .select({
@@ -51,6 +59,7 @@ router.get("/dashboard/summary", requireRole("owner", "manager"), async (req, re
 
 router.get("/dashboard/top-products", requireRole("owner", "manager"), async (req, res) => {
   const limit = Number(req.query["limit"] ?? 5);
+  const branch = branchFilter(req);
   const rows = await db
     .select({
       productId: orderItemsTable.productId,
@@ -59,6 +68,8 @@ router.get("/dashboard/top-products", requireRole("owner", "manager"), async (re
       totalRevenue: sum(orderItemsTable.subtotal),
     })
     .from(orderItemsTable)
+    .innerJoin(ordersTable, eq(ordersTable.id, orderItemsTable.orderId))
+    .where(branch)
     .groupBy(orderItemsTable.productId, orderItemsTable.productName)
     .orderBy(sql`sum(${orderItemsTable.quantity}) desc`)
     .limit(limit);
@@ -73,7 +84,8 @@ router.get("/dashboard/top-products", requireRole("owner", "manager"), async (re
   );
 });
 
-router.get("/dashboard/sales-chart", requireRole("owner", "manager"), async (_req, res) => {
+router.get("/dashboard/sales-chart", requireRole("owner", "manager"), async (req, res) => {
+  const branch = branchFilter(req);
   const days: { date: string; revenue: number; orders: number }[] = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
@@ -85,7 +97,7 @@ router.get("/dashboard/sales-chart", requireRole("owner", "manager"), async (_re
     const [stats] = await db
       .select({ revenue: sum(ordersTable.total), orders: count(ordersTable.id) })
       .from(ordersTable)
-      .where(and(gte(ordersTable.createdAt, d), lte(ordersTable.createdAt, dEnd)));
+      .where(and(gte(ordersTable.createdAt, d), lte(ordersTable.createdAt, dEnd), branch));
 
     days.push({
       date: d.toISOString().split("T")[0],
@@ -96,7 +108,8 @@ router.get("/dashboard/sales-chart", requireRole("owner", "manager"), async (_re
   res.json(days);
 });
 
-router.get("/dashboard/cashier-performance", requireRole("owner", "manager"), async (_req, res) => {
+router.get("/dashboard/cashier-performance", requireRole("owner", "manager"), async (req, res) => {
+  const branch = branchFilter(req);
   const rows = await db
     .select({
       cashierId: ordersTable.cashierId,
@@ -105,7 +118,7 @@ router.get("/dashboard/cashier-performance", requireRole("owner", "manager"), as
       totalRevenue: sum(ordersTable.total),
     })
     .from(ordersTable)
-    .where(sql`${ordersTable.cashierId} is not null`)
+    .where(and(sql`${ordersTable.cashierId} is not null`, branch))
     .groupBy(ordersTable.cashierId, ordersTable.cashierName)
     .orderBy(sql`sum(${ordersTable.total}) desc`);
 
@@ -117,6 +130,29 @@ router.get("/dashboard/cashier-performance", requireRole("owner", "manager"), as
       totalRevenue: parseFloat(r.totalRevenue ?? "0"),
     }))
   );
+});
+
+router.get("/dashboard/financial", requireRole("owner", "manager"), async (req, res) => {
+  const branch = branchFilter(req);
+  const days = req.query["days"] ? Number(req.query["days"]) : 30;
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+  start.setHours(0, 0, 0, 0);
+
+  const [stats] = await db
+    .select({
+      grossRevenue: sum(ordersTable.total),
+      totalCogs: sum(ordersTable.totalCogs),
+    })
+    .from(ordersTable)
+    .where(and(gte(ordersTable.createdAt, start), branch));
+
+  const grossRevenue = parseFloat(stats?.grossRevenue ?? "0");
+  const totalCogs = parseFloat(stats?.totalCogs ?? "0");
+  const grossProfit = grossRevenue - totalCogs;
+  const grossMarginPct = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
+
+  res.json({ grossRevenue, totalCogs, grossProfit, grossMarginPct });
 });
 
 export default router;

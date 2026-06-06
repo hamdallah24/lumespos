@@ -1,2 +1,3 @@
 - [Clerk Auth Setup](clerk-auth-setup.md) — Clerk provisioned; first user auto-gets owner role; subsequent users get cashier
 - [RBAC Design](rbac-design.md) — 3 roles: owner/manager/cashier; enforced on both API (requireRole) and frontend (route guards + sidebar)
+- [API client imports & web auth](api-client-and-auth.md) — import generated types from barrel (not deep /src); web uses Clerk cookies so img tags can hit requireAuth routes; BranchProvider gates to branchId:number

@@ -119,6 +119,8 @@ export const OrderInputPaymentMethod = {
 } as const;
 
 export interface OrderInput {
+  /** @nullable */
+  branchId?: number | null;
   cashierName?: string;
   /** @nullable */
   cashierId?: number | null;
@@ -195,6 +197,299 @@ export interface CashierPerformance {
   totalRevenue: number;
 }
 
+export interface Branch {
+  id: number;
+  name: string;
+  /** @nullable */
+  location?: string | null;
+}
+
+export interface BranchInput {
+  /** @minLength 1 */
+  name: string;
+  /** @nullable */
+  location?: string | null;
+}
+
+export interface Ingredient {
+  id: number;
+  branchId: number;
+  name: string;
+  unit: string;
+  costPricePerUnit: number;
+  minimalStock: number;
+  currentStock: number;
+}
+
+export interface IngredientInput {
+  branchId: number;
+  /** @minLength 1 */
+  name: string;
+  unit: string;
+  minimalStock?: number;
+}
+
+export interface IngredientUpdate {
+  /** @minLength 1 */
+  name?: string;
+  unit?: string;
+  minimalStock?: number;
+}
+
+export interface SemiFinished {
+  id: number;
+  branchId: number;
+  name: string;
+  unit: string;
+  costPricePerUnit: number;
+  currentStock: number;
+}
+
+export interface SemiFinishedInput {
+  branchId: number;
+  /** @minLength 1 */
+  name: string;
+  unit: string;
+}
+
+export interface SemiFinishedUpdate {
+  /** @minLength 1 */
+  name?: string;
+  unit?: string;
+}
+
+export interface ProduceInput {
+  /** @minimum 0 */
+  quantity: number;
+}
+
+export type RecipeComponentComponentType = typeof RecipeComponentComponentType[keyof typeof RecipeComponentComponentType];
+
+
+export const RecipeComponentComponentType = {
+  ingredient: 'ingredient',
+  semi_finished: 'semi_finished',
+} as const;
+
+export interface RecipeComponent {
+  id?: number;
+  componentType: RecipeComponentComponentType;
+  componentId: number;
+  componentName?: string;
+  unit?: string;
+  quantity: number;
+}
+
+export type SetRecipeInputParentType = typeof SetRecipeInputParentType[keyof typeof SetRecipeInputParentType];
+
+
+export const SetRecipeInputParentType = {
+  product: 'product',
+  semi_finished: 'semi_finished',
+} as const;
+
+export type SetRecipeInputComponentsItemComponentType = typeof SetRecipeInputComponentsItemComponentType[keyof typeof SetRecipeInputComponentsItemComponentType];
+
+
+export const SetRecipeInputComponentsItemComponentType = {
+  ingredient: 'ingredient',
+  semi_finished: 'semi_finished',
+} as const;
+
+export type SetRecipeInputComponentsItem = {
+  componentType: SetRecipeInputComponentsItemComponentType;
+  componentId: number;
+  quantity: number;
+};
+
+export interface SetRecipeInput {
+  parentType: SetRecipeInputParentType;
+  parentId: number;
+  components: SetRecipeInputComponentsItem[];
+}
+
+export type InventoryItemItemType = typeof InventoryItemItemType[keyof typeof InventoryItemItemType];
+
+
+export const InventoryItemItemType = {
+  ingredient: 'ingredient',
+  semi_finished: 'semi_finished',
+} as const;
+
+export interface InventoryItem {
+  itemType: InventoryItemItemType;
+  itemId: number;
+  name: string;
+  unit: string;
+  currentStock: number;
+  /** @nullable */
+  minimalStock?: number | null;
+  costPricePerUnit?: number;
+}
+
+export type StockAdjustmentAdjustmentType = typeof StockAdjustmentAdjustmentType[keyof typeof StockAdjustmentAdjustmentType];
+
+
+export const StockAdjustmentAdjustmentType = {
+  in: 'in',
+  out: 'out',
+  loss: 'loss',
+} as const;
+
+export interface StockAdjustment {
+  id: number;
+  branchId: number;
+  itemType: string;
+  itemId: number;
+  itemName?: string;
+  adjustmentType: StockAdjustmentAdjustmentType;
+  quantity: number;
+  /** @nullable */
+  purchasePriceTotal?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+}
+
+export type StockAdjustmentInputItemType = typeof StockAdjustmentInputItemType[keyof typeof StockAdjustmentInputItemType];
+
+
+export const StockAdjustmentInputItemType = {
+  ingredient: 'ingredient',
+  semi_finished: 'semi_finished',
+} as const;
+
+export type StockAdjustmentInputAdjustmentType = typeof StockAdjustmentInputAdjustmentType[keyof typeof StockAdjustmentInputAdjustmentType];
+
+
+export const StockAdjustmentInputAdjustmentType = {
+  in: 'in',
+  out: 'out',
+  loss: 'loss',
+} as const;
+
+export interface StockAdjustmentInput {
+  branchId: number;
+  itemType: StockAdjustmentInputItemType;
+  itemId: number;
+  adjustmentType: StockAdjustmentInputAdjustmentType;
+  /** @minimum 0 */
+  quantity: number;
+  /** @nullable */
+  purchasePriceTotal?: number | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface ShiftAuditStockEntry {
+  itemType: string;
+  itemId: number;
+  name: string;
+  unit: string;
+  quantity: number;
+}
+
+export interface ShiftAuditInput {
+  branchId: number;
+  /** @nullable */
+  cashierId?: number | null;
+  /** @nullable */
+  shiftStart?: string | null;
+  actualStock: ShiftAuditStockEntry[];
+  /** @nullable */
+  photoProofUrl?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type ShiftAuditStatus = typeof ShiftAuditStatus[keyof typeof ShiftAuditStatus];
+
+
+export const ShiftAuditStatus = {
+  pending: 'pending',
+  verified: 'verified',
+  discrepancy: 'discrepancy',
+} as const;
+
+export interface ShiftAudit {
+  id: number;
+  branchId: number;
+  /** @nullable */
+  cashierId?: number | null;
+  /** @nullable */
+  cashierName?: string | null;
+  /** @nullable */
+  shiftStart?: string | null;
+  /** @nullable */
+  shiftEnd?: string | null;
+  /** @nullable */
+  photoProofUrl?: string | null;
+  status: ShiftAuditStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  maxDiscrepancyPct?: number;
+}
+
+export interface ShiftAuditReconLine {
+  itemType: string;
+  itemId: number;
+  name: string;
+  unit: string;
+  expected: number;
+  actual: number;
+  diff: number;
+  diffPct: number;
+  isWarning: boolean;
+}
+
+export interface ShiftAuditDetail {
+  id: number;
+  branchId: number;
+  /** @nullable */
+  cashierId?: number | null;
+  /** @nullable */
+  cashierName?: string | null;
+  /** @nullable */
+  shiftStart?: string | null;
+  /** @nullable */
+  shiftEnd?: string | null;
+  /** @nullable */
+  photoProofUrl?: string | null;
+  status: string;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  maxDiscrepancyPct?: number;
+  reconciliation: ShiftAuditReconLine[];
+}
+
+export interface UploadUrlRequest {
+  /** @minLength 1 */
+  name: string;
+  /** @minimum 1 */
+  size: number;
+  /** @minLength 1 */
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: UploadUrlRequest;
+}
+
+export interface ErrorEnvelope {
+  error: string;
+}
+
+export interface FinancialReport {
+  grossRevenue: number;
+  totalCogs: number;
+  grossProfit: number;
+  grossMarginPct: number;
+}
+
 export type ListProductsParams = {
 categoryId?: number;
 search?: string;
@@ -206,7 +501,67 @@ date?: string;
 status?: string;
 };
 
+export type GetDashboardSummaryParams = {
+branchId?: number;
+};
+
 export type GetTopProductsParams = {
 limit?: number;
+branchId?: number;
+};
+
+export type GetSalesChartParams = {
+branchId?: number;
+};
+
+export type GetCashierPerformanceParams = {
+branchId?: number;
+};
+
+export type ListIngredientsParams = {
+branchId?: number;
+};
+
+export type ListSemiFinishedParams = {
+branchId?: number;
+};
+
+export type GetRecipeParams = {
+parentType: GetRecipeParentType;
+parentId: number;
+};
+
+export type GetRecipeParentType = typeof GetRecipeParentType[keyof typeof GetRecipeParentType];
+
+
+export const GetRecipeParentType = {
+  product: 'product',
+  semi_finished: 'semi_finished',
+} as const;
+
+export type ListInventoryParams = {
+branchId?: number;
+};
+
+export type GetLowStockParams = {
+branchId?: number;
+threshold?: number;
+};
+
+export type ListStockAdjustmentsParams = {
+branchId?: number;
+};
+
+export type ListShiftAuditsParams = {
+branchId?: number;
+};
+
+export type GetExpectedStockParams = {
+branchId?: number;
+};
+
+export type GetFinancialReportParams = {
+branchId?: number;
+days?: number;
 };
 

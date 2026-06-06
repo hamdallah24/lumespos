@@ -3,7 +3,10 @@ import {
   useGetTopProducts,
   useGetSalesChart,
   useGetCashierPerformance,
+  useGetFinancialReport,
+  useGetLowStock,
 } from "@workspace/api-client-react";
+import { useBranch } from "@/lib/branch";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -11,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, TrendingDown, ShoppingCart, Package, AlertTriangle, Banknote, Users } from "lucide-react";
+import { TrendingUp, TrendingDown, ShoppingCart, Package, AlertTriangle, Banknote, Users, Wallet, Receipt, Percent, FlaskConical } from "lucide-react";
 
 function StatCard({
   title, value, diff, icon: Icon, format = "number",
@@ -64,10 +67,14 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 }
 
 export default function DashboardPage() {
-  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary();
-  const { data: topProducts = [], isLoading: loadingTop } = useGetTopProducts({ limit: 5 });
-  const { data: chartData = [], isLoading: loadingChart } = useGetSalesChart();
-  const { data: cashierPerf = [], isLoading: loadingCashier } = useGetCashierPerformance();
+  const { branchId, currentBranch } = useBranch();
+  const params = { branchId };
+  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary(params);
+  const { data: topProducts = [], isLoading: loadingTop } = useGetTopProducts({ limit: 5, branchId });
+  const { data: chartData = [], isLoading: loadingChart } = useGetSalesChart(params);
+  const { data: cashierPerf = [], isLoading: loadingCashier } = useGetCashierPerformance(params);
+  const { data: financial, isLoading: loadingFinancial } = useGetFinancialReport({ branchId, days: 30 });
+  const { data: lowStock = [], isLoading: loadingLow } = useGetLowStock(params);
 
   const formattedChart = chartData.map((d) => ({
     ...d,
@@ -78,11 +85,63 @@ export default function DashboardPage() {
     <div className="flex flex-col h-full">
       <div className="h-16 border-b px-6 flex items-center bg-card shrink-0">
         <h1 className="font-bold text-xl tracking-tight">Laporan Penjualan</h1>
-        <Badge variant="outline" className="ml-3 text-xs">Hari Ini</Badge>
+        {currentBranch && <Badge variant="outline" className="ml-3 text-xs">{currentBranch.name}</Badge>}
       </div>
 
       <ScrollArea className="flex-1">
         <div className="p-6 space-y-6">
+          {(loadingLow || lowStock.length > 0) && (
+            <Card className={lowStock.length > 0 ? "border-destructive/50 bg-destructive/5 animate-pulse-slow" : ""}>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className={`w-5 h-5 ${lowStock.length > 0 ? "text-destructive animate-pulse" : "text-muted-foreground"}`} />
+                  <h2 className={`font-semibold ${lowStock.length > 0 ? "text-destructive" : ""}`}>
+                    Peringatan Stok Menipis {lowStock.length > 0 && `(${lowStock.length})`}
+                  </h2>
+                </div>
+                {loadingLow ? (
+                  <div className="h-8 bg-muted rounded animate-pulse" />
+                ) : lowStock.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Semua stok dalam batas aman.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {lowStock.map((it) => (
+                      <Badge key={`${it.itemType}-${it.itemId}`} variant="destructive" className="gap-1.5">
+                        {it.itemType === "semi_finished" ? <FlaskConical className="w-3 h-3" /> : <Package className="w-3 h-3" />}
+                        {it.name}: {it.currentStock} {it.unit}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          <div>
+            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Laporan Keuangan (30 Hari)</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {loadingFinancial ? (
+                [1, 2, 3, 4].map((i) => <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />)
+              ) : financial ? (
+                <>
+                  <StatCard title="Pendapatan Kotor" value={financial.grossRevenue} icon={Wallet} format="currency" />
+                  <StatCard title="Total HPP (COGS)" value={financial.totalCogs} icon={Receipt} format="currency" />
+                  <StatCard title="Laba Kotor" value={financial.grossProfit} icon={Banknote} format="currency" />
+                  <Card>
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="text-sm text-muted-foreground font-medium">Margin Kotor</p>
+                          <p className="text-2xl font-bold mt-1.5 tracking-tight">{financial.grossMarginPct.toFixed(1)}%</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary"><Percent className="w-5 h-5" /></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              ) : null}
+            </div>
+          </div>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {loadingSummary ? (
               [1,2,3,4].map((i) => <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />)

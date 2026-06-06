@@ -80,12 +80,12 @@ function OrderDetail({ orderId, onClose }: { orderId: number; onClose: () => voi
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Dibayar</span>
-          <span>{formatRp(order.amountPaid)}</span>
+          <span>{formatRp(order.amountPaid ?? 0)}</span>
         </div>
-        {order.change > 0 && (
+        {(order.change ?? 0) > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Kembalian</span>
-            <span>{formatRp(order.change)}</span>
+            <span>{formatRp(order.change ?? 0)}</span>
           </div>
         )}
         <div className="flex justify-between items-center">

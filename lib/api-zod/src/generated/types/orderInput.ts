@@ -9,6 +9,8 @@ import type { OrderInputPaymentMethod } from './orderInputPaymentMethod';
 import type { OrderItemInput } from './orderItemInput';
 
 export interface OrderInput {
+  /** @nullable */
+  branchId?: number | null;
   cashierName?: string;
   /** @nullable */
   cashierId?: number | null;
