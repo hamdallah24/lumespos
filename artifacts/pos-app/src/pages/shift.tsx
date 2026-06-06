@@ -16,7 +16,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Camera, RefreshCw, Check, ClipboardList, FlaskConical, Package } from "lucide-react";
+import { Camera, RefreshCw, Check, ClipboardList, FlaskConical, Package, Upload } from "lucide-react";
 
 export default function ShiftPage() {
   const qc = useQueryClient();
@@ -34,6 +34,7 @@ export default function ShiftPage() {
   const [uploading, setUploading] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const keyOf = (it: InventoryItem) => `${it.itemType}:${it.itemId}`;
 
@@ -52,8 +53,22 @@ export default function ShiftPage() {
         await videoRef.current.play();
       }
     } catch {
-      toast.error("Tidak bisa mengakses kamera. Izinkan akses kamera di browser.");
+      toast.error("Tidak bisa mengakses kamera. Gunakan tombol \"Unggah Foto\" untuk memilih dari galeri.");
     }
+  };
+
+  const onFilePicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("File harus berupa gambar");
+      return;
+    }
+    stopCamera();
+    if (photoUrl) URL.revokeObjectURL(photoUrl);
+    setPhotoBlob(file);
+    setPhotoUrl(URL.createObjectURL(file));
   };
 
   const stopCamera = () => {
@@ -88,12 +103,14 @@ export default function ShiftPage() {
 
   const uploadPhoto = async (): Promise<string | null> => {
     if (!photoBlob) return null;
+    const contentType = photoBlob.type || "image/jpeg";
+    const ext = contentType.split("/")[1]?.split("+")[0] || "jpg";
     const res = await requestUpload.mutateAsync({
-      data: { name: `shift-proof-${Date.now()}.jpg`, size: photoBlob.size, contentType: "image/jpeg" },
+      data: { name: `shift-proof-${Date.now()}.${ext}`, size: photoBlob.size, contentType },
     });
     const putRes = await fetch(res.uploadURL, {
       method: "PUT",
-      headers: { "Content-Type": "image/jpeg" },
+      headers: { "Content-Type": contentType },
       body: photoBlob,
     });
     if (!putRes.ok) throw new Error("Upload gagal");
@@ -210,12 +227,29 @@ export default function ShiftPage() {
                     </div>
                   )}
                 </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={onFilePicked}
+                />
                 {photoUrl ? (
-                  <Button variant="outline" className="w-full" onClick={retake}><RefreshCw className="w-4 h-4 mr-1.5" />Ambil Ulang</Button>
+                  <div className="space-y-2">
+                    <Button variant="outline" className="w-full" onClick={retake}><RefreshCw className="w-4 h-4 mr-1.5" />Ambil Ulang</Button>
+                    <Button variant="ghost" className="w-full" onClick={() => fileInputRef.current?.click()}><Upload className="w-4 h-4 mr-1.5" />Ganti dari Galeri</Button>
+                  </div>
                 ) : cameraOn ? (
-                  <Button className="w-full" onClick={capture}><Camera className="w-4 h-4 mr-1.5" />Jepret</Button>
+                  <div className="space-y-2">
+                    <Button className="w-full" onClick={capture}><Camera className="w-4 h-4 mr-1.5" />Jepret</Button>
+                    <Button variant="ghost" className="w-full" onClick={() => fileInputRef.current?.click()}><Upload className="w-4 h-4 mr-1.5" />Unggah Foto</Button>
+                  </div>
                 ) : (
-                  <Button variant="outline" className="w-full" onClick={startCamera}><Camera className="w-4 h-4 mr-1.5" />Buka Kamera</Button>
+                  <div className="space-y-2">
+                    <Button variant="outline" className="w-full" onClick={startCamera}><Camera className="w-4 h-4 mr-1.5" />Buka Kamera</Button>
+                    <Button variant="ghost" className="w-full" onClick={() => fileInputRef.current?.click()}><Upload className="w-4 h-4 mr-1.5" />Unggah Foto</Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
