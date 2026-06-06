@@ -5,6 +5,7 @@ import {
   useListIngredients,
   useListSemiFinished,
   useCreateIngredient,
+  useUpdateIngredient,
   useCreateSemiFinished,
   useCreateStockAdjustment,
   useProduceSemiFinished,
@@ -185,19 +186,80 @@ function StockTab({ branchId }: { branchId: number }) {
   );
 }
 
+type IngredientItem = {
+  id: number;
+  branchId: number;
+  name: string;
+  unit: string;
+  costPricePerUnit: number;
+  minimalStock: number;
+  currentStock: number;
+};
+
 function IngredientsTab({ branchId }: { branchId: number }) {
   const qc = useQueryClient();
   const { data: ingredients = [], isLoading } = useListIngredients({ branchId });
   const createIng = useCreateIngredient();
+  const updateIng = useUpdateIngredient();
   const [open, setOpen] = useState(false);
+  const [editItem, setEditItem] = useState<IngredientItem | null>(null);
   const [name, setName] = useState("");
   const [unit, setUnit] = useState("");
   const [costPricePerUnit, setCostPricePerUnit] = useState("");
   const [minStock, setMinStock] = useState("");
 
+  const resetForm = () => {
+    setName("");
+    setUnit("");
+    setCostPricePerUnit("");
+    setMinStock("");
+    setEditItem(null);
+  };
+
+  const openCreate = () => {
+    resetForm();
+    setOpen(true);
+  };
+
+  const openEdit = (ing: IngredientItem) => {
+    setEditItem(ing);
+    setName(ing.name);
+    setUnit(ing.unit);
+    setCostPricePerUnit(String(ing.costPricePerUnit));
+    setMinStock(String(ing.minimalStock));
+    setOpen(true);
+  };
+
   const submit = () => {
     if (!branchId) return;
     if (!name.trim() || !unit.trim()) { toast.error("Nama dan satuan wajib diisi"); return; }
+    if (editItem) {
+      const updateData: Record<string, unknown> = {};
+      if (name.trim() !== editItem.name) updateData.name = name.trim();
+      if (unit.trim() !== editItem.unit) updateData.unit = unit.trim();
+      const newPrice = costPricePerUnit ? parseFloat(costPricePerUnit) : 0;
+      if (newPrice !== editItem.costPricePerUnit) updateData.costPricePerUnit = newPrice;
+      const newMin = minStock ? parseFloat(minStock) : 0;
+      if (newMin !== editItem.minimalStock) updateData.minimalStock = newMin;
+      if (Object.keys(updateData).length === 0) {
+        setOpen(false);
+        resetForm();
+        return;
+      }
+      updateIng.mutate(
+        { id: editItem.id, data: updateData },
+        {
+          onSuccess: () => {
+            toast.success("Bahan baku diperbarui");
+            setOpen(false); resetForm();
+            qc.invalidateQueries({ queryKey: getListIngredientsQueryKey({ branchId }) });
+            qc.invalidateQueries({ queryKey: getListInventoryQueryKey({ branchId }) });
+          },
+          onError: () => toast.error("Gagal memperbarui bahan baku"),
+        },
+      );
+      return;
+    }
     createIng.mutate(
       {
         data: {
@@ -211,7 +273,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
       {
         onSuccess: () => {
           toast.success("Bahan baku ditambahkan");
-          setOpen(false); setName(""); setUnit(""); setCostPricePerUnit(""); setMinStock("");
+          setOpen(false); resetForm();
           qc.invalidateQueries({ queryKey: getListIngredientsQueryKey({ branchId }) });
           qc.invalidateQueries({ queryKey: getListInventoryQueryKey({ branchId }) });
         },
@@ -224,7 +286,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
     <ScrollArea className="h-full">
       <div className="p-4 md:p-6 space-y-3">
         <div className="flex justify-end">
-          <Button size="sm" onClick={() => setOpen(true)}><Plus className="w-4 h-4 mr-1.5" />Tambah Bahan</Button>
+          <Button size="sm" onClick={openCreate}><Plus className="w-4 h-4 mr-1.5" />Tambah Bahan</Button>
         </div>
         {isLoading ? (
           [1, 2, 3].map((i) => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)
@@ -232,7 +294,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
           <Empty icon={Package} text="Belum ada bahan baku" />
         ) : (
           ingredients.map((ing) => (
-            <Card key={ing.id}>
+            <Card key={ing.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => openEdit(ing as IngredientItem)}>
               <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
                 <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><Package className="w-4 h-4" /></div>
                 <div className="flex-1 min-w-0">
@@ -249,9 +311,9 @@ function IngredientsTab({ branchId }: { branchId: number }) {
         )}
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={(o) => { if (!o) { setOpen(false); resetForm(); } }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Tambah Bahan Baku</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editItem ? "Edit Bahan Baku" : "Tambah Bahan Baku"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5"><label className="text-sm font-medium">Nama</label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="cth. Kopi Arabika" autoFocus /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Satuan</label><Input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="cth. gram, ml, pcs" /></div>
@@ -263,8 +325,10 @@ function IngredientsTab({ branchId }: { branchId: number }) {
             <div className="space-y-1.5"><label className="text-sm font-medium">Stok Minimal (alert)</label><Input type="number" value={minStock} onChange={(e) => setMinStock(e.target.value)} placeholder="200" /></div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Batal</Button>
-            <Button onClick={submit} disabled={createIng.isPending}>{createIng.isPending ? "Menyimpan..." : "Simpan"}</Button>
+            <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>Batal</Button>
+            <Button onClick={submit} disabled={createIng.isPending || updateIng.isPending}>
+              {createIng.isPending || updateIng.isPending ? "Menyimpan..." : "Simpan"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
