@@ -46,6 +46,7 @@ function ProductFormDialog({
   const [name, setName] = useState(product?.name ?? "");
   const [categoryId, setCategoryId] = useState<string>(product?.categoryId ? String(product.categoryId) : "none");
   const [price, setPrice] = useState(product ? String(product.price) : "");
+  const [costPrice, setCostPrice] = useState(product ? String(product.costPrice ?? 0) : "0");
   const [stock, setStock] = useState(product ? String(product.stock) : "0");
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
@@ -64,6 +65,7 @@ function ProductFormDialog({
       name: name.trim(),
       categoryId: categoryId && categoryId !== "none" ? Number(categoryId) : null,
       price: parseFloat(price),
+      costPrice: parseFloat(costPrice) || 0,
       stock: parseInt(stock) || 0,
       imageUrl: imageUrl.trim() || null,
       isActive,
@@ -116,13 +118,17 @@ function ProductFormDialog({
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label>Harga Dasar (Rp)</Label>
+                    <Label>Harga Jual (Rp)</Label>
                     <Input value={price} onChange={e => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>Stok</Label>
-                    <Input type="number" value={stock} onChange={e => setStock(e.target.value)} min="0" placeholder="0" />
+                    <Label>Harga Modal (Rp)</Label>
+                    <Input value={costPrice} onChange={e => setCostPrice(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" />
                   </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Stok</Label>
+                  <Input type="number" value={stock} onChange={e => setStock(e.target.value)} min="0" placeholder="0" />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Kategori</Label>
@@ -610,23 +616,39 @@ export default function ProductsPage() {
                 </div>
               ) : (
                 <div className="border rounded-lg overflow-hidden">
+                  {/* Table header */}
+                  <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-2 bg-muted/50 border-b text-xs text-muted-foreground font-medium">
+                    <div className="pl-14">Produk</div>
+                    <div className="text-right w-20 md:w-28">Harga Modal</div>
+                    <div className="text-right w-24 md:w-32">Harga Jual</div>
+                    <div className="w-20 text-right pr-2">Aksi</div>
+                  </div>
                   {filtered.map((p, idx) => (
-                    <div key={p.id} className={`flex items-center gap-3 md:gap-4 px-3 md:px-4 py-3 hover:bg-muted/30 transition-colors ${idx < filtered.length - 1 ? "border-b" : ""}`}>
-                      <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center text-muted-foreground font-bold">
-                        {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : p.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{p.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                          {p.categoryName && <Badge variant="secondary" className="text-xs">{p.categoryName}</Badge>}
-                          {!p.isActive && <Badge variant="outline" className="text-xs text-muted-foreground">Nonaktif</Badge>}
-                          <span className="text-xs text-muted-foreground hidden sm:inline">{p.stock} stok</span>
-                          {p.stock <= 5 && p.stock > 0 && <Badge variant="outline" className="text-xs text-orange-600 border-orange-200 bg-orange-50">Stok Rendah</Badge>}
-                          {p.stock === 0 && <Badge variant="outline" className="text-xs text-destructive border-destructive/20 bg-destructive/10">Habis</Badge>}
+                    <div key={p.id} className={`flex sm:grid sm:grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-3 hover:bg-muted/30 transition-colors ${idx < filtered.length - 1 ? "border-b" : ""}`}>
+                      <div className="flex items-center gap-3 min-w-0 flex-1 sm:flex-none">
+                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center text-muted-foreground font-bold">
+                          {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : p.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm truncate">{p.name}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            {p.categoryName && <Badge variant="secondary" className="text-xs">{p.categoryName}</Badge>}
+                            {!p.isActive && <Badge variant="outline" className="text-xs text-muted-foreground">Nonaktif</Badge>}
+                            <span className="text-xs text-muted-foreground">{p.stock} stok</span>
+                            {p.stock <= 5 && p.stock > 0 && <Badge variant="outline" className="text-xs text-orange-600 border-orange-200 bg-orange-50">Stok Rendah</Badge>}
+                            {p.stock === 0 && <Badge variant="outline" className="text-xs text-destructive border-destructive/20 bg-destructive/10">Habis</Badge>}
+                          </div>
                         </div>
                       </div>
-                      <p className="font-bold text-sm md:text-base text-primary shrink-0">{formatRp(p.price)}</p>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="shrink-0 text-right sm:w-20 md:w-28">
+                        <p className="text-xs text-muted-foreground">{formatRp(p.costPrice ?? 0)}</p>
+                        <p className="text-[10px] text-muted-foreground sm:hidden">Harga Modal</p>
+                      </div>
+                      <div className="shrink-0 text-right sm:w-24 md:w-32">
+                        <p className="font-bold text-sm md:text-base text-primary">{formatRp(p.price)}</p>
+                        <p className="text-[10px] text-muted-foreground sm:hidden">Harga Jual</p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0 sm:w-20 justify-end">
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEdit(p)}>
                           <Pencil className="w-3.5 h-3.5" />
                         </Button>

@@ -4,6 +4,7 @@ import { Search, Plus, Minus, X, CreditCard, Banknote, QrCode, LayoutGrid, Shopp
 import {
   useListCategories,
   useListProducts,
+  useListProductVariants,
   useCreateOrder,
   useGetMe,
   getListProductsQueryKey,
@@ -21,6 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 
 interface CartItem extends Product {
   cartQuantity: number;
+  variantName?: string;
 }
 
 type PayMethod = "cash" | "card" | "qris";
@@ -36,6 +38,7 @@ export default function CashierPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PayMethod>("cash");
   const [amountPaidStr, setAmountPaidStr] = useState("");
+  const [variantProduct, setVariantProduct] = useState<Product | null>(null);
 
   const { data: categories = [] } = useListCategories();
   const { data: products = [], isLoading: isLoadingProducts } = useListProducts({
@@ -43,25 +46,47 @@ export default function CashierPage() {
     search: searchQuery || undefined,
     active: true,
   });
+  const { data: variants = [], isLoading: isLoadingVariants } = useListProductVariants(
+    variantProduct?.id ?? 0,
+    { query: { queryKey: ["listProductVariants", variantProduct?.id ?? 0], enabled: !!variantProduct } }
+  );
 
   const createOrder = useCreateOrder();
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = (product: Product, variantPrice?: number, variantName?: string) => {
     if (product.stock <= 0) { toast.error("Stok habis"); return; }
+    const effectivePrice = variantPrice ?? product.price;
+    const effectiveName = variantName ? `${product.name} (${variantName})` : product.name;
     setCart((prev) => {
-      const existing = prev.find((p) => p.id === product.id);
+      const existing = prev.find((p) => p.id === product.id && p.variantName === variantName);
       if (existing) {
         if (existing.cartQuantity >= product.stock) { toast.error("Melebihi stok"); return prev; }
-        return prev.map((p) => p.id === product.id ? { ...p, cartQuantity: p.cartQuantity + 1 } : p);
+        return prev.map((p) => p.id === product.id && p.variantName === variantName ? { ...p, cartQuantity: p.cartQuantity + 1 } : p);
       }
-      return [...prev, { ...product, cartQuantity: 1 }];
+      return [...prev, { ...product, name: effectiveName, price: effectivePrice, cartQuantity: 1, variantName }];
     });
   };
 
-  const handleUpdateQuantity = (id: number, delta: number) => {
+  const handleProductClick = (product: Product) => {
+    setVariantProduct(product);
+  };
+
+  const handleSelectVariant = (price: number, variantName: string) => {
+    if (!variantProduct) return;
+    handleAddToCart(variantProduct, price, variantName);
+    setVariantProduct(null);
+  };
+
+  const handleAddWithoutVariant = () => {
+    if (!variantProduct) return;
+    handleAddToCart(variantProduct);
+    setVariantProduct(null);
+  };
+
+  const handleUpdateQuantity = (id: number, variantName: string | undefined, delta: number) => {
     setCart((prev) =>
       prev.map((p) => {
-        if (p.id === id) {
+        if (p.id === id && p.variantName === variantName) {
           const newQ = p.cartQuantity + delta;
           if (newQ > p.stock) { toast.error("Melebihi stok"); return p; }
           return newQ > 0 ? { ...p, cartQuantity: newQ } : p;
@@ -156,7 +181,7 @@ export default function CashierPage() {
                 <Card
                   key={product.id}
                   className={`overflow-hidden cursor-pointer transition-all hover:ring-2 hover:ring-primary hover:shadow-md ${product.stock <= 0 ? "opacity-50 grayscale" : ""}`}
-                  onClick={() => handleAddToCart(product)}
+                  onClick={() => handleProductClick(product)}
                 >
                   <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
                     {product.imageUrl ? (
@@ -184,6 +209,47 @@ export default function CashierPage() {
             </div>
           )}
         </ScrollArea>
+
+        {/* Variant selector dialog */}
+        <Dialog open={!!variantProduct} onOpenChange={() => setVariantProduct(null)}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="text-lg">Pilih Varian</DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-2">
+              <p className="text-sm text-muted-foreground">{variantProduct?.name}</p>
+              {isLoadingVariants ? (
+                <div className="space-y-2">
+                  {[1,2].map(i => <div key={i} className="h-12 rounded-lg bg-muted animate-pulse" />)}
+                </div>
+              ) : variants.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground text-sm">
+                  <p>Produk ini tidak punya varian</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {variants.map((v) => (
+                    <Button
+                      key={v.id}
+                      variant="outline"
+                      className="w-full justify-between h-12"
+                      onClick={() => handleSelectVariant(v.price, v.name)}
+                    >
+                      <span className="font-medium">{v.name}</span>
+                      <span className="text-primary font-bold">{formatRp(v.price)}</span>
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setVariantProduct(null)}>Batal</Button>
+              {variants.length === 0 && (
+                <Button onClick={handleAddWithoutVariant}>Gunakan Harga Dasar</Button>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Cart — desktop sidebar, mobile slide-up */}
@@ -209,9 +275,9 @@ export default function CashierPage() {
                   <div className="flex justify-between items-center">
                     <span className="text-xs text-muted-foreground">{formatRp(item.price)} / item</span>
                     <div className="flex items-center gap-2 bg-muted rounded-md p-1">
-                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded" onClick={() => handleUpdateQuantity(item.id, -1)}><Minus className="w-3 h-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded" onClick={() => handleUpdateQuantity(item.id, item.variantName, -1)}><Minus className="w-3 h-3" /></Button>
                       <span className="text-sm font-semibold w-6 text-center">{item.cartQuantity}</span>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded" onClick={() => handleUpdateQuantity(item.id, 1)}><Plus className="w-3 h-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 rounded" onClick={() => handleUpdateQuantity(item.id, item.variantName, 1)}><Plus className="w-3 h-3" /></Button>
                     </div>
                   </div>
                   <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity" onClick={() => setCart((prev) => prev.filter((p) => p.id !== item.id))}>
@@ -280,9 +346,9 @@ export default function CashierPage() {
                       <div className="flex justify-between items-center">
                         <span className="text-xs text-muted-foreground">{formatRp(item.price)} / item</span>
                         <div className="flex items-center gap-2 bg-muted rounded-md p-1">
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded" onClick={() => handleUpdateQuantity(item.id, -1)}><Minus className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded" onClick={() => handleUpdateQuantity(item.id, item.variantName, -1)}><Minus className="w-3 h-3" /></Button>
                           <span className="text-sm font-semibold w-6 text-center">{item.cartQuantity}</span>
-                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded" onClick={() => handleUpdateQuantity(item.id, 1)}><Plus className="w-3 h-3" /></Button>
+                          <Button variant="ghost" size="icon" className="h-6 w-6 rounded" onClick={() => handleUpdateQuantity(item.id, item.variantName, 1)}><Plus className="w-3 h-3" /></Button>
                         </div>
                       </div>
                       <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => setCart((prev) => prev.filter((p) => p.id !== item.id))}>

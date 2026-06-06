@@ -14,6 +14,8 @@ export interface ProductInput {
   /** @minimum 0 */
   price: number;
   /** @minimum 0 */
+  costPrice?: number;
+  /** @minimum 0 */
   stock: number;
   /** @nullable */
   imageUrl?: string | null;

@@ -1103,7 +1103,7 @@ components:
 
     Product:
       type: object
-      required: [id, name, price, stock, isActive]
+      required: [id, name, price, costPrice, stock, isActive]
       properties:
         id:
           type: integer
@@ -1114,6 +1114,8 @@ components:
         categoryName:
           type: ["string", "null"]
         price:
+          type: number
+        costPrice:
           type: number
         stock:
           type: integer
@@ -1134,6 +1136,10 @@ components:
         price:
           type: number
           minimum: 0
+        costPrice:
+          type: number
+          minimum: 0
+          default: 0
         stock:
           type: integer
           minimum: 0
@@ -1151,6 +1157,9 @@ components:
         categoryId:
           type: ["integer", "null"]
         price:
+          type: number
+          minimum: 0
+        costPrice:
           type: number
           minimum: 0
         stock:

@@ -69,6 +69,7 @@ export interface Product {
   /** @nullable */
   categoryName?: string | null;
   price: number;
+  costPrice: number;
   stock: number;
   /** @nullable */
   imageUrl?: string | null;
@@ -83,6 +84,8 @@ export interface ProductInput {
   /** @minimum 0 */
   price: number;
   /** @minimum 0 */
+  costPrice?: number;
+  /** @minimum 0 */
   stock: number;
   /** @nullable */
   imageUrl?: string | null;
@@ -96,6 +99,8 @@ export interface ProductUpdate {
   categoryId?: number | null;
   /** @minimum 0 */
   price?: number;
+  /** @minimum 0 */
+  costPrice?: number;
   /** @minimum 0 */
   stock?: number;
   /** @nullable */

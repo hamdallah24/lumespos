@@ -8,6 +8,7 @@ export const productsTable = pgTable("products", {
   name: text("name").notNull(),
   categoryId: integer("category_id").references(() => categoriesTable.id, { onDelete: "set null" }),
   price: numeric("price", { precision: 12, scale: 2 }).notNull(),
+  costPrice: numeric("cost_price", { precision: 12, scale: 2 }).notNull().default("0"),
   stock: integer("stock").notNull().default(0),
   imageUrl: text("image_url"),
   isActive: boolean("is_active").notNull().default(true),

@@ -9,6 +9,7 @@ const toProduct = (row: {
   name: string;
   categoryId: number | null;
   price: string;
+  costPrice: string;
   stock: number;
   imageUrl: string | null;
   isActive: boolean;
@@ -19,6 +20,7 @@ const toProduct = (row: {
   categoryId: row.categoryId,
   categoryName: row.categoryName,
   price: parseFloat(row.price),
+  costPrice: parseFloat(row.costPrice),
   stock: row.stock,
   imageUrl: row.imageUrl,
   isActive: row.isActive,
@@ -42,6 +44,7 @@ router.get("/products", async (req, res) => {
       name: productsTable.name,
       categoryId: productsTable.categoryId,
       price: productsTable.price,
+      costPrice: productsTable.costPrice,
       stock: productsTable.stock,
       imageUrl: productsTable.imageUrl,
       isActive: productsTable.isActive,
@@ -55,10 +58,11 @@ router.get("/products", async (req, res) => {
 });
 
 router.post("/products", async (req, res) => {
-  const { name, categoryId, price, stock, imageUrl, isActive } = req.body as {
+  const { name, categoryId, price, costPrice, stock, imageUrl, isActive } = req.body as {
     name: string;
     categoryId?: number | null;
     price: number;
+    costPrice?: number;
     stock?: number;
     imageUrl?: string | null;
     isActive?: boolean;
@@ -73,6 +77,7 @@ router.post("/products", async (req, res) => {
       name: name.trim(),
       categoryId: categoryId ?? null,
       price: String(price),
+      costPrice: costPrice != null ? String(costPrice) : "0",
       stock: stock ?? 0,
       imageUrl: imageUrl ?? null,
       isActive: isActive ?? true,
@@ -96,6 +101,7 @@ router.get("/products/:id", async (req, res) => {
       name: productsTable.name,
       categoryId: productsTable.categoryId,
       price: productsTable.price,
+      costPrice: productsTable.costPrice,
       stock: productsTable.stock,
       imageUrl: productsTable.imageUrl,
       isActive: productsTable.isActive,
@@ -113,10 +119,11 @@ router.get("/products/:id", async (req, res) => {
 
 router.patch("/products/:id", async (req, res) => {
   const id = Number(req.params["id"]);
-  const { name, categoryId, price, stock, imageUrl, isActive } = req.body as {
+  const { name, categoryId, price, costPrice, stock, imageUrl, isActive } = req.body as {
     name?: string;
     categoryId?: number | null;
     price?: number;
+    costPrice?: number;
     stock?: number;
     imageUrl?: string | null;
     isActive?: boolean;
@@ -125,6 +132,7 @@ router.patch("/products/:id", async (req, res) => {
   if (name !== undefined) update["name"] = name.trim();
   if (categoryId !== undefined) update["categoryId"] = categoryId;
   if (price !== undefined) update["price"] = String(price);
+  if (costPrice !== undefined) update["costPrice"] = String(costPrice);
   if (stock !== undefined) update["stock"] = stock;
   if (imageUrl !== undefined) update["imageUrl"] = imageUrl;
   if (isActive !== undefined) update["isActive"] = isActive;

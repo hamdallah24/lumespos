@@ -148,6 +148,7 @@ export const ListProductsResponseItem = zod.object({
   "categoryId": zod.number().nullish(),
   "categoryName": zod.string().nullish(),
   "price": zod.number(),
+  "costPrice": zod.number(),
   "stock": zod.number(),
   "imageUrl": zod.string().nullish(),
   "isActive": zod.boolean()
@@ -161,6 +162,9 @@ export const ListProductsResponse = zod.array(ListProductsResponseItem)
 
 export const createProductBodyPriceMin = 0;
 
+export const createProductBodyCostPriceDefault = 0;
+export const createProductBodyCostPriceMin = 0;
+
 export const createProductBodyStockMin = 0;
 
 
@@ -169,6 +173,7 @@ export const CreateProductBody = zod.object({
   "name": zod.string().min(1),
   "categoryId": zod.number().nullish(),
   "price": zod.number().min(createProductBodyPriceMin),
+  "costPrice": zod.number().min(createProductBodyCostPriceMin).default(createProductBodyCostPriceDefault),
   "stock": zod.number().min(createProductBodyStockMin),
   "imageUrl": zod.string().nullish(),
   "isActive": zod.boolean().optional()
@@ -188,6 +193,7 @@ export const GetProductResponse = zod.object({
   "categoryId": zod.number().nullish(),
   "categoryName": zod.string().nullish(),
   "price": zod.number(),
+  "costPrice": zod.number(),
   "stock": zod.number(),
   "imageUrl": zod.string().nullish(),
   "isActive": zod.boolean()
@@ -204,6 +210,8 @@ export const UpdateProductParams = zod.object({
 
 export const updateProductBodyPriceMin = 0;
 
+export const updateProductBodyCostPriceMin = 0;
+
 export const updateProductBodyStockMin = 0;
 
 
@@ -212,6 +220,7 @@ export const UpdateProductBody = zod.object({
   "name": zod.string().min(1).optional(),
   "categoryId": zod.number().nullish(),
   "price": zod.number().min(updateProductBodyPriceMin).optional(),
+  "costPrice": zod.number().min(updateProductBodyCostPriceMin).optional(),
   "stock": zod.number().min(updateProductBodyStockMin).optional(),
   "imageUrl": zod.string().nullish(),
   "isActive": zod.boolean().optional()
@@ -223,6 +232,7 @@ export const UpdateProductResponse = zod.object({
   "categoryId": zod.number().nullish(),
   "categoryName": zod.string().nullish(),
   "price": zod.number(),
+  "costPrice": zod.number(),
   "stock": zod.number(),
   "imageUrl": zod.string().nullish(),
   "isActive": zod.boolean()
