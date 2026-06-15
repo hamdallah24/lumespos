@@ -1,0 +1,253 @@
+
+> @workspace/api-server@0.0.0 dev /home/runner/workspace/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /home/runner/workspace/artifacts/api-server
+> node ./build.mjs
+
+
+  [37mdist/[0m[1mindex.mjs[0m                       [33m2.6mb ⚠️[0m
+  [37mdist/[0m[1mpino-worker.mjs[0m               [36m153.4kb[0m
+  [37mdist/[0m[1mpino-file.mjs[0m                 [36m142.1kb[0m
+  [37mdist/[0m[1mpino-pretty.mjs[0m               [36m114.6kb[0m
+  [37mdist/[0m[1mthread-stream-worker.mjs[0m        [36m7.3kb[0m
+  [37mdist/[0m[1mindex.mjs.map[0m                   [36m4.9mb[0m
+  [37mdist/[0m[1mpino-worker.mjs.map[0m           [36m256.9kb[0m
+  [37mdist/[0m[1mpino-file.mjs.map[0m             [36m229.0kb[0m
+  [37mdist/[0m[1mpino-pretty.mjs.map[0m           [36m204.0kb[0m
+  [37mdist/[0m[1mthread-stream-worker.mjs.map[0m   [36m12.0kb[0m
+
+⚡ [32mDone in 247ms[0m
+
+> @workspace/api-server@0.0.0 start /home/runner/workspace/artifacts/api-server
+> node --enable-source-maps ./dist/index.mjs
+
+[17:26:53.662] [32mINFO[39m (7740): [36mServer listening[39m
+    [35mport[39m: 8080
+Attention: Clerk collects telemetry data from its SDKs when connected to development instances.
+The data collected is used to inform Clerk's product roadmap.
+To learn more, including how to opt-out from the telemetry program, visit: https://clerk.com/docs/telemetry.
+
+[17:35:14.435] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 2,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 581
+[17:35:14.442] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 1,
+      "method": "POST",
+      "url": "/api/users/sync"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 604
+[17:35:14.553] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 3,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[17:35:14.719] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 4,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 8
+[17:35:14.721] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 5,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 8
+[17:35:14.722] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 6,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 7
+[17:35:23.581] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 7,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 6
+[17:35:23.586] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 8,
+      "method": "GET",
+      "url": "/api/shift-audits/expected"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 9
+[17:37:32.766] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 9,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 16
+[17:37:32.769] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 10,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 16
+[17:37:32.770] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 11,
+      "method": "GET",
+      "url": "/api/shift-audits/expected"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 15
+[17:38:56.127] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 13,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 12
+[17:38:56.161] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 12,
+      "method": "POST",
+      "url": "/api/users/sync"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 48
+[17:38:56.234] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 14,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 4
+[17:38:56.417] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 16,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 4
+[17:38:56.418] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 15,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 6
+[17:38:56.421] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 17,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 2
+[17:44:34.745] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 18,
+      "method": "GET",
+      "url": "/api/inventory"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 506
+[17:44:39.746] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 19,
+      "method": "GET",
+      "url": "/api/ingredients"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 5
+[17:44:41.271] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 20,
+      "method": "GET",
+      "url": "/api/semi-finished"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 5
+[17:44:42.721] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 21,
+      "method": "GET",
+      "url": "/api/ingredients"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 7
+[17:44:50.109] [32mINFO[39m (7740): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 22,
+      "method": "GET",
+      "url": "/api/semi-finished"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 6
+[41m[30m ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL [39m[49m [31m@workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run start`[39m
+[31mCommand failed with signal "SIGTERM"[39m

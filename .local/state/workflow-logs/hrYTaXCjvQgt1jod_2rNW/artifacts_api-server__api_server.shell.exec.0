@@ -1,0 +1,211 @@
+
+> @workspace/api-server@0.0.0 dev /home/runner/workspace/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /home/runner/workspace/artifacts/api-server
+> node ./build.mjs
+
+
+  [37mdist/[0m[1mindex.mjs[0m                       [33m2.6mb ⚠️[0m
+  [37mdist/[0m[1mpino-worker.mjs[0m               [36m153.4kb[0m
+  [37mdist/[0m[1mpino-file.mjs[0m                 [36m142.1kb[0m
+  [37mdist/[0m[1mpino-pretty.mjs[0m               [36m114.6kb[0m
+  [37mdist/[0m[1mthread-stream-worker.mjs[0m        [36m7.3kb[0m
+  [37mdist/[0m[1mindex.mjs.map[0m                   [36m4.9mb[0m
+  [37mdist/[0m[1mpino-worker.mjs.map[0m           [36m256.9kb[0m
+  [37mdist/[0m[1mpino-file.mjs.map[0m             [36m229.0kb[0m
+  [37mdist/[0m[1mpino-pretty.mjs.map[0m           [36m204.0kb[0m
+  [37mdist/[0m[1mthread-stream-worker.mjs.map[0m   [36m12.0kb[0m
+
+⚡ [32mDone in 898ms[0m
+
+> @workspace/api-server@0.0.0 start /home/runner/workspace/artifacts/api-server
+> node --enable-source-maps ./dist/index.mjs
+
+[03:37:01.424] [32mINFO[39m (294): [36mServer listening[39m
+    [35mport[39m: 8080
+Attention: Clerk collects telemetry data from its SDKs when connected to development instances.
+The data collected is used to inform Clerk's product roadmap.
+To learn more, including how to opt-out from the telemetry program, visit: https://clerk.com/docs/telemetry.
+
+[08:44:36.770] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 1,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 631
+[08:44:36.871] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 3,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 4
+[08:44:36.959] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 2,
+      "method": "POST",
+      "url": "/api/users/sync"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 785
+[08:44:37.041] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 4,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 3
+[08:44:37.048] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 5,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 6
+[08:44:37.102] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 6,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 58
+[08:46:05.253] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 8,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 11
+[08:46:05.276] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 7,
+      "method": "POST",
+      "url": "/api/users/sync"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 45
+[08:46:05.359] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 9,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 4
+[08:46:05.518] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 10,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[08:46:05.521] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 11,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[08:46:05.524] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 12,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 4
+[08:48:08.889] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 13,
+      "method": "POST",
+      "url": "/api/users/sync"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 16
+[08:48:08.891] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 14,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 2
+[08:48:08.991] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 15,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 3
+[08:48:09.115] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 16,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 7
+[08:48:09.117] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 18,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 5
+[08:48:09.123] [32mINFO[39m (294): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 17,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 14

@@ -5,9 +5,13 @@ import { requireAuth, requireRole } from "../middlewares/requireAuth";
 
 const router = Router();
 
-router.get("/ingredients", requireAuth, async (req, res) => {
-  const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
-  const rows = await db
+const toSafeNumber = (val: any) => {
+  const num = parseFloat(String(val));
+  return isNaN(num) ? 0 : num;
+};
+
+const getWithStock = async (branchId?: number) => {
+  return db
     .select({
       id: ingredientsTable.id,
       branchId: ingredientsTable.branchId,
@@ -28,88 +32,120 @@ router.get("/ingredients", requireAuth, async (req, res) => {
     )
     .where(branchId ? eq(ingredientsTable.branchId, branchId) : undefined)
     .orderBy(ingredientsTable.name);
+};
 
-  res.json(
-    rows.map((r) => ({
-      id: r.id,
-      branchId: r.branchId,
-      name: r.name,
-      unit: r.unit,
-      costPricePerUnit: parseFloat(r.costPricePerUnit),
-      minimalStock: parseFloat(r.minimalStock),
-      currentStock: parseFloat(r.currentStock),
-    })),
-  );
+const formatRow = (r: any) => ({
+  id: r.id,
+  branchId: r.branchId,
+  name: r.name,
+  unit: r.unit,
+  costPricePerUnit: parseFloat(r.costPricePerUnit),
+  minimalStock: parseFloat(r.minimalStock),
+  currentStock: parseFloat(r.currentStock),
 });
 
+// GET /ingredients
+router.get("/ingredients", requireAuth, async (req, res) => {
+  try {
+    const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    const rows = await getWithStock(branchId);
+    return res.json(rows.map(formatRow));
+  } catch (err: any) {
+    console.error("GET /ingredients error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data bahan baku" });
+  }
+});
+
+// POST /ingredients
 router.post("/ingredients", requireRole("owner", "manager"), async (req, res) => {
-  const { branchId, name, unit, costPricePerUnit, minimalStock } = req.body as {
-    branchId: number;
-    name: string;
-    unit: string;
-    costPricePerUnit?: number;
-    minimalStock?: number;
-  };
-  if (!branchId || !name?.trim() || !unit?.trim()) {
-    res.status(400).json({ error: "branchId, name and unit are required" });
-    return;
+  try {
+    const { branchId, name, unit, costPricePerUnit, minimalStock } = req.body;
+
+    // Validasi input
+    if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
+    if (!name || String(name).trim() === "") return res.status(400).json({ error: "Nama bahan baku wajib diisi" });
+    if (!unit || String(unit).trim() === "") return res.status(400).json({ error: "Satuan wajib diisi" });
+
+    const [result] = await db.insert(ingredientsTable).values({
+      branchId: Number(branchId),
+      name: String(name).trim(),
+      unit: String(unit).trim(),
+      costPricePerUnit: String(toSafeNumber(costPricePerUnit)),
+      minimalStock: String(toSafeNumber(minimalStock)),
+    }).returning();
+
+    return res.status(201).json(formatRow({ ...result, currentStock: "0" }));
+  } catch (err: any) {
+    console.error("POST /ingredients error:", err);
+    if (err.code === "23503") {
+      return res.status(400).json({ error: "Branch tidak ditemukan" });
+    }
+    if (err.code === "23505") {
+      return res.status(409).json({ error: "Bahan baku sudah ada" });
+    }
+    return res.status(500).json({ error: "Gagal menambah bahan baku" });
   }
-  const [created] = await db
-    .insert(ingredientsTable)
-    .values({
-      branchId,
-      name: name.trim(),
-      unit: unit.trim(),
-      costPricePerUnit: String(costPricePerUnit ?? 0),
-      minimalStock: String(minimalStock ?? 0),
-    })
-    .returning();
-  res.status(201).json({
-    ...created,
-    costPricePerUnit: parseFloat(created.costPricePerUnit),
-    minimalStock: parseFloat(created.minimalStock),
-    currentStock: 0,
-  });
 });
 
+// PATCH /ingredients/:id
 router.patch("/ingredients/:id", requireRole("owner", "manager"), async (req, res) => {
-  const id = Number(req.params["id"]);
-  const { name, unit, costPricePerUnit, minimalStock } = req.body as {
-    name?: string;
-    unit?: string;
-    costPricePerUnit?: number;
-    minimalStock?: number;
-  };
-  const update: Record<string, string> = {};
-  if (name !== undefined) update["name"] = name.trim();
-  if (unit !== undefined) update["unit"] = unit.trim();
-  if (costPricePerUnit !== undefined) update["costPricePerUnit"] = String(costPricePerUnit);
-  if (minimalStock !== undefined) update["minimalStock"] = String(minimalStock);
-  if (Object.keys(update).length === 0) {
-    res.status(400).json({ error: "No fields to update" });
-    return;
+  try {
+    const id = Number(req.params["id"]);
+    if (isNaN(id)) return res.status(400).json({ error: "ID tidak valid" });
+
+    const { name, unit, costPricePerUnit, minimalStock } = req.body;
+    const update: Record<string, string> = {};
+
+    if (name !== undefined) update["name"] = String(name).trim();
+    if (unit !== undefined) update["unit"] = String(unit).trim();
+    if (costPricePerUnit !== undefined) update["costPricePerUnit"] = String(toSafeNumber(costPricePerUnit));
+    if (minimalStock !== undefined) update["minimalStock"] = String(toSafeNumber(minimalStock));
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).json({ error: "Tidak ada field yang diupdate" });
+    }
+
+    const [updated] = await db
+      .update(ingredientsTable)
+      .set(update)
+      .where(eq(ingredientsTable.id, id))
+      .returning();
+
+    if (!updated) return res.status(404).json({ error: "Bahan baku tidak ditemukan" });
+
+    // Ambil currentStock dari DB setelah update
+    const rows = await getWithStock(updated.branchId);
+    const fresh = rows.find((r) => r.id === id);
+
+    return res.json(formatRow(fresh ?? { ...updated, currentStock: "0" }));
+  } catch (err: any) {
+    console.error("PATCH /ingredients error:", err);
+    return res.status(500).json({ error: "Gagal mengupdate bahan baku" });
   }
-  const [updated] = await db
-    .update(ingredientsTable)
-    .set(update)
-    .where(eq(ingredientsTable.id, id))
-    .returning();
-  if (!updated) {
-    res.status(404).json({ error: "Not found" });
-    return;
-  }
-  res.json({
-    ...updated,
-    costPricePerUnit: parseFloat(updated.costPricePerUnit),
-    minimalStock: parseFloat(updated.minimalStock),
-    currentStock: 0,
-  });
 });
 
+// DELETE /ingredients/:id
 router.delete("/ingredients/:id", requireRole("owner", "manager"), async (req, res) => {
-  const id = Number(req.params["id"]);
-  await db.delete(ingredientsTable).where(eq(ingredientsTable.id, id));
-  res.status(204).send();
+  try {
+    const id = Number(req.params["id"]);
+    if (isNaN(id)) return res.status(400).json({ error: "ID tidak valid" });
+
+    const [existing] = await db
+      .select()
+      .from(ingredientsTable)
+      .where(eq(ingredientsTable.id, id));
+
+    if (!existing) return res.status(404).json({ error: "Bahan baku tidak ditemukan" });
+
+    await db.delete(ingredientsTable).where(eq(ingredientsTable.id, id));
+    return res.status(204).send();
+  } catch (err: any) {
+    console.error("DELETE /ingredients error:", err);
+    if (err.code === "23503") {
+      return res.status(409).json({ error: "Bahan baku tidak bisa dihapus karena masih digunakan di resep" });
+    }
+    return res.status(500).json({ error: "Gagal menghapus bahan baku" });
+  }
 });
 
-export default router;
+export default router

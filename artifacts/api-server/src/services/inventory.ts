@@ -119,15 +119,26 @@ export type RecipeRow = {
   quantity: number;
 };
 
+// ============================================================
+// FUNGSI getRecipeRows YANG SUDAH DIPERBAIKI
+// ============================================================
 export async function getRecipeRows(
   tx: Executor,
-  parentType: "product" | "semi_finished",
+  parentType: "product" | "semi_finished" | "product_variant",
   parentId: number,
 ): Promise<RecipeRow[]> {
   const rows = await tx
     .select()
     .from(recipesTable)
-    .where(and(eq(recipesTable.parentType, parentType), eq(recipesTable.parentId, parentId)));
+    .where(
+      and(
+        eq(recipesTable.parentType, parentType),
+        eq(recipesTable.parentId, parentId)
+      )
+    );
+  
+  console.log(`[getRecipeRows] ${parentType}:${parentId} -> found ${rows.length} rows`);
+  
   return rows.map((r) => ({
     componentType: r.componentType as ItemType,
     componentId: r.componentId,
@@ -140,7 +151,7 @@ export async function getRecipeRows(
  */
 export async function computeUnitCogs(
   tx: Executor,
-  parentType: "product" | "semi_finished",
+  parentType: "product" | "semi_finished" | "product_variant",
   parentId: number,
 ): Promise<number> {
   const rows = await getRecipeRows(tx, parentType, parentId);
@@ -153,7 +164,7 @@ export async function computeUnitCogs(
 }
 
 /**
- * Deduct direct recipe components for selling `qty` of a product.
+ * Deduct direct recipe components for selling `qty` of a product or product variant.
  * Returns total COGS of the deducted components.
  */
 export async function deductForProduct(
@@ -161,8 +172,18 @@ export async function deductForProduct(
   branchId: number,
   productId: number,
   qty: number,
+  productVariantId?: number | null,
 ): Promise<number> {
-  const rows = await getRecipeRows(tx, "product", productId);
+  let rows: RecipeRow[] = [];
+
+  if (productVariantId) {
+    rows = await getRecipeRows(tx, "product_variant", productVariantId);
+  }
+
+  if (rows.length === 0) {
+    rows = await getRecipeRows(tx, "product", productId);
+  }
+
   let cogs = 0;
   for (const r of rows) {
     const deductQty = r.quantity * qty;

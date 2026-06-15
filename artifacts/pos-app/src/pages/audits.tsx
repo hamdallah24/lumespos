@@ -28,7 +28,7 @@ function statusBadge(status: string) {
 
 export default function AuditsPage() {
   const { branchId, currentBranch } = useBranch();
-  const { data: audits = [], isLoading } = useListShiftAudits({ branchId });
+  const { data: audits = [], isLoading } = useListShiftAudits({ branchId: branchId ?? 1 });
   const [selected, setSelected] = useState<ShiftAudit | null>(null);
 
   return (
@@ -72,9 +72,14 @@ export default function AuditsPage() {
         </div>
       </ScrollArea>
 
-      {selected && branchId && (
-        <AuditDetailDialog auditId={selected.id} branchId={branchId} onClose={() => setSelected(null)} />
-      )}
+      {/* Paksa branchId menjadi angka (number) */}
+{selected && typeof branchId === 'number' && (
+  <AuditDetailDialog 
+    auditId={selected.id} 
+    branchId={branchId} 
+    onClose={() => setSelected(null)} 
+  />
+)}
     </div>
   );
 }
@@ -84,7 +89,9 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
   const { data: detail, isLoading } = useGetShiftAudit(auditId);
   const verify = useVerifyShiftAudit();
 
-  const recon = detail?.reconciliation ?? [];
+  const recon = (detail?.reconciliation ?? []).filter(
+  (r) => r.itemType === "semi_finished"
+);
   const hasWarning = recon.some((r) => r.isWarning);
 
   const onVerify = () => {

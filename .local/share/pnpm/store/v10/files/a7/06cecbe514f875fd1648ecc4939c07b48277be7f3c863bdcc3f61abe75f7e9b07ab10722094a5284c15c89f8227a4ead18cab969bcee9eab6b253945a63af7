@@ -1,0 +1,5 @@
+import "./_chunks/constants-BVchI2jn.mjs";
+import "./_chunks/instance-oOmLJefy.mjs";
+import { _ as withoutTrailingSlash, a as hasLeadingSlash, c as isCurrentDevAccountPortalOrigin, d as joinURL, f as parseSearchParams, g as withoutLeadingSlash, h as withTrailingSlash, i as getScriptUrl, l as isLegacyDevAccountPortalOrigin, m as withLeadingSlash, n as cleanDoubleSlashes, o as hasTrailingSlash, p as stripScheme, r as getClerkJsMajorVersionOrTag, s as isAbsoluteUrl, t as addClerkPrefix, u as isNonEmptyURL } from "./_chunks/url-BwZwnCsF.mjs";
+
+export { addClerkPrefix, cleanDoubleSlashes, getClerkJsMajorVersionOrTag, getScriptUrl, hasLeadingSlash, hasTrailingSlash, isAbsoluteUrl, isCurrentDevAccountPortalOrigin, isLegacyDevAccountPortalOrigin, isNonEmptyURL, joinURL, parseSearchParams, stripScheme, withLeadingSlash, withTrailingSlash, withoutLeadingSlash, withoutTrailingSlash };

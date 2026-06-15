@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, shiftAuditsTable, usersTable, currentInventoryTable } from "@workspace/db";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middlewares/requireAuth";
 import { listInventoryForBranch, type Executor, type ItemType } from "../services/inventory";
 
@@ -50,6 +50,208 @@ function buildReconciliation(expected: StockEntry[], actual: StockEntry[]) {
   });
   return { reconciliation, maxDiscrepancyPct };
 }
+
+// ============================================================
+// GET /api/shift/active - cek shift aktif untuk cashier
+// ============================================================
+router.get("/shift/sales", requireAuth, async (req, res) => {
+  try {
+    const shiftId = Number(req.query.shiftId);
+    if (!shiftId || isNaN(shiftId)) {
+      return res.status(400).json({ error: "shiftId required" });
+    }
+
+    // Ambil data shift
+    const [shift] = await db
+      .select()
+      .from(shiftAuditsTable)
+      .where(eq(shiftAuditsTable.id, shiftId));
+
+    if (!shift) {
+      return res.status(404).json({ error: "Shift not found" });
+    }
+
+    if (!shift.shiftStart) {
+      return res.status(400).json({ error: "Shift start date is missing" });
+    }
+
+    // Gunakan sql template literal dengan parameter binding
+    const result = await db.execute(sql`
+      SELECT 
+        COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash,
+        COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris,
+        COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card,
+        COUNT(*) as total_orders
+      FROM orders 
+      WHERE branch_id = ${shift.branchId}
+        AND created_at >= ${shift.shiftStart}
+        AND status = 'completed'
+    `);
+
+    const firstRow = result.rows[0] as any;
+    const cashTotal = firstRow ? parseFloat(firstRow.cash || 0) : 0;
+    const qrisTotal = firstRow ? parseFloat(firstRow.qris || 0) : 0;
+    const cardTotal = firstRow ? parseFloat(firstRow.card || 0) : 0;
+
+    return res.json({
+      cash: cashTotal,
+      qris: qrisTotal,
+      card: cardTotal,
+      total: cashTotal + qrisTotal + cardTotal,
+      totalOrders: firstRow ? parseInt(firstRow.total_orders || 0) : 0,
+    });
+  } catch (error) {
+    console.error("GET /shift/sales error:", error);
+    return res.status(500).json({ error: "Internal server error: " + (error as Error).message });
+  }
+});
+
+// ============================================================
+// POST /api/shift/start - mulai shift baru dengan modal awal
+// ============================================================
+router.post("/shift/start", requireAuth, async (req, res) => {
+  try {
+    const { branchId, cashierId, cashierName, openingBalance } = req.body;
+    const userId = (req.user as any)?.id;
+
+    if (!branchId || !cashierId) {
+      return res.status(400).json({ error: "branchId and cashierId are required" });
+    }
+    if (openingBalance === undefined || openingBalance < 0) {
+      return res.status(400).json({ error: "openingBalance must be >= 0" });
+    }
+
+    // Cek apakah sudah ada shift aktif
+    const existingShift = await db
+      .select()
+      .from(shiftAuditsTable)
+      .where(
+        and(
+          eq(shiftAuditsTable.cashierId, cashierId),
+          eq(shiftAuditsTable.branchId, branchId),
+          eq(shiftAuditsTable.status, "active")
+        )
+      )
+      .limit(1);
+
+    if (existingShift.length > 0) {
+      return res.status(400).json({ error: "Masih ada shift aktif. Tutup shift terlebih dahulu." });
+    }
+
+    const [newShift] = await db
+      .insert(shiftAuditsTable)
+      .values({
+        branchId,
+        cashierId,
+        openingBalance: String(openingBalance),
+        shiftStart: new Date(),
+        status: "active",
+      })
+      .returning();
+
+    return res.status(201).json({
+      success: true,
+      shift: {
+        id: newShift.id,
+        openingBalance: parseFloat(newShift.openingBalance),
+        shiftStart: newShift.shiftStart,
+      },
+    });
+  } catch (error) {
+    console.error("POST /shift/start error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ============================================================
+// POST /api/shift/end - tutup shift
+// ============================================================
+// GET /api/shift/active - cek shift aktif untuk cashier
+router.get("/shift/active", requireAuth, async (req, res) => {
+  try {
+    const cashierId = (req.user as any)?.id;
+    const branchId = Number(req.query.branchId);
+
+    if (!cashierId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    if (!branchId) {
+      return res.status(400).json({ error: "branchId required" });
+    }
+
+    const activeShift = await db
+      .select()
+      .from(shiftAuditsTable)
+      .where(
+        and(
+          eq(shiftAuditsTable.cashierId, cashierId),
+          eq(shiftAuditsTable.branchId, branchId),
+          eq(shiftAuditsTable.status, "active")
+        )
+      )
+      .limit(1);
+
+    if (activeShift.length === 0) {
+      return res.json({ hasActiveShift: false });
+    }
+
+    return res.json({
+      hasActiveShift: true,
+      shift: {
+        id: activeShift[0].id,
+        openingBalance: parseFloat(activeShift[0].openingBalance),
+        shiftStart: activeShift[0].shiftStart,
+      },
+    });
+  } catch (error) {
+    console.error("GET /shift/active error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ============================================================
+// GET /api/shift/sales - ambil total penjualan shift
+// ============================================================
+router.get("/shift/sales", requireAuth, async (req, res) => {
+  try {
+    const shiftId = Number(req.query.shiftId);
+    if (!shiftId) {
+      return res.status(400).json({ error: "shiftId required" });
+    }
+
+    const [shift] = await db
+      .select()
+      .from(shiftAuditsTable)
+      .where(eq(shiftAuditsTable.id, shiftId));
+
+    if (!shift) {
+      return res.status(404).json({ error: "Shift not found" });
+    }
+
+    const [sales] = await db
+      .select({
+        totalCash: sql<string>`COALESCE(SUM(total), 0)`,
+      })
+      .from(sql`orders`)
+      .where(
+        and(
+          eq(sql`branch_id`, shift.branchId),
+          eq(sql`payment_method`, "cash"),
+          sql`created_at >= ${shift.shiftStart}`,
+          eq(sql`status`, "completed")
+        )
+      );
+
+    return res.json({ totalSales: parseFloat(sales?.totalCash || "0") });
+  } catch (error) {
+    console.error("GET /shift/sales error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// ============================================================
+// ENDPOINT YANG SUDAH ADA SEBELUMNYA
+// ============================================================
 
 router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) => {
   const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;

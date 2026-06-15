@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Minus, X, CreditCard, Banknote, QrCode, LayoutGrid, ShoppingBag } from "lucide-react";
+import { Search, Plus, Minus, X, CreditCard, Banknote, QrCode, LayoutGrid, ShoppingBag, LogOut } from "lucide-react";
 import {
   useListCategories,
   useListProducts,
@@ -9,7 +9,6 @@ import {
   useGetMe,
   getListProductsQueryKey,
 } from "@workspace/api-client-react";
-import type { Product } from "@workspace/api-client-react";
 import { useBranch } from "@/lib/branch";
 import { formatRp } from "@/lib/format";
 import { Input } from "@/components/ui/input";
@@ -19,9 +18,25 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { StartShiftDialog } from "@/components/StartShiftDialog";
+import { CloseShiftDialog } from "@/components/CloseShiftDialog";
+
+type Product = {
+  id: number;
+  name: string;
+  price: number;
+  categoryId?: number;
+  imageUrl?: string;
+};
+
+type Category = {
+  id: number;
+  name: string;
+};
 
 interface CartItem extends Product {
   cartQuantity: number;
+  variantId?: number;
   variantName?: string;
 }
 
@@ -32,6 +47,20 @@ export default function CashierPage() {
   const { data: me } = useGetMe();
   const { branchId } = useBranch();
 
+  // ============================================================
+  // STATE UNTUK START SHIFT & TUTUP SHIFT
+  // ============================================================
+  const [showStartShift, setShowStartShift] = useState(false);
+  const [isShiftActive, setIsShiftActive] = useState(false);
+  const [isCheckingShift, setIsCheckingShift] = useState(true);
+  const [activeShiftId, setActiveShiftId] = useState<number | null>(null);
+  const [openingBalance, setOpeningBalance] = useState(0);
+  const [totalSales, setTotalSales] = useState(0);
+  const [closeShiftDialogOpen, setCloseShiftDialogOpen] = useState(false);
+
+  // ============================================================
+  // STATE YANG SUDAH ADA
+  // ============================================================
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -39,13 +68,87 @@ export default function CashierPage() {
   const [paymentMethod, setPaymentMethod] = useState<PayMethod>("cash");
   const [amountPaidStr, setAmountPaidStr] = useState("");
   const [variantProduct, setVariantProduct] = useState<Product | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
 
-  const { data: categories = [] } = useListCategories();
-  const { data: products = [], isLoading: isLoadingProducts } = useListProducts({
+  // ============================================================
+  // FUNGSI CEK SHIFT AKTIF
+  // ============================================================
+  const checkActiveShift = async () => {
+    if (!branchId) return;
+    
+    setIsCheckingShift(true);
+    try {
+      const res = await fetch(`/api/shift/active?branchId=${branchId}`, {
+        credentials: "include",
+      });
+      const data = await res.json();
+      
+      if (data.hasActiveShift) {
+        setIsShiftActive(true);
+        setActiveShiftId(data.shift.id);
+        setOpeningBalance(data.shift.openingBalance);
+        setShowStartShift(false);
+        
+        // Ambil total penjualan tunai untuk shift ini
+        const salesRes = await fetch(`/api/shift/sales?shiftId=${data.shift.id}`, {
+          credentials: "include",
+        });
+        const salesData = await salesRes.json();
+        setTotalSales(salesData.totalSales || 0);
+      } else {
+        setIsShiftActive(false);
+        setShowStartShift(true);
+      }
+    } catch (error) {
+      console.error("Check shift error:", error);
+      setIsShiftActive(false);
+      setShowStartShift(true);
+    } finally {
+      setIsCheckingShift(false);
+    }
+  };
+
+  // ============================================================
+  // USEFFECT UNTUK CEK SHIFT SAAT BRANCHID TERSEDIA
+  // ============================================================
+  useEffect(() => {
+    if (branchId) {
+      checkActiveShift();
+    }
+  }, [branchId]);
+
+  // ============================================================
+  // ROLE GUARD: Owner/Manager tidak bisa akses kasir
+  // ============================================================
+  if (me?.role === "owner" || me?.role === "manager") {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Card className="p-8 text-center max-w-md">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+            <LogOut className="w-8 h-8 text-destructive" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">Akses Ditolak</h2>
+          <p className="text-muted-foreground mb-4">
+            Halaman ini khusus untuk kasir. Silakan gunakan menu lain.
+          </p>
+          <Button onClick={() => window.location.href = "/dashboard"}>
+            Kembali ke Dashboard
+          </Button>
+        </Card>
+      </div>
+    );
+  }
+
+  // ============================================================
+  // HOOKS DAN FUNGSI YANG SUDAH ADA
+  // ============================================================
+  const { data: categoriesRaw } = useListCategories();
+  const categories = Array.isArray(categoriesRaw) ? categoriesRaw : (categoriesRaw as any)?.data ?? (categoriesRaw as any)?.items ?? [];
+  const { data: productsRaw, isLoading: isLoadingProducts } = useListProducts({
+    branchId: branchId ?? 0,
     categoryId: activeCategory || undefined,
-    search: searchQuery || undefined,
-    active: true,
-  });
+  } as any);
+  const products = Array.isArray(productsRaw) ? productsRaw : (productsRaw as any)?.data ?? (productsRaw as any)?.items ?? [];
   const { data: variants = [], isLoading: isLoadingVariants } = useListProductVariants(
     variantProduct?.id ?? 0,
     { query: { queryKey: ["listProductVariants", variantProduct?.id ?? 0], enabled: !!variantProduct } }
@@ -53,17 +156,15 @@ export default function CashierPage() {
 
   const createOrder = useCreateOrder();
 
-  const handleAddToCart = (product: Product, variantPrice?: number, variantName?: string) => {
-    if (product.stock <= 0) { toast.error("Stok habis"); return; }
+  const handleAddToCart = (product: Product, variantPrice?: number, variantName?: string, variantId?: number) => {
     const effectivePrice = variantPrice ?? product.price;
     const effectiveName = variantName ? `${product.name} (${variantName})` : product.name;
     setCart((prev) => {
       const existing = prev.find((p) => p.id === product.id && p.variantName === variantName);
       if (existing) {
-        if (existing.cartQuantity >= product.stock) { toast.error("Melebihi stok"); return prev; }
         return prev.map((p) => p.id === product.id && p.variantName === variantName ? { ...p, cartQuantity: p.cartQuantity + 1 } : p);
       }
-      return [...prev, { ...product, name: effectiveName, price: effectivePrice, cartQuantity: 1, variantName }];
+      return [...prev, { ...product, name: effectiveName, price: effectivePrice, cartQuantity: 1, variantName, variantId }];
     });
   };
 
@@ -71,9 +172,9 @@ export default function CashierPage() {
     setVariantProduct(product);
   };
 
-  const handleSelectVariant = (price: number, variantName: string) => {
+  const handleSelectVariant = (price: number, variantName: string, variantId: number) => {
     if (!variantProduct) return;
-    handleAddToCart(variantProduct, price, variantName);
+    handleAddToCart(variantProduct, price, variantName, variantId);
     setVariantProduct(null);
   };
 
@@ -85,14 +186,12 @@ export default function CashierPage() {
 
   const handleUpdateQuantity = (id: number, variantName: string | undefined, delta: number) => {
     setCart((prev) =>
-      prev.map((p) => {
-        if (p.id === id && p.variantName === variantName) {
-          const newQ = p.cartQuantity + delta;
-          if (newQ > p.stock) { toast.error("Melebihi stok"); return p; }
-          return newQ > 0 ? { ...p, cartQuantity: newQ } : p;
-        }
-        return p;
-      }).filter((p) => p.cartQuantity > 0)
+      prev.flatMap((p) => {
+        if (p.id !== id || p.variantName !== variantName) return p;
+        const newQ = p.cartQuantity + delta;
+        if (newQ <= 0) return [];
+        return { ...p, cartQuantity: newQ };
+      })
     );
   };
 
@@ -112,7 +211,11 @@ export default function CashierPage() {
           cashierId: me?.id ?? null,
           paymentMethod,
           amountPaid: paymentMethod === "cash" ? amountPaid : cartTotal,
-          items: cart.map((item) => ({ productId: item.id, quantity: item.cartQuantity })),
+          items: cart.map((item) => ({
+            productId: item.id,
+            productVariantId: item.variantId ?? null,
+            quantity: item.cartQuantity
+          })),
         },
       },
       {
@@ -122,14 +225,50 @@ export default function CashierPage() {
           setPaymentDialogOpen(false);
           setAmountPaidStr("");
           queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
+          // Refresh total penjualan untuk shift
+          checkActiveShift();
         },
         onError: () => toast.error("Gagal memproses transaksi"),
       }
     );
   };
 
-  const [cartOpen, setCartOpen] = useState(false);
+  // ============================================================
+  // RENDER CONDITIONAL UNTUK START SHIFT
+  // ============================================================
+  
+  // Jika sedang mengecek shift
+  if (isCheckingShift) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Memeriksa status shift...</p>
+        </div>
+      </div>
+    );
+  }
 
+  // Jika shift belum aktif, tampilkan dialog start shift
+  if (!isShiftActive && showStartShift) {
+    return (
+      <StartShiftDialog
+        open={showStartShift}
+        onStart={() => {
+          setShowStartShift(false);
+          setIsShiftActive(true);
+          checkActiveShift();
+        }}
+        branchId={branchId ?? 0}
+        cashierId={me?.id ?? 0}
+        cashierName={me?.name ?? "Kasir"}
+      />
+    );
+  }
+
+  // ============================================================
+  // RENDER HALAMAN KASIR NORMAL (jika shift aktif)
+  // ============================================================
   return (
     <div className="flex h-full w-full bg-background overflow-hidden flex-col md:flex-row">
       {/* Products area */}
@@ -144,6 +283,18 @@ export default function CashierPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
+          
+          {/* Tombol Tutup Shift */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1"
+            onClick={() => setCloseShiftDialogOpen(true)}
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="hidden sm:inline">Tutup Shift</span>
+          </Button>
+          
           {/* Mobile cart toggle */}
           <Button
             variant="outline"
@@ -163,7 +314,7 @@ export default function CashierPage() {
 
         <div className="px-4 md:px-6 py-3 md:py-4 flex gap-2 overflow-x-auto shrink-0 no-scrollbar">
           <Button variant={activeCategory === null ? "default" : "outline"} className="rounded-full shrink-0 text-xs md:text-sm" onClick={() => setActiveCategory(null)}>Semua</Button>
-          {categories.map((c) => (
+          {categories.map((c: { id: number; name: string }) => (
             <Button key={c.id} variant={activeCategory === c.id ? "default" : "outline"} className="rounded-full shrink-0 text-xs md:text-sm" onClick={() => setActiveCategory(c.id)}>
               {c.name}
             </Button>
@@ -177,10 +328,10 @@ export default function CashierPage() {
             </div>
           ) : products.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {products.map((product) => (
+              {products.map((product: Product) => (
                 <Card
                   key={product.id}
-                  className={`overflow-hidden cursor-pointer transition-all hover:ring-2 hover:ring-primary hover:shadow-md ${product.stock <= 0 ? "opacity-50 grayscale" : ""}`}
+                  className="overflow-hidden cursor-pointer transition-all hover:ring-2 hover:ring-primary hover:shadow-md"
                   onClick={() => handleProductClick(product)}
                 >
                   <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
@@ -196,7 +347,6 @@ export default function CashierPage() {
                     <h3 className="font-semibold text-xs md:text-sm truncate">{product.name}</h3>
                     <div className="flex justify-between items-end mt-1">
                       <p className="text-primary font-bold text-xs md:text-sm">{formatRp(product.price)}</p>
-                      <p className="text-[10px] md:text-xs text-muted-foreground">{product.stock} stok</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -233,7 +383,7 @@ export default function CashierPage() {
                       key={v.id}
                       variant="outline"
                       className="w-full justify-between h-12"
-                      onClick={() => handleSelectVariant(v.price, v.name)}
+                      onClick={() => handleSelectVariant(v.price, v.name, v.id)}
                     >
                       <span className="font-medium">{v.name}</span>
                       <span className="text-primary font-bold">{formatRp(v.price)}</span>
@@ -252,7 +402,7 @@ export default function CashierPage() {
         </Dialog>
       </div>
 
-      {/* Cart — desktop sidebar, mobile slide-up */}
+      {/* Cart — desktop sidebar */}
       <div className="hidden md:flex w-96 bg-card border-l flex-col h-full shrink-0 shadow-lg z-10">
         <div className="p-4 border-b shrink-0 flex justify-between items-center bg-muted/30">
           <h2 className="font-bold text-lg">Pesanan Saat Ini</h2>
@@ -267,7 +417,7 @@ export default function CashierPage() {
           {cart.length > 0 ? (
             <div className="space-y-2">
               {cart.map((item) => (
-                <div key={item.id} className="p-2 border rounded-lg bg-background flex flex-col gap-2 group relative">
+                <div key={`cart-${item.id}-${item.variantName ?? 'default'}`} className="p-2 border rounded-lg bg-background flex flex-col gap-2 group relative">
                   <div className="flex justify-between">
                     <span className="font-medium text-sm pr-6 truncate">{item.name}</span>
                     <span className="font-bold text-sm shrink-0">{formatRp(item.price * item.cartQuantity)}</span>
@@ -338,7 +488,7 @@ export default function CashierPage() {
               {cart.length > 0 ? (
                 <div className="space-y-2">
                   {cart.map((item) => (
-                    <div key={item.id} className="p-2 border rounded-lg bg-background flex flex-col gap-2 relative">
+                    <div key={`receipt-${item.id}-${item.variantName ?? 'default'}`} className="p-2 border rounded-lg bg-background flex flex-col gap-2 relative">
                       <div className="flex justify-between">
                         <span className="font-medium text-sm pr-8 truncate">{item.name}</span>
                         <span className="font-bold text-sm shrink-0">{formatRp(item.price * item.cartQuantity)}</span>
@@ -461,6 +611,22 @@ export default function CashierPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog Tutup Shift */}
+      <CloseShiftDialog
+        open={closeShiftDialogOpen}
+        onClose={() => setCloseShiftDialogOpen(false)}
+        onSuccess={() => {
+          setCloseShiftDialogOpen(false);
+          setIsShiftActive(false);
+          setShowStartShift(true);
+          setCart([]);
+          checkActiveShift();
+        }}
+        shiftId={activeShiftId ?? 0}
+        openingBalance={openingBalance}
+        //totalSales={totalSales}
+      />
     </div>
   );
 }

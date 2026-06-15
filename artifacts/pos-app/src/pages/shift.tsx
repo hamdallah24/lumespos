@@ -22,7 +22,8 @@ export default function ShiftPage() {
   const qc = useQueryClient();
   const { branchId, currentBranch } = useBranch();
   const { data: me } = useGetMe();
-  const { data: expected = [], isLoading } = useGetExpectedStock({ branchId });
+  const { data: expected = [], isLoading } = useGetExpectedStock({ branchId: branchId ?? undefined });
+  const filteredExpected = expected.filter((it) => it.itemType === "semi_finished");
   const createAudit = useCreateShiftAudit();
   const requestUpload = useRequestUploadUrl();
 
@@ -119,7 +120,7 @@ export default function ShiftPage() {
 
   const submit = async () => {
     if (!branchId) return;
-    if (!photoBlob) { toast.error("Ambil foto bukti stok terlebih dahulu"); return; }
+  //   if (!photoBlob) { toast.error("Ambil foto bukti stok terlebih dahulu"); return; }
     const actualStock: ShiftAuditStockEntry[] = expected.map((it) => ({
       itemType: it.itemType,
       itemId: it.itemId,
@@ -129,7 +130,7 @@ export default function ShiftPage() {
     }));
     setUploading(true);
     try {
-      const photoProofUrl = await uploadPhoto();
+     const photoProofUrl = photoBlob ? await uploadPhoto() : null;
       await createAudit.mutateAsync({
         data: {
           branchId,
@@ -173,11 +174,11 @@ export default function ShiftPage() {
                 </p>
                 {isLoading ? (
                   <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-12 bg-muted rounded animate-pulse" />)}</div>
-                ) : expected.length === 0 ? (
+                ) : filteredExpected.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-6 text-center">Belum ada bahan/stok untuk dihitung.</p>
                 ) : (
                   <div className="space-y-2">
-                    {expected.map((it) => (
+                    {filteredExpected.map((it) => (
                       <div key={keyOf(it)} className="flex items-center gap-2 md:gap-3 p-2 rounded-lg border">
                         <div className="w-8 h-8 rounded bg-primary/10 text-primary flex items-center justify-center shrink-0">
                           {it.itemType === "semi_finished" ? <FlaskConical className="w-4 h-4" /> : <Package className="w-4 h-4" />}

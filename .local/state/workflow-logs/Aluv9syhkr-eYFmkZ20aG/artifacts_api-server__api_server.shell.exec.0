@@ -1,0 +1,793 @@
+
+> @workspace/api-server@0.0.0 dev /home/runner/workspace/artifacts/api-server
+> export NODE_ENV=development && pnpm run build && pnpm run start
+
+
+> @workspace/api-server@0.0.0 build /home/runner/workspace/artifacts/api-server
+> node ./build.mjs
+
+
+  [37mdist/[0m[1mindex.mjs[0m                       [33m2.6mb ⚠️[0m
+  [37mdist/[0m[1mpino-worker.mjs[0m               [36m153.4kb[0m
+  [37mdist/[0m[1mpino-file.mjs[0m                 [36m142.1kb[0m
+  [37mdist/[0m[1mpino-pretty.mjs[0m               [36m114.6kb[0m
+  [37mdist/[0m[1mthread-stream-worker.mjs[0m        [36m7.3kb[0m
+  [37mdist/[0m[1mindex.mjs.map[0m                   [36m4.9mb[0m
+  [37mdist/[0m[1mpino-worker.mjs.map[0m           [36m256.9kb[0m
+  [37mdist/[0m[1mpino-file.mjs.map[0m             [36m229.0kb[0m
+  [37mdist/[0m[1mpino-pretty.mjs.map[0m           [36m204.0kb[0m
+  [37mdist/[0m[1mthread-stream-worker.mjs.map[0m   [36m12.0kb[0m
+
+⚡ [32mDone in 267ms[0m
+
+> @workspace/api-server@0.0.0 start /home/runner/workspace/artifacts/api-server
+> node --enable-source-maps ./dist/index.mjs
+
+[18:12:41.566] [32mINFO[39m (12967): [36mServer listening[39m
+    [35mport[39m: 8080
+Attention: Clerk collects telemetry data from its SDKs when connected to development instances.
+The data collected is used to inform Clerk's product roadmap.
+To learn more, including how to opt-out from the telemetry program, visit: https://clerk.com/docs/telemetry.
+
+[18:12:46.863] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 1,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 293
+[18:12:46.873] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 2,
+      "method": "POST",
+      "url": "/api/users/sync"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 296
+[18:12:46.972] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 3,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 11
+[18:12:47.138] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 5,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 8
+[18:12:47.141] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 4,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 12
+[18:14:10.168] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 6,
+      "method": "DELETE",
+      "url": "/api/products/10"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 46
+[18:14:10.262] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 7,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:14:11.756] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 8,
+      "method": "DELETE",
+      "url": "/api/products/2"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 7
+[18:14:11.849] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 9,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 6
+[18:14:14.101] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 10,
+      "method": "DELETE",
+      "url": "/api/products/8"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 6
+[18:14:14.194] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 11,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:14:17.250] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 12,
+      "method": "DELETE",
+      "url": "/api/products/5"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 6
+[18:14:17.346] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 13,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:14:18.710] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 14,
+      "method": "DELETE",
+      "url": "/api/products/3"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 7
+[18:14:18.804] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 15,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:14:20.225] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 16,
+      "method": "DELETE",
+      "url": "/api/products/11"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 7
+[18:14:20.318] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 17,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[18:14:21.922] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 18,
+      "method": "DELETE",
+      "url": "/api/products/1"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 5
+[18:14:22.011] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 19,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:14:23.303] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 20,
+      "method": "DELETE",
+      "url": "/api/products/4"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 7
+[18:14:23.404] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 21,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:14:24.916] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 22,
+      "method": "DELETE",
+      "url": "/api/products/13"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 7
+[18:14:25.013] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 23,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 6
+[18:14:27.129] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 24,
+      "method": "DELETE",
+      "url": "/api/products/6"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 7
+[18:14:27.224] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 25,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[18:14:28.721] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 26,
+      "method": "DELETE",
+      "url": "/api/products/7"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 7
+[18:14:28.819] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 27,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:14:31.728] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 28,
+      "method": "DELETE",
+      "url": "/api/products/9"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 7
+[18:14:31.822] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 29,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[18:14:33.643] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 30,
+      "method": "DELETE",
+      "url": "/api/products/12"
+    }
+    [35mres[39m: {
+      "statusCode": 204
+    }
+    [35mresponseTime[39m: 6
+[18:14:33.735] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 31,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[18:18:18.221] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 33,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 639
+[18:18:18.227] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 32,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 646
+[18:18:43.963] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 34,
+      "method": "POST",
+      "url": "/api/users/sync"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 6
+[18:18:43.963] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 35,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 4
+[18:18:45.078] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 36,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 3
+[18:18:47.184] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 37,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 2
+[18:18:51.288] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 38,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 3
+[18:18:51.382] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 39,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 3
+[18:18:52.537] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 40,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 2
+[18:18:54.653] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 41,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 2
+[18:18:58.772] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 42,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 3
+[18:19:11.294] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 43,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 3
+[18:19:12.406] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 44,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 2
+[18:19:14.510] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 45,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 2
+[18:19:18.635] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 46,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 2
+[18:19:18.728] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 47,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 3
+[18:19:19.843] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 48,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 3
+[18:19:21.956] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 49,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 2
+[18:19:26.064] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 50,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 401
+    }
+    [35mresponseTime[39m: 3
+[18:19:49.833] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 52,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 11
+[18:19:49.862] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 51,
+      "method": "POST",
+      "url": "/api/users/sync"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 44
+[18:19:49.938] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 53,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[18:19:50.096] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 54,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:19:50.097] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 55,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:19:59.611] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 56,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 5
+[18:19:59.611] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 57,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 3
+[18:19:59.616] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 58,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 2
+[18:20:03.673] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 59,
+      "method": "GET",
+      "url": "/api/inventory"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 12
+[18:20:07.265] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 60,
+      "method": "GET",
+      "url": "/api/semi-finished"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 4
+[18:20:13.723] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 61,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 5
+[18:20:13.732] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 62,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 13
+[18:20:27.473] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 63,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 17
+[18:20:27.568] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 64,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 3
+[18:20:27.719] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 65,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 4
+[18:20:27.720] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 66,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 3
+[18:22:39.033] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 68,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 14
+[18:22:39.057] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 67,
+      "method": "POST",
+      "url": "/api/users/sync"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 42
+[18:22:39.126] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 69,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 2
+[18:22:39.255] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 70,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 4
+[18:22:39.257] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 71,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 5
+[18:22:39.259] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 72,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 200
+    }
+    [35mresponseTime[39m: 3
+[18:22:47.960] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 73,
+      "method": "GET",
+      "url": "/api/branches"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 5
+[18:22:47.964] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 74,
+      "method": "GET",
+      "url": "/api/categories"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 3
+[18:22:48.048] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 75,
+      "method": "GET",
+      "url": "/api/products"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 5
+[18:22:48.051] [32mINFO[39m (12967): [36mrequest completed[39m
+    [35mreq[39m: {
+      "id": 76,
+      "method": "GET",
+      "url": "/api/users/me"
+    }
+    [35mres[39m: {
+      "statusCode": 304
+    }
+    [35mresponseTime[39m: 4
+[41m[30m ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL [39m[49m [31m@workspace/api-server@0.0.0 dev: `export NODE_ENV=development && pnpm run build && pnpm run start`[39m
+[31mCommand failed with signal "SIGTERM"[39m

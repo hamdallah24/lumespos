@@ -1,7 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { useClerk } from "@clerk/react";
-import { LayoutGrid, ShoppingBag, Receipt, PieChart, Store, Users, LogOut, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, Menu, X } from "lucide-react";
+import { LayoutGrid, ShoppingBag, Receipt, PieChart, Store, Users, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, LogOut, Menu, X } from "lucide-react";
 import type { AppUser } from "@workspace/api-client-react";
 import { useBranch } from "@/lib/branch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +9,7 @@ interface LayoutProps {
   children: React.ReactNode;
   role?: string;
   user?: AppUser;
+  onSignOut: () => void;
 }
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -26,9 +26,8 @@ function roleIcon(role?: string) {
   return null;
 }
 
-export function Layout({ children, role, user }: LayoutProps) {
+export function Layout({ children, role, user, onSignOut }: LayoutProps) {
   const [location] = useLocation();
-  const { signOut } = useClerk();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   const canManage = role === "owner" || role === "manager";
@@ -43,6 +42,7 @@ export function Layout({ children, role, user }: LayoutProps) {
     { href: "/products", label: "Produk", icon: LayoutGrid, show: canManage },
     { href: "/audits", label: "Audit Shift", icon: ClipboardCheck, show: canManage },
     { href: "/dashboard", label: "Laporan", icon: PieChart, show: canManage },
+    { href: "/branches", label: "Cabang", icon: Store, show: role === "owner" },
     { href: "/users", label: "Pengguna", icon: Users, show: role === "owner" },
   ];
 
@@ -133,7 +133,7 @@ export function Layout({ children, role, user }: LayoutProps) {
             </div>
           </div>
           <button
-            onClick={() => signOut({ redirectUrl: `${basePath}/sign-in` })}
+            onClick={onSignOut}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-destructive transition-colors text-sm"
           >
             <LogOut size={15} />

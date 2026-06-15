@@ -1,4 +1,5 @@
-import { Router, type IRouter } from "express";
+import { Router } from "express";
+import authRouter from "./auth";  // ← tambah import
 import healthRouter from "./health";
 import usersRouter from "./users";
 import categoriesRouter from "./categories";
@@ -14,21 +15,23 @@ import inventoryRouter from "./inventory";
 import shiftAuditsRouter from "./shiftAudits";
 import storageRouter from "./storage";
 
-const router: IRouter = Router();
+const router = Router();
 
-router.use(healthRouter);
-router.use(usersRouter);
-router.use(categoriesRouter);
-router.use(productsRouter);
-router.use(productVariantsRouter);
-router.use(ordersRouter);
-router.use(dashboardRouter);
-router.use(branchesRouter);
-router.use(ingredientsRouter);
-router.use(semiFinishedRouter);
-router.use(recipesRouter);
-router.use(inventoryRouter);
-router.use(shiftAuditsRouter);
-router.use(storageRouter);
+router.use("/", shiftAuditsRouter);
+router.use("/", authRouter);  // ← tambah (harus sebelum route lain)
+router.use("/", healthRouter);
+router.use("/", usersRouter);
+router.use("/", categoriesRouter);
+router.use("/", productsRouter);
+router.use("/", productVariantsRouter);
+router.use("/", ordersRouter);
+router.use("/", dashboardRouter);
+router.use("/", branchesRouter);
+router.use("/", ingredientsRouter);
+router.use("/", semiFinishedRouter);
+router.use("/", recipesRouter);
+router.use("/", inventoryRouter);
+router.use("/", shiftAuditsRouter);
+router.use("/", storageRouter);
 
 export default router;

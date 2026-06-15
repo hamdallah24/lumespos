@@ -1,0 +1,23 @@
+Fix Tutup Shift submit: add photo upload fallback
+
+Task #1: Cashiers could not submit "Tutup Shift" because submit() hard-requires
+a proof photo (if (!photoBlob) return), but the live webcam (getUserMedia) is
+blocked inside the Replit preview iframe (no camera permission granted to the
+embedded preview). With no way to capture a photo, the POST /shift-audits never
+fired. Backend already treats photoProofUrl as nullable.
+
+Changes (artifacts/pos-app/src/pages/shift.tsx only):
+- Added a hidden <input type="file" accept="image/*" capture="environment"> with
+  an onFilePicked handler that sets the same photoBlob/photoUrl state used by the
+  webcam path, so the upload + submit flow is unchanged.
+- Added "Unggah Foto" / "Ganti dari Galeri" buttons across all camera states
+  (idle, camera-on, photo-selected) so the webcam is never a dead end.
+- Updated the camera-failure toast to point users to the upload fallback.
+- uploadPhoto() now derives contentType and file extension from the blob's
+  actual MIME type (fallback image/jpeg) instead of hardcoding image/jpeg, so
+  PNG/WEBP/HEIC files from the gallery upload and render correctly.
+
+Verification: pnpm --filter @workspace/pos-app run typecheck passes. Architect
+review run; flagged the JPEG-hardcoding issue which was then fixed. End-to-end
+preview verification is auth-gated (Clerk login) so could not be exercised via
+screenshot.

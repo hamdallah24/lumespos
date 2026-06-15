@@ -37,7 +37,7 @@ router.get("/dashboard/summary", requireRole("owner", "manager"), async (req, re
   const [productCounts] = await db
     .select({
       total: count(productsTable.id),
-      lowStock: sql<number>`sum(case when ${productsTable.stock} <= 5 then 1 else 0 end)`,
+      //lowStock: sql<number>`sum(case when  <= 5 then 1 else 0 end)`,
     })
     .from(productsTable)
     .where(eq(productsTable.isActive, true));
@@ -51,7 +51,7 @@ router.get("/dashboard/summary", requireRole("owner", "manager"), async (req, re
     todayRevenue,
     todayOrders,
     totalProducts: productCounts?.total ?? 0,
-    lowStockCount: Number(productCounts?.lowStock ?? 0),
+    lowStockCount: 0,
     todayRevenueDiff: yRevenue > 0 ? ((todayRevenue - yRevenue) / yRevenue) * 100 : 0,
     todayOrdersDiff: yOrders > 0 ? ((todayOrders - yOrders) / yOrders) * 100 : 0,
   });
@@ -153,6 +153,63 @@ router.get("/dashboard/financial", requireRole("owner", "manager"), async (req, 
   const grossMarginPct = grossRevenue > 0 ? (grossProfit / grossRevenue) * 100 : 0;
 
   res.json({ grossRevenue, totalCogs, grossProfit, grossMarginPct });
+});
+
+// Detail barang terjual per produk + varian
+router.get("/dashboard/sold-items", requireRole("owner", "manager"), async (req, res) => {
+  try {
+    const branch = branchFilter(req);
+    const days = req.query["days"] ? Number(req.query["days"]) : 30;
+    const start = new Date();
+    start.setDate(start.getDate() - days);
+    start.setHours(0, 0, 0, 0);
+
+    const rows = await db
+      .select({
+        productId: orderItemsTable.productId,
+        productName: orderItemsTable.productName,
+        variantId: orderItemsTable.productVariantId,
+        totalSold: sum(orderItemsTable.quantity),
+        totalRevenue: sum(orderItemsTable.subtotal),
+      })
+      .from(orderItemsTable)
+      .innerJoin(ordersTable, eq(ordersTable.id, orderItemsTable.orderId))
+      .where(and(gte(ordersTable.createdAt, start), branch))
+      .groupBy(
+        orderItemsTable.productId,
+        orderItemsTable.productName,
+        orderItemsTable.productVariantId,
+      )
+      .orderBy(sql`sum(${orderItemsTable.quantity}) desc`);
+
+    // Ambil nama varian
+    const variantIds = rows
+      .map((r) => r.variantId)
+      .filter((v): v is number => v != null);
+
+    let variantNames: Record<number, string> = {};
+    if (variantIds.length > 0) {
+      const { productVariantsTable } = await import("@workspace/db");
+      const { inArray } = await import("drizzle-orm");
+      const variants = await db
+        .select({ id: productVariantsTable.id, name: productVariantsTable.name })
+        .from(productVariantsTable)
+        .where(inArray(productVariantsTable.id, variantIds));
+      variantNames = Object.fromEntries(variants.map((v) => [v.id, v.name]));
+    }
+
+    res.json(rows.map((r) => ({
+      productId: r.productId,
+      productName: r.productName,
+      variantId: r.variantId ?? null,
+      variantName: r.variantId ? (variantNames[r.variantId] ?? null) : null,
+      totalSold: Number(r.totalSold ?? 0),
+      totalRevenue: parseFloat(r.totalRevenue ?? "0"),
+    })));
+  } catch (err) {
+    console.error("GET /dashboard/sold-items error:", err);
+    res.status(500).json({ error: "Gagal mengambil data barang terjual" });
+  }
 });
 
 export default router;

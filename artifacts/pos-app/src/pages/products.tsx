@@ -5,12 +5,13 @@ import {
   useCreateProduct, useUpdateProduct, useDeleteProduct,
   useCreateCategory, useDeleteCategory,
   useListProductVariants, useCreateProductVariant, useUpdateProductVariant, useDeleteProductVariant,
-  useGetRecipe, useSetRecipe,
-  useListIngredients,
+  useGetRecipe, useSetRecipe, getGetRecipeQueryKey,
+  useListIngredients, useListSemiFinished,
   getListProductsQueryKey, getListCategoriesQueryKey,
   getListIngredientsQueryKey,
 } from "@workspace/api-client-react";
 import type { Product, Category } from "@workspace/api-client-react";
+import { useBranch } from "@/lib/branch";
 import { formatRp } from "@/lib/format";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,227 +20,131 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Card, CardContent } from "@/components/ui/card";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, Search, Pencil, Trash2, Package, Tag, X, List, ChefHat, Box, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 /* ──────────────────────────────────── */
-/* Product Form Dialog (with variants) */
+/* Variants Panel (On-Demand)           */
 /* ──────────────────────────────────── */
-function ProductFormDialog({
-  open,
-  onOpenChange,
-  product,
-  categories,
-}: {
-  open: boolean;
-  onOpenChange: (v: boolean) => void;
-  product: Product | null;
-  categories: Category[];
-}) {
+function VariantsPanel({ productId, onVariantChange }: { productId: number; onVariantChange?: () => void }) {
   const queryClient = useQueryClient();
-  const createProduct = useCreateProduct();
-  const updateProduct = useUpdateProduct();
-
-  const [name, setName] = useState(product?.name ?? "");
-  const [categoryId, setCategoryId] = useState<string>(product?.categoryId ? String(product.categoryId) : "none");
-  const [price, setPrice] = useState(product ? String(product.price) : "");
-  const [costPrice, setCostPrice] = useState(product ? String(product.costPrice ?? 0) : "0");
-  const [stock, setStock] = useState(product ? String(product.stock) : "0");
-  const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
-  const [isActive, setIsActive] = useState(product?.isActive ?? true);
-
-  const [variantTab, setVariantTab] = useState("basic");
-
-  const isEdit = product !== null;
-  const isPending = createProduct.isPending || updateProduct.isPending;
-
-  const handleSubmit = () => {
-    if (!name.trim() || !price) {
-      toast.error("Nama dan harga wajib diisi");
-      return;
-    }
-    const payload = {
-      name: name.trim(),
-      categoryId: categoryId && categoryId !== "none" ? Number(categoryId) : null,
-      price: parseFloat(price),
-      costPrice: parseFloat(costPrice) || 0,
-      stock: parseInt(stock) || 0,
-      imageUrl: imageUrl.trim() || null,
-      isActive,
-    };
-
-    if (isEdit && product) {
-      updateProduct.mutate({ id: product.id, data: payload }, {
-        onSuccess: () => {
-          toast.success("Produk diperbarui");
-          queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
-          onOpenChange(false);
-        },
-        onError: () => toast.error("Gagal memperbarui produk"),
-      });
-    } else {
-      createProduct.mutate({ data: payload }, {
-        onSuccess: () => {
-          toast.success("Produk ditambahkan");
-          queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
-          onOpenChange(false);
-        },
-        onError: () => toast.error("Gagal menambah produk"),
-      });
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Produk" : "Tambah Produk"}</DialogTitle>
-        </DialogHeader>
-        <div className="flex-1 overflow-hidden">
-          <Tabs value={variantTab} onValueChange={setVariantTab} className="flex flex-col h-full">
-            <TabsList className="flex-wrap h-auto shrink-0">
-              <TabsTrigger value="basic" className="gap-1.5"><Box className="w-3.5 h-3.5" /> Info Dasar</TabsTrigger>
-              {isEdit && product && (
-                <>
-                  <TabsTrigger value="variants" className="gap-1.5"><List className="w-3.5 h-3.5" /> Varian Harga</TabsTrigger>
-                  <TabsTrigger value="bom" className="gap-1.5"><ChefHat className="w-3.5 h-3.5" /> BOM</TabsTrigger>
-                </>
-              )}
-            </TabsList>
-
-            <TabsContent value="basic" className="mt-4 overflow-y-auto max-h-[60vh]">
-              <div className="space-y-4 py-2">
-                <div className="space-y-1.5">
-                  <Label>Nama Produk</Label>
-                  <Input value={name} onChange={e => setName(e.target.value)} placeholder="Nama produk..." />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Harga Jual (Rp)</Label>
-                    <Input value={price} onChange={e => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Harga Modal (Rp)</Label>
-                    <Input value={costPrice} onChange={e => setCostPrice(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Stok</Label>
-                  <Input type="number" value={stock} onChange={e => setStock(e.target.value)} min="0" placeholder="0" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>Kategori</Label>
-                  <Select value={categoryId} onValueChange={setCategoryId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pilih kategori" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Tanpa kategori</SelectItem>
-                      {categories.map(c => (
-                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label>URL Gambar (opsional)</Label>
-                  <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." />
-                </div>
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="isActive">Produk Aktif</Label>
-                  <Switch id="isActive" checked={isActive} onCheckedChange={setIsActive} />
-                </div>
-              </div>
-            </TabsContent>
-
-            {isEdit && product && (
-              <>
-                <TabsContent value="variants" className="mt-4 overflow-y-auto max-h-[60vh]">
-                  <VariantsPanel productId={product.id} />
-                </TabsContent>
-                <TabsContent value="bom" className="mt-4 overflow-y-auto max-h-[60vh]">
-                  <BomPanel productId={product.id} />
-                </TabsContent>
-              </>
-            )}
-          </Tabs>
-        </div>
-        <DialogFooter className="shrink-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Batal</Button>
-          <Button onClick={handleSubmit} disabled={isPending}>
-            {isPending ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Tambah Produk"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/* ───────────────────────────── */
-/* Variants Panel                */
-/* ───────────────────────────── */
-function VariantsPanel({ productId }: { productId: number }) {
-  const queryClient = useQueryClient();
-  const { data: variants = [] } = useListProductVariants(productId);
-  const createVariant = useCreateProductVariant();
-  const updateVariant = useUpdateProductVariant();
-  const deleteVariant = useDeleteProductVariant();
+  const { data: variants = [], refetch } = useListProductVariants(productId);
+  
+  const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [editing, setEditing] = useState<{ id: number; name: string; price: string } | null>(null);
   const [deleting, setDeleting] = useState<number | null>(null);
 
-  const handleAdd = () => {
-    if (!newName.trim() || !newPrice) return;
-    createVariant.mutate(
-      { id: productId, data: { name: newName.trim(), price: parseFloat(newPrice) } },
-      {
-        onSuccess: () => {
-          toast.success("Varian ditambahkan");
-          setNewName(""); setNewPrice("");
-          queryClient.invalidateQueries({ queryKey: ["listProductVariants", productId] });
-        },
-        onError: () => toast.error("Gagal menambah varian"),
-      },
-    );
+  const refreshVariants = async () => {
+    await refetch();
+    queryClient.invalidateQueries({ queryKey: ["listProductVariants", productId] });
+    if (onVariantChange) onVariantChange();
   };
 
-  const handleUpdate = () => {
-    if (!editing || !editing.name.trim() || !editing.price) return;
-    updateVariant.mutate(
-      { id: editing.id, data: { name: editing.name.trim(), price: parseFloat(editing.price) } },
-      {
-        onSuccess: () => {
-          toast.success("Varian diperbarui");
-          setEditing(null);
-          queryClient.invalidateQueries({ queryKey: ["listProductVariants", productId] });
-        },
-        onError: () => toast.error("Gagal memperbarui varian"),
-      },
-    );
+  const handleAdd = async () => {
+    if (!newName.trim()) {
+      toast.error("Nama varian wajib diisi");
+      return;
+    }
+    const priceNum = parseFloat(newPrice);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      toast.error("Harga varian wajib diisi dan harus lebih dari 0");
+      return;
+    }
+
+    setIsCreating(true);
+    try {
+      const response = await fetch(`/api/products/${productId}/variants`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newName.trim(), price: priceNum, requiresStock: true }),
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(await response.text());
+      
+      toast.success(`Varian "${newName}" ditambahkan`);
+      setNewName("");
+      setNewPrice("");
+      await refreshVariants();
+    } catch (err: any) {
+      toast.error(err?.message || "Gagal menambah varian");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editing || !editing.name.trim()) {
+      toast.error("Nama varian wajib diisi");
+      return;
+    }
+    const priceNum = parseFloat(editing.price);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      toast.error("Harga harus lebih dari 0");
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const response = await fetch(`/api/product-variants/${editing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editing.name.trim(), price: priceNum }),
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error(await response.text());
+      
+      toast.success("Varian berhasil diperbarui");
+      setEditing(null);
+      await refreshVariants();
+    } catch (err: any) {
+      toast.error(err?.message || "Gagal memperbarui varian");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/product-variants/${id}`, { method: "DELETE", credentials: "include" });
+      if (!response.ok) throw new Error(await response.text());
+      
+      toast.success("Varian dihapus");
+      await refreshVariants();
+      setDeleting(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Gagal menghapus varian");
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
     <div className="space-y-4">
       <div className="space-y-2">
         <div className="flex gap-2">
-          <Input placeholder="Nama varian (cth. Large, Extra Ice, dll)" value={newName} onChange={e => setNewName(e.target.value)} />
-          <Input placeholder="Harga (Rp)" value={newPrice} onChange={e => setNewPrice(e.target.value.replace(/[^0-9.]/g, ""))} className="w-28" />
-          <Button onClick={handleAdd} disabled={createVariant.isPending || !newName.trim() || !newPrice}>
-            <Plus className="w-4 h-4" />
+          <Input placeholder="Nama varian (cth. Large, Hot/Ice)" value={newName} onChange={e => setNewName(e.target.value)} />
+          <Input placeholder="Harga (Rp)" value={newPrice} onChange={e => setNewPrice(e.target.value.replace(/[^0-9.]/g, ""))} className="w-32" />
+          <Button onClick={handleAdd} disabled={isCreating || !newName.trim() || !newPrice}>
+            {isCreating ? "..." : <Plus className="w-4 h-4" />}
           </Button>
         </div>
-        <p className="text-[11px] text-muted-foreground">Varian adalah pilihan harga alternatif untuk produk ini (misal: ukuran, topping, level). Kasir akan memilih saat transaksi.</p>
+        <p className="text-[11px] text-muted-foreground">Varian bersifat On-Demand (stok tidak dibatasi).</p>
       </div>
 
       {variants.length === 0 ? (
         <div className="text-center text-muted-foreground py-6">
           <List className="w-8 h-8 mx-auto mb-2 opacity-20" />
-          <p className="text-sm">Belum ada varian harga</p>
+          <p className="text-sm">Belum ada varian</p>
         </div>
       ) : (
         <div className="border rounded-lg overflow-hidden">
@@ -248,8 +153,8 @@ function VariantsPanel({ productId }: { productId: number }) {
               {editing?.id === v.id ? (
                 <>
                   <Input className="flex-1" value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} />
-                  <Input className="w-24" value={editing.price} onChange={e => setEditing({ ...editing, price: e.target.value.replace(/[^0-9.]/g, "") })} />
-                  <Button size="sm" onClick={handleUpdate} disabled={updateVariant.isPending}>Simpan</Button>
+                  <Input className="w-28" value={editing.price} onChange={e => setEditing({ ...editing, price: e.target.value.replace(/[^0-9.]/g, "") })} />
+                  <Button size="sm" onClick={handleUpdate} disabled={isUpdating}>{isUpdating ? "..." : "Simpan"}</Button>
                   <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>Batal</Button>
                 </>
               ) : (
@@ -258,11 +163,11 @@ function VariantsPanel({ productId }: { productId: number }) {
                     <p className="font-medium text-sm">{v.name}</p>
                     <p className="text-xs text-muted-foreground">{formatRp(v.price)}</p>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditing({ id: v.id, name: v.name, price: String(v.price) })}>
-                    <Pencil className="w-3.5 h-3.5" />
+                  <Button variant="ghost" size="icon" onClick={() => setEditing({ id: v.id, name: v.name, price: String(v.price) })}>
+                    <Pencil className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setDeleting(v.id)}>
-                    <Trash2 className="w-3.5 h-3.5" />
+                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeleting(v.id)}>
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </>
               )}
@@ -273,21 +178,13 @@ function VariantsPanel({ productId }: { productId: number }) {
 
       <AlertDialog open={deleting !== null} onOpenChange={() => setDeleting(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Hapus Varian?</AlertDialogTitle></AlertDialogHeader>
+          <AlertDialogHeader><AlertDialogTitle>Hapus Varian?</AlertDialogTitle>
+          <AlertDialogDescription>Varian akan dihapus permanen. Tindakan ini tidak bisa dibatalkan.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => {
-              if (deleting) {
-                deleteVariant.mutate({ id: deleting }, {
-                  onSuccess: () => {
-                    toast.success("Varian dihapus");
-                    queryClient.invalidateQueries({ queryKey: ["listProductVariants", productId] });
-                    setDeleting(null);
-                  },
-                  onError: () => toast.error("Gagal menghapus varian"),
-                });
-              }
-            }}>Hapus</AlertDialogAction>
+            <AlertDialogAction className="bg-destructive" onClick={() => deleting && handleDelete(deleting)}>
+              {isDeleting ? "Menghapus..." : "Ya, Hapus"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -295,141 +192,114 @@ function VariantsPanel({ productId }: { productId: number }) {
   );
 }
 
-/* ───────────────────────────── */
-/* BOM (Bill of Materials) Panel */
-/* ───────────────────────────── */
-function BomPanel({ productId }: { productId: number }) {
+/* ──────────────────────────────────── */
+/* BOM (Bill of Materials) Panel        */
+/* ──────────────────────────────────── */
+function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?: () => void }) {
   const queryClient = useQueryClient();
-  const { branchId } = { branchId: 1 };
-  const { data: recipe = [] } = useGetRecipe({ parentType: "product", parentId: productId });
-  const { data: ingredients = [] } = useListIngredients({ branchId });
+  const { branchId } = useBranch();
+  const { data: variants = [] } = useListProductVariants(productId);
+  const [targetType, setTargetType] = useState<"product" | "product_variant">("product");
+  const [targetId, setTargetId] = useState<number>(productId);
+  const { data: recipe = [] } = useGetRecipe({ parentType: targetType, parentId: targetId } as any);
+  const { data: ingredients = [] } = useListIngredients({ branchId: branchId ?? 0 });
+  const { data: semiFinished = [] } = useListSemiFinished({ branchId: branchId ?? 0 });
   const setRecipe = useSetRecipe();
-
-  const [selectedIng, setSelectedIng] = useState<string>("");
+  const [selectedComponent, setSelectedComponent] = useState<string>("");
   const [quantity, setQuantity] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
   const [editQty, setEditQty] = useState("");
 
+  const handleTargetChange = (val: string) => {
+    if (val === "global") { setTargetType("product"); setTargetId(productId); }
+    else { setTargetType("product_variant"); setTargetId(Number(val)); }
+  };
+
+  const refreshRecipe = () => {
+    queryClient.invalidateQueries({ queryKey: getGetRecipeQueryKey({ parentType: targetType, parentId: targetId } as any ) });
+    if (onBomChange) onBomChange();
+  };
+
   const handleAdd = () => {
-    if (!selectedIng || !quantity) return;
-    const ingId = Number(selectedIng);
-    const existing = recipe.filter(r => !(r.componentType === "ingredient" && r.componentId === ingId));
+    if (!selectedComponent || !quantity) return;
+    const [type, idStr] = selectedComponent.split(":");
+    const compId = Number(idStr);
+    const compType = type as "ingredient" | "semi_finished";
+    const existing = recipe.filter(r => !(r.componentType === compType && r.componentId === compId));
     const newComponents = [
       ...existing.map(r => ({ componentType: r.componentType as "ingredient" | "semi_finished", componentId: r.componentId, quantity: r.quantity })),
-      { componentType: "ingredient" as const, componentId: ingId, quantity: parseFloat(quantity) },
+      { componentType: compType, componentId: compId, quantity: parseFloat(quantity) },
     ];
-    setRecipe.mutate(
-      { data: { parentType: "product", parentId: productId, components: newComponents } },
-      {
-        onSuccess: () => {
-          toast.success("Bahan ditambahkan ke BOM");
-          setSelectedIng(""); setQuantity("");
-          queryClient.invalidateQueries({ queryKey: ["getRecipe", "product", productId] });
-          queryClient.invalidateQueries({ queryKey: getListIngredientsQueryKey({ branchId }) });
-        },
-        onError: () => toast.error("Gagal menambah bahan"),
-      },
-    );
+    setRecipe.mutate({ data: { parentType: targetType, parentId: targetId, components: newComponents } } as any, {
+      onSuccess: () => { toast.success("Bahan ditambahkan ke BOM"); setSelectedComponent(""); setQuantity(""); refreshRecipe(); },
+      onError: () => toast.error("Gagal menambah bahan"),
+    });
   };
 
   const handleUpdate = (id: number) => {
     if (!editQty) return;
-    const target = recipe.find(r => r.id === id);
-    if (!target) return;
-    const newComponents = recipe.map(r =>
-      r.id === id
-        ? { componentType: r.componentType as "ingredient" | "semi_finished", componentId: r.componentId, quantity: parseFloat(editQty) }
-        : { componentType: r.componentType as "ingredient" | "semi_finished", componentId: r.componentId, quantity: r.quantity }
-    );
-    setRecipe.mutate(
-      { data: { parentType: "product", parentId: productId, components: newComponents } },
-      {
-        onSuccess: () => {
-          toast.success("Takaran diperbarui");
-          setEditing(null); setEditQty("");
-          queryClient.invalidateQueries({ queryKey: ["getRecipe", "product", productId] });
-        },
-        onError: () => toast.error("Gagal memperbarui"),
-      },
-    );
+    const newComponents = recipe.map(r => r.id === id ? { ...r, quantity: parseFloat(editQty) } : r);
+    setRecipe.mutate({ data: { parentType: targetType, parentId: targetId, components: newComponents.map((c: any) => ({ componentType: c.componentType, componentId: c.componentId, quantity: c.quantity })) } } as any, {
+      onSuccess: () => { toast.success("Takaran diperbarui"); setEditing(null); setEditQty(""); refreshRecipe(); },
+      onError: () => toast.error("Gagal memperbarui"),
+    });
   };
 
   const handleDelete = (id: number) => {
-    const newComponents = recipe
-      .filter(r => r.id !== id)
-      .map(r => ({ componentType: r.componentType as "ingredient" | "semi_finished", componentId: r.componentId, quantity: r.quantity }));
-    setRecipe.mutate(
-      { data: { parentType: "product", parentId: productId, components: newComponents } },
-      {
-        onSuccess: () => {
-          toast.success("Bahan dihapus dari BOM");
-          queryClient.invalidateQueries({ queryKey: ["getRecipe", "product", productId] });
-        },
-        onError: () => toast.error("Gagal menghapus bahan"),
-      },
-    );
+    const newComponents = recipe.filter(r => r.id !== id);
+    setRecipe.mutate({ data: { parentType: targetType, parentId: targetId, components: newComponents.map((c: any) => ({ componentType: c.componentType, componentId: c.componentId, quantity: c.quantity })) } } as any, {
+      onSuccess: () => { toast.success("Bahan dihapus dari BOM"); refreshRecipe(); },
+      onError: () => toast.error("Gagal menghapus bahan"),
+    });
   };
+
+  const currentTargetValue = targetType === "product" ? "global" : String(targetId);
 
   return (
     <div className="space-y-4">
+      <div className="space-y-1.5 p-3 rounded-lg border bg-muted/20">
+        <Label className="text-xs font-semibold text-muted-foreground">Target Konfigurasi Resep (BOM)</Label>
+        <Select value={currentTargetValue} onValueChange={handleTargetChange}>
+          <SelectTrigger className="bg-background"><SelectValue placeholder="Pilih target resep" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="global">Default Produk (Global)</SelectItem>
+            {variants.map(v => <SelectItem key={v.id} value={String(v.id)}>Resep Varian: {v.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <p className="text-[10px] text-muted-foreground">{targetType === "product" ? "Mempengaruhi seluruh varian secara default." : "Khusus untuk varian ini."}</p>
+      </div>
+
       <div className="space-y-2">
         <div className="flex gap-2">
-          <Select value={selectedIng} onValueChange={setSelectedIng}>
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Pilih bahan baku" />
-            </SelectTrigger>
+          <Select value={selectedComponent} onValueChange={setSelectedComponent}>
+            <SelectTrigger className="flex-1"><SelectValue placeholder="Pilih bahan baku atau setengah jadi" /></SelectTrigger>
             <SelectContent>
-              {ingredients.map(ing => (
-                <SelectItem key={ing.id} value={String(ing.id)}>
-                  {ing.name} ({ing.unit}) — HPP {formatRp(ing.costPricePerUnit)}
-                </SelectItem>
-              ))}
+              {ingredients.length > 0 && (<><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/30">Bahan Baku</div>
+              {ingredients.map(ing => <SelectItem key={`ingredient:${ing.id}`} value={`ingredient:${ing.id}`}>{ing.name} ({ing.unit}) — HPP {formatRp(ing.costPricePerUnit)}</SelectItem>)}</>)}
+              {semiFinished.length > 0 && (<><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/30 border-t mt-1">Bahan Setengah Jadi</div>
+              {semiFinished.map(sf => <SelectItem key={`semi_finished:${sf.id}`} value={`semi_finished:${sf.id}`}>{sf.name} ({sf.unit}) — HPP {formatRp(sf.costPricePerUnit)}</SelectItem>)}</>)}
             </SelectContent>
           </Select>
           <Input placeholder="Takaran" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-24" />
-          <Button onClick={handleAdd} disabled={setRecipe.isPending || !selectedIng || !quantity}>
-            <Plus className="w-4 h-4" />
-          </Button>
+          <Button onClick={handleAdd} disabled={setRecipe.isPending || !selectedComponent || !quantity}><Plus className="w-4 h-4" /></Button>
         </div>
-        <p className="text-[11px] text-muted-foreground">BOM (Bill of Materials) menentukan bahan baku yang dipakai untuk membuat 1 unit produk. Saat produk dijual, stok bahan akan dipotong otomatis.</p>
       </div>
 
       {recipe.length === 0 ? (
-        <div className="text-center text-muted-foreground py-6">
-          <ChefHat className="w-8 h-8 mx-auto mb-2 opacity-20" />
-          <p className="text-sm">Belum ada BOM untuk produk ini</p>
-        </div>
+        <div className="text-center text-muted-foreground py-6"><ChefHat className="w-8 h-8 mx-auto mb-2 opacity-20" /><p className="text-sm">Belum ada BOM untuk target ini</p></div>
       ) : (
         <div className="border rounded-lg overflow-hidden">
           {recipe.map((r, idx) => (
             <div key={r.id} className={`flex items-center gap-3 px-4 py-3 ${idx < recipe.length - 1 ? "border-b" : ""}`}>
-              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <PackagePlus className="w-4 h-4" />
-              </div>
+              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><PackagePlus className="w-4 h-4" /></div>
               <div className="flex-1">
-                <p className="font-medium text-sm">{r.componentName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {editing === r.id ? (
-                    <span className="flex items-center gap-2">
-                      <Input className="w-20 h-7 text-xs" value={editQty} onChange={e => setEditQty(e.target.value)} autoFocus />
-                      <Button size="sm" className="h-7 text-xs" onClick={() => { if (r.id != null) handleUpdate(r.id); }}>Simpan</Button>
-                      <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditing(null); setEditQty(""); }}>Batal</Button>
-                    </span>
-                  ) : (
-                    <span>{r.quantity} {r.unit} per 1 produk</span>
-                  )}
-                </p>
+                <div className="flex items-center gap-2"><p className="font-medium text-sm">{r.componentName}</p>
+                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${r.componentType === "semi_finished" ? "text-blue-600 border-blue-200 bg-blue-50" : "text-slate-600 border-slate-200 bg-slate-50"}`}>{r.componentType === "semi_finished" ? "Setengah Jadi" : "Bahan Baku"}</Badge></div>
+                {editing === r.id ? (
+                  <span className="flex items-center gap-2 mt-1"><Input className="w-20 h-7 text-xs" value={editQty} onChange={e => setEditQty(e.target.value)} autoFocus /><Button size="sm" className="h-7 text-xs" onClick={() => handleUpdate(r.id!)}>Simpan</Button><Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditing(null); setEditQty(""); }}>Batal</Button></span>
+                ) : (<p className="text-xs text-muted-foreground mt-0.5">{r.quantity} {r.unit} per 1 produk</p>)}
               </div>
-              {editing !== r.id && (
-                <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { if (r.id != null) { setEditing(r.id); setEditQty(String(r.quantity)); } }}>
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { if (r.id != null) handleDelete(r.id); }}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-              )}
+              {editing !== r.id && (<div className="flex gap-1"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(r.id!); setEditQty(String(r.quantity)); }}><Pencil className="w-3.5 h-3.5" /></Button><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(r.id!)}><Trash2 className="w-3.5 h-3.5" /></Button></div>)}
             </div>
           ))}
         </div>
@@ -438,258 +308,250 @@ function BomPanel({ productId }: { productId: number }) {
   );
 }
 
-/* ───────────────────────────── */
-/* Category Tab                  */
-/* ───────────────────────────── */
-function CategoryTab({ categories }: { categories: Category[] }) {
+/* ──────────────────────────────────── */
+/* Product Form Dialog                  */
+/* ──────────────────────────────────── */
+function ProductFormDialog({ open, onOpenChange, product, categories, onProductChange }: { open: boolean; onOpenChange: (v: boolean) => void; product: Product | null; categories: Category[]; onProductChange?: () => void }) {
+  const queryClient = useQueryClient();
+  const { branchId } = useBranch();
+  const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
+  const [name, setName] = useState(product?.name ?? "");
+  const [categoryId, setCategoryId] = useState<string>(product?.categoryId ? String(product.categoryId) : "none");
+  const [price, setPrice] = useState(product ? String(product.price) : "");
+  const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
+  const [isActive, setIsActive] = useState(product?.isActive ?? true);
+  const [requiresStock, setRequiresStock] = useState((product as any)?.requiresStock ?? true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [variantTab, setVariantTab] = useState("basic");
+  const isEdit = product !== null;
+
+  const handleSubmit = async () => {
+    if (!name.trim()) { toast.error("Nama wajib diisi"); return; }
+    if (!price) { toast.error("Harga jual wajib diisi"); return; }
+    const parsedPrice = parseFloat(price);
+    if (isNaN(parsedPrice) || parsedPrice < 0) { toast.error("Harga jual harus berupa angka positif"); return; }
+
+    const payload = { name: name.trim(), categoryId: categoryId && categoryId !== "none" ? Number(categoryId) : null, price: parsedPrice, imageUrl: imageUrl.trim() || null, isActive, requiresStock };
+    setIsSubmitting(true);
+    try {
+      if (isEdit && product) {
+        await new Promise((resolve, reject) => {
+          updateProduct.mutate({ id: product.id, data: payload } as any, {
+            onSuccess: () => { toast.success("Produk diperbarui"); queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); onOpenChange(false); resolve(null); },
+            onError: (err) => reject(err),
+          });
+        });
+      } else {
+        await new Promise((resolve, reject) => {
+          createProduct.mutate({ data: { ...payload, branchId } } as any, {
+            onSuccess: () => { toast.success("Produk ditambahkan"); queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); onOpenChange(false); resolve(null); },
+            onError: (err) => reject(err),
+          });
+        });
+      }
+    } catch (err: any) { toast.error(err?.data?.error || "Gagal menyimpan produk"); }
+    finally { setIsSubmitting(false); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader><DialogTitle>{isEdit ? "Edit Produk" : "Tambah Produk"}</DialogTitle></DialogHeader>
+        <div className="flex-1 overflow-hidden">
+          <Tabs value={variantTab} onValueChange={setVariantTab} className="flex flex-col h-full">
+            <TabsList className="flex-wrap h-auto shrink-0">
+              <TabsTrigger value="basic" className="gap-1.5"><Box className="w-3.5 h-3.5" /> Info Dasar</TabsTrigger>
+              {isEdit && product && (<><TabsTrigger value="variants" className="gap-1.5"><List className="w-3.5 h-3.5" /> Varian Harga</TabsTrigger><TabsTrigger value="bom" className="gap-1.5"><ChefHat className="w-3.5 h-3.5" /> BOM</TabsTrigger></>)}
+            </TabsList>
+            <TabsContent value="basic" className="mt-4 overflow-y-auto max-h-[60vh]">
+              <div className="space-y-4 py-2">
+                <div className="space-y-1.5"><Label>Nama Produk</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="Nama produk..." /></div>
+                <div className="space-y-1.5"><Label>Harga Jual (Rp)</Label><Input value={price} onChange={e => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" /></div>
+                <div className="space-y-1.5"><Label>Kategori</Label><Select value={categoryId} onValueChange={setCategoryId}><SelectTrigger><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent><SelectItem value="none">Tanpa kategori</SelectItem>{categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-1.5"><Label>URL Gambar (opsional)</Label><Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." /></div>
+                <div className="flex items-center justify-between"><Label htmlFor="isActive">Produk Aktif</Label><Switch id="isActive" checked={isActive} onCheckedChange={setIsActive} /></div>
+                <div className="flex items-center justify-between"><Label htmlFor="requiresStock">Perlu Stok (cek stok setengah jadi)</Label><Switch id="requiresStock" checked={requiresStock} onCheckedChange={setRequiresStock} /></div>
+                <p className="text-xs text-muted-foreground -mt-2">Jika diaktifkan, produk akan mengecek stok setengah jadi. Jika tidak (On-Demand), stok kosong tetap bisa dijual.</p>
+              </div>
+            </TabsContent>
+            {isEdit && product && (<><TabsContent value="variants" className="mt-4 overflow-y-auto max-h-[60vh]"><VariantsPanel productId={product.id} onVariantChange={() => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); }} /></TabsContent><TabsContent value="bom" className="mt-4 overflow-y-auto max-h-[60vh]"><BomPanel productId={product.id} onBomChange={() => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); }} /></TabsContent></>)}
+          </Tabs>
+        </div>
+        <DialogFooter className="shrink-0"><Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Batal</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Tambah Produk"}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/* ──────────────────────────────────── */
+/* Category Tab                         */
+/* ──────────────────────────────────── */
+function CategoryTab({ categories, onCategoryChange }: { categories: Category[]; onCategoryChange?: () => void }) {
   const queryClient = useQueryClient();
   const createCategory = useCreateCategory();
   const deleteCategory = useDeleteCategory();
   const [newCatName, setNewCatName] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  const handleAdd = () => {
-    if (!newCatName.trim()) return;
-    createCategory.mutate({ data: { name: newCatName.trim() } }, {
-      onSuccess: () => {
-        toast.success("Kategori ditambahkan");
-        queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
-        setNewCatName("");
-      },
-      onError: () => toast.error("Gagal menambah kategori"),
-    });
-  };
+  const refreshCategories = () => { queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() }); if (onCategoryChange) onCategoryChange(); };
 
-  const handleDelete = (id: number) => {
-    deleteCategory.mutate({ id }, {
-      onSuccess: () => {
-        toast.success("Kategori dihapus");
-        queryClient.invalidateQueries({ queryKey: getListCategoriesQueryKey() });
-        setDeletingId(null);
-      },
-      onError: () => toast.error("Gagal menghapus kategori"),
-    });
-  };
+  const handleAdd = () => { if (!newCatName.trim()) return; createCategory.mutate({ data: { name: newCatName.trim() } }, { onSuccess: () => { toast.success("Kategori ditambahkan"); setNewCatName(""); refreshCategories(); }, onError: () => toast.error("Gagal menambah kategori") }); };
+  const handleDelete = (id: number) => { deleteCategory.mutate({ id }, { onSuccess: () => { toast.success("Kategori dihapus"); refreshCategories(); setDeletingId(null); }, onError: () => toast.error("Gagal menghapus kategori") }); };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        <Input
-          value={newCatName}
-          onChange={e => setNewCatName(e.target.value)}
-          placeholder="Nama kategori baru..."
-          onKeyDown={e => e.key === "Enter" && handleAdd()}
-        />
-        <Button onClick={handleAdd} disabled={createCategory.isPending || !newCatName.trim()}>
-          <Plus className="w-4 h-4 mr-1" /> Tambah
-        </Button>
-      </div>
-      <div className="border rounded-lg overflow-hidden">
-        {categories.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <Tag className="w-8 h-8 mx-auto mb-2 opacity-20" />
-            <p>Belum ada kategori</p>
-          </div>
-        ) : (
-          categories.map((cat, idx) => (
-            <div key={cat.id} className={`flex items-center justify-between px-4 py-3 ${idx < categories.length - 1 ? "border-b" : ""}`}>
-              <div>
-                <p className="font-medium">{cat.name}</p>
-                <p className="text-xs text-muted-foreground">{cat.productCount} produk</p>
-              </div>
-              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => setDeletingId(cat.id)}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          ))
-        )}
-      </div>
-      <AlertDialog open={deletingId !== null} onOpenChange={() => setDeletingId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Kategori?</AlertDialogTitle>
-            <AlertDialogDescription>Produk dalam kategori ini tidak akan terhapus, hanya kategorinya saja yang dihapus.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deletingId && handleDelete(deletingId)}>
-              Hapus
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
+  return (<div className="space-y-4"><div className="flex gap-2"><Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nama kategori baru..." onKeyDown={e => e.key === "Enter" && handleAdd()} /><Button onClick={handleAdd} disabled={createCategory.isPending || !newCatName.trim()}><Plus className="w-4 h-4 mr-1" /> Tambah</Button></div><div className="border rounded-lg overflow-hidden">{categories.length === 0 ? (<div className="p-8 text-center text-muted-foreground"><Tag className="w-8 h-8 mx-auto mb-2 opacity-20" /><p>Belum ada kategori</p></div>) : (categories.map((cat, idx) => (<div key={cat.id} className={`flex items-center justify-between px-4 py-3 ${idx < categories.length - 1 ? "border-b" : ""}`}><div><p className="font-medium">{cat.name}</p><p className="text-xs text-muted-foreground">{cat.productCount} produk</p></div><Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => setDeletingId(cat.id)}><Trash2 className="w-4 h-4" /></Button></div>)))}</div><AlertDialog open={deletingId !== null} onOpenChange={() => setDeletingId(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hapus Kategori?</AlertDialogTitle><AlertDialogDescription>Produk dalam kategori ini tidak akan terhapus, hanya kategorinya saja yang dihapus.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction className="bg-destructive" onClick={() => deletingId && handleDelete(deletingId)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div>);
 }
 
-/* ───────────────────────────── */
-/* Main Page                     */
-/* ───────────────────────────── */
+/* ──────────────────────────────────── */
+/* Main Page                            */
+/* ──────────────────────────────────── */
 export default function ProductsPage() {
   const queryClient = useQueryClient();
+  const { branchId } = useBranch();
   const deleteProduct = useDeleteProduct();
-
   const [search, setSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [deletingProductId, setDeletingProductId] = useState<number | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [variantDialogOpen, setVariantDialogOpen] = useState(false);
+  const [variantsData, setVariantsData] = useState<any[]>([]);
+  const [isLoadingVariants, setIsLoadingVariants] = useState(false);
 
   const { data: categories = [] } = useListCategories();
-  const { data: products = [], isLoading } = useListProducts(
-    filterCategory !== "all" ? { categoryId: Number(filterCategory) } : undefined
-  );
+  const { data: products = [], isLoading, refetch } = useListProducts({ branchId: branchId ?? 0, ...(filterCategory !== "all" ? { categoryId: Number(filterCategory) } : {}) } as any);
 
-  const filtered = products.filter(p =>
-    !search || p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = products.filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()));
 
-  const handleEdit = (p: Product) => {
-    setEditingProduct(p);
-    setFormOpen(true);
+  const handleEdit = (p: Product) => { setEditingProduct(p); setFormOpen(true); };
+  const refreshProducts = () => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); refetch(); };
+
+  const handleDelete = async (id: number) => {
+    try {
+      const variantsRes = await fetch(`/api/products/${id}/variants`, { credentials: "include" });
+      const variants = await variantsRes.json();
+      for (const variant of variants) { await fetch(`/api/product-variants/${variant.id}`, { method: "DELETE", credentials: "include" }); }
+      deleteProduct.mutate({ id } as any, { onSuccess: () => { toast.success("Produk dihapus"); refreshProducts(); setDeletingProductId(null); }, onError: () => toast.error("Gagal menghapus produk") });
+    } catch (error) { toast.error("Gagal menghapus varian produk"); }
   };
 
-  const handleDelete = (id: number) => {
-    deleteProduct.mutate({ id }, {
-      onSuccess: () => {
-        toast.success("Produk dihapus");
-        queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
-        setDeletingProductId(null);
-      },
-      onError: () => toast.error("Gagal menghapus produk"),
+ const showVariants = async (product: Product) => {
+  setSelectedProduct(product);
+  setIsLoadingVariants(true);
+  
+  try {
+    // 1. Ambil daftar semua semi_finished untuk mapping ID ke cost
+    const allSemiFinishedRes = await fetch(`/api/semi-finished?branchId=${branchId}`, { 
+      credentials: "include" 
     });
-  };
+    const allSemiFinished = await allSemiFinishedRes.json();
+    const semiFinishedMap = new Map();
+    allSemiFinished.forEach((sf: any) => {
+      semiFinishedMap.set(sf.id, sf);
+    });
+    
+    // 2. Ambil daftar semua ingredients untuk mapping ID ke cost
+    const allIngredientsRes = await fetch(`/api/ingredients?branchId=${branchId}`, { 
+      credentials: "include" 
+    });
+    const allIngredients = await allIngredientsRes.json();
+    const ingredientsMap = new Map();
+    allIngredients.forEach((ing: any) => {
+      ingredientsMap.set(ing.id, ing);
+    });
+    
+    // 3. Ambil daftar varian produk
+    const variantsRes = await fetch(`/api/products/${product.id}/variants`, { 
+      credentials: "include" 
+    });
+    const variants = await variantsRes.json();
+    
+    // 4. Hitung HPP untuk setiap varian
+    const variantsWithCost = await Promise.all(variants.map(async (v: any) => {
+      let totalCost = 0;
+      try {
+        // Ambil BOM varian
+        const recipeRes = await fetch(`/api/recipes?parentType=product_variant&parentId=${v.id}`, { 
+          credentials: "include" 
+        });
+        const recipe = await recipeRes.json();
+        
+        // Hitung total HPP
+        for (const comp of recipe) {
+          if (comp.componentType === "semi_finished") {
+            const sf = semiFinishedMap.get(comp.componentId);
+            if (sf) {
+              const cost = parseFloat(sf.costPricePerUnit) * comp.quantity;
+              totalCost += cost;
+              console.log(`  ${sf.name}: ${sf.costPricePerUnit} × ${comp.quantity} = ${cost}`);
+            } else {
+              console.warn(`Semi_finished ${comp.componentId} not found`);
+            }
+          } 
+          else if (comp.componentType === "ingredient") {
+            const ing = ingredientsMap.get(comp.componentId);
+            if (ing) {
+              const cost = parseFloat(ing.costPricePerUnit) * comp.quantity;
+              totalCost += cost;
+              console.log(`  ${ing.name}: ${ing.costPricePerUnit} × ${comp.quantity} = ${cost}`);
+            } else {
+              console.warn(`Ingredient ${comp.componentId} not found`);
+            }
+          }
+        }
+        console.log(`Total HPP for ${v.name}: Rp ${totalCost.toFixed(2)}`);
+      } catch (err) {
+        console.error(`Error calculating cost for variant ${v.id}:`, err);
+      }
+      
+      return { 
+        id: v.id,
+        name: v.name, 
+        price: parseFloat(v.price), 
+        costPrice: totalCost 
+      };
+    }));
+    
+    setVariantsData(variantsWithCost);
+    setVariantDialogOpen(true);
+  } catch (error) { 
+    console.error("Error fetching variants:", error); 
+    setVariantsData([]); 
+    setVariantDialogOpen(true);
+  } finally { 
+    setIsLoadingVariants(false); 
+  }
+};
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
-        <h1 className="font-bold text-lg md:text-xl tracking-tight">Manajemen Produk</h1>
-        <Button className="ml-auto shrink-0 text-sm md:text-base" size="sm" onClick={() => { setEditingProduct(null); setFormOpen(true); }}>
-          <Plus className="w-4 h-4 mr-1.5" /> <span className="hidden sm:inline">Tambah Produk</span><span className="sm:hidden">Tambah</span>
-        </Button>
-      </div>
-
+      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0"><h1 className="font-bold text-lg md:text-xl tracking-tight">Manajemen Produk</h1><Button className="ml-auto shrink-0" size="sm" onClick={() => { setEditingProduct(null); setFormOpen(true); }}><Plus className="w-4 h-4 mr-1.5" /> Tambah Produk</Button></div>
       <div className="flex-1 p-4 md:p-6 flex flex-col gap-4 overflow-hidden">
         <Tabs defaultValue="products" className="flex flex-col flex-1 overflow-hidden">
-          <div className="flex items-center gap-4 shrink-0">
-            <TabsList className="flex-wrap h-auto">
-              <TabsTrigger value="products" className="gap-1.5">
-                <Package className="w-4 h-4" /> Produk
-              </TabsTrigger>
-              <TabsTrigger value="categories" className="gap-1.5">
-                <Tag className="w-4 h-4" /> Kategori
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
+          <div className="flex items-center gap-4 shrink-0"><TabsList className="flex-wrap h-auto"><TabsTrigger value="products" className="gap-1.5"><Package className="w-4 h-4" /> Produk</TabsTrigger><TabsTrigger value="categories" className="gap-1.5"><Tag className="w-4 h-4" /> Kategori</TabsTrigger></TabsList></div>
           <TabsContent value="products" className="flex-1 overflow-hidden flex flex-col mt-3 md:mt-4 gap-3">
-            <div className="flex gap-2 md:gap-3 shrink-0 flex-wrap">
-              <div className="relative flex-1 max-w-sm min-w-[140px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input className="pl-9" placeholder="Cari produk..." value={search} onChange={e => setSearch(e.target.value)} />
-              </div>
-              <Select value={filterCategory} onValueChange={setFilterCategory}>
-                <SelectTrigger className="w-40 md:w-44">
-                  <SelectValue placeholder="Semua Kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Kategori</SelectItem>
-                  {categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {(search || filterCategory !== "all") && (
-                <Button variant="ghost" size="icon" onClick={() => { setSearch(""); setFilterCategory("all"); }}>
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-
+            <div className="flex gap-2 md:gap-3 shrink-0 flex-wrap"><div className="relative flex-1 max-w-sm min-w-[140px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" /><Input className="pl-9" placeholder="Cari produk..." value={search} onChange={e => setSearch(e.target.value)} /></div><Select value={filterCategory} onValueChange={setFilterCategory}><SelectTrigger className="w-40 md:w-44"><SelectValue placeholder="Semua Kategori" /></SelectTrigger><SelectContent><SelectItem value="all">Semua Kategori</SelectItem>{categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select>{(search || filterCategory !== "all") && <Button variant="ghost" size="icon" onClick={() => { setSearch(""); setFilterCategory("all"); }}><X className="w-4 h-4" /></Button>}</div>
             <ScrollArea className="flex-1">
-              {isLoading ? (
-                <div className="space-y-2">
-                  {[1, 2, 3].map(i => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}
-                </div>
-              ) : filtered.length === 0 ? (
-                <div className="py-20 text-center text-muted-foreground">
-                  <Package className="w-10 h-10 mx-auto mb-2 opacity-20" />
-                  <p>Tidak ada produk ditemukan</p>
-                </div>
-              ) : (
-                <div className="border rounded-lg overflow-hidden">
-                  {/* Table header */}
-                  <div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-2 bg-muted/50 border-b text-xs text-muted-foreground font-medium">
-                    <div className="pl-14">Produk</div>
-                    <div className="text-right w-20 md:w-28">Harga Modal</div>
-                    <div className="text-right w-24 md:w-32">Harga Jual</div>
-                    <div className="w-20 text-right pr-2">Aksi</div>
-                  </div>
-                  {filtered.map((p, idx) => (
-                    <div key={p.id} className={`flex sm:grid sm:grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-3 hover:bg-muted/30 transition-colors ${idx < filtered.length - 1 ? "border-b" : ""}`}>
-                      <div className="flex items-center gap-3 min-w-0 flex-1 sm:flex-none">
-                        <div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center text-muted-foreground font-bold">
-                          {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : p.name.charAt(0)}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{p.name}</p>
-                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                            {p.categoryName && <Badge variant="secondary" className="text-xs">{p.categoryName}</Badge>}
-                            {!p.isActive && <Badge variant="outline" className="text-xs text-muted-foreground">Nonaktif</Badge>}
-                            <span className="text-xs text-muted-foreground">{p.stock} stok</span>
-                            {p.stock <= 5 && p.stock > 0 && <Badge variant="outline" className="text-xs text-orange-600 border-orange-200 bg-orange-50">Stok Rendah</Badge>}
-                            {p.stock === 0 && <Badge variant="outline" className="text-xs text-destructive border-destructive/20 bg-destructive/10">Habis</Badge>}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="shrink-0 text-right sm:w-20 md:w-28">
-                        <p className="text-xs text-muted-foreground">{formatRp(p.costPrice ?? 0)}</p>
-                        <p className="text-[10px] text-muted-foreground sm:hidden">Harga Modal</p>
-                      </div>
-                      <div className="shrink-0 text-right sm:w-24 md:w-32">
-                        <p className="font-bold text-sm md:text-base text-primary">{formatRp(p.price)}</p>
-                        <p className="text-[10px] text-muted-foreground sm:hidden">Harga Jual</p>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0 sm:w-20 justify-end">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary" onClick={() => handleEdit(p)}>
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setDeletingProductId(p.id)}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </ScrollArea>
+              {isLoading ? (<div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}</div>) : filtered.length === 0 ? (<div className="py-20 text-center text-muted-foreground"><Package className="w-10 h-10 mx-auto mb-2 opacity-20" /><p>Tidak ada produk ditemukan</p></div>) : (<div className="border rounded-lg overflow-hidden"><div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-2 bg-muted/50 border-b text-xs text-muted-foreground font-medium"><div className="pl-14">Produk</div><div className="text-right w-20 md:w-28">HPP</div><div className="text-right w-24 md:w-32">Harga Jual</div><div className="w-20 text-right pr-2">Aksi</div></div>
+              {filtered.map((p, idx) => (<div key={p.id} className={`flex sm:grid sm:grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer ${idx < filtered.length - 1 ? "border-b" : ""}`} onClick={() => showVariants(p)}><div className="flex items-center gap-3 min-w-0 flex-1 sm:flex-none"><div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center text-muted-foreground font-bold">{p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : p.name.charAt(0)}</div><div className="min-w-0"><p className="font-medium text-sm truncate">{p.name}</p><div className="flex items-center gap-2 mt-0.5 flex-wrap">{p.categoryName && <Badge variant="secondary" className="text-xs">{p.categoryName}</Badge>}{!p.isActive && <Badge variant="outline" className="text-xs text-muted-foreground">Nonaktif</Badge>}{(p as any).requiresStock && <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50">Perlu Stok</Badge>}{!(p as any).requiresStock && <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50">On-Demand</Badge>}</div></div></div><div className="shrink-0 text-right sm:w-20 md:w-28"><p className="text-xs text-muted-foreground">{formatRp((p as any).costPrice ?? 0)}</p></div><div className="shrink-0 text-right sm:w-24 md:w-32"><p className="font-bold text-sm md:text-base text-primary">{formatRp(p.price)}</p></div><div className="flex items-center gap-1 shrink-0 sm:w-20 justify-end" onClick={e => e.stopPropagation()}><Button variant="ghost" size="icon" onClick={() => handleEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button><Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeletingProductId(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button></div></div>))}</div>)}</ScrollArea>
           </TabsContent>
-
-          <TabsContent value="categories" className="mt-4">
-            <CategoryTab categories={categories} />
-          </TabsContent>
+          <TabsContent value="categories" className="mt-4"><CategoryTab categories={categories} onCategoryChange={refreshProducts} /></TabsContent>
         </Tabs>
       </div>
 
-      <ProductFormDialog
-        open={formOpen}
-        onOpenChange={(v) => { setFormOpen(v); if (!v) setEditingProduct(null); }}
-        product={editingProduct}
-        categories={categories}
-      />
+      <ProductFormDialog open={formOpen} onOpenChange={(v) => { setFormOpen(v); if (!v) setEditingProduct(null); }} product={editingProduct} categories={categories} onProductChange={refreshProducts} />
+      <AlertDialog open={deletingProductId !== null} onOpenChange={() => setDeletingProductId(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hapus Produk?</AlertDialogTitle><AlertDialogDescription>Produk akan dihapus permanen dan tidak bisa dikembalikan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction className="bg-destructive" onClick={() => deletingProductId && handleDelete(deletingProductId)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 
-      <AlertDialog open={deletingProductId !== null} onOpenChange={() => setDeletingProductId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus Produk?</AlertDialogTitle>
-            <AlertDialogDescription>Produk akan dihapus permanen dan tidak bisa dikembalikan.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => deletingProductId && handleDelete(deletingProductId)}>
-              Hapus
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={variantDialogOpen} onOpenChange={setVariantDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle className="text-xl">{selectedProduct?.name}</DialogTitle><DialogDescription>Detail varian dengan HPP dan harga jual</DialogDescription></DialogHeader>
+          <div className="space-y-3 py-4 max-h-[60vh] overflow-y-auto">
+            {isLoadingVariants ? (<div className="text-center py-8">Loading...</div>) : variantsData.length === 0 ? (<div className="text-center py-8 text-muted-foreground"><List className="w-10 h-10 mx-auto mb-2 opacity-20" /><p>Tidak ada varian untuk produk ini</p><p className="text-xs mt-1">Klik "Edit Produk" untuk menambah varian</p></div>) : (variantsData.map((variant) => (<Card key={variant.id} className="border"><CardContent className="p-4"><div className="flex justify-between items-start"><div><p className="font-semibold text-base">{variant.name}</p><div className="flex flex-wrap gap-3 mt-1"><p className="text-xs text-muted-foreground">HPP: <span className="text-orange-600 font-medium">{formatRp(variant.costPrice ?? 0)}</span></p><p className="text-xs text-muted-foreground">Harga Jual: <span className="text-green-600 font-medium">{formatRp(variant.price)}</span></p></div></div><div className="text-right"><p className="text-xs text-muted-foreground">Margin</p><p className="font-bold text-primary">{formatRp((variant.price - (variant.costPrice ?? 0)))}</p></div></div></CardContent></Card>)))}
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2"><Button variant="outline" onClick={() => setVariantDialogOpen(false)}>Tutup</Button><Button onClick={() => { setVariantDialogOpen(false); handleEdit(selectedProduct!); }}>Edit Produk</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

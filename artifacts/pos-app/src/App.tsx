@@ -1,7 +1,4 @@
-import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
-import { publishableKeyFromHost } from "@clerk/react/internal";
-import { shadcn } from "@clerk/themes";
+import { useState, type FormEvent } from "react";
 import { Switch, Route, useLocation, Redirect, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,22 +8,16 @@ import CashierPage from "./pages/cashier";
 import OrdersPage from "./pages/orders";
 import ProductsPage from "./pages/products";
 import DashboardPage from "./pages/dashboard";
+import BranchesPage from "./pages/branches"; // <-- 1. TAMBAHKAN INI
 import UsersPage from "./pages/users";
 import InventoryPage from "./pages/inventory";
 import ShiftPage from "./pages/shift";
 import AuditsPage from "./pages/audits";
 import NotFound from "@/pages/not-found";
-import { useSyncUser, useGetMe } from "@workspace/api-client-react";
+import { useGetMe } from "@workspace/api-client-react";
 import { BranchProvider } from "@/lib/branch";
 
 const queryClient = new QueryClient();
-
-const clerkPubKey = publishableKeyFromHost(
-  window.location.hostname,
-  import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
-);
-
-const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 function stripBase(path: string): string {
@@ -35,113 +26,338 @@ function stripBase(path: string): string {
     : path;
 }
 
-if (!clerkPubKey) {
-  throw new Error("Missing VITE_CLERK_PUBLISHABLE_KEY");
+async function loginWithPassword(email: string, password: string) {
+  const response = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+    credentials: "include",
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || "Login gagal");
+  }
+
+  return response.json();
 }
 
-const clerkAppearance = {
-  theme: shadcn,
-  cssLayerName: "clerk",
-  options: {
-    logoPlacement: "inside" as const,
-    logoLinkUrl: basePath || "/",
-    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
-  },
-  variables: {
-    colorPrimary: "hsl(14, 90%, 48%)",
-    colorForeground: "hsl(20, 14%, 10%)",
-    colorMutedForeground: "hsl(25, 10%, 40%)",
-    colorDanger: "hsl(0, 84%, 60%)",
-    colorBackground: "hsl(40, 20%, 98%)",
-    colorInput: "hsl(40, 10%, 88%)",
-    colorInputForeground: "hsl(20, 14%, 10%)",
-    colorNeutral: "hsl(40, 10%, 70%)",
-    fontFamily: "'Plus Jakarta Sans', system-ui, sans-serif",
-    borderRadius: "0.5rem",
-  },
-  elements: {
-    rootBox: "w-full flex justify-center",
-    cardBox: "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl",
-    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    headerTitle: "text-foreground font-bold text-xl",
-    headerSubtitle: "text-muted-foreground text-sm",
-    socialButtonsBlockButtonText: "text-foreground font-medium",
-    formFieldLabel: "text-foreground text-sm font-medium",
-    footerActionLink: "text-primary font-semibold hover:text-primary/80",
-    footerActionText: "text-muted-foreground",
-    dividerText: "text-muted-foreground",
-    identityPreviewEditButton: "text-primary",
-    formFieldSuccessText: "text-green-600",
-    alertText: "text-foreground",
-    logoBox: "flex justify-center mb-2",
-    logoImage: "h-10 w-10",
-    socialButtonsBlockButton: "border border-border bg-white hover:bg-muted transition-colors",
-    formButtonPrimary: "bg-primary hover:bg-primary/90 text-white font-semibold",
-    formFieldInput: "border-input bg-white text-foreground",
-    footerAction: "border-t border-border pt-4 mt-2",
-    dividerLine: "bg-border",
-    alert: "border border-destructive/20 bg-destructive/5",
-    otpCodeFieldInput: "border-input",
-    formFieldRow: "gap-3",
-    main: "px-2",
-  },
-};
+async function signupWithPassword(email: string, name: string, password: string) {
+  const response = await fetch("/api/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, name, password }),
+    credentials: "include",
+  });
 
-function SignInPage() {
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || "Pendaftaran gagal");
+  }
+
+  return response.json();
+}
+
+async function requestPasswordReset(email: string) {
+  const response = await fetch("/api/auth/request-password-reset", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || "Gagal meminta reset password");
+  }
+
+  return response.json();
+}
+
+async function resetPassword(email: string, resetToken: string, newPassword: string) {
+  const response = await fetch("/api/auth/reset-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, resetToken, newPassword }),
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || "Reset password gagal");
+  }
+}
+
+function LoginForm({ mode }: { mode: "signin" | "signup" }) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+
+    try {
+      if (mode === "signin") {
+        await loginWithPassword(email, password);
+      } else {
+        await signupWithPassword(email, name, password);
+      }
+      await queryClient.invalidateQueries();
+setTimeout(() => setLocation("/"), 300);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal");
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+      <div className="w-full max-w-md rounded-3xl bg-white shadow-xl p-8">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-semibold text-foreground">
+            {mode === "signin" ? "Masuk ke Sayq POS" : "Daftar Sayq POS"}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {mode === "signin"
+              ? "Masukkan email dan password Anda untuk masuk."
+              : "Buat akun baru dengan email, nama, dan password."}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              className="mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          {mode === "signup" && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Nama</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+                className="mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              className="mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
+          <button
+            type="submit"
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary/90"
+          >
+            {mode === "signin" ? "Masuk" : "Buat akun"}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center text-sm text-muted-foreground space-y-3">
+          {mode === "signin" ? (
+            <>
+              <button
+                type="button"
+                className="font-semibold text-primary underline"
+                onClick={() => setLocation("/reset-password")}
+              >
+                Lupa password?
+              </button>
+              <p>
+                Belum punya akun?{' '}
+                <button
+                  type="button"
+                  className="font-semibold text-primary underline"
+                  onClick={() => setLocation("/sign-up")}
+                >
+                  Daftar di sini
+                </button>
+                .
+              </p>
+            </>
+          ) : (
+            <p>
+              Sudah punya akun?{' '}
+              <button
+                type="button"
+                className="font-semibold text-primary underline"
+                onClick={() => setLocation("/sign-in")}
+              >
+                Masuk di sini
+              </button>
+              .
+            </p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-function SignUpPage() {
+function ResetPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [resetToken, setResetToken] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [step, setStep] = useState<"request" | "confirm">("request");
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [, setLocation] = useLocation();
+
+  const handleRequest = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setMessage(null);
+
+    try {
+      const data = await requestPasswordReset(email);
+      setResetToken(data.resetToken ?? "");
+      setMessage("Token reset password dibuat. Simpan token ini untuk melanjutkan.");
+      setStep("confirm");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal meminta token reset");
+    }
+  };
+
+  const handleReset = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError(null);
+    setMessage(null);
+
+    try {
+      await resetPassword(email, resetToken, newPassword);
+      setLocation("/sign-in");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Reset password gagal");
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+      <div className="w-full max-w-md rounded-3xl bg-white shadow-xl p-8">
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-semibold text-foreground">Reset Password</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Masukkan email untuk menerima token reset; lalu ubah password Anda.
+          </p>
+        </div>
+
+        {step === "request" ? (
+          <form onSubmit={handleRequest} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                className="mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {message && <p className="text-sm text-success">{message}</p>}
+
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary/90"
+            >
+              Minta Token Reset
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleReset} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                required
+                className="mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Token Reset</label>
+              <input
+                type="text"
+                value={resetToken}
+                onChange={(event) => setResetToken(event.target.value)}
+                required
+                className="mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700">Password Baru</label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                required
+                className="mt-2 w-full rounded-xl border border-border bg-white px-4 py-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            {message && <p className="text-sm text-success">{message}</p>}
+
+            <button
+              type="submit"
+              className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary/90"
+            >
+              Reset Password
+            </button>
+          </form>
+        )}
+
+        <p className="mt-6 text-center text-sm text-muted-foreground">
+          <button
+            type="button"
+            className="font-semibold text-primary underline"
+            onClick={() => setLocation("/sign-in")}
+          >
+            Kembali ke halaman masuk
+          </button>
+        </p>
+      </div>
     </div>
   );
-}
-
-function ClerkQueryCacheInvalidator() {
-  const { addListener } = useClerk();
-  const qc = useQueryClient();
-  const prevRef = useRef<string | null | undefined>(undefined);
-
-  useEffect(() => {
-    const unsub = addListener(({ user }) => {
-      const uid = user?.id ?? null;
-      if (prevRef.current !== undefined && prevRef.current !== uid) qc.clear();
-      prevRef.current = uid;
-    });
-    return unsub;
-  }, [addListener, qc]);
-
-  return null;
-}
-
-function UserSyncer() {
-  const { user, isLoaded } = useUser();
-  const syncUser = useSyncUser();
-  const synced = useRef(false);
-
-  useEffect(() => {
-    if (!isLoaded || !user || synced.current) return;
-    synced.current = true;
-    syncUser.mutate({
-      data: {
-        email: user.primaryEmailAddress?.emailAddress ?? "",
-        name: user.fullName ?? user.username ?? "User",
-      },
-    });
-  }, [isLoaded, user]);
-
-  return null;
 }
 
 function ProtectedApp() {
-  const { data: me, isLoading } = useGetMe();
+  const { data: me, isLoading } = useGetMe({
+  query: { 
+    queryKey: ["/api/users/me"], 
+    retry: 1,
+    retryDelay: 500,
+  },
+});
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+
+  const signOut = async () => {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+    queryClient.invalidateQueries();
+    setLocation("/sign-in");
+  };
 
   if (isLoading) {
     return (
@@ -151,12 +367,16 @@ function ProtectedApp() {
     );
   }
 
-  const role = me?.role ?? "cashier";
+  if (!me) {
+    return <Redirect to="/sign-in" />;
+  }
+
+  const role = me.role ?? "cashier";
   const canManage = role === "owner" || role === "manager";
 
   return (
     <BranchProvider>
-      <Layout role={role} user={me}>
+      <Layout role={role} user={me} onSignOut={signOut}>
         <Switch>
           <Route path="/" component={CashierPage} />
           <Route path="/orders" component={OrdersPage} />
@@ -165,19 +385,14 @@ function ProtectedApp() {
           {canManage && <Route path="/products" component={ProductsPage} />}
           {canManage && <Route path="/audits" component={AuditsPage} />}
           {canManage && <Route path="/dashboard" component={DashboardPage} />}
+          {role === "owner" && <Route path="/branches" component={BranchesPage} />}
           {role === "owner" && <Route path="/users" component={UsersPage} />}
-          {!canManage && (
-            <Route path="/inventory">{() => <Redirect to="/" />}</Route>
-          )}
-          {!canManage && (
-            <Route path="/products">{() => <Redirect to="/" />}</Route>
-          )}
-          {!canManage && (
-            <Route path="/audits">{() => <Redirect to="/" />}</Route>
-          )}
-          {!canManage && (
-            <Route path="/dashboard">{() => <Redirect to="/" />}</Route>
-          )}
+          {role !== "owner" && <Route path="/branches">{() => <Redirect to="/" />}</Route>}
+          {role !== "owner" && <Route path="/users">{() => <Redirect to="/" />}</Route>}
+          {!canManage && <Route path="/inventory">{() => <Redirect to="/" />}</Route>}
+          {!canManage && <Route path="/products">{() => <Redirect to="/" />}</Route>}
+          {!canManage && <Route path="/audits">{() => <Redirect to="/" />}</Route>}
+          {!canManage && <Route path="/dashboard">{() => <Redirect to="/" />}</Route>}
           <Route component={NotFound} />
         </Switch>
       </Layout>
@@ -185,74 +400,35 @@ function ProtectedApp() {
   );
 }
 
-function HomeRedirect() {
+function AppRoutes() {
   return (
-    <>
-      <Show when="signed-in">
-        <UserSyncer />
-        <ProtectedApp />
-      </Show>
-      <Show when="signed-out">
-        <Redirect to="/sign-in" />
-      </Show>
-    </>
-  );
-}
-
-function ClerkProviderWithRoutes() {
-  const [, setLocation] = useLocation();
-
-  return (
-    <ClerkProvider
-      publishableKey={clerkPubKey}
-      proxyUrl={clerkProxyUrl}
-      appearance={clerkAppearance}
-      signInUrl={`${basePath}/sign-in`}
-      signUpUrl={`${basePath}/sign-up`}
-      localization={{
-        signIn: {
-          start: {
-            title: "Masuk ke Sayq POS",
-            subtitle: "Masuk untuk mulai berjualan",
-          },
-        },
-        signUp: {
-          start: {
-            title: "Buat Akun Sayq POS",
-            subtitle: "Daftar untuk memulai",
-          },
-        },
-      }}
-      routerPush={(to) => setLocation(stripBase(to))}
-      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
-    >
-      <QueryClientProvider client={queryClient}>
-        <ClerkQueryCacheInvalidator />
-        <TooltipProvider>
-          <Switch>
-            <Route path="/" component={HomeRedirect} />
-            <Route path="/sign-in/*?" component={SignInPage} />
-            <Route path="/sign-up/*?" component={SignUpPage} />
-            <Route path="/orders" component={HomeRedirect} />
-            <Route path="/shift" component={HomeRedirect} />
-            <Route path="/inventory" component={HomeRedirect} />
-            <Route path="/products" component={HomeRedirect} />
-            <Route path="/audits" component={HomeRedirect} />
-            <Route path="/dashboard" component={HomeRedirect} />
-            <Route path="/users" component={HomeRedirect} />
-            <Route component={NotFound} />
-          </Switch>
-          <Toaster />
-        </TooltipProvider>
-      </QueryClientProvider>
-    </ClerkProvider>
+    <Switch>
+      <Route path="/" component={ProtectedApp} />
+      <Route path="/orders" component={ProtectedApp} />
+      <Route path="/shift" component={ProtectedApp} />
+      <Route path="/inventory" component={ProtectedApp} />
+      <Route path="/products" component={ProtectedApp} />
+      <Route path="/audits" component={ProtectedApp} />
+      <Route path="/dashboard" component={ProtectedApp} />
+      <Route path="/branches" component={ProtectedApp} />
+      <Route path="/users" component={ProtectedApp} />
+      <Route path="/sign-in" component={() => <LoginForm mode="signin" />} />
+      <Route path="/sign-up" component={() => <LoginForm mode="signup" />} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
 function App() {
   return (
     <WouterRouter base={basePath}>
-      <ClerkProviderWithRoutes />
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AppRoutes />
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
     </WouterRouter>
   );
 }

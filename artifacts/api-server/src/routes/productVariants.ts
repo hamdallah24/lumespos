@@ -1,88 +1,117 @@
 import { Router } from "express";
 import { db, productVariantsTable } from "@workspace/db";
-import { eq, asc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middlewares/requireAuth";
 
 const router = Router();
 
-router.get("/products/:id/variants", requireAuth, async (req, res) => {
-  const productId = Number(req.params["id"]);
-  const rows = await db
-    .select()
-    .from(productVariantsTable)
-    .where(eq(productVariantsTable.productId, productId))
-    .orderBy(asc(productVariantsTable.sortOrder));
-  res.json(
-    rows.map((r) => ({
-      id: r.id,
-      productId: r.productId,
-      name: r.name,
-      price: parseFloat(r.price),
-      sortOrder: r.sortOrder,
-    })),
-  );
+// GET variants by product
+router.get("/products/:productId/variants", requireAuth, async (req, res) => {
+  try {
+    const productId = Number(req.params["productId"]);
+    if (!productId) {
+      return res.status(400).json({ error: "productId required" });
+    }
+
+    const variants = await db
+      .select()
+      .from(productVariantsTable)
+      .where(eq(productVariantsTable.productId, productId))
+      .orderBy(productVariantsTable.name);
+
+    return res.json(variants);
+  } catch (error) {
+    console.error("GET variants error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
-router.post("/products/:id/variants", requireRole("owner", "manager"), async (req, res) => {
-  const productId = Number(req.params["id"]);
-  const { name, price, sortOrder } = req.body as {
-    name: string;
-    price: number;
-    sortOrder?: number;
-  };
-  if (!name?.trim() || price == null) {
-    res.status(400).json({ error: "name and price are required" });
-    return;
+// POST create variant
+router.post("/products/:productId/variants", requireRole("owner", "manager"), async (req, res) => {
+  try {
+    const productId = Number(req.params["productId"]);
+    const { name, price, requiresStock } = req.body;
+
+    if (!productId) {
+      return res.status(400).json({ error: "productId required" });
+    }
+    if (!name?.trim() || !price) {
+      return res.status(400).json({ error: "name and price are required" });
+    }
+
+    const [variant] = await db
+      .insert(productVariantsTable)
+      .values({
+        productId,
+        name: name.trim(),
+        price: String(price),
+        requiresStock: requiresStock ?? true,
+      })
+      .returning();
+
+    return res.status(201).json(variant);
+  } catch (error) {
+    console.error("POST variant error:", error);
+    return res.status(500).json({ error: "Internal server error" });
   }
-  const [created] = await db
-    .insert(productVariantsTable)
-    .values({
-      productId,
-      name: name.trim(),
-      price: String(price),
-      sortOrder: sortOrder ?? 0,
-    })
-    .returning();
-  res.status(201).json({
-    ...created,
-    price: parseFloat(created.price),
-  });
 });
 
-router.patch("/variants/:id", requireRole("owner", "manager"), async (req, res) => {
-  const id = Number(req.params["id"]);
-  const { name, price, sortOrder } = req.body as {
-    name?: string;
-    price?: number;
-    sortOrder?: number;
-  };
-  const update: Record<string, unknown> = {};
-  if (name !== undefined) update["name"] = name.trim();
-  if (price !== undefined) update["price"] = String(price);
-  if (sortOrder !== undefined) update["sortOrder"] = sortOrder;
-  if (Object.keys(update).length === 0) {
-    res.status(400).json({ error: "No fields to update" });
-    return;
-  }
-  const [updated] = await db
-    .update(productVariantsTable)
-    .set(update)
-    .where(eq(productVariantsTable.id, id))
-    .returning();
-  if (!updated) {
-    res.status(404).json({ error: "Not found" });
-    return;
-  }
-  res.json({
-    ...updated,
-    price: parseFloat(updated.price),
-  });
-});
+// PATCH update variant
+router.patch("/product-variants/:id", requireRole("owner", "manager"), async (req, res) => {
+  try {
+    const id = Number(req.params["id"]);
+    const { name, price, requiresStock } = req.body;
 
-router.delete("/variants/:id", requireRole("owner", "manager"), async (req, res) => {
-  const id = Number(req.params["id"]);
-  await db.delete(productVariantsTable).where(eq(productVariantsTable.id, id));
-  res.status(204).send();
+    if (!id || isNaN(id)) {
+      return res.status(400).json({ error: "id required" });
+    }
+
+     const updateData: Record<string, string | boolean> = {};
+    if (name !== undefined && name.trim()) updateData.name = name.trim();
+    if (price !== undefined && parseFloat(price) > 0) updateData.price = String(price);
+    if (requiresStock !== undefined) updateData.requiresStock = requiresStock;
+
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
+
+    const [variant] = await db
+      .update(productVariantsTable)
+      .set(updateData)
+      .where(eq(productVariantsTable.id, id))
+      .returning();
+
+    if (!variant) {
+      return res.status(404).json({ error: "Variant not found" });
+    }
+
+    return res.json({
+      id: variant.id,
+      productId: variant.productId,
+      name: variant.name,
+      price: parseFloat(variant.price),
+      requiresStock: variant.requiresStock,
+      createdAt: variant.createdAt,
+    });
+  } catch (error) {
+    console.error("PATCH variant error:", error);
+    return res.status(500).json({ error: "Gagal memperbarui varian" });
+  }
+});
+// DELETE variant
+router.delete("/product-variants/:id", requireRole("owner", "manager"), async (req, res) => {
+  try {
+    const id = Number(req.params["id"]);
+    if (!id) {
+      return res.status(400).json({ error: "id required" });
+    }
+
+    await db.delete(productVariantsTable).where(eq(productVariantsTable.id, id));
+    return res.status(204).send();
+  } catch (error) {
+    console.error("DELETE variant error:", error);
+    return res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 export default router;

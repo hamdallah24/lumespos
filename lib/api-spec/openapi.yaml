@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   title: Api
   version: 0.1.0
@@ -199,6 +199,11 @@ paths:
       tags: [products]
       summary: List all products
       parameters:
+        - name: branchId  
+          in: query
+          required: true
+          schema:
+            type: integer
         - name: categoryId
           in: query
           schema:
@@ -737,7 +742,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [product, semi_finished]
+            enum: [product, semi_finished, product_variant]
         - name: parentId
           in: query
           required: true
@@ -1101,9 +1106,9 @@ components:
           type: string
           minLength: 1
 
-    Product:
+       product:
       type: object
-      required: [id, name, price, costPrice, stock, isActive]
+      required: [id, name, price, branchId]
       properties:
         id:
           type: integer
@@ -1111,22 +1116,26 @@ components:
           type: string
         categoryId:
           type: ["integer", "null"]
-        categoryName:
-          type: ["string", "null"]
         price:
           type: number
-        costPrice:
-          type: number
-        stock:
+        branchId:
           type: integer
+        requiresStock:
+          type: boolean
         imageUrl:
           type: ["string", "null"]
         isActive:
           type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
-    ProductInput:
+        ProductInput:
       type: object
-      required: [name, price, stock]
+      required: [name, price, branchId]
       properties:
         name:
           type: string
@@ -1136,17 +1145,18 @@ components:
         price:
           type: number
           minimum: 0
-        costPrice:
-          type: number
-          minimum: 0
-          default: 0
-        stock:
+        branchId:
           type: integer
-          minimum: 0
+          description: ID cabang tempat produk berada
+        requiresStock:
+          type: boolean
+          default: true
+          description: Jika true, stok setengah jadi akan dicek. Jika false (On-Demand), stok kosong tetap bisa dijual.
         imageUrl:
           type: ["string", "null"]
         isActive:
           type: boolean
+          default: true
 
     ProductUpdate:
       type: object
@@ -1217,6 +1227,8 @@ components:
       properties:
         productId:
           type: integer
+        productVariantId:
+          type: ["integer", "null"]
         quantity:
           type: integer
           minimum: 1
@@ -1507,7 +1519,7 @@ components:
       properties:
         parentType:
           type: string
-          enum: [product, semi_finished]
+          enum: [product, semi_finished, product_variant]
         parentId:
           type: integer
         components:

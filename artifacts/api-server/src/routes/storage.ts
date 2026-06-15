@@ -4,8 +4,10 @@ import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/localObjectStorage";
 import { requireAuth } from "../middlewares/requireAuth";
+import fs from "fs";
+import path from "path";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -38,7 +40,7 @@ router.post("/storage/uploads/request-url", requireAuth, async (req: Request, re
       }),
     );
   } catch (error) {
-    req.log.error({ err: error }, "Error generating upload URL");
+    console.error("Error generating upload URL", error);
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
 });
@@ -72,7 +74,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
       res.end();
     }
   } catch (error) {
-    req.log.error({ err: error }, "Error serving public object");
+    console.error("Error serving public object", error);
     res.status(500).json({ error: "Failed to serve public object" });
   }
 });
@@ -119,12 +121,35 @@ router.get("/storage/objects/*path", requireAuth, async (req: Request, res: Resp
     }
   } catch (error) {
     if (error instanceof ObjectNotFoundError) {
-      req.log.warn({ err: error }, "Object not found");
+      console.warn("Object not found", error);
       res.status(404).json({ error: "Object not found" });
       return;
     }
-    req.log.error({ err: error }, "Error serving object");
+    console.error("Error serving object", error);
     res.status(500).json({ error: "Failed to serve object" });
+  }
+});
+// Handle local file upload (PUT request dari frontend)
+router.put("/local-upload/:objectId", async (req: Request, res: Response) => {
+  try {
+    const { objectId } = req.params;
+    const uploadDir = process.env.LOCAL_UPLOAD_DIR || 
+      require("path").join(process.cwd(), "uploads");
+    
+    if (!require("fs").existsSync(uploadDir)) {
+      require("fs").mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const filePath = require("path").join(uploadDir, objectId);
+    const chunks: Buffer[] = [];
+    
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      require("fs").writeFileSync(filePath, Buffer.concat(chunks));
+      res.status(200).end();
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Upload failed" });
   }
 });
 

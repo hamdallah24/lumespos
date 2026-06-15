@@ -1,3 +1,4 @@
+import React, { useState, useMemo } from "react";
 import {
   useGetDashboardSummary,
   useGetTopProducts,
@@ -5,21 +6,28 @@ import {
   useGetCashierPerformance,
   useGetFinancialReport,
   useGetLowStock,
+  useListBranches,
 } from "@workspace/api-client-react";
 import { useBranch } from "@/lib/branch";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { TrendingUp, TrendingDown, ShoppingCart, Package, AlertTriangle, Banknote, Users, Wallet, Receipt, Percent, FlaskConical } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, ShoppingCart, Package,
+  AlertTriangle, Banknote, Users, Wallet, Receipt,
+  Percent, FlaskConical, Building2, LayoutGrid,
+} from "lucide-react";
 
-function StatCard({
-  title, value, diff, icon: Icon, format = "number",
-}: {
-  title: string; value: number; diff?: number; icon: React.ElementType; format?: "currency" | "number";
+// ─── STAT CARD ───────────────────────────────────────────────────────────────
+function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
+  title: string; value: number; diff?: number;
+  icon: React.ElementType; format?: "currency" | "number";
 }) {
   const isPositive = (diff ?? 0) >= 0;
   return (
@@ -28,11 +36,11 @@ function StatCard({
         <div className="flex items-start justify-between">
           <div className="min-w-0">
             <p className="text-xs md:text-sm text-muted-foreground font-medium">{title}</p>
-            <p className="text-xl md:text-2xl font-bold mt-1 md:mt-1.5 tracking-tight truncate">
+            <p className="text-xl md:text-2xl font-bold mt-1 tracking-tight truncate">
               {format === "currency" ? formatRp(value) : value.toLocaleString("id-ID")}
             </p>
             {diff !== undefined && (
-              <div className={`flex items-center gap-1 mt-1 md:mt-1.5 text-xs font-medium ${isPositive ? "text-green-600" : "text-destructive"}`}>
+              <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${isPositive ? "text-green-600" : "text-destructive"}`}>
                 {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                 <span>{Math.abs(diff).toFixed(1)}% vs kemarin</span>
               </div>
@@ -47,7 +55,12 @@ function StatCard({
   );
 }
 
-function CustomTooltip({ active, payload, label }: { active?: boolean; payload?: Array<{ value: number; name: string }>; label?: string }) {
+// ─── TOOLTIP ─────────────────────────────────────────────────────────────────
+function CustomTooltip({ active, payload, label }: {
+  active?: boolean;
+  payload?: Array<{ value: number; name: string }>;
+  label?: string;
+}) {
   if (active && payload?.length) {
     return (
       <div className="bg-card border rounded-lg shadow-lg p-3 text-sm">
@@ -66,15 +79,68 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
   return null;
 }
 
+// ─── MAIN PAGE ───────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { branchId, currentBranch } = useBranch();
-  const params = { branchId };
+  const { data: branchesRaw } = useListBranches();
+  const allBranches = Array.isArray(branchesRaw) ? branchesRaw as { id: number; name: string }[] : [];
+
+  // Toggle semua cabang vs cabang aktif
+  const [showAllBranches, setShowAllBranches] = useState(false);
+  const activeBranchId = showAllBranches ? undefined : (branchId ?? undefined);
+  const params = { branchId: activeBranchId };
+
+  // Filter barang terjual
+  const [filterProduct, setFilterProduct] = useState<number | null>(null);
+  const [filterVariant, setFilterVariant] = useState<string | null>(null);
+  const [reportDays, setReportDays] = useState(30);
+
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary(params);
-  const { data: topProducts = [], isLoading: loadingTop } = useGetTopProducts({ limit: 5, branchId });
+  const { data: topProducts = [], isLoading: loadingTop } = useGetTopProducts({ limit: 5, branchId: activeBranchId });
   const { data: chartData = [], isLoading: loadingChart } = useGetSalesChart(params);
   const { data: cashierPerf = [], isLoading: loadingCashier } = useGetCashierPerformance(params);
-  const { data: financial, isLoading: loadingFinancial } = useGetFinancialReport({ branchId, days: 30 });
+  const { data: financial, isLoading: loadingFinancial } = useGetFinancialReport({ branchId: activeBranchId, days: reportDays });
   const { data: lowStock = [], isLoading: loadingLow } = useGetLowStock(params);
+
+  // Fetch sold items via direct fetch (endpoint baru)
+  const [soldItems, setSoldItems] = useState<any[]>([]);
+  const [loadingSold, setLoadingSold] = useState(false);
+
+  React.useEffect(() => {
+    setLoadingSold(true);
+    const url = activeBranchId
+      ? `/api/dashboard/sold-items?branchId=${activeBranchId}&days=${reportDays}`
+      : `/api/dashboard/sold-items?days=${reportDays}`;
+    fetch(url, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => { setSoldItems(Array.isArray(data) ? data : []); })
+      .catch(() => setSoldItems([]))
+      .finally(() => setLoadingSold(false));
+  }, [activeBranchId, reportDays]);
+
+  // Unique produk & varian untuk filter
+  const uniqueProducts = useMemo(() => {
+    const map = new Map<number, string>();
+    soldItems.forEach((i) => map.set(i.productId, i.productName));
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [soldItems]);
+
+  const uniqueVariants = useMemo(() => {
+    if (!filterProduct) return [];
+    const map = new Map<string, string>();
+    soldItems
+      .filter((i) => i.productId === filterProduct && i.variantName)
+      .forEach((i) => map.set(i.variantName, i.variantName));
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [soldItems, filterProduct]);
+
+  const filteredSoldItems = useMemo(() => {
+    return soldItems.filter((i) => {
+      if (filterProduct && i.productId !== filterProduct) return false;
+      if (filterVariant && i.variantName !== filterVariant) return false;
+      return true;
+    });
+  }, [soldItems, filterProduct, filterVariant]);
 
   const formattedChart = chartData.map((d) => ({
     ...d,
@@ -83,15 +149,45 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
+      {/* Header */}
+      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0 flex-wrap">
         <h1 className="font-bold text-lg md:text-xl tracking-tight">Laporan Penjualan</h1>
-        {currentBranch && <Badge variant="outline" className="ml-3 text-xs">{currentBranch.name}</Badge>}
+
+        {/* Toggle cabang */}
+        <div className="flex items-center gap-2 ml-auto">
+          <Button
+            size="sm"
+            variant={!showAllBranches ? "default" : "outline"}
+            className="text-xs h-7"
+            onClick={() => setShowAllBranches(false)}
+          >
+            <Building2 className="w-3 h-3 mr-1" />
+            {currentBranch?.name ?? "Cabang Ini"}
+          </Button>
+          <Button
+            size="sm"
+            variant={showAllBranches ? "default" : "outline"}
+            className="text-xs h-7"
+            onClick={() => setShowAllBranches(true)}
+          >
+            <LayoutGrid className="w-3 h-3 mr-1" />
+            Semua Cabang
+          </Button>
+        </div>
+
+        {showAllBranches && (
+          <Badge variant="secondary" className="text-xs">
+            {allBranches.length} cabang
+          </Badge>
+        )}
       </div>
 
       <ScrollArea className="flex-1">
         <div className="p-4 md:p-6 space-y-4 md:space-y-6">
+
+          {/* Peringatan Stok */}
           {(loadingLow || lowStock.length > 0) && (
-            <Card className={lowStock.length > 0 ? "border-destructive/50 bg-destructive/5 animate-pulse-slow" : ""}>
+            <Card className={lowStock.length > 0 ? "border-destructive/50 bg-destructive/5" : ""}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <AlertTriangle className={`w-5 h-5 ${lowStock.length > 0 ? "text-destructive animate-pulse" : "text-muted-foreground"}`} />
@@ -117,11 +213,31 @@ export default function DashboardPage() {
             </Card>
           )}
 
+          {/* Filter Periode */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Periode laporan:</span>
+            {[7, 30, 90].map((d) => (
+              <Button
+                key={d}
+                size="sm"
+                variant={reportDays === d ? "default" : "outline"}
+                className="text-xs h-7"
+                onClick={() => setReportDays(d)}
+              >
+                {d} Hari
+              </Button>
+            ))}
+          </div>
+
+          {/* Laporan Keuangan */}
           <div>
-            <h2 className="text-sm font-semibold text-muted-foreground mb-3">Laporan Keuangan (30 Hari)</h2>
+            <h2 className="text-sm font-semibold text-muted-foreground mb-3">
+              Laporan Keuangan ({reportDays} Hari)
+              {showAllBranches && <span className="ml-2 text-primary">— Semua Cabang</span>}
+            </h2>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {loadingFinancial ? (
-                [1, 2, 3, 4].map((i) => <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />)
+                [1,2,3,4].map((i) => <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />)
               ) : financial ? (
                 <>
                   <StatCard title="Pendapatan Kotor" value={financial.grossRevenue} icon={Wallet} format="currency" />
@@ -130,11 +246,13 @@ export default function DashboardPage() {
                   <Card>
                     <CardContent className="p-4 md:p-5">
                       <div className="flex items-start justify-between">
-                        <div className="min-w-0">
+                        <div>
                           <p className="text-xs md:text-sm text-muted-foreground font-medium">Margin Kotor</p>
-                          <p className="text-xl md:text-2xl font-bold mt-1 md:mt-1.5 tracking-tight">{financial.grossMarginPct.toFixed(1)}%</p>
+                          <p className="text-xl md:text-2xl font-bold mt-1 tracking-tight">{financial.grossMarginPct.toFixed(1)}%</p>
                         </div>
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 ml-2"><Percent className="w-4 h-4 md:w-5 md:h-5" /></div>
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 ml-2">
+                          <Percent className="w-4 h-4 md:w-5 md:h-5" />
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -142,6 +260,8 @@ export default function DashboardPage() {
               ) : null}
             </div>
           </div>
+
+          {/* Summary Hari Ini */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {loadingSummary ? (
               [1,2,3,4].map((i) => <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />)
@@ -168,6 +288,7 @@ export default function DashboardPage() {
             ) : null}
           </div>
 
+          {/* Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="lg:col-span-2">
               <CardHeader className="pb-2">
@@ -195,7 +316,6 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-semibold">Transaksi per Hari</CardTitle>
@@ -218,6 +338,112 @@ export default function DashboardPage() {
             </Card>
           </div>
 
+          {/* Detail Barang Terjual */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <ShoppingCart className="w-4 h-4" />
+                Detail Barang Terjual
+                {showAllBranches && <Badge variant="secondary" className="text-xs ml-1">Semua Cabang</Badge>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Filter produk & varian */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Button
+                  size="sm"
+                  variant={filterProduct === null ? "default" : "outline"}
+                  className="text-xs h-7"
+                  onClick={() => { setFilterProduct(null); setFilterVariant(null); }}
+                >
+                  Semua Menu
+                </Button>
+                {uniqueProducts.map((p) => (
+                  <Button
+                    key={p.id}
+                    size="sm"
+                    variant={filterProduct === p.id ? "default" : "outline"}
+                    className="text-xs h-7"
+                    onClick={() => { setFilterProduct(p.id); setFilterVariant(null); }}
+                  >
+                    {p.name}
+                  </Button>
+                ))}
+              </div>
+
+              {/* Filter varian — hanya muncul kalau ada produk dipilih */}
+              {filterProduct && uniqueVariants.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  <Button
+                    size="sm"
+                    variant={filterVariant === null ? "default" : "outline"}
+                    className="text-xs h-7"
+                    onClick={() => setFilterVariant(null)}
+                  >
+                    Semua Ukuran
+                  </Button>
+                  {uniqueVariants.map((v) => (
+                    <Button
+                      key={v.id}
+                      size="sm"
+                      variant={filterVariant === v.id ? "default" : "outline"}
+                      className="text-xs h-7"
+                      onClick={() => setFilterVariant(v.id)}
+                    >
+                      {v.name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+
+              {/* Tabel barang terjual */}
+              {loadingSold ? (
+                <div className="space-y-2">
+                  {[1,2,3].map((i) => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}
+                </div>
+              ) : filteredSoldItems.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground">
+                  <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm">Belum ada data penjualan</p>
+                </div>
+              ) : (
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="grid grid-cols-12 px-3 py-2 bg-muted text-[11px] font-medium text-muted-foreground">
+                    <span className="col-span-5">Produk</span>
+                    <span className="col-span-3">Varian/Ukuran</span>
+                    <span className="col-span-2 text-right">Terjual</span>
+                    <span className="col-span-2 text-right">Revenue</span>
+                  </div>
+                  {filteredSoldItems.map((item, idx) => (
+                    <div
+                      key={`${item.productId}-${item.variantId ?? 'default'}-${idx}`}
+                      className={`grid grid-cols-12 px-3 py-2.5 text-xs border-t items-center ${idx % 2 === 0 ? "" : "bg-muted/30"}`}
+                    >
+                      <span className="col-span-5 font-medium truncate">{item.productName}</span>
+                      <span className="col-span-3 text-muted-foreground">
+                        {item.variantName ?? <span className="italic">—</span>}
+                      </span>
+                      <span className="col-span-2 text-right font-semibold">{item.totalSold}</span>
+                      <span className="col-span-2 text-right text-primary font-semibold">{formatRp(item.totalRevenue)}</span>
+                    </div>
+                  ))}
+                  {/* Total */}
+                  <div className="grid grid-cols-12 px-3 py-2.5 text-xs border-t bg-muted font-semibold">
+                    <span className="col-span-5">Total</span>
+                    <span className="col-span-3"></span>
+                    <span className="col-span-2 text-right">
+                      {filteredSoldItems.reduce((a, i) => a + i.totalSold, 0)}
+                    </span>
+                    <span className="col-span-2 text-right text-primary">
+                      {formatRp(filteredSoldItems.reduce((a, i) => a + i.totalRevenue, 0))}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Produk Terlaris & Performa Kasir */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card>
               <CardHeader className="pb-2">
@@ -233,8 +459,8 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {topProducts.map((p, idx) => {
-                      const maxSold = topProducts[0]?.totalSold ?? 1;
+                    {(topProducts as any[]).map((p, idx) => {
+                      const maxSold = (topProducts as any[])[0]?.totalSold ?? 1;
                       const pct = (p.totalSold / maxSold) * 100;
                       return (
                         <div key={p.productId} className="flex items-center gap-4">
@@ -273,8 +499,8 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {cashierPerf.map((c, idx) => {
-                      const maxRev = cashierPerf[0]?.totalRevenue ?? 1;
+                    {(cashierPerf as any[]).map((c, idx) => {
+                      const maxRev = (cashierPerf as any[])[0]?.totalRevenue ?? 1;
                       const pct = (c.totalRevenue / maxRev) * 100;
                       return (
                         <div key={c.cashierId} className="flex items-center gap-4">
@@ -297,6 +523,7 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
         </div>
       </ScrollArea>
     </div>
