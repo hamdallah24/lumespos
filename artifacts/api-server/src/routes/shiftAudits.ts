@@ -115,13 +115,14 @@ router.post("/shift/start", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "openingBalance must be >= 0" });
     }
 
-    // Cek apakah sudah ada shift aktif (only cashierId)
+    // Cek apakah sudah ada shift aktif di cabang ini
     const existingShift = await db
       .select()
       .from(shiftAuditsTable)
       .where(
         and(
           eq(shiftAuditsTable.cashierId, cashierId),
+          eq(shiftAuditsTable.branchId, branchId),
           eq(shiftAuditsTable.status, "active")
         )
       )
@@ -361,7 +362,7 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
     cashierName: row.cashierName,
     shiftStart: row.shiftStart,
     shiftEnd: row.shiftEnd,
-    photoProofUrl: row.photoProofUrl,
+    photoProofUrl: row.photoPro0fUrl,
     status: row.status,
     notes: row.notes,
     createdAt: row.createdAt,
