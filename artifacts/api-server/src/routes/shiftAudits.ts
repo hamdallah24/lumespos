@@ -27,7 +27,7 @@ function snapshotFromInventory(inv: Awaited<ReturnType<typeof listInventoryForBr
 }
 
 function buildReconciliation(expected: StockEntry[], actual: StockEntry[]) {
-  const actualMap = new Map(actual.map((a) => [`${a.itemType}:$#here="#placeholder-old-shift"]{he.itemId}`, a]));
+  const actualMap = new Map(actual.map((a) => [`${a.itemType}:${a.itemId}`, a]));
   let maxDiscrepancyPct = 0;
   const reconciliation = expected.map((e) => {
     const a = actualMap.get(`${e.itemType}:${e.itemId}`);
@@ -51,9 +51,7 @@ function buildReconciliation(expected: StockEntry[], actual: StockEntry[]) {
   return { reconciliation, maxDiscrepancyPct };
 }
 
-// =============================================================
 // GET /api/shift/sales - ambil total penjualan shift
-// ==============================================================
 router.get("/shift/sales", requireAuth, async (req, res) => {
   try {
     const shiftId = Number(req.query.shiftId);
@@ -61,7 +59,6 @@ router.get("/shift/sales", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "shiftId required" });
     }
 
-    // Ambil data shift
     const [shift] = await db
       .select()
       .from(shiftAuditsTable)
@@ -75,7 +72,6 @@ router.get("/shift/sales", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Shift start date is missing" });
     }
 
-    // Gunakan sql template literal dengan parameter binding
     const result = await db.execute(sql`
       SELECT 
         COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash,
@@ -106,9 +102,7 @@ router.get("/shift/sales", requireAuth, async (req, res) => {
   }
 });
 
-// =============================================================
 // POST /api/shift/start - mulai shift baru dengan modal awal
-// =============================================================
 router.post("/shift/start", requireAuth, async (req, res) => {
   try {
     const { branchId, cashierId, cashierName, openingBalance } = req.body;
@@ -121,14 +115,13 @@ router.post("/shift/start", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "openingBalance must be >= 0" });
     }
 
-    // Cek apakah sudah ada shift aktif
+    // Cek apakah sudah ada shift aktif (only cashierId)
     const existingShift = await db
       .select()
       .from(shiftAuditsTable)
       .where(
         and(
           eq(shiftAuditsTable.cashierId, cashierId),
-          eq(shiftAuditsTable.branchId, branchId),
           eq(shiftAuditsTable.status, "active")
         )
       )
@@ -163,9 +156,7 @@ router.post("/shift/start", requireAuth, async (req, res) => {
   }
 });
 
-// =============================================================
 // POST /api/shift/end - tutup shift
-// =============================================================
 router.post("/shift/end", requireAuth, async (req, res) => {
   try {
     const { shiftId, closingBalance, notes } = req.body;
@@ -190,7 +181,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     }
 
     const [salesResult] = await db.execute(sql`
-      SELECT COALESCE(SUM+CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_sales
+      SELECT COALESCE(SUR+CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_sales
       FROM orders
       WHERE branch_id = ${shift.branchId}
         AND created_at >= ${shift.shiftStart}
@@ -235,9 +226,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
   }
 });
 
-// =============================================================
 // GET /api/shift/active - cek shift aktif untuk cashier
-// =============================================================
 router.get("/shift/active", requireAuth, async (req, res) => {
   try {
     const cashierId = (req.user as any)?.id;
@@ -280,50 +269,7 @@ router.get("/shift/active", requireAuth, async (req, res) => {
   }
 });
 
-// =============================================================
-// GET /api/shift/sales - ambil total penjualan shift
-// =============================================================
-router.get("/shift/sales", requireAuth, async (req, res) => {
-  try {
-    const shiftId = Number(req.query.shiftId);
-    if (!shiftId) {
-      return res.status(400).json({ error: "shiftId required" });
-    }
-
-    const [shift] = await db
-      .select()
-      .from(shiftAuditsTable)
-      .where(eq(shiftAuditsTable.id, shiftId));
-
-    if (!shift) {
-      return res.status(404).json({ error: "Shift not found" });
-    }
-
-    const [sales] = await db
-      .select({
-        totalCash: sql<string>`COALESCE(SUM(total), 0)`,
-      })
-      .from(sql`orders`)
-      .where(
-        and(
-          eq(sql`branch_id`, shift.branchId),
-          eq(sql`payment_method`, "cash"),
-          sql`created_at >= ${shift.shiftStart}`,
-          eq(sql`status`, "completed")
-        )
-      );
-
-    return res.json({ totalSales: parseFloat(sales?.totalCash || "0") });
-  } catch (error) {
-    console.error("GET /shift/sales error:", error);
-    return res.status(500).json({ error: "Internal server error" });
-  }
-});
-
-// =============================================================
-// ENDPOINT YANG SUDAH ADA SEBELUMRYA
-// ============================================================
-
+// GET /api/shift-audits - list semua audit shift
 router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) => {
   const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
   const rows = await db
@@ -368,9 +314,12 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
   );
 });
 
-// Snapshot of current expected stock for the cashier closing a shift.
+// Snapshot of current expected stock for the cashier closing a shift
 router.get("/shift-audits/expected", requireAuth, async (req, res) => {
-  const branchId = Number(req.query["branchId"] ?? 1);
+  const branchId = Number(req.query["branchId"]);
+  if (!branchId || isNaN(branchId)) {
+    return res.status(400).json({ error: "branchId required" });
+  }
   const inv = await listInventoryForBranch(branchId);
   res.json(inv);
 });
@@ -470,7 +419,7 @@ router.post("/shift-audits", requireAuth, async (req, res) => {
   });
 });
 
-// Owner validates the audit: sync physical counts into live inventory.
+// Owner validates the audit: sync physical counts into live inventory
 router.patch("/shift-audits/:id/verify", requireRole("owner", "manager"), async (req, res) => {
   const id = Number(req.params["id"]);
 
