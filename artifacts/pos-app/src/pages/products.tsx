@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListProducts, useListCategories,
@@ -26,6 +26,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Plus, Search, Pencil, Trash2, Package, Tag, X, List, ChefHat, Box, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/csrf";
+import { getErrorMessage } from "@/lib/error";
 
 /* ──────────────────────────────────── */
 /* Variants Panel (On-Demand)           */
@@ -62,7 +64,7 @@ function VariantsPanel({ productId, onVariantChange }: { productId: number; onVa
 
     setIsCreating(true);
     try {
-      const response = await fetch(`/api/products/${productId}/variants`, {
+      const response = await apiFetch(`/api/products/${productId}/variants`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName.trim(), price: priceNum, requiresStock: true }),
@@ -75,7 +77,7 @@ function VariantsPanel({ productId, onVariantChange }: { productId: number; onVa
       setNewPrice("");
       await refreshVariants();
     } catch (err: any) {
-      toast.error(err?.message || "Gagal menambah varian");
+      toast.error(getErrorMessage(err, "Gagal menambah varian"));
     } finally {
       setIsCreating(false);
     }
@@ -94,7 +96,7 @@ function VariantsPanel({ productId, onVariantChange }: { productId: number; onVa
 
     setIsUpdating(true);
     try {
-      const response = await fetch(`/api/product-variants/${editing.id}`, {
+      const response = await apiFetch(`/api/product-variants/${editing.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: editing.name.trim(), price: priceNum }),
@@ -106,7 +108,7 @@ function VariantsPanel({ productId, onVariantChange }: { productId: number; onVa
       setEditing(null);
       await refreshVariants();
     } catch (err: any) {
-      toast.error(err?.message || "Gagal memperbarui varian");
+      toast.error(getErrorMessage(err, "Gagal memperbarui varian"));
     } finally {
       setIsUpdating(false);
     }
@@ -115,14 +117,14 @@ function VariantsPanel({ productId, onVariantChange }: { productId: number; onVa
   const handleDelete = async (id: number) => {
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/product-variants/${id}`, { method: "DELETE", credentials: "include" });
+      const response = await apiFetch(`/api/product-variants/${id}`, { method: "DELETE" });
       if (!response.ok) throw new Error(await response.text());
       
       toast.success("Varian dihapus");
       await refreshVariants();
       setDeleting(null);
     } catch (err: any) {
-      toast.error(err?.message || "Gagal menghapus varian");
+      toast.error(getErrorMessage(err, "Gagal menghapus varian"));
     } finally {
       setIsDeleting(false);
     }
@@ -216,7 +218,7 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
   };
 
   const refreshRecipe = () => {
-    queryClient.invalidateQueries({ queryKey: getGetRecipeQueryKey({ parentType: targetType, parentId: targetId } as any ) });
+    queryClient.invalidateQueries({ queryKey: ["/api/recipes"] });
     if (onBomChange) onBomChange();
   };
 
@@ -320,11 +322,56 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
   const [categoryId, setCategoryId] = useState<string>(product?.categoryId ? String(product.categoryId) : "none");
   const [price, setPrice] = useState(product ? String(product.price) : "");
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isActive, setIsActive] = useState(product?.isActive ?? true);
   const [requiresStock, setRequiresStock] = useState((product as any)?.requiresStock ?? true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [variantTab, setVariantTab] = useState("basic");
   const isEdit = product !== null;
+
+  const resolveImageUrl = (url: string | null | undefined): string | undefined => {
+    if (!url) return undefined;
+    return url.startsWith("http") ? url : `/api/storage${url}`;
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Ukuran gambar maksimal 5MB");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const urlRes = await apiFetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, contentType: file.type || "image/jpeg", size: file.size }),
+      });
+      if (!urlRes.ok) throw new Error("Gagal mendapatkan URL upload");
+      const { uploadURL, objectPath } = await urlRes.json();
+
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": file.type || "image/jpeg" },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("Upload gagal");
+
+      setImageUrl(objectPath);
+      toast.success("Gambar berhasil diupload");
+    } catch (err: any) {
+      toast.error(err?.message || "Gagal upload gambar");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async () => {
     if (!name.trim()) { toast.error("Nama wajib diisi"); return; }
@@ -336,22 +383,23 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
     setIsSubmitting(true);
     try {
       if (isEdit && product) {
-        await new Promise((resolve, reject) => {
-          updateProduct.mutate({ id: product.id, data: payload } as any, {
-            onSuccess: () => { toast.success("Produk diperbarui"); queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); onOpenChange(false); resolve(null); },
-            onError: (err) => reject(err),
-          });
-        });
+        await updateProduct.mutateAsync({ id: product.id, data: payload } as any);
+        toast.success("Produk diperbarui"); 
+        queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); 
+        if (onProductChange) onProductChange(); 
+        onOpenChange(false);
       } else {
-        await new Promise((resolve, reject) => {
-          createProduct.mutate({ data: { ...payload, branchId } } as any, {
-            onSuccess: () => { toast.success("Produk ditambahkan"); queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); onOpenChange(false); resolve(null); },
-            onError: (err) => reject(err),
-          });
-        });
+        await createProduct.mutateAsync({ data: { ...payload, branchId } } as any);
+        toast.success("Produk ditambahkan"); 
+        queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); 
+        if (onProductChange) onProductChange(); 
+        onOpenChange(false);
       }
-    } catch (err: any) { toast.error(err?.data?.error || "Gagal menyimpan produk"); }
-    finally { setIsSubmitting(false); }
+    } catch (err: any) { 
+      toast.error(err?.response?.data?.error || err?.message || "Gagal menyimpan produk"); 
+    } finally { 
+      setIsSubmitting(false); 
+    }
   };
 
   return (
@@ -369,7 +417,24 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
                 <div className="space-y-1.5"><Label>Nama Produk</Label><Input value={name} onChange={e => setName(e.target.value)} placeholder="Nama produk..." /></div>
                 <div className="space-y-1.5"><Label>Harga Jual (Rp)</Label><Input value={price} onChange={e => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="0" /></div>
                 <div className="space-y-1.5"><Label>Kategori</Label><Select value={categoryId} onValueChange={setCategoryId}><SelectTrigger><SelectValue placeholder="Pilih kategori" /></SelectTrigger><SelectContent><SelectItem value="none">Tanpa kategori</SelectItem>{categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></div>
-                <div className="space-y-1.5"><Label>URL Gambar (opsional)</Label><Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." /></div>
+                <div className="space-y-1.5">
+                  <Label>Gambar Produk</Label>
+                  {imageUrl ? (
+                    <div className="relative w-full max-w-[200px]">
+                      <img src={resolveImageUrl(imageUrl)} alt="Preview" className="w-full h-32 object-cover rounded-lg border" />
+                      <Button variant="ghost" size="icon" className="absolute top-1 right-1 h-6 w-6 bg-background/80 rounded-full" onClick={() => setImageUrl("")}>
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ) : null}
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                      {uploading ? "Mengupload..." : "Pilih Gambar"}
+                    </Button>
+                  </div>
+                  <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
+                  <p className="text-[11px] text-muted-foreground">Maksimal 5MB. Format: JPG, PNG, GIF.</p>
+                </div>
                 <div className="flex items-center justify-between"><Label htmlFor="isActive">Produk Aktif</Label><Switch id="isActive" checked={isActive} onCheckedChange={setIsActive} /></div>
                 <div className="flex items-center justify-between"><Label htmlFor="requiresStock">Perlu Stok (cek stok setengah jadi)</Label><Switch id="requiresStock" checked={requiresStock} onCheckedChange={setRequiresStock} /></div>
                 <p className="text-xs text-muted-foreground -mt-2">Jika diaktifkan, produk akan mengecek stok setengah jadi. Jika tidak (On-Demand), stok kosong tetap bisa dijual.</p>
@@ -431,7 +496,7 @@ export default function ProductsPage() {
     try {
       const variantsRes = await fetch(`/api/products/${id}/variants`, { credentials: "include" });
       const variants = await variantsRes.json();
-      for (const variant of variants) { await fetch(`/api/product-variants/${variant.id}`, { method: "DELETE", credentials: "include" }); }
+      for (const variant of variants) { await apiFetch(`/api/product-variants/${variant.id}`, { method: "DELETE" }); }
       deleteProduct.mutate({ id } as any, { onSuccess: () => { toast.success("Produk dihapus"); refreshProducts(); setDeletingProductId(null); }, onError: () => toast.error("Gagal menghapus produk") });
     } catch (error) { toast.error("Gagal menghapus varian produk"); }
   };
@@ -526,15 +591,15 @@ export default function ProductsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0"><h1 className="font-bold text-lg md:text-xl tracking-tight">Manajemen Produk</h1><Button className="ml-auto shrink-0" size="sm" onClick={() => { setEditingProduct(null); setFormOpen(true); }}><Plus className="w-4 h-4 mr-1.5" /> Tambah Produk</Button></div>
+      <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mx-3 mt-3"><h1 className="font-bold text-lg tracking-tight">Produk</h1><button className="ml-auto shrink-0 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium flex items-center gap-1.5 touch-target active:scale-[0.97] transition-transform" onClick={() => { setEditingProduct(null); setFormOpen(true); }}><Plus className="w-4 h-4" /> Tambah</button></div>
       <div className="flex-1 p-4 md:p-6 flex flex-col gap-4 overflow-hidden">
         <Tabs defaultValue="products" className="flex flex-col flex-1 overflow-hidden">
           <div className="flex items-center gap-4 shrink-0"><TabsList className="flex-wrap h-auto"><TabsTrigger value="products" className="gap-1.5"><Package className="w-4 h-4" /> Produk</TabsTrigger><TabsTrigger value="categories" className="gap-1.5"><Tag className="w-4 h-4" /> Kategori</TabsTrigger></TabsList></div>
           <TabsContent value="products" className="flex-1 overflow-hidden flex flex-col mt-3 md:mt-4 gap-3">
-            <div className="flex gap-2 md:gap-3 shrink-0 flex-wrap"><div className="relative flex-1 max-w-sm min-w-[140px]"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" /><Input className="pl-9" placeholder="Cari produk..." value={search} onChange={e => setSearch(e.target.value)} /></div><Select value={filterCategory} onValueChange={setFilterCategory}><SelectTrigger className="w-40 md:w-44"><SelectValue placeholder="Semua Kategori" /></SelectTrigger><SelectContent><SelectItem value="all">Semua Kategori</SelectItem>{categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select>{(search || filterCategory !== "all") && <Button variant="ghost" size="icon" onClick={() => { setSearch(""); setFilterCategory("all"); }}><X className="w-4 h-4" /></Button>}</div>
+            <div className="flex gap-2 shrink-0 flex-wrap"><div className="relative flex-1 max-w-sm min-w-[140px]"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" /><Input className="pl-10 h-10 rounded-2xl bg-accent border-0" placeholder="Cari produk..." value={search} onChange={e => setSearch(e.target.value)} /></div><Select value={filterCategory} onValueChange={setFilterCategory}><SelectTrigger className="w-36 h-10 rounded-2xl bg-accent border-0"><SelectValue placeholder="Kategori" /></SelectTrigger><SelectContent><SelectItem value="all">Semua Kategori</SelectItem>{categories.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select>{(search || filterCategory !== "all") && <Button variant="ghost" size="icon" onClick={() => { setSearch(""); setFilterCategory("all"); }}><X className="w-4 h-4" /></Button>}</div>
             <ScrollArea className="flex-1">
-              {isLoading ? (<div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)}</div>) : filtered.length === 0 ? (<div className="py-20 text-center text-muted-foreground"><Package className="w-10 h-10 mx-auto mb-2 opacity-20" /><p>Tidak ada produk ditemukan</p></div>) : (<div className="border rounded-lg overflow-hidden"><div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-2 bg-muted/50 border-b text-xs text-muted-foreground font-medium"><div className="pl-14">Produk</div><div className="text-right w-20 md:w-28">HPP</div><div className="text-right w-24 md:w-32">Harga Jual</div><div className="w-20 text-right pr-2">Aksi</div></div>
-              {filtered.map((p, idx) => (<div key={p.id} className={`flex sm:grid sm:grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer ${idx < filtered.length - 1 ? "border-b" : ""}`} onClick={() => showVariants(p)}><div className="flex items-center gap-3 min-w-0 flex-1 sm:flex-none"><div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center text-muted-foreground font-bold">{p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : p.name.charAt(0)}</div><div className="min-w-0"><p className="font-medium text-sm truncate">{p.name}</p><div className="flex items-center gap-2 mt-0.5 flex-wrap">{p.categoryName && <Badge variant="secondary" className="text-xs">{p.categoryName}</Badge>}{!p.isActive && <Badge variant="outline" className="text-xs text-muted-foreground">Nonaktif</Badge>}{(p as any).requiresStock && <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50">Perlu Stok</Badge>}{!(p as any).requiresStock && <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50">On-Demand</Badge>}</div></div></div><div className="shrink-0 text-right sm:w-20 md:w-28"><p className="text-xs text-muted-foreground">{formatRp((p as any).costPrice ?? 0)}</p></div><div className="shrink-0 text-right sm:w-24 md:w-32"><p className="font-bold text-sm md:text-base text-primary">{formatRp(p.price)}</p></div><div className="flex items-center gap-1 shrink-0 sm:w-20 justify-end" onClick={e => e.stopPropagation()}><Button variant="ghost" size="icon" onClick={() => handleEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button><Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeletingProductId(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button></div></div>))}</div>)}</ScrollArea>
+              {isLoading ? (<div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-16 rounded-2xl bg-muted animate-pulse" />)}</div>) : filtered.length === 0 ? (<div className="py-20 text-center text-muted-foreground"><Package className="w-10 h-10 mx-auto mb-2 opacity-20" /><p>Tidak ada produk ditemukan</p></div>) : (<div className="divide-y divide-border"><div className="hidden sm:grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-2 text-xs text-muted-foreground font-medium"><div className="pl-14">Produk</div><div className="text-right w-20 md:w-28">HPP</div><div className="text-right w-24 md:w-32">Harga Jual</div><div className="w-20 text-right pr-2">Aksi</div></div>
+              {filtered.map((p, idx) => (<div key={p.id} className={`flex sm:grid sm:grid-cols-[1fr_auto_auto_auto] items-center gap-3 md:gap-4 px-3 md:px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer ${idx < filtered.length - 1 ? "border-b" : ""}`} onClick={() => showVariants(p)}><div className="flex items-center gap-3 min-w-0 flex-1 sm:flex-none"><div className="w-9 h-9 md:w-10 md:h-10 rounded-lg bg-muted overflow-hidden shrink-0 flex items-center justify-center text-muted-foreground font-bold">{p.imageUrl ? <img src={p.imageUrl.startsWith("http") ? p.imageUrl : `/api/storage${p.imageUrl}`} alt={p.name} className="w-full h-full object-cover" /> : p.name.charAt(0)}</div><div className="min-w-0"><p className="font-medium text-sm truncate">{p.name}</p><div className="flex items-center gap-2 mt-0.5 flex-wrap">{p.categoryName && <Badge variant="secondary" className="text-xs">{p.categoryName}</Badge>}{!p.isActive && <Badge variant="outline" className="text-xs text-muted-foreground">Nonaktif</Badge>}{(p as any).requiresStock && <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50">Perlu Stok</Badge>}{!(p as any).requiresStock && <Badge variant="outline" className="text-xs text-emerald-600 border-emerald-200 bg-emerald-50">On-Demand</Badge>}</div></div></div><div className="shrink-0 text-right sm:w-20 md:w-28"><p className="text-xs text-muted-foreground">{formatRp((p as any).costPrice ?? 0)}</p></div><div className="shrink-0 text-right sm:w-24 md:w-32"><p className="font-bold text-sm md:text-base text-primary">{formatRp(p.price)}</p></div><div className="flex items-center gap-1 shrink-0 sm:w-20 justify-end" onClick={e => e.stopPropagation()}><Button variant="ghost" size="icon" onClick={() => handleEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button><Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeletingProductId(p.id)}><Trash2 className="w-3.5 h-3.5" /></Button></div></div>))}</div>)}</ScrollArea>
           </TabsContent>
           <TabsContent value="categories" className="mt-4"><CategoryTab categories={categories} onCategoryChange={refreshProducts} /></TabsContent>
         </Tabs>

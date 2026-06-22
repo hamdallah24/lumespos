@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/csrf";
+import { getErrorMessage } from "@/lib/error";
 import { formatRp } from "@/lib/format";
 
 interface CloseShiftDialogProps {
@@ -70,7 +72,7 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
 
     setLoading(true);
     try {
-      const res = await fetch("/api/shift/end", {
+      const res = await apiFetch("/api/shift/end", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -99,7 +101,7 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
         onSuccess();
       }, 1500);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Gagal menutup shift");
+      toast.error(getErrorMessage(err, "Gagal menutup shift"));
     } finally {
       setLoading(false);
     }

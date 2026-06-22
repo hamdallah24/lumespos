@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db, semiFinishedTable, currentInventoryTable, ingredientsTable } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middlewares/requireAuth";
-import { adjustInventory, getRecipeRows, type Executor } from "../services/inventory";
+import { requireAuth, requireBranchAccess, requireRole, canAccessBranch } from "../middlewares/requireAuth";
+import { adjustInventory, getRecipeRows, getInventoryStock, type Executor } from "../services/inventory";
 
 const router = Router();
 
@@ -40,11 +40,12 @@ function serialize(row: typeof semiFinishedTable.$inferSelect, currentStock: num
     currentStock,
     yieldQuantity: parseFloat(row.yieldQuantity ?? "1"),
     yieldUnit: row.yieldUnit ?? row.unit,
+    trackInShift: row.trackInShift,
   };
 }
 
 // GET /api/semi-finished
-router.get("/semi-finished", requireAuth, async (req, res) => {
+router.get("/semi-finished", requireAuth, requireBranchAccess((req) => Number(req.query.branchId)), async (req, res) => {
   try {
     const branchId = Number(req.query.branchId);
     if (!branchId) {
@@ -60,6 +61,7 @@ router.get("/semi-finished", requireAuth, async (req, res) => {
         costPricePerUnit: semiFinishedTable.costPricePerUnit,
         yieldQuantity: semiFinishedTable.yieldQuantity,
         yieldUnit: semiFinishedTable.yieldUnit,
+        trackInShift: semiFinishedTable.trackInShift,
         currentStock: sql<string>`coalesce(${currentInventoryTable.currentStock}, '0')`,
       })
       .from(semiFinishedTable)
@@ -84,6 +86,7 @@ router.get("/semi-finished", requireAuth, async (req, res) => {
         currentStock: parseFloat(r.currentStock),
         yieldQuantity: parseFloat(r.yieldQuantity ?? "1"),
         yieldUnit: r.yieldUnit ?? r.unit,
+        trackInShift: r.trackInShift,
       }))
     );
   } catch (error) {
@@ -93,14 +96,15 @@ router.get("/semi-finished", requireAuth, async (req, res) => {
 });
 
 // POST /api/semi-finished
-router.post("/semi-finished", requireRole("owner", "manager"), async (req, res) => {
+router.post("/semi-finished", requireRole("owner", "manager"), requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
   try {
-    const { branchId, name, unit, yieldQuantity, yieldUnit } = req.body as {
+    const { branchId, name, unit, yieldQuantity, yieldUnit, trackInShift } = req.body as {
       branchId: number;
       name: string;
       unit: string;
       yieldQuantity?: number;
       yieldUnit?: string;
+      trackInShift?: boolean;
     };
 
     if (!branchId || !name?.trim() || !unit?.trim()) {
@@ -115,6 +119,7 @@ router.post("/semi-finished", requireRole("owner", "manager"), async (req, res) 
         unit: unit.trim(),
         yieldQuantity: yieldQuantity ? String(yieldQuantity) : "1",
         yieldUnit: yieldUnit?.trim() || unit.trim(),
+        trackInShift: trackInShift !== undefined ? trackInShift : true,
       })
       .returning();
 
@@ -129,18 +134,20 @@ router.post("/semi-finished", requireRole("owner", "manager"), async (req, res) 
 router.patch("/semi-finished/:id", requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
-    const { name, unit, yieldQuantity, yieldUnit } = req.body as {
+    const { name, unit, yieldQuantity, yieldUnit, trackInShift } = req.body as {
       name?: string;
       unit?: string;
       yieldQuantity?: number;
       yieldUnit?: string;
+      trackInShift?: boolean;
     };
 
-    const update: Record<string, string> = {};
+    const update: Record<string, any> = {};
     if (name !== undefined) update["name"] = name.trim();
     if (unit !== undefined) update["unit"] = unit.trim();
     if (yieldQuantity !== undefined) update["yieldQuantity"] = String(yieldQuantity);
     if (yieldUnit !== undefined) update["yieldUnit"] = yieldUnit.trim();
+    if (trackInShift !== undefined) update["trackInShift"] = trackInShift;
 
     if (Object.keys(update).length === 0) {
       return res.status(400).json({ error: "No fields to update" });
@@ -180,9 +187,8 @@ router.delete("/semi-finished/:id", requireRole("owner", "manager"), async (req,
 // ============================================================
 router.post("/semi-finished/:id/produce", requireRole("owner", "manager"), async (req, res) => {
   const id = Number(req.params["id"]);
-  const { producedWeight, branchId: bodyBranchId } = req.body as {
+  const { producedWeight } = req.body as {
     producedWeight: number;
-    branchId?: number;
   };
 
   if (!producedWeight || producedWeight <= 0) {
@@ -198,42 +204,59 @@ router.post("/semi-finished/:id/produce", requireRole("owner", "manager"), async
         .where(eq(semiFinishedTable.id, id));
       if (!sf) throw new Error("Not found");
 
-      const branchId = bodyBranchId ?? sf.branchId;
+      // Check branch access
+      if (sf.branchId && !(await canAccessBranch(req as any, sf.branchId))) {
+        throw new Error("Forbidden branch");
+      }
+
+      const branchId = sf.branchId!;
 
       // 2. Ambil resep (BOM) dari semi_finished ini
       const recipe = await getRecipeRows(tx, "semi_finished", id);
-      console.log("Recipe found:", JSON.stringify(recipe, null, 2));
 
       if (recipe.length === 0) {
         throw new Error("Resep belum diisi. Silakan isi BOM terlebih dahulu.");
       }
 
-      // 3. Hitung total biaya bahan baku yang terpakai (untuk 1 batch)
+      // 3. Validasi ketersediaan stok bahan baku sebelum dikurangi (Guard Rail)
+      for (const r of recipe) {
+        const currentStock = await getInventoryStock(tx, branchId, r.componentType, r.componentId);
+        if (currentStock < r.quantity) {
+          let name = `ID ${r.componentId}`;
+          if (r.componentType === "ingredient") {
+            const [ing] = await tx.select({ name: ingredientsTable.name }).from(ingredientsTable).where(eq(ingredientsTable.id, r.componentId));
+            if (ing) name = ing.name;
+          } else {
+            const [sfComp] = await tx.select({ name: semiFinishedTable.name }).from(semiFinishedTable).where(eq(semiFinishedTable.id, r.componentId));
+            if (sfComp) name = sfComp.name;
+          }
+          throw new Error(`Stok bahan baku "${name}" tidak mencukupi! Dibutuhkan ${r.quantity}, tapi sisa stok hanya ${currentStock}. Silakan isi stok terlebih dahulu.`);
+        }
+      }
+
+      // 4. Hitung total biaya bahan baku yang terpakai (untuk 1 batch) dan kurangi stok
       let totalCost = 0;
       for (const r of recipe) {
-        console.log(`Processing component: ${r.componentType} ID: ${r.componentId}, Quantity: ${r.quantity}`);
         const componentCost = await getComponentCost(tx, r.componentType, r.componentId);
-        console.log(`Component cost: ${componentCost}`);
-  
         totalCost += componentCost * r.quantity;
         
         // Kurangi stok bahan baku
-        console.log(`Reducing stock of ${r.componentType} ID ${r.componentId} by ${r.quantity}`);
         await adjustInventory(tx, branchId, r.componentType, r.componentId, -r.quantity);
       }
 
-      console.log(`Total cost calculated: ${totalCost}`);
-      // 4. Hitung HPP baru berdasarkan hasil timbangan riil
+      // 5. Hitung HPP baru berdasarkan hasil timbangan riil
       const newHpp = totalCost / producedWeight;
 
-      // 5. Tambah stok setengah jadi sebesar hasil timbangan
+      // 6. Ambil stok lama sebelum ditambah untuk perhitungan moving average
+      const oldStock = await getCurrentStock(tx, branchId, id);
+
+      // 7. Tambah stok setengah jadi sebesar hasil timbangan
       await adjustInventory(tx, branchId, "semi_finished", id, producedWeight);
 
-      // 6. Update costPricePerUnit dengan HPP yang baru (moving average)
-      const currentStock = await getCurrentStock(tx, branchId, id);
-      const oldTotalValue = (parseFloat(sf.costPricePerUnit) || 0) * currentStock;
+      // 8. Update costPricePerUnit dengan HPP yang baru (moving average)
+      const oldTotalValue = (parseFloat(sf.costPricePerUnit) || 0) * oldStock;
       const newTotalValue = newHpp * producedWeight;
-      const avgHpp = (oldTotalValue + newTotalValue) / (currentStock + producedWeight);
+      const avgHpp = (oldTotalValue + newTotalValue) / (oldStock + producedWeight);
       
       await tx
         .update(semiFinishedTable)
@@ -251,7 +274,7 @@ router.post("/semi-finished/:id/produce", requireRole("owner", "manager"), async
     if (error.message === "Not found") {
       return res.status(404).json({ error: "Item setengah jadi tidak ditemukan" });
     }
-    if (error.message === "Resep belum diisi. Silakan isi BOM terlebih dahulu.") {
+    if (error.message.includes("tidak mencukupi") || error.message.includes("Resep belum diisi")) {
       return res.status(400).json({ error: error.message });
     }
     return res.status(500).json({ error: "Gagal produksi: " + error.message });

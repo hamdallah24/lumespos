@@ -1,43 +1,180 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response } from "express";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import passport from "passport";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import pinoHttp from "pino-http";
+import { doubleCsrf } from "csrf-csrf";
+import { pool } from "@workspace/db";
 import router from "./routes";
 import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+const isProduction = process.env.NODE_ENV === "production";
 
+const requiredVars = ["DATABASE_URL", "SESSION_SECRET", "AUTH_SECRET", "CORS_ORIGINS"];
+if (isProduction) {
+  requiredVars.push("CLERK_SECRET_KEY");
+}
+for (const name of requiredVars) {
+  if (!process.env[name]) {
+    throw new Error(
+      `${name} environment variable is required${isProduction ? " in production" : ""}.`,
+    );
+  }
+}
+
+const sessionSecret = process.env.SESSION_SECRET!;
+const allowedOrigins = (process.env.CORS_ORIGINS ?? "http://localhost:4173")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: [
+          "'self'",
+          ...(isProduction ? [] : ["ws://localhost:4173"]),
+        ],
+        fontSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    strictTransportSecurity: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
+app.use(
+  cors({
+    credentials: true,
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("Not allowed by CORS"));
+    },
+  }),
+);
 
 app.use(cookieParser());
+
+const PgSessionStore = connectPgSimple(session);
+
 app.use(
   session({
-    secret: process.env.SESSION_SECRET ?? "dev-sayq-pos-session",
+    store: new PgSessionStore({
+      pool,
+      tableName: "session",
+      createTableIfMissing: true,
+    }),
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: isProduction,
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000,
     },
   }),
 );
-app.use(cors({ 
-  credentials: true, 
-  origin: "http://localhost:4173"
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+
+app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true, limit: "1mb" }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+// CSRF Protection — enable with CSRF_ENABLED=true in .env (requires frontend to send x-csrf-token header)
+const csrfEnabled = process.env.CSRF_ENABLED === "true";
+const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
+  getSecret: () => sessionSecret,
+  getSessionIdentifier: (req: Request) => req.sessionID ?? "",
+  cookieName: "__Host-pos.csrf",
+  cookieOptions: {
+    sameSite: "strict" as const,
+    path: "/",
+    secure: isProduction,
+    httpOnly: false,
+  },
+  size: 64,
+  getCsrfTokenFromRequest: (req: Request) => (req.headers["x-csrf-token"] as string) ?? "",
+  skipCsrfProtection: (req: Request) =>
+    req.path.startsWith("/api/auth/login") ||
+    req.path.startsWith("/api/auth/signup") ||
+    req.path.startsWith("/api/auth/request-password-reset") ||
+    req.path.startsWith("/api/auth/reset-password"),
+});
+
+if (csrfEnabled) {
+  app.use("/api", doubleCsrfProtection);
+  logger.info("CSRF protection enabled");
+}
+
+app.get("/api/csrf-token", (req: Request, res: Response) => {
+  const token = generateCsrfToken(req, res);
+  res.json({ token });
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests" },
+});
+
+const strictLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts" },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests" },
+});
+
+app.use("/api/auth/login", authLimiter);
+app.use("/api/auth/signup", strictLimiter);
+app.use("/api/auth/request-password-reset", strictLimiter);
+app.use("/api/auth/reset-password", authLimiter);
+
+app.use("/api", apiLimiter);
+
+app.use(pinoHttp({ logger }));
 
 app.use("/api", router);
 
 app.use((err: any, req: any, res: any, next: any) => {
-  console.error("DETAIL ERROR:", err);
-  res.status(500).json({ error: err.message });
+  if (err.message?.includes("Not allowed by CORS")) {
+    res.status(403).json({ error: "Not allowed by CORS" });
+    return;
+  }
+  logger.error({ err }, "Unhandled request error");
+  res.status(500).json({ error: isProduction ? "Internal server error" : err.message });
 });
 
 export default app;

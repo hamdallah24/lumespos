@@ -13,4 +13,5 @@ export interface IngredientInput {
   unit: string;
   costPricePerUnit?: number;
   minimalStock?: number;
+  trackInShift?: boolean;
 }

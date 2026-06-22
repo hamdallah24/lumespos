@@ -7,6 +7,7 @@ export type ErrorType<T = unknown> = ApiError<T>;
 export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
+export type CsrfTokenGetter = () => string | null;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
@@ -17,6 +18,7 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 
 let _baseUrl: string | null = null;
 let _authTokenGetter: AuthTokenGetter | null = null;
+let _csrfTokenGetter: CsrfTokenGetter | null = null;
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -42,6 +44,15 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Register a getter that supplies a CSRF token. Before every mutating fetch
+ * (POST/PATCH/PUT/DELETE) the getter is invoked; when it returns a non-null
+ * string, an `x-csrf-token` header is attached.
+ */
+export function setCsrfTokenGetter(getter: CsrfTokenGetter | null): void {
+  _csrfTokenGetter = getter;
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -360,7 +371,19 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
-  const response = await fetch(input, { ...init, method, headers });
+  // Attach CSRF token for mutating requests
+  if (
+    _csrfTokenGetter &&
+    method &&
+    !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())
+  ) {
+    const token = _csrfTokenGetter();
+    if (token) {
+      headers.set("x-csrf-token", token);
+    }
+  }
+
+  const response = await fetch(input, { ...init, credentials: "include", method, headers });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);

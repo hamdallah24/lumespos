@@ -7,3 +7,8 @@ build/
 .cache/
 *.log
 .DS_Store
+
+# Environment files in subdirectories
+**/.env
+**/.env.local
+**/.env.production

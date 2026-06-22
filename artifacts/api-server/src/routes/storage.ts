@@ -11,6 +11,8 @@ import path from "path";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
+const MAX_UPLOAD_BYTES = Number(process.env.MAX_UPLOAD_BYTES ?? 5 * 1024 * 1024);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
  * POST /storage/uploads/request-url
@@ -130,23 +132,58 @@ router.get("/storage/objects/*path", requireAuth, async (req: Request, res: Resp
   }
 });
 // Handle local file upload (PUT request dari frontend)
-router.put("/local-upload/:objectId", async (req: Request, res: Response) => {
+router.put("/local-upload/:objectId", requireAuth, async (req: Request, res: Response) => {
   try {
-    const { objectId } = req.params;
-    const uploadDir = process.env.LOCAL_UPLOAD_DIR || 
-      require("path").join(process.cwd(), "uploads");
-    
-    if (!require("fs").existsSync(uploadDir)) {
-      require("fs").mkdirSync(uploadDir, { recursive: true });
+    const rawObjectId = req.params.objectId;
+    const objectId = Array.isArray(rawObjectId) ? rawObjectId[0] : rawObjectId;
+    if (!objectId || !UUID_PATTERN.test(objectId)) {
+      res.status(400).json({ error: "Invalid object id" });
+      return;
     }
 
-    const filePath = require("path").join(uploadDir, objectId);
-    const chunks: Buffer[] = [];
+    const contentLength = Number(req.headers["content-length"] ?? 0);
+    if (contentLength > MAX_UPLOAD_BYTES) {
+      res.status(413).json({ error: "Upload too large" });
+      return;
+    }
+
+    const uploadDir = process.env.LOCAL_UPLOAD_DIR || path.join(process.cwd(), "uploads");
     
-    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+
+    const filePath = path.join(uploadDir, objectId);
+    const resolvedUploadDir = path.resolve(uploadDir);
+    const resolvedFilePath = path.resolve(filePath);
+    if (!resolvedFilePath.startsWith(resolvedUploadDir + path.sep)) {
+      res.status(400).json({ error: "Invalid upload path" });
+      return;
+    }
+    if (fs.existsSync(resolvedFilePath)) {
+      res.status(409).json({ error: "Object already exists" });
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    let received = 0;
+    
+    req.on("data", (chunk: Buffer) => {
+      received += chunk.length;
+      if (received > MAX_UPLOAD_BYTES) {
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
     req.on("end", () => {
-      require("fs").writeFileSync(filePath, Buffer.concat(chunks));
+      fs.writeFileSync(resolvedFilePath, Buffer.concat(chunks), { flag: "wx" });
       res.status(200).end();
+    });
+    req.on("error", () => {
+      if (!res.headersSent) {
+        res.status(413).json({ error: "Upload failed" });
+      }
     });
   } catch (error) {
     res.status(500).json({ error: "Upload failed" });

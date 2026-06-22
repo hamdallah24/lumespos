@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, stockAdjustmentsTable, ingredientsTable, semiFinishedTable } from "@workspace/db";
 import { desc, eq, inArray } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middlewares/requireAuth";
+import { canAccessBranch, requireAuth, requireBranchAccess, requireRole } from "../middlewares/requireAuth";
 import {
   adjustInventory,
   applyMovingAverage,
@@ -13,12 +13,12 @@ import {
 
 const router = Router();
 
-router.get("/inventory", requireAuth, async (req, res) => {
+router.get("/inventory", requireAuth, requireBranchAccess((req) => Number(req.query["branchId"] ?? 1)), async (req, res) => {
   const branchId = Number(req.query["branchId"] ?? 1);
   res.json(await listInventoryForBranch(branchId));
 });
 
-router.get("/inventory/low-stock", requireAuth, async (req, res) => {
+router.get("/inventory/low-stock", requireAuth, requireBranchAccess((req) => Number(req.query["branchId"] ?? 1)), async (req, res) => {
   const branchId = Number(req.query["branchId"] ?? 1);
   const threshold = req.query["threshold"] ? Number(req.query["threshold"]) : LOW_STOCK_DEFAULT;
   const all = await listInventoryForBranch(branchId);
@@ -35,6 +35,14 @@ router.get("/inventory/low-stock", requireAuth, async (req, res) => {
 
 router.get("/stock-adjustments", requireAuth, async (req, res) => {
   const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+  if (branchId && !(await canAccessBranch(req, branchId))) {
+    res.status(403).json({ error: "Forbidden branch" });
+    return;
+  }
+  if (!branchId && req.user?.role !== "owner" && req.user?.role !== "manager") {
+    res.status(400).json({ error: "branchId required" });
+    return;
+  }
   const rows = await db
     .select()
     .from(stockAdjustmentsTable)
@@ -75,7 +83,7 @@ router.get("/stock-adjustments", requireAuth, async (req, res) => {
   );
 });
 
-router.post("/stock-adjustments", requireRole("owner", "manager"), async (req, res) => {
+router.post("/stock-adjustments", requireRole("owner", "manager"), requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
   const { branchId, itemType, itemId, adjustmentType, quantity, purchasePriceTotal, notes } =
     req.body as {
       branchId: number;

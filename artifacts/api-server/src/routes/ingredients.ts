@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, ingredientsTable, currentInventoryTable } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middlewares/requireAuth";
+import { canAccessBranch, requireAuth, requireBranchAccess, requireRole } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -19,6 +19,7 @@ const getWithStock = async (branchId?: number) => {
       unit: ingredientsTable.unit,
       costPricePerUnit: ingredientsTable.costPricePerUnit,
       minimalStock: ingredientsTable.minimalStock,
+      trackInShift: ingredientsTable.trackInShift,
       currentStock: sql<string>`coalesce(${currentInventoryTable.currentStock}, '0')`,
     })
     .from(ingredientsTable)
@@ -41,6 +42,7 @@ const formatRow = (r: any) => ({
   unit: r.unit,
   costPricePerUnit: parseFloat(r.costPricePerUnit),
   minimalStock: parseFloat(r.minimalStock),
+  trackInShift: r.trackInShift,
   currentStock: parseFloat(r.currentStock),
 });
 
@@ -48,6 +50,12 @@ const formatRow = (r: any) => ({
 router.get("/ingredients", requireAuth, async (req, res) => {
   try {
     const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    if (branchId && !(await canAccessBranch(req, branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+    if (!branchId && req.user?.role !== "owner" && req.user?.role !== "manager") {
+      return res.status(400).json({ error: "branchId required" });
+    }
     const rows = await getWithStock(branchId);
     return res.json(rows.map(formatRow));
   } catch (err: any) {
@@ -57,9 +65,9 @@ router.get("/ingredients", requireAuth, async (req, res) => {
 });
 
 // POST /ingredients
-router.post("/ingredients", requireRole("owner", "manager"), async (req, res) => {
+router.post("/ingredients", requireRole("owner", "manager"), requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
   try {
-    const { branchId, name, unit, costPricePerUnit, minimalStock } = req.body;
+    const { branchId, name, unit, costPricePerUnit, minimalStock, trackInShift } = req.body;
 
     // Validasi input
     if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
@@ -72,6 +80,7 @@ router.post("/ingredients", requireRole("owner", "manager"), async (req, res) =>
       unit: String(unit).trim(),
       costPricePerUnit: String(toSafeNumber(costPricePerUnit)),
       minimalStock: String(toSafeNumber(minimalStock)),
+      trackInShift: trackInShift !== undefined ? trackInShift : true,
     }).returning();
 
     return res.status(201).json(formatRow({ ...result, currentStock: "0" }));
@@ -93,13 +102,14 @@ router.patch("/ingredients/:id", requireRole("owner", "manager"), async (req, re
     const id = Number(req.params["id"]);
     if (isNaN(id)) return res.status(400).json({ error: "ID tidak valid" });
 
-    const { name, unit, costPricePerUnit, minimalStock } = req.body;
-    const update: Record<string, string> = {};
+    const { name, unit, costPricePerUnit, minimalStock, trackInShift } = req.body;
+    const update: Record<string, any> = {};
 
     if (name !== undefined) update["name"] = String(name).trim();
     if (unit !== undefined) update["unit"] = String(unit).trim();
     if (costPricePerUnit !== undefined) update["costPricePerUnit"] = String(toSafeNumber(costPricePerUnit));
     if (minimalStock !== undefined) update["minimalStock"] = String(toSafeNumber(minimalStock));
+    if (trackInShift !== undefined) update["trackInShift"] = trackInShift;
 
     if (Object.keys(update).length === 0) {
       return res.status(400).json({ error: "Tidak ada field yang diupdate" });

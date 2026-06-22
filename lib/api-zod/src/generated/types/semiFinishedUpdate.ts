@@ -10,4 +10,5 @@ export interface SemiFinishedUpdate {
   /** @minLength 1 */
   name?: string;
   unit?: string;
+  trackInShift?: boolean;
 }

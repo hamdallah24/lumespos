@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Sayq POS"
+title = "Lume's Everywhere"
 version = "1.0.0"
 id = "artifacts/pos-app"
 router = "path"

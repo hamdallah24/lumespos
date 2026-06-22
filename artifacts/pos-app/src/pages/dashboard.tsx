@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import ReactDOM from "react-dom";
 import {
   useGetDashboardSummary,
   useGetTopProducts,
@@ -15,513 +16,595 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
   TrendingUp, TrendingDown, ShoppingCart, Package,
   AlertTriangle, Banknote, Users, Wallet, Receipt,
   Percent, FlaskConical, Building2, LayoutGrid,
+  ArrowUpRight, ArrowDownRight,
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
-// ─── STAT CARD ───────────────────────────────────────────────────────────────
 function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
   title: string; value: number; diff?: number;
   icon: React.ElementType; format?: "currency" | "number";
 }) {
   const isPositive = (diff ?? 0) >= 0;
   return (
-    <Card>
-      <CardContent className="p-4 md:p-5">
-        <div className="flex items-start justify-between">
-          <div className="min-w-0">
-            <p className="text-xs md:text-sm text-muted-foreground font-medium">{title}</p>
-            <p className="text-xl md:text-2xl font-bold mt-1 tracking-tight truncate">
-              {format === "currency" ? formatRp(value) : value.toLocaleString("id-ID")}
-            </p>
-            {diff !== undefined && (
-              <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${isPositive ? "text-green-600" : "text-destructive"}`}>
-                {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                <span>{Math.abs(diff).toFixed(1)}% vs kemarin</span>
-              </div>
-            )}
-          </div>
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 ml-2">
-            <Icon className="w-4 h-4 md:w-5 md:h-5" />
-          </div>
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-2xl p-4">
+      <div className="flex items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs text-muted-foreground font-medium">{title}</p>
+          <p className="text-xl font-bold mt-1 tracking-tight truncate">
+            {format === "currency" ? formatRp(value) : value.toLocaleString("id-ID")}
+          </p>
+          {diff !== undefined && (
+            <div className={`flex items-center gap-1 mt-1 text-xs font-medium ${isPositive ? "text-green-600" : "text-destructive"}`}>
+              {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+              <span>{Math.abs(diff).toFixed(1)}% vs kemarin</span>
+            </div>
+          )}
         </div>
-      </CardContent>
-    </Card>
+        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 ml-3">
+          <Icon className="w-5 h-5" />
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
-// ─── TOOLTIP ─────────────────────────────────────────────────────────────────
-function CustomTooltip({ active, payload, label }: {
-  active?: boolean;
-  payload?: Array<{ value: number; name: string }>;
-  label?: string;
-}) {
-  if (active && payload?.length) {
-    return (
-      <div className="bg-card border rounded-lg shadow-lg p-3 text-sm">
-        <p className="font-semibold mb-1">{label}</p>
-        {payload.map((p, i) => (
-          <p key={i} className="text-muted-foreground">
-            {p.name === "revenue" ? "Pendapatan: " : "Transaksi: "}
-            <span className="font-medium text-foreground">
-              {p.name === "revenue" ? formatRp(p.value) : p.value}
-            </span>
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-}
+const CalendarPicker = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => {
+  const [open, setOpen] = useState(false);
+  const [viewMonth, setViewMonth] = useState(() => new Date(value));
+  const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const popupRef = useRef<HTMLDivElement>(null);
 
-// ─── MAIN PAGE ───────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(e.target as Node) &&
+          btnRef.current && !btnRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    if (open) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const d = new Date(value);
+  const selDay = d.getDate(), selMonth = d.getMonth(), selYear = d.getFullYear();
+  const vmYear = viewMonth.getFullYear(), vmMonth = viewMonth.getMonth();
+  const firstDay = new Date(vmYear, vmMonth, 1).getDay();
+  const daysInMonth = new Date(vmYear, vmMonth + 1, 0).getDate();
+  const todayStr = new Date().toDateString();
+
+  const rows: number[][] = [];
+  let row: number[] = [];
+  for (let i = 0; i < firstDay; i++) row.push(0);
+  for (let day = 1; day <= daysInMonth; day++) {
+    row.push(day);
+    if (row.length === 7) { rows.push(row); row = []; }
+  }
+  if (row.length) rows.push(row);
+
+  const openPopup = () => {
+    if (btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPopupPos({ top: rect.bottom + 4, left: rect.left });
+    }
+    setOpen(true);
+  };
+
+  const select = (day: number) => {
+    const nd = new Date(vmYear, vmMonth, day);
+    onChange(nd.toISOString().split("T")[0]);
+    setOpen(false);
+  };
+
+  const nav = (delta: number) => {
+    const nd = new Date(vmYear, vmMonth + delta, 1);
+    setViewMonth(nd);
+  };
+
+  const dayNames = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
+      <button ref={btnRef} onClick={openPopup}
+        className="relative w-[120px] bg-accent/60 border border-border/40 rounded-lg px-2 py-1.5 text-xs font-medium text-foreground text-left cursor-pointer hover:bg-accent/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20">
+        {d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
+      </button>
+      {open && ReactDOM.createPortal(
+        <div ref={popupRef}
+          style={{ position: "fixed", top: popupPos.top, left: popupPos.left, zIndex: 9999 }}
+          className="bg-card border border-border/60 rounded-2xl shadow-xl backdrop-blur-xl p-3 w-[260px]">
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={() => nav(-1)}
+              className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors text-sm">‹</button>
+            <span className="text-sm font-semibold">
+              {["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"][vmMonth]} {vmYear}
+            </span>
+            <button onClick={() => nav(1)}
+              className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors text-sm">›</button>
+          </div>
+          <div className="grid grid-cols-7 mb-1">
+            {dayNames.map(n => (
+              <div key={n} className="text-[10px] text-muted-foreground font-medium text-center py-1">{n}</div>
+            ))}
+          </div>
+          <div className="space-y-0.5">
+            {rows.map((r, ri) => (
+              <div key={ri} className="grid grid-cols-7">
+                {r.map((day, di) => {
+                  if (day === 0) return <div key={di} />;
+                  const isSelected = day === selDay && vmMonth === selMonth && vmYear === selYear;
+                  const isToday = new Date(vmYear, vmMonth, day).toDateString() === todayStr;
+                  return (
+                    <button key={di} onClick={() => select(day)}
+                      className={`w-full aspect-square rounded-lg text-xs font-medium transition-all touch-target
+                        ${isSelected ? "bg-primary text-primary-foreground shadow-sm" : isToday ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"}`}>
+                      {day}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>,
+        document.body
+      )}
+    </div>
+  );
+};
+
 export default function DashboardPage() {
   const { branchId, currentBranch } = useBranch();
   const { data: branchesRaw } = useListBranches();
   const allBranches = Array.isArray(branchesRaw) ? branchesRaw as { id: number; name: string }[] : [];
 
-  // Toggle semua cabang vs cabang aktif
-  const [showAllBranches, setShowAllBranches] = useState(false);
-  const activeBranchId = showAllBranches ? undefined : (branchId ?? undefined);
+  const [selectedBranch, setSelectedBranch] = useState<string>("all");
+  const activeBranchId = selectedBranch === "all" ? undefined : Number(selectedBranch);
+  const isAllBranches = selectedBranch === "all";
   const params = { branchId: activeBranchId };
 
-  // Filter barang terjual
-  const [filterProduct, setFilterProduct] = useState<number | null>(null);
-  const [filterVariant, setFilterVariant] = useState<string | null>(null);
-  const [reportDays, setReportDays] = useState(30);
+  const today = new Date();
+
+  const [period, setPeriod] = useState<string>("30d");
+  const [customStart, setCustomStart] = useState<string>(() => {
+    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0];
+  });
+  const [customEnd, setCustomEnd] = useState<string>(today.toISOString().split("T")[0]);
+
+  const startDate = period === "today" ? today.toISOString().split("T")[0]
+    : period === "7d" ? new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0]
+    : period === "30d" ? new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0]
+    : customStart;
+  const endDate = period === "custom" ? customEnd : today.toISOString().split("T")[0];
+
+  const dateParams = { ...params, startDate, endDate };
+
+  const [stockIndex, setStockIndex] = useState(0);
 
   const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary(params);
-  const { data: topProducts = [], isLoading: loadingTop } = useGetTopProducts({ limit: 5, branchId: activeBranchId });
-  const { data: chartData = [], isLoading: loadingChart } = useGetSalesChart(params);
-  const { data: cashierPerf = [], isLoading: loadingCashier } = useGetCashierPerformance(params);
-  const { data: financial, isLoading: loadingFinancial } = useGetFinancialReport({ branchId: activeBranchId, days: reportDays });
+  const { data: topProducts = [], isLoading: loadingTop } = useGetTopProducts({ limit: 5, branchId: activeBranchId, startDate, endDate });
+  const { data: chartData = [], isLoading: loadingChart } = useGetSalesChart(dateParams as any);
+  const { data: cashierPerf = [], isLoading: loadingCashier } = useGetCashierPerformance(dateParams as any);
+  const { data: financial, isLoading: loadingFinancial } = useGetFinancialReport(dateParams as any);
   const { data: lowStock = [], isLoading: loadingLow } = useGetLowStock(params);
 
-  // Fetch sold items via direct fetch (endpoint baru)
   const [soldItems, setSoldItems] = useState<any[]>([]);
   const [loadingSold, setLoadingSold] = useState(false);
 
   React.useEffect(() => {
     setLoadingSold(true);
-    const url = activeBranchId
-      ? `/api/dashboard/sold-items?branchId=${activeBranchId}&days=${reportDays}`
-      : `/api/dashboard/sold-items?days=${reportDays}`;
-    fetch(url, { credentials: "include" })
+    const params = new URLSearchParams();
+    if (activeBranchId) params.set("branchId", String(activeBranchId));
+    params.set("startDate", startDate);
+    params.set("endDate", endDate);
+    fetch(`/api/dashboard/sold-items?${params.toString()}`, { credentials: "include" })
       .then((r) => r.json())
       .then((data) => { setSoldItems(Array.isArray(data) ? data : []); })
       .catch(() => setSoldItems([]))
       .finally(() => setLoadingSold(false));
-  }, [activeBranchId, reportDays]);
+  }, [activeBranchId, startDate, endDate]);
 
-  // Unique produk & varian untuk filter
-  const uniqueProducts = useMemo(() => {
-    const map = new Map<number, string>();
-    soldItems.forEach((i) => map.set(i.productId, i.productName));
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [soldItems]);
+  useEffect(() => {
+    if (lowStock.length <= 1) return;
+    const interval = setInterval(() => {
+      setStockIndex((prev) => (prev + 1) % lowStock.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [lowStock.length]);
 
-  const uniqueVariants = useMemo(() => {
-    if (!filterProduct) return [];
-    const map = new Map<string, string>();
-    soldItems
-      .filter((i) => i.productId === filterProduct && i.variantName)
-      .forEach((i) => map.set(i.variantName, i.variantName));
-    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-  }, [soldItems, filterProduct]);
-
-  const filteredSoldItems = useMemo(() => {
-    return soldItems.filter((i) => {
-      if (filterProduct && i.productId !== filterProduct) return false;
-      if (filterVariant && i.variantName !== filterVariant) return false;
-      return true;
-    });
-  }, [soldItems, filterProduct, filterVariant]);
-
-  const formattedChart = chartData.map((d) => ({
+  const isHourly = chartData.some((d: any) => d.date?.includes("T"));
+  const formattedChart = chartData.map((d: any) => ({
     ...d,
-    dateLabel: new Date(d.date).toLocaleDateString("id-ID", { weekday: "short", day: "numeric" }),
+    dateLabel: isHourly
+      ? d.date.split("T")[1]?.slice(0, 5) ?? d.date
+      : new Date(d.date).toLocaleDateString("id-ID", { weekday: "short", day: "numeric" }),
   }));
 
+  const trendUp = useMemo(() => {
+    if (formattedChart.length < 2) return true;
+    const vals = formattedChart.map(d => d.revenue ?? 0);
+    return vals[vals.length - 1] >= vals[0];
+  }, [formattedChart]);
+
+  const trendColor = trendUp ? "#1565FF" : "#EF4444";
+
+  function PremiumChartTooltip({ active, payload, label }: any) {
+    if (active && payload?.length) {
+      const val = payload[0].value;
+      const prevVal = payload[0]?.payload?.prevValue ?? val;
+      const isUp = val >= prevVal;
+      return (
+        <div className="bg-card border border-border rounded-2xl shadow-xl p-3 min-w-[140px]">
+          <p className="text-xs text-muted-foreground font-medium">{label}</p>
+          <p className="text-lg font-bold mt-0.5" style={{ color: isUp ? "#1565FF" : "#EF4444" }}>
+            {formatRp(val)}
+          </p>
+          <div className="flex items-center gap-1 mt-0.5">
+            {isUp ? <ArrowUpRight className="w-3 h-3 text-green-500" /> : <ArrowDownRight className="w-3 h-3 text-red-500" />}
+            <span className={`text-xs font-medium ${isUp ? "text-green-500" : "text-red-500"}`}>
+              {isUp ? "Naik" : "Turun"}
+            </span>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0 flex-wrap">
-        <h1 className="font-bold text-lg md:text-xl tracking-tight">Laporan Penjualan</h1>
-
-        {/* Toggle cabang */}
-        <div className="flex items-center gap-2 ml-auto">
-          <Button
-            size="sm"
-            variant={!showAllBranches ? "default" : "outline"}
-            className="text-xs h-7"
-            onClick={() => setShowAllBranches(false)}
-          >
-            <Building2 className="w-3 h-3 mr-1" />
-            {currentBranch?.name ?? "Cabang Ini"}
-          </Button>
-          <Button
-            size="sm"
-            variant={showAllBranches ? "default" : "outline"}
-            className="text-xs h-7"
-            onClick={() => setShowAllBranches(true)}
-          >
-            <LayoutGrid className="w-3 h-3 mr-1" />
-            Semua Cabang
-          </Button>
+      <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-2 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mx-3 mt-3">
+        <h1 className="font-bold text-lg tracking-tight shrink-0">Dashboard</h1>
+        <div className="flex items-center gap-2 ml-auto overflow-x-auto scrollbar-none">
+          {/* Quick period */}
+          <div className="flex gap-0.5 bg-accent/50 rounded-xl p-0.5 border border-border/50 shrink-0">
+            {[{k:"today",l:"Hr Ini"},{k:"7d",l:"7 Hari"},{k:"30d",l:"30 Hari"}].map(p => (
+              <button key={p.k} onClick={() => setPeriod(p.k)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap touch-target transition-all ${period === p.k ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
+                {p.l}
+              </button>
+            ))}
+          </div>
+          {/* Custom date range */}
+          <div className="relative">
+            <CalendarPicker label="Dari" value={customStart} onChange={(v) => { setCustomStart(v); setPeriod("custom"); }} />
+          </div>
+          <span className="text-muted-foreground/30 text-[10px]">—</span>
+          <div className="relative">
+            <CalendarPicker label="Ke" value={customEnd} onChange={(v) => { setCustomEnd(v); setPeriod("custom"); }} />
+          </div>
+          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+            <SelectTrigger className="w-[120px] lg:w-[150px] h-7 text-[11px] bg-accent border-0 rounded-lg">
+              <SelectValue placeholder="Pilih Cabang" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                <div className="flex items-center">
+                  <LayoutGrid className="w-3 h-3 mr-2" />
+                  Semua Cabang {allBranches.length > 0 && `(${allBranches.length})`}
+                </div>
+              </SelectItem>
+              {allBranches.map((b) => (
+                <SelectItem key={b.id} value={String(b.id)}>
+                  <div className="flex items-center">
+                    <Building2 className="w-3 h-3 mr-2" />
+                    {b.name}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-
-        {showAllBranches && (
-          <Badge variant="secondary" className="text-xs">
-            {allBranches.length} cabang
-          </Badge>
-        )}
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-4 md:p-6 space-y-4 md:space-y-6">
-
-          {/* Peringatan Stok */}
-          {(loadingLow || lowStock.length > 0) && (
-            <Card className={lowStock.length > 0 ? "border-destructive/50 bg-destructive/5" : ""}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertTriangle className={`w-5 h-5 ${lowStock.length > 0 ? "text-destructive animate-pulse" : "text-muted-foreground"}`} />
-                  <h2 className={`font-semibold ${lowStock.length > 0 ? "text-destructive" : ""}`}>
-                    Peringatan Stok Menipis {lowStock.length > 0 && `(${lowStock.length})`}
-                  </h2>
+        <div className="p-4 lg:p-6 space-y-4">
+          {/* Grafik Penjualan — Glassmorphism top */}
+          <div className="relative rounded-2xl overflow-hidden border border-[#1565FF]/20 shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1565FF]/[0.12] via-[#1565FF]/[0.03] to-white/90 backdrop-blur-xl" />
+            <div className="relative p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">Grafik Penjualan</h2>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {new Date(startDate).toLocaleDateString("id-ID")} — {new Date(endDate).toLocaleDateString("id-ID")}
+                  </p>
                 </div>
-                {loadingLow ? (
-                  <div className="h-8 bg-muted rounded animate-pulse" />
-                ) : lowStock.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Semua stok dalam batas aman.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {lowStock.map((it) => (
-                      <Badge key={`${it.itemType}-${it.itemId}`} variant="destructive" className="gap-1.5">
-                        {it.itemType === "semi_finished" ? <FlaskConical className="w-3 h-3" /> : <Package className="w-3 h-3" />}
-                        {it.name}: {it.currentStock} {it.unit}
-                      </Badge>
-                    ))}
+              </div>
+              {loadingChart ? (
+                <div className="h-48 lg:h-56 rounded-xl bg-white/40 animate-pulse" />
+              ) : formattedChart.length === 0 ? (
+                <div className="h-48 lg:h-56 flex items-center justify-center text-muted-foreground">
+                  <p className="text-sm">Belum ada data penjualan</p>
+                </div>
+              ) : (
+                <div className="h-48 lg:h-56">
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#1565FF" }} />
+                      <span className="text-xs font-medium text-foreground/80">Pendapatan</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#EF4444" }} />
+                      <span className="text-xs font-medium text-foreground/80">Pengeluaran</span>
+                    </div>
+                    <div className="flex items-center gap-1 ml-auto">
+                      {trendUp ? (
+                        <ArrowUpRight className="w-3.5 h-3.5 text-green-500" />
+                      ) : (
+                        <ArrowDownRight className="w-3.5 h-3.5 text-red-500" />
+                      )}
+                      <span className={`text-xs font-medium ${trendUp ? "text-green-500" : "text-red-500"}`}>
+                        {trendUp ? "Meningkat" : "Menurun"}
+                      </span>
+                    </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Filter Periode */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Periode laporan:</span>
-            {[7, 30, 90].map((d) => (
-              <Button
-                key={d}
-                size="sm"
-                variant={reportDays === d ? "default" : "outline"}
-                className="text-xs h-7"
-                onClick={() => setReportDays(d)}
-              >
-                {d} Hari
-              </Button>
-            ))}
-          </div>
-
-          {/* Laporan Keuangan */}
-          <div>
-            <h2 className="text-sm font-semibold text-muted-foreground mb-3">
-              Laporan Keuangan ({reportDays} Hari)
-              {showAllBranches && <span className="ml-2 text-primary">— Semua Cabang</span>}
-            </h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {loadingFinancial ? (
-                [1,2,3,4].map((i) => <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />)
-              ) : financial ? (
-                <>
-                  <StatCard title="Pendapatan Kotor" value={financial.grossRevenue} icon={Wallet} format="currency" />
-                  <StatCard title="Total HPP (COGS)" value={financial.totalCogs} icon={Receipt} format="currency" />
-                  <StatCard title="Laba Kotor" value={financial.grossProfit} icon={Banknote} format="currency" />
-                  <Card>
-                    <CardContent className="p-4 md:p-5">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-xs md:text-sm text-muted-foreground font-medium">Margin Kotor</p>
-                          <p className="text-xl md:text-2xl font-bold mt-1 tracking-tight">{financial.grossMarginPct.toFixed(1)}%</p>
-                        </div>
-                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 ml-2">
-                          <Percent className="w-4 h-4 md:w-5 md:h-5" />
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              ) : null}
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={formattedChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#1565FF" stopOpacity={0.15} />
+                          <stop offset="100%" stopColor="#1565FF" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#EF4444" stopOpacity={0.12} />
+                          <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(21,101,255,0.08)" vertical={false} />
+                      <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={40} />
+                      <Tooltip content={<PremiumChartTooltip />} cursor={{ stroke: "#1565FF", strokeDasharray: "4 4", strokeWidth: 1 }} />
+                      <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        name="Pendapatan"
+                        stroke="#1565FF"
+                        strokeWidth={2.5}
+                        fill="url(#chartGrad)"
+                        isAnimationActive={true}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                        dot={{ r: 3, fill: "#1565FF", stroke: "white", strokeWidth: 2 }}
+                        activeDot={{ r: 5, fill: "#1565FF", stroke: "white", strokeWidth: 2 }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="expenses"
+                        name="Pengeluaran"
+                        stroke="#EF4444"
+                        strokeWidth={2}
+                        fill="url(#expenseGrad)"
+                        isAnimationActive={true}
+                        animationDuration={800}
+                        animationEasing="ease-out"
+                        dot={{ r: 2, fill: "#EF4444", stroke: "white", strokeWidth: 1.5 }}
+                        activeDot={{ r: 4, fill: "#EF4444", stroke: "white", strokeWidth: 1.5 }}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Summary Hari Ini */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Stock Ticker — compact scrolling low stock */}
+          <div className="relative rounded-2xl overflow-hidden border border-destructive/20 bg-destructive/[0.02]">
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-destructive/10">
+              <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />
+              <span className="text-xs font-semibold text-destructive">Stok Menipis</span>
+              {lowStock.length > 0 && (
+                <span className="text-[10px] font-medium text-destructive/70 ml-auto">{lowStock.length} item</span>
+              )}
+            </div>
+            {loadingLow ? (
+              <div className="h-9 bg-muted/50 animate-pulse" />
+            ) : lowStock.length === 0 ? (
+              <div className="px-3 py-2">
+                <p className="text-xs text-muted-foreground">Semua stok dalam batas aman.</p>
+              </div>
+            ) : (
+              <div className="relative h-10 px-3 flex items-center overflow-hidden">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={stockIndex}
+                    initial={{ y: 24, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -24, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="flex items-center gap-1.5 text-xs font-medium text-destructive/90 max-w-full"
+                  >
+                    {lowStock[stockIndex].itemType === "semi_finished"
+                      ? <FlaskConical className="w-3.5 h-3.5 shrink-0" />
+                      : <Package className="w-3.5 h-3.5 shrink-0" />}
+                    <span className="truncate">{lowStock[stockIndex].name}</span>
+                    <span className="font-semibold shrink-0 text-destructive">
+                      {lowStock[stockIndex].currentStock}
+                    </span>
+                    <span className="text-destructive/60 shrink-0">{lowStock[stockIndex].unit}</span>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+
+          {/* Priority cards row */}
+          <div className="grid grid-cols-2 gap-3">
             {loadingSummary ? (
-              [1,2,3,4].map((i) => <div key={i} className="h-28 rounded-xl bg-muted animate-pulse" />)
+              [1,2,3,4].map((i) => <div key={i} className="h-24 rounded-2xl bg-muted animate-pulse" />)
             ) : summary ? (
               <>
-                <StatCard title="Pendapatan Hari Ini" value={summary.todayRevenue} diff={summary.todayRevenueDiff} icon={Banknote} format="currency" />
-                <StatCard title="Transaksi Hari Ini" value={summary.todayOrders} diff={summary.todayOrdersDiff} icon={ShoppingCart} />
-                <StatCard title="Total Produk Aktif" value={summary.totalProducts} icon={Package} />
-                <Card className={summary.lowStockCount > 0 ? "border-orange-200 bg-orange-50/50" : ""}>
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="text-sm text-muted-foreground font-medium">Stok Hampir Habis</p>
-                        <p className="text-2xl font-bold mt-1.5 tracking-tight">{summary.lowStockCount}</p>
-                        <p className="text-xs text-muted-foreground mt-1.5">produk stok ≤ 5</p>
-                      </div>
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${summary.lowStockCount > 0 ? "bg-orange-100 text-orange-600" : "bg-primary/10 text-primary"}`}>
-                        <AlertTriangle className="w-5 h-5" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <StatCard title="Penjualan Hari Ini" value={summary.todayRevenue} diff={summary.todayRevenueDiff} icon={Banknote} format="currency" />
+                <StatCard title="Pengeluaran Hari Ini" value={summary.todayExpenses} diff={summary.todayExpensesDiff} icon={Wallet} format="currency" />
+                <StatCard title="Transaksi" value={summary.todayOrders} diff={summary.todayOrdersDiff} icon={ShoppingCart} />
+                <StatCard title="Produk Aktif" value={summary.totalProducts} icon={Package} />
               </>
             ) : null}
           </div>
 
-          {/* Chart */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <Card className="lg:col-span-2">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Tren Pendapatan 7 Hari</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingChart ? (
-                  <div className="h-56 bg-muted/50 rounded-lg animate-pulse" />
-                ) : (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <AreaChart data={formattedChart} margin={{ top: 5, right: 5, left: 5, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="revenueGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="hsl(14 90% 48%)" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="hsl(14 90% 48%)" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                      <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Area type="monotone" dataKey="revenue" name="revenue" stroke="hsl(14 90% 48%)" strokeWidth={2} fill="url(#revenueGrad)" dot={false} activeDot={{ r: 4 }} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Transaksi per Hari</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingChart ? (
-                  <div className="h-56 bg-muted/50 rounded-lg animate-pulse" />
-                ) : (
-                  <ResponsiveContainer width="100%" height={220}>
-                    <BarChart data={formattedChart} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                      <XAxis dataKey="dateLabel" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} allowDecimals={false} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Bar dataKey="orders" name="orders" fill="hsl(14 90% 48%)" radius={[4, 4, 0, 0]} maxBarSize={40} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
+
+
+          {/* Produk Terlaris */}
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <h2 className="text-sm font-semibold mb-3">Produk Terlaris</h2>
+            {loadingTop ? (
+              <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded-xl" />)}</div>
+            ) : topProducts.length === 0 ? (
+              <div className="py-6 text-center text-muted-foreground">
+                <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">Belum ada data penjualan</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {(topProducts as any[]).map((p, idx) => {
+                  const maxSold = (topProducts as any[])[0]?.totalSold ?? 1;
+                  const pct = (p.totalSold / maxSold) * 100;
+                  return (
+                    <div key={p.productId} className="flex items-center gap-3">
+                      <span className={`w-5 text-center text-sm font-bold ${idx === 0 ? "text-primary" : "text-muted-foreground"}`}>{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm font-medium truncate">{p.productName}</span>
+                          <span className="text-xs text-muted-foreground ml-2 shrink-0">{p.totalSold} terjual</span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold text-primary shrink-0">{formatRp(p.totalRevenue)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
-          {/* Detail Barang Terjual */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <ShoppingCart className="w-4 h-4" />
-                Detail Barang Terjual
-                {showAllBranches && <Badge variant="secondary" className="text-xs ml-1">Semua Cabang</Badge>}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Filter produk & varian */}
-              <div className="flex flex-wrap gap-2 mb-4">
-                <Button
-                  size="sm"
-                  variant={filterProduct === null ? "default" : "outline"}
-                  className="text-xs h-7"
-                  onClick={() => { setFilterProduct(null); setFilterVariant(null); }}
-                >
-                  Semua Menu
-                </Button>
-                {uniqueProducts.map((p) => (
-                  <Button
-                    key={p.id}
-                    size="sm"
-                    variant={filterProduct === p.id ? "default" : "outline"}
-                    className="text-xs h-7"
-                    onClick={() => { setFilterProduct(p.id); setFilterVariant(null); }}
-                  >
-                    {p.name}
-                  </Button>
+          {/* Kas Masuk/Keluar & Laporan Keuangan */}
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold">
+                Keuangan
+                {isAllBranches && <span className="ml-2 text-primary text-xs">Semua Cabang</span>}
+              </h2>
+              <span className="text-[11px] text-muted-foreground">
+                {new Date(startDate).toLocaleDateString("id-ID")} — {new Date(endDate).toLocaleDateString("id-ID")}
+              </span>
+            </div>
+            {loadingFinancial ? (
+              <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}</div>
+            ) : financial ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-accent/50 rounded-xl p-3">
+                  <p className="text-xs text-muted-foreground">Pendapatan</p>
+                  <p className="text-base font-bold mt-1">{formatRp(financial?.grossRevenue ?? 0)}</p>
+                </div>
+                <div className="bg-accent/50 rounded-xl p-3">
+                  <p className="text-xs text-muted-foreground">HPP (COGS)</p>
+                  <p className="text-base font-bold mt-1">{formatRp(financial?.totalCogs ?? 0)}</p>
+                </div>
+                <div className="bg-accent/50 rounded-xl p-3">
+                  <p className="text-xs text-muted-foreground">Laba Kotor</p>
+                  <p className="text-base font-bold mt-1 text-green-600">{formatRp(financial?.grossProfit ?? 0)}</p>
+                </div>
+                <div className="bg-accent/50 rounded-xl p-3">
+                  <p className="text-xs text-muted-foreground">Margin Kotor</p>
+                  <p className="text-base font-bold mt-1">{(financial?.grossMarginPct ?? 0).toFixed(1)}%</p>
+                </div>
+                <div className="bg-accent/50 rounded-xl p-3">
+                  <p className="text-xs text-muted-foreground">Pengeluaran</p>
+                  <p className="text-base font-bold mt-1 text-red-500">{formatRp(financial?.totalExpenses ?? 0)}</p>
+                </div>
+                <div className="bg-accent/50 rounded-xl p-3">
+                  <p className="text-xs text-muted-foreground">Laba Bersih</p>
+                  <p className="text-base font-bold mt-1 text-green-600">{formatRp(financial?.netProfit ?? 0)}</p>
+                </div>
+                <div className="col-span-2 bg-accent/50 rounded-xl p-3">
+                  <p className="text-xs text-muted-foreground">Margin Bersih</p>
+                  <p className="text-base font-bold mt-1">{(financial?.netMarginPct ?? 0).toFixed(1)}%</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
+
+
+
+          {/* Aktivitas Terbaru — Barang Terjual */}
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <ShoppingCart className="w-4 h-4" />
+              Aktivitas Penjualan
+              {isAllBranches && <Badge variant="secondary" className="text-xs ml-1 rounded-full">Semua Cabang</Badge>}
+            </h2>
+
+            {loadingSold ? (
+              <div className="space-y-2">{[1,2,3].map((i) => <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />)}</div>
+            ) : soldItems.length === 0 ? (
+              <div className="py-6 text-center text-muted-foreground">
+                <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">Belum ada data penjualan</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {soldItems.slice(0, 10).map((item, idx) => (
+                  <div key={`${item.productId}-${item.variantId ?? 'default'}-${idx}`}
+                    className="flex items-center justify-between p-3 bg-accent/30 rounded-xl">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{item.productName}</p>
+                      <p className="text-xs text-muted-foreground">{item.variantName ?? "Reguler"} · {item.totalSold} terjual</p>
+                    </div>
+                    <span className="text-sm font-semibold text-primary ml-3">{formatRp(item.totalRevenue)}</span>
+                  </div>
                 ))}
               </div>
+            )}
+          </div>
 
-              {/* Filter varian — hanya muncul kalau ada produk dipilih */}
-              {filterProduct && uniqueVariants.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  <Button
-                    size="sm"
-                    variant={filterVariant === null ? "default" : "outline"}
-                    className="text-xs h-7"
-                    onClick={() => setFilterVariant(null)}
-                  >
-                    Semua Ukuran
-                  </Button>
-                  {uniqueVariants.map((v) => (
-                    <Button
-                      key={v.id}
-                      size="sm"
-                      variant={filterVariant === v.id ? "default" : "outline"}
-                      className="text-xs h-7"
-                      onClick={() => setFilterVariant(v.id)}
-                    >
-                      {v.name}
-                    </Button>
-                  ))}
-                </div>
-              )}
-
-              {/* Tabel barang terjual */}
-              {loadingSold ? (
-                <div className="space-y-2">
-                  {[1,2,3].map((i) => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}
-                </div>
-              ) : filteredSoldItems.length === 0 ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm">Belum ada data penjualan</p>
-                </div>
-              ) : (
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="grid grid-cols-12 px-3 py-2 bg-muted text-[11px] font-medium text-muted-foreground">
-                    <span className="col-span-5">Produk</span>
-                    <span className="col-span-3">Varian/Ukuran</span>
-                    <span className="col-span-2 text-right">Terjual</span>
-                    <span className="col-span-2 text-right">Revenue</span>
-                  </div>
-                  {filteredSoldItems.map((item, idx) => (
-                    <div
-                      key={`${item.productId}-${item.variantId ?? 'default'}-${idx}`}
-                      className={`grid grid-cols-12 px-3 py-2.5 text-xs border-t items-center ${idx % 2 === 0 ? "" : "bg-muted/30"}`}
-                    >
-                      <span className="col-span-5 font-medium truncate">{item.productName}</span>
-                      <span className="col-span-3 text-muted-foreground">
-                        {item.variantName ?? <span className="italic">—</span>}
-                      </span>
-                      <span className="col-span-2 text-right font-semibold">{item.totalSold}</span>
-                      <span className="col-span-2 text-right text-primary font-semibold">{formatRp(item.totalRevenue)}</span>
+          {/* Performa Kasir */}
+          <div className="bg-card border border-border rounded-2xl p-4">
+            <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
+              <Users className="w-4 h-4" /> Performa Kasir
+            </h2>
+            {loadingCashier ? (
+              <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded-xl" />)}</div>
+            ) : cashierPerf.length === 0 ? (
+              <div className="py-6 text-center text-muted-foreground">
+                <Users className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">Belum ada data</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {(cashierPerf as any[]).map((c, idx) => {
+                  const maxRev = (cashierPerf as any[])[0]?.totalRevenue ?? 1;
+                  const pct = (c.totalRevenue / maxRev) * 100;
+                  return (
+                    <div key={c.cashierId} className="flex items-center gap-3">
+                      <span className={`w-5 text-center text-sm font-bold ${idx === 0 ? "text-primary" : "text-muted-foreground"}`}>{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm font-medium truncate">{c.cashierName}</span>
+                          <span className="text-xs text-muted-foreground ml-2 shrink-0">{c.totalOrders} transaksi</span>
+                        </div>
+                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                      <span className="text-xs font-semibold text-primary shrink-0">{formatRp(c.totalRevenue)}</span>
                     </div>
-                  ))}
-                  {/* Total */}
-                  <div className="grid grid-cols-12 px-3 py-2.5 text-xs border-t bg-muted font-semibold">
-                    <span className="col-span-5">Total</span>
-                    <span className="col-span-3"></span>
-                    <span className="col-span-2 text-right">
-                      {filteredSoldItems.reduce((a, i) => a + i.totalSold, 0)}
-                    </span>
-                    <span className="col-span-2 text-right text-primary">
-                      {formatRp(filteredSoldItems.reduce((a, i) => a + i.totalRevenue, 0))}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Produk Terlaris & Performa Kasir */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold">Produk Terlaris</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingTop ? (
-                  <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded" />)}</div>
-                ) : topProducts.length === 0 ? (
-                  <div className="py-8 text-center text-muted-foreground">
-                    <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                    <p className="text-sm">Belum ada data penjualan</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {(topProducts as any[]).map((p, idx) => {
-                      const maxSold = (topProducts as any[])[0]?.totalSold ?? 1;
-                      const pct = (p.totalSold / maxSold) * 100;
-                      return (
-                        <div key={p.productId} className="flex items-center gap-4">
-                          <span className={`w-6 text-center text-sm font-bold ${idx === 0 ? "text-primary" : "text-muted-foreground"}`}>#{idx + 1}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-sm font-medium truncate">{p.productName}</span>
-                              <span className="text-sm text-muted-foreground ml-2 shrink-0">{p.totalSold} terjual</span>
-                            </div>
-                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-                            </div>
-                          </div>
-                          <span className="text-sm font-semibold text-primary shrink-0">{formatRp(p.totalRevenue)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  <Users className="w-4 h-4" /> Performa Kasir
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {loadingCashier ? (
-                  <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded" />)}</div>
-                ) : cashierPerf.length === 0 ? (
-                  <div className="py-8 text-center text-muted-foreground">
-                    <Users className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                    <p className="text-sm">Belum ada data kasir</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {(cashierPerf as any[]).map((c, idx) => {
-                      const maxRev = (cashierPerf as any[])[0]?.totalRevenue ?? 1;
-                      const pct = (c.totalRevenue / maxRev) * 100;
-                      return (
-                        <div key={c.cashierId} className="flex items-center gap-4">
-                          <span className={`w-6 text-center text-sm font-bold ${idx === 0 ? "text-primary" : "text-muted-foreground"}`}>#{idx + 1}</span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-sm font-medium truncate">{c.cashierName}</span>
-                              <span className="text-sm text-muted-foreground ml-2 shrink-0">{c.totalOrders} transaksi</span>
-                            </div>
-                            <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                              <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-                            </div>
-                          </div>
-                          <span className="text-sm font-semibold text-primary shrink-0">{formatRp(c.totalRevenue)}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
         </div>

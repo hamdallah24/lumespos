@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db, shiftAuditsTable, usersTable, currentInventoryTable } from "@workspace/db";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middlewares/requireAuth";
-import { listInventoryForBranch, type Executor, type ItemType } from "../services/inventory";
+import { canAccessBranch, requireAuth, requireBranchAccess, requireRole } from "../middlewares/requireAuth";
+import { listInventoryForBranch, listInventoryForShift, type Executor, type ItemType } from "../services/inventory";
 
 const router = Router();
 
@@ -67,6 +67,9 @@ router.get("/shift/sales", requireAuth, async (req, res) => {
     if (!shift) {
       return res.status(404).json({ error: "Shift not found" });
     }
+    if (!(await canAccessBranch(req, shift.branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
 
     if (!shift.shiftStart) {
       return res.status(400).json({ error: "Shift start date is missing" });
@@ -103,7 +106,7 @@ router.get("/shift/sales", requireAuth, async (req, res) => {
 });
 
 // POST /api/shift/start - mulai shift baru dengan modal awal
-router.post("/shift/start", requireAuth, async (req, res) => {
+router.post("/shift/start", requireAuth, requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
   try {
     const { branchId, cashierId, cashierName, openingBalance } = req.body;
     const userId = (req.user as any)?.id;
@@ -121,7 +124,6 @@ router.post("/shift/start", requireAuth, async (req, res) => {
       .from(shiftAuditsTable)
       .where(
         and(
-          eq(shiftAuditsTable.cashierId, cashierId),
           eq(shiftAuditsTable.branchId, branchId),
           eq(shiftAuditsTable.status, "active")
         )
@@ -129,7 +131,7 @@ router.post("/shift/start", requireAuth, async (req, res) => {
       .limit(1);
 
     if (existingShift.length > 0) {
-      return res.status(400).json({ error: "Masih ada shift aktif. Tutup shift terlebih dahulu." });
+      return res.status(400).json({ error: "Masih ada shift aktif di cabang ini. Tutup shift sebelumnya terlebih dahulu." });
     }
 
     const [newShift] = await db
@@ -160,13 +162,10 @@ router.post("/shift/start", requireAuth, async (req, res) => {
 // POST /api/shift/end - tutup shift
 router.post("/shift/end", requireAuth, async (req, res) => {
   try {
-    const { shiftId, closingBalance, notes } = req.body;
+    const { shiftId, closingBalance, photoProofUrl, actualStock, notes } = req.body;
 
-    if (!shiftId || typeof shiftId !== "number") {
-      return res.status(400).json({ error: "shiftId is required and must be a number" });
-    }
-    if (closingBalance === undefined || closingBalance < 0) {
-      return res.status(400).json({ error: "closingBalance must be >= 0" });
+    if (!shiftId || closingBalance === undefined) {
+      return res.status(400).json({ error: "shiftId and closingBalance required" });
     }
 
     const [shift] = await db
@@ -177,30 +176,53 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     if (!shift) {
       return res.status(404).json({ error: "Shift not found" });
     }
-    if (shift.status !== "active") {
-      return res.status(400).json({ error: "Shift is not active. Only active shifts can be closed." });
+    if (!(await canAccessBranch(req, shift.branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
     }
 
-    const [salesResult] = await db.execute(sql`
-      SELECT COALESCE(SUR+CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_sales
-      FROM orders
-      WHERE branch_id = ${shift.branchId}
-        AND created_at >= ${shift.shiftStart}
-        AND status = 'completed'
-    `);
+    // Hitung total cash dari order
+    const [sales] = await db
+      .select({ totalCash: sql<string>`COALESCE(SUM(total), 0)` })
+      .from(sql`orders`)
+      .where(
+        and(
+          eq(sql`branch_id`, shift.branchId),
+          eq(sql`payment_method`, "cash"),
+          sql`created_at >= ${shift.shiftStart}`,
+          eq(sql`status`, "completed")
+        )
+      );
 
-    const cashSales = parseFloat((salesResult as any)?.cash_sales || "0");
-    const openingBalance = parseFloat(shift.openingBalance);
-    const expectedBalance = openingBalance + cashSales;
+    const totalCash = parseFloat(sales?.totalCash || "0");
+    const expectedBalance = parseFloat(shift.openingBalance) + totalCash;
+    const difference = closingBalance - expectedBalance;
+    let status = difference !== 0 ? "discrepancy" : "pending";
 
-    const [updated] = await db
+    // Hitung Physical Stock Difference
+    let expectedStock = null;
+    if (Array.isArray(actualStock) && actualStock.length > 0) {
+      const inv = await listInventoryForShift(shift.branchId);
+      expectedStock = snapshotFromInventory(inv);
+      const { maxDiscrepancyPct } = buildReconciliation(expectedStock, actualStock);
+      if (maxDiscrepancyPct > WARNING_PCT) {
+        status = "discrepancy";
+      }
+    }
+
+    // Gabungkan JSON catatannya
+    const notesObj = { closingBalance, expectedBalance, difference, totalCash, userNotes: notes || null };
+
+    const [updatedShift] = await db
       .update(shiftAuditsTable)
       .set({
         shiftEnd: new Date(),
+        status,
         closingBalance: String(closingBalance),
         expectedBalance: String(expectedBalance),
-        status: "closed",
-        notes: notes ?? null,
+        expectedStockJson: expectedStock,
+        actualStockJson: Array.isArray(actualStock) && actualStock.length > 0 ? actualStock : null,
+        photoProofUrl: photoProofUrl || null,
+        notes: JSON.stringify(notesObj),
       })
       .where(eq(shiftAuditsTable.id, shiftId))
       .returning();
@@ -208,18 +230,11 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     return res.json({
       success: true,
       shift: {
-        id: updated.id,
-        branchId: updated.branchId,
-        cashierId: updated.cashierId,
-        shiftStart: updated.shiftStart,
-        shiftEnd: updated.shiftEnd,
-        openingBalance: parseFloat(updated.openingBalance),
-        closingBalance: parseFloat(updated.closingBalance!),
-        expectedBalance: parseFloat(updated.expectedBalance!),
-        difference: parseFloat(updated.closingBalance!) - expectedBalance,
-        status: updated.status,
-        notes: updated.notes,
-      },
+        id: updatedShift.id,
+        expectedBalance,
+        closingBalance,
+        difference
+      }
     });
   } catch (error) {
     console.error("POST /shift/end error:", error);
@@ -228,14 +243,10 @@ router.post("/shift/end", requireAuth, async (req, res) => {
 });
 
 // GET /api/shift/active - cek shift aktif untuk cashier
-router.get("/shift/active", requireAuth, async (req, res) => {
+router.get("/shift/active", requireAuth, requireBranchAccess((req) => Number(req.query.branchId)), async (req, res) => {
   try {
-    const cashierId = (req.user as any)?.id;
     const branchId = Number(req.query.branchId);
 
-    if (!cashierId) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
     if (!branchId) {
       return res.status(400).json({ error: "branchId required" });
     }
@@ -245,7 +256,6 @@ router.get("/shift/active", requireAuth, async (req, res) => {
       .from(shiftAuditsTable)
       .where(
         and(
-          eq(shiftAuditsTable.cashierId, cashierId),
           eq(shiftAuditsTable.branchId, branchId),
           eq(shiftAuditsTable.status, "active")
         )
@@ -273,6 +283,10 @@ router.get("/shift/active", requireAuth, async (req, res) => {
 // GET /api/shift-audits - list semua audit shift
 router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) => {
   const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+  if (branchId && !(await canAccessBranch(req, branchId))) {
+    res.status(403).json({ error: "Forbidden branch" });
+    return;
+  }
   const rows = await db
     .select({
       id: shiftAuditsTable.id,
@@ -315,13 +329,10 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
   );
 });
 
-// Snapshot of current expected stock for the cashier closing a shift
-router.get("/shift-audits/expected", requireAuth, async (req, res) => {
-  const branchId = Number(req.query["branchId"]);
-  if (!branchId || isNaN(branchId)) {
-    return res.status(400).json({ error: "branchId required" });
-  }
-  const inv = await listInventoryForBranch(branchId);
+// Snapshot of current expected stock for the cashier closing a shift.
+router.get("/shift-audits/expected", requireAuth, requireBranchAccess((req) => Number(req.query["branchId"] ?? 1)), async (req, res) => {
+  const branchId = Number(req.query["branchId"] ?? 1);
+  const inv = await listInventoryForShift(branchId);
   res.json(inv);
 });
 
@@ -371,7 +382,7 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
   });
 });
 
-router.post("/shift-audits", requireAuth, async (req, res) => {
+router.post("/shift-audits", requireAuth, requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
   const { branchId, cashierId, shiftStart, actualStock, photoProofUrl, notes } = req.body as {
     branchId: number;
     cashierId?: number | null;

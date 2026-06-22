@@ -12,4 +12,5 @@ export interface IngredientUpdate {
   unit?: string;
   costPricePerUnit?: number;
   minimalStock?: number;
+  trackInShift?: boolean;
 }

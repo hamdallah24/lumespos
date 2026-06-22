@@ -6,12 +6,21 @@ import { hashPassword, generateResetToken, hashResetToken, requireAuth, type App
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { mockStorage } from "../lib/mockStorage";
+import { sendPasswordResetEmail } from "../lib/email";
 
 
 const router = Router();
+const RESET_REQUEST_MESSAGE = "Jika akun ada, link reset password telah dikirim.";
 
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function validatePassword(password: string): string | null {
+  if (password.length < 8) return "Password minimal 8 karakter";
+  if (!/[a-zA-Z]/.test(password)) return "Password harus mengandung huruf";
+  if (!/[0-9]/.test(password)) return "Password harus mengandung angka";
+  return null;
 }
 
 router.post("/auth/signup", async (req, res, next) => {
@@ -23,6 +32,12 @@ router.post("/auth/signup", async (req, res, next) => {
 
   if (!email || !password) {
     res.status(400).json({ error: "Email dan password diperlukan" });
+    return;
+  }
+
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    res.status(400).json({ error: passwordError });
     return;
   }
 
@@ -133,6 +148,12 @@ router.post("/auth/change-password", requireAuth, async (req, res) => {
     return;
   }
 
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) {
+    res.status(400).json({ error: passwordError });
+    return;
+  }
+
   const isMatch = await compare(currentPassword, (user as any).passwordHash as string);
   if (!isMatch) {
     res.status(400).json({ error: "Password lama tidak cocok" });
@@ -155,7 +176,7 @@ router.post("/auth/request-password-reset", async (req, res) => {
   const normalizedEmail = normalizeEmail(email);
   const [user] = await db.select().from(usersTable).where(eq(usersTable.email, normalizedEmail));
   if (!user) {
-    res.status(200).json({ message: "Jika akun ada, token reset telah dibuat." });
+    res.status(200).json({ message: RESET_REQUEST_MESSAGE });
     return;
   }
 
@@ -168,7 +189,9 @@ router.post("/auth/request-password-reset", async (req, res) => {
     .set({ resetTokenHash, resetTokenExpiresAt } as any)
     .where(eq(usersTable.id, user.id));
 
-  res.json({ resetToken });
+  await sendPasswordResetEmail(normalizedEmail, resetToken);
+
+  res.status(200).json({ message: RESET_REQUEST_MESSAGE });
 });
 
 router.post("/auth/reset-password", async (req, res) => {
@@ -180,6 +203,12 @@ router.post("/auth/reset-password", async (req, res) => {
 
   if (!email || !resetToken || !newPassword) {
     res.status(400).json({ error: "Email, token reset, dan password baru diperlukan" });
+    return;
+  }
+
+  const passwordError = validatePassword(newPassword);
+  if (passwordError) {
+    res.status(400).json({ error: passwordError });
     return;
   }
 
@@ -204,5 +233,25 @@ router.post("/auth/reset-password", async (req, res) => {
 
   res.status(204).end();
 });
+
+// Google OAuth routes
+router.get("/auth/google", (req, res) => {
+  const redirectTo = (req.query.redirect as string) ?? "/";
+  (req.session as any).authRedirect = redirectTo;
+  passport.authenticate("google", {
+    scope: ["profile", "email"],
+    prompt: "select_account",
+  })(req, res);
+});
+
+router.get(
+  "/auth/google/callback",
+  passport.authenticate("google", { failureRedirect: "/sign-in" }),
+  (req, res) => {
+    const redirectTo = (req.session as any)?.authRedirect ?? "/";
+    delete (req.session as any).authRedirect;
+    res.redirect(redirectTo);
+  },
+);
 
 export default router;

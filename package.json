@@ -15,7 +15,12 @@
   },
   "private": true,
   "devDependencies": {
+    "@types/connect-pg-simple": "^7.0.3",
     "prettier": "^3.8.3",
     "typescript": "~5.9.3"
+  },
+  "dependencies": {
+    "connect-pg-simple": "^10.0.0",
+    "passport-google-oauth20": "^2.0.0"
   }
 }

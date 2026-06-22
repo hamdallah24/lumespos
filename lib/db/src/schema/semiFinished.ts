@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, numeric, timestamp, varchar } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, numeric, timestamp, varchar, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { branchesTable } from "./branches";
@@ -21,6 +21,7 @@ export const semiFinishedTable = pgTable("semi_finished", {
   costPricePerUnit: numeric("cost_price_per_unit", { precision: 14, scale: 4 })
     .notNull()
     .default("0"),
+  trackInShift: boolean("track_in_shift").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

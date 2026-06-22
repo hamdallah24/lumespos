@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, ordersTable, orderItemsTable, productsTable, semiFinishedTable, ingredientsTable } from "@workspace/db";
 import { eq, and, gte, lte, count, sql } from "drizzle-orm";
-import { requireAuth } from "../middlewares/requireAuth";
+import { canAccessBranch, requireAuth } from "../middlewares/requireAuth";
 import { getRecipeRows, adjustInventory, type Executor } from "../services/inventory";
 
 const router = Router();
@@ -54,6 +54,12 @@ router.get("/orders", requireAuth, async (req, res) => {
     };
 
     const conditions = [];
+    if (branchId && !(await canAccessBranch(req, Number(branchId)))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+    if (!branchId && req.user?.role !== "owner" && req.user?.role !== "manager") {
+      return res.status(400).json({ error: "branchId required" });
+    }
     if (branchId) conditions.push(eq(ordersTable.branchId, Number(branchId)));
     if (date) {
       const start = new Date(date);
@@ -154,6 +160,9 @@ router.post("/orders", requireAuth, async (req, res) => {
     if (isNaN(validBranchId) || validBranchId <= 0) {
       return res.status(400).json({ error: "branchId is required and must be a valid number" });
     }
+    if (!(await canAccessBranch(req, validBranchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
 
     // Proses transaksi
     const order = await db.transaction(async (tx: Executor) => {
@@ -249,6 +258,9 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
     const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
     if (!order) {
       return res.status(404).json({ error: "Not found" });
+    }
+    if (!order.branchId || !(await canAccessBranch(req, order.branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
     }
     const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, id));
 

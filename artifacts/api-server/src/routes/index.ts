@@ -12,6 +12,7 @@ import ingredientsRouter from "./ingredients";
 import semiFinishedRouter from "./semiFinished";
 import recipesRouter from "./recipes";
 import inventoryRouter from "./inventory";
+import expensesRouter from "./expenses";
 import shiftAuditsRouter from "./shiftAudits";
 import storageRouter from "./storage";
 
@@ -31,6 +32,7 @@ router.use("/", ingredientsRouter);
 router.use("/", semiFinishedRouter);
 router.use("/", recipesRouter);
 router.use("/", inventoryRouter);
+router.use("/", expensesRouter);
 router.use("/", shiftAuditsRouter);
 router.use("/", storageRouter);
 

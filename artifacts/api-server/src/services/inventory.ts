@@ -205,6 +205,7 @@ export async function listInventoryForBranch(branchId: number) {
       unit: ingredientsTable.unit,
       minimalStock: ingredientsTable.minimalStock,
       costPricePerUnit: ingredientsTable.costPricePerUnit,
+      trackInShift: ingredientsTable.trackInShift,
       currentStock: sql<string>`coalesce(${currentInventoryTable.currentStock}, '0')`,
     })
     .from(ingredientsTable)
@@ -224,6 +225,7 @@ export async function listInventoryForBranch(branchId: number) {
       name: semiFinishedTable.name,
       unit: semiFinishedTable.unit,
       costPricePerUnit: semiFinishedTable.costPricePerUnit,
+      trackInShift: semiFinishedTable.trackInShift,
       currentStock: sql<string>`coalesce(${currentInventoryTable.currentStock}, '0')`,
     })
     .from(semiFinishedTable)
@@ -246,6 +248,7 @@ export async function listInventoryForBranch(branchId: number) {
       currentStock: parseFloat(r.currentStock),
       minimalStock: parseFloat(r.minimalStock),
       costPricePerUnit: parseFloat(r.costPricePerUnit),
+      trackInShift: r.trackInShift,
     })),
     ...semi.map((r) => ({
       itemType: "semi_finished" as const,
@@ -255,6 +258,13 @@ export async function listInventoryForBranch(branchId: number) {
       currentStock: parseFloat(r.currentStock),
       minimalStock: null,
       costPricePerUnit: parseFloat(r.costPricePerUnit),
+      trackInShift: r.trackInShift,
     })),
   ];
+}
+
+/** Same as listInventoryForBranch but only returns items with trackInShift = true. */
+export async function listInventoryForShift(branchId: number) {
+  const all = await listInventoryForBranch(branchId);
+  return all.filter((item) => item.trackInShift === true);
 }

@@ -38,7 +38,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle } from "lucide-react";
+import { apiFetch } from "@/lib/csrf";
+import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle, ClipboardCheck, ChevronRight, ChevronLeft } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { motion } from "framer-motion";
 
 function isLow(item: { currentStock: number; minimalStock?: number | null }): boolean {
   const min = item.minimalStock ?? 0;
@@ -49,8 +52,8 @@ export default function InventoryPage() {
   const { branchId } = useBranch();
   return (
     <div className="flex flex-col h-full">
-      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
-        <h1 className="font-bold text-lg md:text-xl tracking-tight">Stok & Bahan</h1>
+      <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mx-3 mt-3">
+        <h1 className="font-bold text-lg tracking-tight">Stok & Bahan</h1>
         <Badge variant="outline" className="ml-3 text-xs">Multi-Cabang</Badge>
       </div>
       <Tabs defaultValue="stock" className="flex-1 flex flex-col min-h-0">
@@ -81,39 +84,35 @@ function StockTab({ branchId }: { branchId: number }) {
   const { data: items = [], isLoading } = useListInventory({ branchId });
   const createAdj = useCreateStockAdjustment();
 
-  const [adjustItem, setAdjustItem] = useState<{
-    item: InventoryItem;
-    type: "in" | "out" | "loss";
-  } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [action, setAction] = useState<"in" | "out" | "loss" | null>(null);
   const [qty, setQty] = useState("");
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
 
-  const resetDialog = () => {
-    setAdjustItem(null); setQty(""); setPrice(""); setNotes("");
-  };
+  const reset = () => { setSelectedItem(null); setAction(null); setQty(""); setPrice(""); setNotes(""); };
 
   const submitAdj = () => {
-    if (!adjustItem || !branchId) return;
+    if (!selectedItem || !action || !branchId) return;
     const quantity = parseFloat(qty);
     if (!quantity || quantity <= 0) { toast.error("Jumlah harus lebih dari 0"); return; }
     createAdj.mutate(
       {
         data: {
           branchId,
-          itemType: adjustItem.item.itemType,
-          itemId: adjustItem.item.itemId,
-          adjustmentType: adjustItem.type,
+          itemType: selectedItem.itemType,
+          itemId: selectedItem.itemId,
+          adjustmentType: action,
           quantity,
-          purchasePriceTotal: adjustItem.type === "in" && price ? parseFloat(price) : null,
+          purchasePriceTotal: action === "in" && price ? parseFloat(price) : null,
           notes: notes || null,
         },
       },
       {
         onSuccess: () => {
-          const label = adjustItem.type === "in" ? "ditambahkan" : adjustItem.type === "out" ? "dikoreksi" : "dicatat sebagai kehilangan";
+          const label = action === "in" ? "ditambahkan" : action === "out" ? "dikoreksi" : "dicatat sebagai kehilangan";
           toast.success(`Stok berhasil ${label}`);
-          resetDialog();
+          reset();
           qc.invalidateQueries({ queryKey: getListInventoryQueryKey({ branchId }) });
           qc.invalidateQueries({ queryKey: getGetLowStockQueryKey({ branchId }) });
         },
@@ -122,98 +121,155 @@ function StockTab({ branchId }: { branchId: number }) {
     );
   };
 
-  const adjConfig = {
-    in:   { label: "Barang Masuk",      color: "text-green-600",      icon: PackagePlus,  showPrice: true },
-    out:  { label: "Koreksi Stok",      color: "text-orange-600",     icon: Minus,        showPrice: false },
-    loss: { label: "Catat Kehilangan",  color: "text-destructive",    icon: AlertTriangle, showPrice: false },
-  };
-
   return (
     <ScrollArea className="h-full">
       <div className="p-4 md:p-6 space-y-3">
         {isLoading ? (
-          [1, 2, 3, 4].map((i) => <div key={i} className="h-16 rounded-lg bg-muted animate-pulse" />)
+          [1, 2, 3, 4].map((i) => <div key={i} className="h-14 rounded-xl bg-muted animate-pulse" />)
         ) : items.length === 0 ? (
           <Empty icon={Boxes} text="Belum ada bahan/stok di cabang ini" />
         ) : (
           items.map((item) => {
             const low = isLow(item);
             return (
-              <Card key={`${item.itemType}-${item.itemId}`} className={low ? "border-destructive/40 bg-destructive/5" : ""}>
-                <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
-                  <div className={`w-9 h-9 md:w-10 md:h-10 rounded-lg flex items-center justify-center shrink-0 ${low ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
-                    {item.itemType === "semi_finished" ? <FlaskConical className="w-4 h-4 md:w-5 md:h-5" /> : <Package className="w-4 h-4 md:w-5 md:h-5" />}
+              <motion.div
+                key={`${item.itemType}-${item.itemId}`}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`rounded-2xl border cursor-pointer active:scale-[0.98] transition-all ${
+                  low
+                    ? "border-destructive/30 bg-destructive/[0.03] hover:bg-destructive/[0.06]"
+                    : "border-border bg-card hover:bg-accent/50"
+                }`}
+                onClick={() => { setSelectedItem(item); setAction(null); }}
+              >
+                <div className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                    low ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+                  }`}>
+                    {item.itemType === "semi_finished" ? <FlaskConical className="w-5 h-5" /> : <Package className="w-5 h-5" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm truncate">{item.name}</span>
+                      <span className="font-semibold text-sm truncate">{item.name}</span>
                       {item.itemType === "semi_finished" && <Badge variant="secondary" className="text-[10px]">Setengah Jadi</Badge>}
                       {low && <Badge variant="destructive" className="text-[10px] animate-pulse">Stok Menipis</Badge>}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      HPP: {formatRp(item.costPricePerUnit ?? 0)} / {item.unit}
-                      {item.minimalStock != null && item.minimalStock > 0 && ` · Min: ${formatQty(item.minimalStock)}`}
+                      HPP {formatRp(item.costPricePerUnit ?? 0)}/{item.unit}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={`text-base md:text-lg font-bold ${low ? "text-destructive" : ""}`}>{formatUnit(item.currentStock, item.unit)}</p>
+                    <p className={`text-base md:text-lg font-bold ${low ? "text-destructive" : ""}`}>
+                      {formatUnit(item.currentStock, item.unit)}
+                    </p>
                     <p className="text-[11px] text-muted-foreground">{item.unit}</p>
                   </div>
-                  <div className="flex flex-col sm:flex-row gap-1 shrink-0">
-                    <Button size="sm" variant="outline" className="hidden sm:flex text-green-600 border-green-200 hover:bg-green-50" onClick={() => { setAdjustItem({ item, type: "in" }); }}>
-                      <PackagePlus className="w-4 h-4 mr-1" />Masuk
-                    </Button>
-                    <Button size="sm" variant="outline" className="hidden sm:flex text-orange-600 border-orange-200 hover:bg-orange-50" onClick={() => { setAdjustItem({ item, type: "out" }); }}>
-                      <Minus className="w-4 h-4 mr-1" />Koreksi
-                    </Button>
-                    <Button size="sm" variant="outline" className="hidden sm:flex text-destructive border-destructive/30 hover:bg-destructive/5" onClick={() => { setAdjustItem({ item, type: "loss" }); }}>
-                      <AlertTriangle className="w-4 h-4 mr-1" />Hilang
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </motion.div>
             );
           })
         )}
       </div>
 
-      <Dialog open={!!adjustItem} onOpenChange={(o) => { if (!o) resetDialog(); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className={`flex items-center gap-2 ${adjustItem ? adjConfig[adjustItem.type].color : ""}`}>
-              {adjustItem && (() => { const Icon = adjConfig[adjustItem.type].icon; return <Icon className="w-5 h-5" />; })()}
-              {adjustItem ? adjConfig[adjustItem.type].label : ""} — {adjustItem?.item.name}
-            </DialogTitle>
-            <DialogDescription>
-              Stok saat ini: <strong>{adjustItem?.item.currentStock} {adjustItem?.item.unit}</strong>
-              {adjustItem?.type === "in" && " · Stok akan bertambah"}
-              {adjustItem?.type === "out" && " · Stok akan berkurang (koreksi manual)"}
-              {adjustItem?.type === "loss" && " · Stok akan berkurang (kehilangan/kerusakan)"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Jumlah ({adjustItem?.item.unit})</label>
-              <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" autoFocus />
-            </div>
-            {adjustItem?.type === "in" && (
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Total Harga Beli (Rp)</label>
-                <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="cth. 150000" />
-                <p className="text-[11px] text-muted-foreground">Dipakai menghitung HPP moving average. Kosongkan jika tidak tahu.</p>
+      <Dialog open={!!selectedItem} onOpenChange={(o) => { if (!o) reset(); }}>
+        <DialogContent className="sm:max-w-sm rounded-2xl p-0 overflow-hidden gap-0">
+          {!action ? (
+            <div>
+              <div className="p-5 text-center border-b border-border/50">
+                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 ${
+                  selectedItem && isLow(selectedItem) ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
+                }`}>
+                  {selectedItem?.itemType === "semi_finished" ? <FlaskConical className="w-6 h-6" /> : <Package className="w-6 h-6" />}
+                </div>
+                <h3 className="font-bold text-lg">{selectedItem?.name}</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Stok saat ini: <span className="font-semibold text-foreground">
+                    {formatUnit(selectedItem?.currentStock ?? 0, selectedItem?.unit ?? "")} {selectedItem?.unit}
+                  </span>
+                </p>
               </div>
-            )}
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Catatan</label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opsional" />
+              <div className="p-4 space-y-2.5">
+                <button onClick={() => { setQty(""); setPrice(""); setNotes(""); setAction("in"); }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-green-50 to-green-50/50 border border-green-200 hover:from-green-100 hover:to-green-100/50 active:scale-[0.98] transition-all">
+                  <div className="w-11 h-11 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-sm">
+                    <PackagePlus className="w-5 h-5" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="font-semibold text-sm text-green-800">Tambah Stok</p>
+                    <p className="text-xs text-green-600 mt-px">Barang masuk & perbarui HPP</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-green-400" />
+                </button>
+                <button onClick={() => { setQty(""); setPrice(""); setNotes(""); setAction("out"); }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-orange-50 to-orange-50/50 border border-orange-200 hover:from-orange-100 hover:to-orange-100/50 active:scale-[0.98] transition-all">
+                  <div className="w-11 h-11 rounded-xl bg-orange-500 text-white flex items-center justify-center shadow-sm">
+                    <Minus className="w-5 h-5" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="font-semibold text-sm text-orange-800">Koreksi</p>
+                    <p className="text-xs text-orange-600 mt-px">Kurangi stok secara manual</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-orange-400" />
+                </button>
+                <button onClick={() => { setQty(""); setPrice(""); setNotes(""); setAction("loss"); }}
+                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-red-50 to-red-50/50 border border-red-200 hover:from-red-100 hover:to-red-100/50 active:scale-[0.98] transition-all">
+                  <div className="w-11 h-11 rounded-xl bg-red-500 text-white flex items-center justify-center shadow-sm">
+                    <AlertTriangle className="w-5 h-5" />
+                  </div>
+                  <div className="text-left flex-1">
+                    <p className="font-semibold text-sm text-red-800">Hilang</p>
+                    <p className="text-xs text-red-600 mt-px">Catat kehilangan / kerusakan</p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-red-400" />
+                </button>
+              </div>
+              <div className="px-4 pb-4">
+                <Button variant="ghost" className="w-full rounded-xl text-muted-foreground" onClick={reset}>Tutup</Button>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={resetDialog}>Batal</Button>
-            <Button onClick={submitAdj} disabled={createAdj.isPending}>
-              {createAdj.isPending ? "Menyimpan..." : "Simpan"}
-            </Button>
-          </DialogFooter>
+          ) : (
+            <div>
+              <div className="p-4 border-b border-border/50 flex items-center gap-3">
+                <button onClick={() => setAction(null)} className="w-8 h-8 rounded-lg hover:bg-accent flex items-center justify-center -ml-1">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div>
+                  <p className="font-semibold text-sm">{selectedItem?.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {action === "in" ? "Tambah Stok" : action === "out" ? "Koreksi Stok" : "Catat Kehilangan"}
+                  </p>
+                </div>
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="bg-muted/50 rounded-xl p-3 flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Stok saat ini</span>
+                  <span className="font-bold text-lg">{formatUnit(selectedItem?.currentStock ?? 0, selectedItem?.unit ?? "")} {selectedItem?.unit}</span>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Jumlah ({selectedItem?.unit})</label>
+                  <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" autoFocus className="h-12 rounded-xl" />
+                </div>
+                {action === "in" && (
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Total Harga Beli (Rp)</label>
+                    <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="cth. 150000" className="h-12 rounded-xl" />
+                    <p className="text-[11px] text-muted-foreground">Dipakai menghitung HPP moving average.</p>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Catatan (opsional)</label>
+                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tambahkan catatan..." className="h-12 rounded-xl" />
+                </div>
+              </div>
+              <div className="p-4 pt-0 flex gap-2">
+                <Button variant="outline" className="flex-1 rounded-xl h-12" onClick={reset}>Batal</Button>
+                <Button className="flex-[2] rounded-xl h-12" onClick={submitAdj} disabled={createAdj.isPending}>
+                  {createAdj.isPending ? "Menyimpan..." : "Simpan"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </ScrollArea>
@@ -229,6 +285,7 @@ type IngredientItem = {
   costPricePerUnit: number;
   minimalStock: number;
   currentStock: number;
+  trackInShift: boolean;
 };
 
 function IngredientsTab({ branchId }: { branchId: number }) {
@@ -245,9 +302,10 @@ function IngredientsTab({ branchId }: { branchId: number }) {
   const [unit, setUnit] = useState("");
   const [costPricePerUnit, setCostPricePerUnit] = useState("");
   const [minStock, setMinStock] = useState("");
+  const [trackInShift, setTrackInShift] = useState(true);
 
   const resetForm = () => {
-    setName(""); setUnit(""); setCostPricePerUnit(""); setMinStock(""); setEditItem(null);
+    setName(""); setUnit(""); setCostPricePerUnit(""); setMinStock(""); setEditItem(null); setTrackInShift(true);
   };
 
   const openCreate = () => { resetForm(); setOpen(true); };
@@ -257,6 +315,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
     setUnit(ing.unit);
     setCostPricePerUnit(String(ing.costPricePerUnit));
     setMinStock(String(ing.minimalStock));
+    setTrackInShift(ing.trackInShift ?? true);
     setOpen(true);
   };
 
@@ -291,6 +350,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
       if (newPrice !== editItem.costPricePerUnit) updateData.costPricePerUnit = newPrice;
       const newMin = minStock ? parseFloat(minStock) : 0;
       if (newMin !== editItem.minimalStock) updateData.minimalStock = newMin;
+      if (trackInShift !== (editItem.trackInShift ?? true)) updateData.trackInShift = trackInShift;
       if (Object.keys(updateData).length === 0) { setOpen(false); resetForm(); return; }
       updateIng.mutate(
         { id: editItem.id, data: updateData },
@@ -314,7 +374,8 @@ function IngredientsTab({ branchId }: { branchId: number }) {
           unit: unit.trim(),
           costPricePerUnit: costPricePerUnit ? parseFloat(costPricePerUnit) : undefined,
           minimalStock: minStock ? parseFloat(minStock) : undefined,
-        },
+          trackInShift,
+        } as any,
       },
       {
         onSuccess: () => {
@@ -353,6 +414,15 @@ function IngredientsTab({ branchId }: { branchId: number }) {
                     HPP {formatRp(ing.costPricePerUnit)} / {ing.unit} · Min {formatQty(ing.minimalStock)}
                   </p>
                 </div>
+                <div className="shrink-0 mr-1">
+                  {ing.trackInShift ? (
+                    <Badge variant="outline" className="text-[10px] text-green-600 border-green-200 bg-green-50 gap-1">
+                      <ClipboardCheck className="w-3 h-3" />Diaudit
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground gap-1">Lewati</Badge>
+                  )}
+                </div>
                 <div className="text-right shrink-0 mr-2 cursor-pointer" onClick={() => openEdit(ing)}>
                   <p className="font-bold text-sm md:text-base">{formatQty(ing.currentStock)}</p>
                   <p className="text-[11px] text-muted-foreground">{ing.unit}</p>
@@ -388,6 +458,13 @@ function IngredientsTab({ branchId }: { branchId: number }) {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Stok Minimal (alert)</label>
               <Input type="number" value={minStock} onChange={(e) => setMinStock(e.target.value)} placeholder="200" />
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div>
+                <p className="text-sm font-medium flex items-center gap-2"><ClipboardCheck className="w-4 h-4 text-primary" />Wajib Audit Kasir</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Aktifkan agar bahan ini muncul di form Tutup Shift kasir.</p>
+              </div>
+              <Switch checked={trackInShift} onCheckedChange={setTrackInShift} />
             </div>
           </div>
           <DialogFooter>
@@ -430,6 +507,7 @@ type SemiFinishedItem = {
   currentStock: number;
   yieldQuantity: number;
   yieldUnit: string;
+  trackInShift: boolean;
 };
 
 function SemiFinishedTab({ branchId }: { branchId: number }) {
@@ -446,6 +524,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
   const [yieldQuantity, setYieldQuantity] = useState("");
   const [yieldUnit, setYieldUnit] = useState("");
   const [deleteItem, setDeleteItem] = useState<SemiFinishedItem | null>(null);
+  const [trackInShift, setTrackInShift] = useState(true);
 
   // State produksi
   const [produceFor, setProduceFor] = useState<{ id: number; name: string; yieldUnit: string } | null>(null);
@@ -457,7 +536,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
   };
 
   const resetForm = () => {
-    setName(""); setUnit(""); setYieldQuantity(""); setYieldUnit(""); setEditItem(null);
+    setName(""); setUnit(""); setYieldQuantity(""); setYieldUnit(""); setEditItem(null); setTrackInShift(true);
   };
 
   const openCreate = () => { resetForm(); setOpen(true); };
@@ -467,6 +546,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
     setUnit(sf.unit);
     setYieldQuantity(String(sf.yieldQuantity ?? 1));
     setYieldUnit(sf.yieldUnit ?? sf.unit);
+    setTrackInShift(sf.trackInShift ?? true);
     setOpen(true);
   };
 
@@ -482,11 +562,12 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
       unit: unit.trim(),
       yieldQuantity: yieldQuantity ? parseFloat(yieldQuantity) : 1,
       yieldUnit: yieldUnit.trim() || unit.trim(),
+      trackInShift,
     };
 
     if (editItem) {
       try {
-        const res = await fetch(`/api/semi-finished/${editItem.id}`, {
+        const res = await apiFetch(`/api/semi-finished/${editItem.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
@@ -581,6 +662,15 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
                     {sf.yieldQuantity && sf.yieldUnit && ` · Yield ${sf.yieldQuantity} ${sf.yieldUnit}/batch`}
                   </p>
                 </div>
+                <div className="shrink-0 mr-1">
+                  {sf.trackInShift ? (
+                    <Badge variant="outline" className="text-[10px] text-green-600 border-green-200 bg-green-50 gap-1">
+                      <ClipboardCheck className="w-3 h-3" />Diaudit
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground gap-1">Lewati</Badge>
+                  )}
+                </div>
                 <div className="flex gap-1 shrink-0">
                   <Button size="sm" variant="ghost" className="hidden sm:flex" onClick={() => setRecipeFor({ id: sf.id, name: sf.name })}>
                     <ChefHat className="w-4 h-4 mr-1.5" />Resep
@@ -625,6 +715,13 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Satuan Hasil (opsional)</label>
               <Input value={yieldUnit} onChange={(e) => setYieldUnit(e.target.value)} placeholder="kosongkan = sama dengan satuan dasar" />
+            </div>
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div>
+                <p className="text-sm font-medium flex items-center gap-2"><ClipboardCheck className="w-4 h-4 text-primary" />Wajib Audit Kasir</p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Aktifkan agar item ini muncul di form Tutup Shift kasir.</p>
+              </div>
+              <Switch checked={trackInShift} onCheckedChange={setTrackInShift} />
             </div>
           </div>
           <DialogFooter>

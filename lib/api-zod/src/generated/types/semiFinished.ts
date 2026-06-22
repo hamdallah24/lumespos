@@ -13,4 +13,5 @@ export interface SemiFinished {
   unit: string;
   costPricePerUnit: number;
   currentStock: number;
+  trackInShift?: boolean;
 }

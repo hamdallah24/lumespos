@@ -20,7 +20,8 @@ export class ObjectStorageService {
   async getObjectEntityUploadURL(): Promise<string> {
   const objectId = randomUUID();
   const port = process.env.PORT || 3000;
-  return `http://localhost:${port}/api/local-upload/${objectId}`;
+  const baseUrl = (process.env.PUBLIC_API_BASE_URL || `http://localhost:${port}`).replace(/\/$/, "");
+  return `${baseUrl}/api/local-upload/${objectId}`;
 }
 
   normalizeObjectEntityPath(rawPath: string): string {

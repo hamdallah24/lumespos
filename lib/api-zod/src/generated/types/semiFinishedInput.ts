@@ -11,4 +11,5 @@ export interface SemiFinishedInput {
   /** @minLength 1 */
   name: string;
   unit: string;
+  trackInShift?: boolean;
 }

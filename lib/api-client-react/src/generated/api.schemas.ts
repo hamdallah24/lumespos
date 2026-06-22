@@ -200,10 +200,12 @@ export interface OrderDetail {
 export interface DashboardSummary {
   todayRevenue: number;
   todayOrders: number;
+  todayExpenses: number;
   totalProducts: number;
   lowStockCount: number;
   todayRevenueDiff: number;
   todayOrdersDiff: number;
+  todayExpensesDiff: number;
 }
 
 export interface TopProduct {
@@ -217,6 +219,7 @@ export interface SalesChartPoint {
   date: string;
   revenue: number;
   orders: number;
+  expenses: number;
 }
 
 export interface CashierPerformance {
@@ -356,6 +359,7 @@ export interface InventoryItem {
   /** @nullable */
   minimalStock?: number | null;
   costPricePerUnit?: number;
+  trackInShift?: boolean;
 }
 
 export type StockAdjustmentAdjustmentType = typeof StockAdjustmentAdjustmentType[keyof typeof StockAdjustmentAdjustmentType];
@@ -517,8 +521,11 @@ export interface ErrorEnvelope {
 export interface FinancialReport {
   grossRevenue: number;
   totalCogs: number;
+  totalExpenses: number;
   grossProfit: number;
+  netProfit: number;
   grossMarginPct: number;
+  netMarginPct: number;
 }
 
 export type ListProductsParams = {
@@ -539,6 +546,8 @@ branchId?: number;
 export type GetTopProductsParams = {
 limit?: number;
 branchId?: number;
+startDate?: string;
+endDate?: string;
 };
 
 export type GetSalesChartParams = {
@@ -547,6 +556,8 @@ branchId?: number;
 
 export type GetCashierPerformanceParams = {
 branchId?: number;
+startDate?: string;
+endDate?: string;
 };
 
 export type ListIngredientsParams = {

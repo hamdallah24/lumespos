@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db, productsTable, categoriesTable, semiFinishedTable, currentInventoryTable, recipesTable } from "@workspace/db";
 import { eq, and, ilike, sql } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middlewares/requireAuth";
+import { requireAuth, requireBranchAccess, requireRole, canAccessBranch } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -89,7 +89,7 @@ async function getProductCost(productId: number, branchId: number): Promise<numb
 }
 
 // GET /products
-router.get("/products", requireAuth, async (req, res) => {
+router.get("/products", requireAuth, requireBranchAccess((req) => Number(req.query.branchId)), async (req, res) => {
   // Pastikan ada return di semua code path (fix error #2)
   try {
     const branchId = Number(req.query.branchId);
@@ -150,7 +150,7 @@ router.get("/products", requireAuth, async (req, res) => {
 });
 
 // GET /products/:id
-router.get("/products/:id", requireAuth, async (req, res) => {
+router.get("/products/:id", requireAuth, requireBranchAccess((req) => Number(req.query.branchId)), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
     const branchId = Number(req.query.branchId);
@@ -198,7 +198,7 @@ router.get("/products/:id", requireAuth, async (req, res) => {
 });
 
 // POST /products
-router.post("/products", requireRole("owner", "manager"), async (req, res) => {
+router.post("/products", requireRole("owner", "manager"), requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
   try {
     const { branchId, name, categoryId, price, imageUrl, isActive } = req.body as {
       branchId: number;
@@ -250,6 +250,14 @@ router.post("/products", requireRole("owner", "manager"), async (req, res) => {
 router.patch("/products/:id", requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
+
+    // Fetch product first to check branch access
+    const [existing] = await db.select().from(productsTable).where(eq(productsTable.id, id));
+    if (!existing) return res.status(404).json({ error: "Product not found" });
+    if (!(await canAccessBranch(req, existing.branchId!))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+
     const { name, categoryId, price, imageUrl, isActive } = req.body as {
       name?: string;
       categoryId?: number | null;
@@ -297,6 +305,14 @@ router.patch("/products/:id", requireRole("owner", "manager"), async (req, res) 
 router.delete("/products/:id", requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
+
+    // Fetch product first to check branch access
+    const [existing] = await db.select().from(productsTable).where(eq(productsTable.id, id));
+    if (!existing) return res.status(404).json({ error: "Product not found" });
+    if (!(await canAccessBranch(req, existing.branchId!))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+
     await db.delete(productsTable).where(eq(productsTable.id, id));
     return res.status(204).send();
   } catch (error) {

@@ -3,6 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/csrf";
+import { getErrorMessage } from "@/lib/error";
 
 interface StartShiftDialogProps {
   open: boolean;
@@ -34,7 +36,7 @@ console.log("branchId being sent:", branchId);
         openingBalance: balance,
       });
 
-      const res = await fetch("/api/shift/start", {
+      const res = await apiFetch("/api/shift/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -61,7 +63,7 @@ console.log("branchId being sent:", branchId);
       onStart();
     } catch (err) {
       console.error("Start shift error:", err);
-      toast.error(err instanceof Error ? err.message : "Gagal memulai shift");
+      toast.error(getErrorMessage(err, "Gagal memulai shift"));
     } finally {
       setLoading(false);
     }

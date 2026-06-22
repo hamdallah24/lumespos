@@ -14,4 +14,5 @@ export interface Ingredient {
   costPricePerUnit: number;
   minimalStock: number;
   currentStock: number;
+  trackInShift?: boolean;
 }

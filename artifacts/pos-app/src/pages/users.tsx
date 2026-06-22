@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { Users, Crown, Shield, UserCheck, Trash2, Building2 } from "lucide-react";
 import { toast } from "sonner";
+import { apiFetch } from "@/lib/csrf";
+import { getErrorMessage } from "@/lib/error";
 
 const ROLE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   owner:   { label: "Owner",   icon: Crown,     color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
@@ -78,7 +80,7 @@ export default function UsersPage() {
     if (!deleteUser) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/users/${deleteUser.id}`, {
+      const res = await apiFetch(`/api/users/${deleteUser.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -90,7 +92,7 @@ export default function UsersPage() {
       setDeleteUser(null);
       queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
     } catch (err: any) {
-      toast.error(err.message ?? "Gagal menghapus pengguna");
+      toast.error(getErrorMessage(err, "Gagal menghapus pengguna"));
     } finally {
       setDeleting(false);
     }
@@ -113,7 +115,7 @@ export default function UsersPage() {
     if (!editBranchUser) return;
     setSavingBranches(true);
     try {
-      const res = await fetch(`/api/users/${editBranchUser.id}/branches`, {
+      const res = await apiFetch(`/api/users/${editBranchUser.id}/branches`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -132,8 +134,8 @@ export default function UsersPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-14 md:h-16 border-b px-4 md:px-6 flex items-center gap-3 bg-card shrink-0">
-        <h1 className="font-bold text-lg md:text-xl tracking-tight">Manajemen Pengguna</h1>
+      <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mx-3 mt-3">
+        <h1 className="font-bold text-lg tracking-tight">Manajemen Pengguna</h1>
         <Badge variant="secondary" className="ml-3">{users.length} pengguna</Badge>
       </div>
 
