@@ -76,12 +76,13 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
 echo "   nginx configured!"
 
-# 9. Start API with PM2
+# 9. Install dotenv + Start API with PM2
 echo "[9/9] 🚀 Starting API server..."
+pnpm add -w dotenv
 pm2 delete pos-api 2>/dev/null || true
-pm2 start artifacts/api-server/dist/index.mjs --name pos-api \
-  --cwd /home/ubuntu/pos-app \
-  --node-opt="--enable-source-maps"
+pm2 start dist/index.mjs --name pos-api \
+  --cwd /home/ubuntu/pos-app/artifacts/api-server \
+  --node-args="-r dotenv/config --enable-source-maps"
 pm2 save
 pm2 startup
 
