@@ -33,12 +33,12 @@ sudo apt install nginx -y
 
 # 6. Navigate to project
 echo "[6/9] 📁 Installing dependencies..."
-cd ~/Point-Of-Sale
+cd ~/pos-app
 pnpm install
 
-# 7. Build everything
-echo "[7/9] 🔨 Building project (libs → api → frontend)..."
-pnpm run build
+# 7. Build only what's needed
+echo "[7/9] 🔨 Building project (api-server + pos-app)..."
+pnpm --filter ./artifacts/api-server --filter ./artifacts/pos-app run build
 echo "   Build complete!"
 
 # 8. Setup nginx
@@ -49,7 +49,7 @@ server {
     server_name 43.157.227.205;
 
     # Frontend static files
-    root /home/ubuntu/Point-Of-Sale/artifacts/pos-app/dist;
+    root /home/ubuntu/pos-app/artifacts/pos-app/dist;
     index index.html;
 
     location / {
@@ -80,7 +80,7 @@ echo "   nginx configured!"
 echo "[9/9] 🚀 Starting API server..."
 pm2 delete pos-api 2>/dev/null || true
 pm2 start artifacts/api-server/dist/index.mjs --name pos-api \
-  --cwd /home/ubuntu/Point-Of-Sale \
+  --cwd /home/ubuntu/pos-app \
   --node-opt="--enable-source-maps"
 pm2 save
 pm2 startup
