@@ -14,6 +14,9 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Trust nginx proxy for rate-limit X-Forwarded-For
+app.set("trust proxy", 1);
+
 const isProduction = process.env.NODE_ENV === "production";
 
 const requiredVars = ["DATABASE_URL", "SESSION_SECRET", "AUTH_SECRET", "CORS_ORIGINS"];
