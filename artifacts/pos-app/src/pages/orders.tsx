@@ -222,7 +222,7 @@ export default function OrdersPage() {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="font-bold text-sm md:text-base text-primary">{formatRp(order.total)}</p>
-                      {order.cashierName && <p className="text-xs text-muted-foreground hidden sm:block">{order.cashierName}</p>}
+                      {order.cashierName && <p className="text-xs text-muted-foreground">{order.cashierName}</p>}
                     </div>
                     <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
                   </CardContent>
