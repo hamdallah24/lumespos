@@ -11,13 +11,14 @@ import { X } from "lucide-react";
 interface StartShiftDialogProps {
   open: boolean;
   onStart: () => void;
+  onSkip?: () => void;
   branchId: number;
   cashierId: number;
   cashierName: string;
   role?: string;
 }
 
-export function StartShiftDialog({ open, onStart, branchId, cashierId, cashierName, role }: StartShiftDialogProps) {
+export function StartShiftDialog({ open, onStart, onSkip, branchId, cashierId, cashierName, role }: StartShiftDialogProps) {
   const [openingBalance, setOpeningBalance] = useState("");
   const [loading, setLoading] = useState(false);
   const isOwnerManager = role === "owner" || role === "manager";
@@ -69,7 +70,7 @@ export function StartShiftDialog({ open, onStart, branchId, cashierId, cashierNa
           {isOwnerManager && (
             <button
               className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center"
-              onClick={onStart}
+              onClick={onSkip}
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -101,7 +102,7 @@ export function StartShiftDialog({ open, onStart, branchId, cashierId, cashierNa
         </div>
         <DialogFooter className="flex gap-2">
           {isOwnerManager && (
-            <Button variant="outline" onClick={onStart} className="flex-1">Lewati</Button>
+            <Button variant="outline" onClick={onSkip} className="flex-1">Lewati</Button>
           )}
           <Button onClick={handleStart} disabled={loading} className="flex-1">
             {loading ? "Memulai..." : "Mulai Shift"}

@@ -216,6 +216,10 @@ export default function CashierPage() {
           setIsShiftActive(true);
           checkActiveShift();
         }}
+        onSkip={() => {
+          setShowStartShift(false);
+          setIsShiftActive(true);
+        }}
         branchId={branchId ?? 0}
         cashierId={me?.id ?? 0}
         cashierName={me?.name ?? "Kasir"}
