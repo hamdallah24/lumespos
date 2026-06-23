@@ -116,22 +116,25 @@ const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
   },
   size: 64,
   getCsrfTokenFromRequest: (req: Request) => (req.headers["x-csrf-token"] as string) ?? "",
-  skipCsrfProtection: (req: Request) =>
-    req.path.startsWith("/api/auth/login") ||
-    req.path.startsWith("/api/auth/signup") ||
-    req.path.startsWith("/api/auth/request-password-reset") ||
-    req.path.startsWith("/api/auth/reset-password"),
+  skipCsrfProtection: (req: Request) => {
+    const p = req.path;
+    return p.startsWith("/api/auth/login") || p.startsWith("/auth/login") ||
+           p.startsWith("/api/auth/signup") || p.startsWith("/auth/signup") ||
+           p.startsWith("/api/auth/request-password-reset") || p.startsWith("/auth/request-password-reset") ||
+           p.startsWith("/api/auth/reset-password") || p.startsWith("/auth/reset-password") ||
+           p.startsWith("/api/csrf-token") || p.startsWith("/csrf-token");
+  },
+});
+
+app.get("/api/csrf-token", (req: Request, res: Response) => {
+  const token = generateCsrfToken(req, res);
+  res.json({ token });
 });
 
 if (csrfEnabled) {
   app.use("/api", doubleCsrfProtection);
   logger.info("CSRF protection enabled");
 }
-
-app.get("/api/csrf-token", (req: Request, res: Response) => {
-  const token = generateCsrfToken(req, res);
-  res.json({ token });
-});
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
