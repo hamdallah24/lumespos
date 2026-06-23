@@ -235,11 +235,12 @@ body {
 /* ── Card Baseline ── */
 .card-premium {
   background: #fff;
-  border-radius: 24px;
-  padding: 20px;
+  border-radius: 20px;
+  padding: 16px;
   box-shadow: 0 2px 8px rgba(0,0,0,.05);
   border: none;
 }
+@media (min-width: 400px) { .card-premium { padding: 20px; border-radius: 24px; } }
 .dark .card-premium { background: #0F1D32; }
 
 /* ── KPI Icon Container ── */
@@ -254,8 +255,10 @@ body {
 .kpi-icon-box svg { width: 24px; height: 24px; color: #2563EB; }
 
 /* ── Typography Utilities ── */
-.heading-dash { font-size: 32px; font-weight: 700; line-height: 40px; letter-spacing: -.5px; }
-.metric-primary { font-size: 28px; font-weight: 700; line-height: 32px; letter-spacing: -.3px; }
+.heading-dash { font-size: 28px; font-weight: 700; line-height: 36px; letter-spacing: -.4px; }
+@media (min-width: 400px) { .heading-dash { font-size: 32px; line-height: 40px; } }
+.metric-primary { font-size: 24px; font-weight: 700; line-height: 28px; letter-spacing: -.2px; }
+@media (min-width: 400px) { .metric-primary { font-size: 28px; line-height: 32px; letter-spacing: -.3px; } }
 .metric-secondary { font-size: 13px; font-weight: 500; }
 .card-title-text { font-size: 16px; font-weight: 600; line-height: 20px; color: #64748B; }
 
@@ -309,8 +312,10 @@ body {
 .progress-native-fill { height: 100%; border-radius: 999px; background: #2563EB; }
 
 /* ── Chart Grid ── */
-.chart-card { background: #fff; border-radius: 24px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.05); overflow: hidden; }
+.chart-card { background: #fff; border-radius: 24px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.05); overflow: hidden; }
 .dark .chart-card { background: #0F1D32; }
+@media (min-width: 400px) { .chart-card { padding: 20px; } }
+@media (min-width: 500px) { .chart-card { padding: 24px; } }
 
 /* ── Overflow guard for all cards ── */
 .card-premium, .chart-card, .alert-card { overflow: hidden; }
