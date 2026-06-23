@@ -56,8 +56,16 @@ server {
     root /home/ubuntu/lumespos/artifacts/pos-app/dist/public;
     index index.html;
 
-    # CORS for Android Chrome module scripts
+    # Force Chrome Android to re-validate index.html every load
+    location = /index.html {
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+    }
+
+    # Cache assets forever (content-hash in filename)
     location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
         add_header Access-Control-Allow-Origin "*" always;
     }
 
