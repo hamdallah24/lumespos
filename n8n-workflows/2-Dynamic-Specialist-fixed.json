@@ -5,9 +5,24 @@
       "parameters": {
         "workflowInputs": {
           "values": [
-            { "name": "skill_file" }, { "name": "task_description" },
-            { "name": "repo_owner" }, { "name": "repo_name" },
-            { "name": "branch" }, { "name": "telegram_chat_id" }
+            {
+              "name": "skill_file"
+            },
+            {
+              "name": "task_description"
+            },
+            {
+              "name": "repo_owner"
+            },
+            {
+              "name": "repo_name"
+            },
+            {
+              "name": "branch"
+            },
+            {
+              "name": "telegram_chat_id"
+            }
           ]
         }
       },
@@ -15,7 +30,10 @@
       "name": "Execute Workflow Trigger",
       "type": "n8n-nodes-base.executeWorkflowTrigger",
       "typeVersion": 1.1,
-      "position": [-272, 560]
+      "position": [
+        -272,
+        560
+      ]
     },
     {
       "parameters": {
@@ -25,7 +43,10 @@
       "name": "Sanitasi & Validasi Input",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [16, 560]
+      "position": [
+        16,
+        560
+      ]
     },
     {
       "parameters": {
@@ -34,16 +55,31 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBearerAuth",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Accept", "value": "application/vnd.github.v3.raw" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3.raw"
+            }
+          ]
+        },
         "options": {}
       },
       "id": "83cb3a51-52c1-4085-82a4-405af6c71e7e",
       "name": "Cek Skill File (HEAD)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [256, 560],
+      "position": [
+        256,
+        560
+      ],
       "retryOnFail": false,
-      "credentials": { "httpBearerAuth": { "id": "O6uVngt5buq6gMMf", "name": "GitHub PAT" } },
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "GitHub PAT"
+        }
+      },
       "onError": "continueErrorOutput"
     },
     {
@@ -52,15 +88,30 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBearerAuth",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Accept", "value": "application/vnd.github.v3.raw" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3.raw"
+            }
+          ]
+        },
         "options": {}
       },
       "id": "fa396ed1-b1fd-4dec-9ce0-e3d806a1ad23",
       "name": "Fetch Skill (SOP) dari GitHub",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [464, 560],
-      "credentials": { "httpBearerAuth": { "id": "O6uVngt5buq6gMMf", "name": "GitHub PAT" } }
+      "position": [
+        464,
+        560
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "GitHub PAT"
+        }
+      }
     },
     {
       "parameters": {
@@ -70,7 +121,10 @@
       "name": "Bangun System Message",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [672, 560]
+      "position": [
+        672,
+        560
+      ]
     },
     {
       "parameters": {
@@ -79,15 +133,30 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBearerAuth",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Accept", "value": "application/vnd.github.v3+json" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            }
+          ]
+        },
         "options": {}
       },
       "id": "dcaab040-9de8-4f23-bf51-18f1a255da04",
       "name": "github_list_directory",
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.2,
-      "position": [1088, 720],
-      "credentials": { "httpBearerAuth": { "id": "O6uVngt5buq6gMMf", "name": "GitHub PAT" } }
+      "position": [
+        1088,
+        720
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "GitHub PAT"
+        }
+      }
     },
     {
       "parameters": {
@@ -96,15 +165,30 @@
         "authentication": "genericCredentialType",
         "genericAuthType": "httpBearerAuth",
         "sendHeaders": true,
-        "headerParameters": { "parameters": [{ "name": "Accept", "value": "application/vnd.github.v3.raw" }] },
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3.raw"
+            }
+          ]
+        },
         "options": {}
       },
       "id": "5d43d881-1752-4bfb-9d59-ff052496170f",
       "name": "github_read_file",
       "type": "n8n-nodes-base.httpRequestTool",
       "typeVersion": 4.2,
-      "position": [1248, 720],
-      "credentials": { "httpBearerAuth": { "id": "O6uVngt5buq6gMMf", "name": "GitHub PAT" } }
+      "position": [
+        1248,
+        720
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "GitHub PAT"
+        }
+      }
     },
     {
       "parameters": {
@@ -114,7 +198,10 @@
       "name": "Error Handler",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [464, 720]
+      "position": [
+        464,
+        720
+      ]
     },
     {
       "parameters": {
@@ -126,21 +213,42 @@
       "name": "Notify via Telegram",
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
-      "position": [1088, 560],
+      "position": [
+        1088,
+        560
+      ],
       "webhookId": "3ea4b237-8eac-4274-b471-11e1a1a471c6",
-      "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+      "credentials": {
+        "telegramApi": {
+          "id": "A4JQuid6W9BzisPl",
+          "name": "Telegram Bot"
+        }
+      }
     },
     {
       "parameters": {
-        "model": { "__rl": true, "value": "deepseek-v4-flash", "mode": "list", "cachedResultName": "DEEPSEEK-V4-FLASH" },
+        "model": {
+          "__rl": true,
+          "value": "deepseek-v4-pro",
+          "mode": "list",
+          "cachedResultName": "DEEPSEEK-V4-PRO"
+        },
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
-      "position": [832, 720],
+      "position": [
+        832,
+        720
+      ],
       "id": "dyn-spec-model",
-      "name": "DeepSeek Chat Model (Flash)",
-      "credentials": { "openAiApi": { "id": "a6DMiTwRmzjqacwH", "name": "OpenAI/DeepSeek API" } }
+      "name": "DeepSeek Chat Model (Pro)",
+      "credentials": {
+        "openAiApi": {
+          "id": "a6DMiTwRmzjqacwH",
+          "name": "OpenAI/DeepSeek API"
+        }
+      }
     },
     {
       "parameters": {
@@ -152,10 +260,18 @@
       },
       "type": "@n8n/n8n-nodes-langchain.memoryMongoDbChat",
       "typeVersion": 1.1,
-      "position": [832, 800],
+      "position": [
+        832,
+        800
+      ],
       "id": "dyn-spec-memory",
       "name": "MongoDB Memory",
-      "credentials": { "mongoDb": { "id": "jcufsOhjW9TwWu9Y", "name": "MongoDB" } }
+      "credentials": {
+        "mongoDb": {
+          "id": "jcufsOhjW9TwWu9Y",
+          "name": "MongoDB"
+        }
+      }
     },
     {
       "parameters": {
@@ -169,34 +285,169 @@
       },
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 3.1,
-      "position": [1088, 640],
+      "position": [
+        1088,
+        640
+      ],
       "id": "7ad9e07a-1d49-4cc7-bf2c-1abebbacec9d",
       "name": "Sub-Agent: Dynamic Specialist ",
-      "credentials": { "openAiApi": { "id": "a6DMiTwRmzjqacwH", "name": "OpenAI/DeepSeek API" } }
+      "credentials": {
+        "openAiApi": {
+          "id": "a6DMiTwRmzjqacwH",
+          "name": "OpenAI/DeepSeek API"
+        }
+      }
     }
   ],
   "connections": {
-    "Execute Workflow Trigger": { "main": [[{ "node": "Sanitasi & Validasi Input", "type": "main", "index": 0 }]] },
-    "Sanitasi & Validasi Input": { "main": [[{ "node": "Cek Skill File (HEAD)", "type": "main", "index": 0 }]] },
-    "Cek Skill File (HEAD)": {
+    "Execute Workflow Trigger": {
       "main": [
-        [{ "node": "Fetch Skill (SOP) dari GitHub", "type": "main", "index": 0 }],
-        [{ "node": "Error Handler", "type": "main", "index": 0 }]
+        [
+          {
+            "node": "Sanitasi & Validasi Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
       ]
     },
-    "Fetch Skill (SOP) dari GitHub": { "main": [[{ "node": "Bangun System Message", "type": "main", "index": 0 }]] },
-    "Bangun System Message": { "main": [[{ "node": "Sub-Agent: Dynamic Specialist ", "type": "main", "index": 0 }]] },
-    "github_list_directory": { "ai_tool": [[{ "node": "Sub-Agent: Dynamic Specialist ", "type": "ai_tool", "index": 0 }]] },
-    "github_read_file": { "ai_tool": [[{ "node": "Sub-Agent: Dynamic Specialist ", "type": "ai_tool", "index": 0 }]] },
-    "DeepSeek Chat Model (Flash)": { "ai_languageModel": [[{ "node": "Sub-Agent: Dynamic Specialist ", "type": "ai_languageModel", "index": 0 }]] },
-    "MongoDB Memory": { "ai_memory": [[{ "node": "Sub-Agent: Dynamic Specialist ", "type": "ai_memory", "index": 0 }]] },
-    "Error Handler": { "main": [[{ "node": "Notify via Telegram", "type": "main", "index": 0 }]] },
-    "Sub-Agent: Dynamic Specialist ": { "main": [[{ "node": "Notify via Telegram", "type": "main", "index": 0 }]] }
+    "Sanitasi & Validasi Input": {
+      "main": [
+        [
+          {
+            "node": "Cek Skill File (HEAD)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cek Skill File (HEAD)": {
+      "main": [
+        [
+          {
+            "node": "Fetch Skill (SOP) dari GitHub",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Handler",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Skill (SOP) dari GitHub": {
+      "main": [
+        [
+          {
+            "node": "Bangun System Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bangun System Message": {
+      "main": [
+        [
+          {
+            "node": "Sub-Agent: Dynamic Specialist ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "github_list_directory": {
+      "ai_tool": [
+        [
+          {
+            "node": "Sub-Agent: Dynamic Specialist ",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "github_read_file": {
+      "ai_tool": [
+        [
+          {
+            "node": "Sub-Agent: Dynamic Specialist ",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek Chat Model (Pro)": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Sub-Agent: Dynamic Specialist ",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "MongoDB Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Sub-Agent: Dynamic Specialist ",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Handler": {
+      "main": [
+        [
+          {
+            "node": "Notify via Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sub-Agent: Dynamic Specialist ": {
+      "main": [
+        [
+          {
+            "node": "Notify via Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
   },
   "active": true,
-  "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": false },
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
   "versionId": "v2-fixed-dynamic-specialist",
-  "meta": { "templateCredsSetupCompleted": true },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
   "id": "RV5wbuCzWhbGS3Nf",
-  "tags": [{ "name": "specialist", "color": "#FF6B00" }, { "name": "production", "color": "#00B341" }]
+  "tags": [
+    {
+      "name": "specialist",
+      "color": "#FF6B00"
+    },
+    {
+      "name": "production",
+      "color": "#00B341"
+    }
+  ]
 }

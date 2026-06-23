@@ -476,9 +476,9 @@
       "parameters": {
         "modelId": {
           "__rl": true,
-          "value": "deepseek-v4-flash",
+          "value": "deepseek-v4-pro",
           "mode": "list",
-          "cachedResultName": "DEEPSEEK-V4-FLASH"
+          "cachedResultName": "DEEPSEEK-V4-PRO"
         },
         "messages": {
           "values": [
