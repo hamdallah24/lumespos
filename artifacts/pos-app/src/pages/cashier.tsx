@@ -231,13 +231,13 @@ export default function CashierPage() {
   return (
     <div className="flex h-full w-full bg-background overflow-hidden flex-col lg:flex-row">
       <div className="flex-1 flex flex-col h-full min-w-0">
-        <div className="px-4 pt-3 pb-2 bg-white dark:bg-[#0F1D32] border-b border-slate-100 dark:border-slate-800 shrink-0">
+        <div className="px-3 pt-3 pb-2 lg:px-6 lg:pt-4 bg-white dark:bg-[#0F1D32] border-b border-slate-100 dark:border-slate-800 shrink-0 sticky top-0 z-20 ">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-[18px] h-[18px]" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <Input
               ref={searchRef}
               placeholder="Cari produk..."
-              className="w-full pl-9 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 border-0 text-[15px] focus-visible:ring-2 focus-visible:ring-[#1565FF] placeholder:text-slate-400"
+              className="w-full pl-12 h-12 rounded-2xl bg-accent border-0 text-base focus-visible:ring-2 focus-visible:ring-primary"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
