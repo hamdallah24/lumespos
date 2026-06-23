@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/csrf";
 import { getErrorMessage } from "@/lib/error";
 import { formatRp } from "@/lib/format";
+import { Camera, X } from "lucide-react";
 
 interface CloseShiftDialogProps {
   open: boolean;
@@ -31,6 +32,8 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
   const [result, setResult] = useState<{ expectedBalance: number; difference: number } | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   // Ambil data penjualan shift
   useEffect(() => {
@@ -63,6 +66,29 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
       fetchSales();
     }
   }, [open, shiftId]);
+
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingPhoto(true);
+    try {
+      const urlRes = await apiFetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, contentType: file.type || "image/jpeg", size: file.size }),
+      });
+      if (!urlRes.ok) throw new Error("Gagal mendapatkan URL upload");
+      const { uploadURL, objectPath } = await urlRes.json();
+      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type || "image/jpeg" }, body: file });
+      setPhotoProofUrl(objectPath);
+      toast.success("Foto berhasil diupload", { duration: 1000 });
+    } catch {
+      toast.error("Gagal upload foto", { duration: 1000 });
+    } finally {
+      setUploadingPhoto(false);
+      if (cameraRef.current) cameraRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async () => {
     const balance = parseFloat(closingBalance);
@@ -200,14 +226,43 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
             {/* Input Foto Bukti */}
             <div>
               <Label>Bukti Foto <span className="text-red-500">*</span></Label>
-              <Input
-                type="text"
-                value={photoProofUrl}
-                onChange={(e) => setPhotoProofUrl(e.target.value)}
-                placeholder="Paste URL foto bukti..."
-                className="mt-1"
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                onChange={handlePhotoCapture}
               />
-              <p className="text-xs text-muted-foreground mt-1">Wajib upload foto bukti stok dan uang akhir</p>
+              {photoProofUrl ? (
+                <div className="mt-1 relative rounded-xl overflow-hidden border border-border max-w-[200px]">
+                  <img src={photoProofUrl.startsWith("http") ? photoProofUrl : `/api/storage${photoProofUrl}`} alt="Bukti" className="w-full h-32 object-cover" />
+                  <button
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-background/80 flex items-center justify-center text-foreground"
+                    onClick={() => setPhotoProofUrl("")}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  className="mt-1 w-full h-20 rounded-xl border-dashed border-2 flex flex-col gap-1"
+                  onClick={() => cameraRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  type="button"
+                >
+                  {uploadingPhoto ? (
+                    <span className="text-xs text-muted-foreground">Mengupload...</span>
+                  ) : (
+                    <>
+                      <Camera className="w-6 h-6 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Ambil foto dari kamera</span>
+                    </>
+                  )}
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground mt-1">Wajib ambil foto bukti stok dan uang akhir</p>
             </div>
 
             <DialogFooter className="pt-2">
