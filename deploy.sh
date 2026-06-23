@@ -44,13 +44,14 @@ echo "   Build complete!"
 
 # 8. Setup nginx
 echo "[8/9] 🌐 Configuring nginx..."
+sudo chmod o+x /home/ubuntu
 sudo tee /etc/nginx/sites-available/pos > /dev/null << 'NGINX'
 server {
     listen 80;
     server_name 43.157.227.205;
 
     # Frontend static files
-    root /home/ubuntu/lumespos/artifacts/lumespos/dist;
+    root /home/ubuntu/lumespos/artifacts/pos-app/dist/public;
     index index.html;
 
     location / {
