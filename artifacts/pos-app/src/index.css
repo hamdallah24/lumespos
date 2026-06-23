@@ -167,12 +167,63 @@
 }
 
 body {
-  background-color: hsl(var(--background));
+  background-color: #F8FAFC;
   color: hsl(var(--foreground));
   font-family: var(--app-font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior: none;
 }
+
+.dark body {
+  background-color: #071426;
+}
+
+/* ─────────────────── */
+/* Native App Container */
+/* ─────────────────── */
+.native-container {
+  width: 100%;
+  min-height: 100dvh;
+  max-width: 480px;
+  margin: 0 auto;
+  background: #F8FAFC;
+  position: relative;
+  overflow: hidden;
+}
+
+.dark .native-container {
+  background: #071426;
+}
+
+/* ─────────────────── */
+/* Native Card */
+/* ─────────────────── */
+.native-card {
+  background: #FFFFFF;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
+  border: none;
+}
+
+.dark .native-card {
+  background: #0F1D32;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* ─────────────────── */
+/* Native Typography Scale */
+/* ─────────────────── */
+.nav-text { font-size: 10px; line-height: 1.2; }
+.caption { font-size: 11px; color: #64748B; font-weight: 500; }
+.label-sm { font-size: 12px; color: #64748B; font-weight: 500; }
+.value-md { font-size: 18px; font-weight: 700; color: #0F172A; }
+.value-lg { font-size: 20px; font-weight: 700; color: #0F172A; }
+.heading { font-size: 22px; font-weight: 700; color: #0F172A; letter-spacing: -0.3px; }
+
+.dark .caption, .dark .label-sm { color: #94A3B8; }
+.dark .value-md, .dark .value-lg, .dark .heading { color: #E2E8F0; }
 
 .glass {
   background: rgba(255, 255, 255, 0.15);
