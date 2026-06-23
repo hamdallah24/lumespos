@@ -40,6 +40,7 @@ pnpm install
 # 7. Build only what's needed
 echo "[7/9] 🔨 Building API server..."
 pnpm --filter ./artifacts/api-server run build
+cp $(find node_modules -name "table.sql" -path "*connect-pg*" | head -1) artifacts/api-server/dist/ 2>/dev/null || true
 echo "🔨 Building frontend..."
 pnpm --filter ./artifacts/pos-app run build
 echo "   Build complete!"
