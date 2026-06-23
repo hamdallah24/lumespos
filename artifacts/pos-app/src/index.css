@@ -244,7 +244,7 @@ body {
 
 /* ── KPI Icon Container ── */
 .kpi-icon-box {
-  width: 48px; height: 48px;
+  width: 56px; height: 56px;
   border-radius: 50%;
   background: #EFF6FF;
   display: flex; align-items: center; justify-content: center;
@@ -255,9 +255,9 @@ body {
 
 /* ── Typography Utilities ── */
 .heading-dash { font-size: 32px; font-weight: 700; line-height: 40px; letter-spacing: -.5px; }
-.metric-primary { font-size: 32px; font-weight: 700; line-height: 36px; letter-spacing: -.4px; }
-.metric-secondary { font-size: 14px; font-weight: 600; }
-.card-title-text { font-size: 14px; font-weight: 500; line-height: 20px; color: #64748B; }
+.metric-primary { font-size: 28px; font-weight: 700; line-height: 32px; letter-spacing: -.3px; }
+.metric-secondary { font-size: 13px; font-weight: 500; }
+.card-title-text { font-size: 16px; font-weight: 600; line-height: 20px; color: #64748B; }
 
 /* ── Segmented Control ── */
 .segmented-control {

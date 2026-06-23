@@ -311,9 +311,9 @@ export default function DashboardPage() {
             {loadingSummary ? (
               [1,2,3,4].map((i) => <div key={i} className="h-[120px] rounded-[24px] bg-slate-100 dark:bg-slate-800 animate-pulse" />)
             ) : summary ? (<>
-              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:120}}>
+              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:150}}>
                 <div>
-                  <div className="kpi-icon-box mb-3"><Banknote size={28} /></div>
+                  <div className="kpi-icon-box mb-3"><Banknote /></div>
                   <p className="card-title-text">Penjualan Hari Ini</p>
                   <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1 truncate">{formatRp(summary.todayRevenue)}</p>
                 </div>
@@ -323,23 +323,23 @@ export default function DashboardPage() {
                   </span>
                 )}
               </div>
-              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:120}}>
+              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:150}}>
                 <div>
-                  <div className="kpi-icon-box mb-3" style={{background:"#FFF5F5"}}><Wallet size={28} style={{color:"#EF4444"}} /></div>
+                  <div className="kpi-icon-box mb-3" style={{background:"#FFF5F5"}}><Wallet /></div>
                   <p className="card-title-text">Pengeluaran Hari Ini</p>
                   <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{formatRp(summary.todayExpenses)}</p>
                 </div>
               </div>
-              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:120}}>
+              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:150}}>
                 <div>
-                  <div className="kpi-icon-box mb-3" style={{background:"#F0FDF4"}}><ShoppingCart size={28} style={{color:"#16A34A"}} /></div>
+                  <div className="kpi-icon-box mb-3" style={{background:"#F0FDF4"}}><ShoppingCart /></div>
                   <p className="card-title-text">Transaksi</p>
                   <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{summary.todayOrders}</p>
                 </div>
               </div>
-              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:120}}>
+              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:150}}>
                 <div>
-                  <div className="kpi-icon-box mb-3" style={{background:"#EFF6FF"}}><Package size={28} style={{color:"#2563EB"}} /></div>
+                  <div className="kpi-icon-box mb-3" style={{background:"#EFF6FF"}}><Package /></div>
                   <p className="card-title-text">Produk Aktif</p>
                   <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{summary.totalProducts}</p>
                 </div>
