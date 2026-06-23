@@ -26,6 +26,7 @@ interface SalesData {
 export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBalance }: CloseShiftDialogProps) {
   const [closingBalance, setClosingBalance] = useState("");
   const [photoProofUrl, setPhotoProofUrl] = useState("");
+  const [actualStock, setActualStock] = useState("");
   const [loading, setLoading] = useState(false);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
@@ -66,7 +67,15 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
   const handleSubmit = async () => {
     const balance = parseFloat(closingBalance);
     if (isNaN(balance) || balance < 0) {
-      toast.error("Uang akhir harus diisi dengan benar");
+      toast.error("Uang akhir harus diisi dengan benar", { duration: 1000 });
+      return;
+    }
+    if (!actualStock || isNaN(parseFloat(actualStock)) || parseFloat(actualStock) < 0) {
+      toast.error("Stok akhir harus diisi", { duration: 1000 });
+      return;
+    }
+    if (!photoProofUrl.trim()) {
+      toast.error("Bukti foto harap diisi", { duration: 1000 });
       return;
     }
 
@@ -78,7 +87,9 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
         body: JSON.stringify({
           shiftId,
           closingBalance: balance,
-          photoProofUrl: photoProofUrl || null,
+          photoProofUrl: photoProofUrl.trim(),
+          actualStock: [{ itemType: "raw_material", itemId: 0, name: "Stok Akhir", unit: "pcs", quantity: parseFloat(actualStock) }],
+          notes: null,
         }),
         credentials: "include",
       });
@@ -173,32 +184,30 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
               </div>
             </div>
 
-            {/* Input Uang Akhir */}
+            {/* Input Stok Akhir */}
             <div>
-              <Label>Uang Akhir di Laci Kas (Rp)</Label>
+              <Label>Stok Akhir (pcs) <span className="text-red-500">*</span></Label>
               <Input
                 type="number"
-                value={closingBalance}
-                onChange={(e) => setClosingBalance(e.target.value)}
-                placeholder="cth. 550000"
+                value={actualStock}
+                onChange={(e) => setActualStock(e.target.value)}
+                placeholder="cth. 50"
                 className="mt-1"
-                autoFocus
               />
+              <p className="text-xs text-muted-foreground mt-1">Jumlah stok fisik yang tersisa</p>
             </div>
 
             {/* Input Foto Bukti */}
             <div>
-              <Label>URL Foto Bukti (opsional)</Label>
+              <Label>Bukti Foto <span className="text-red-500">*</span></Label>
               <Input
                 type="text"
                 value={photoProofUrl}
                 onChange={(e) => setPhotoProofUrl(e.target.value)}
-                placeholder="https://..."
+                placeholder="Paste URL foto bukti..."
                 className="mt-1"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Upload foto stok dan uang akhir ke cloud, lalu paste URL-nya
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">Wajib upload foto bukti stok dan uang akhir</p>
             </div>
 
             <DialogFooter className="pt-2">
@@ -212,9 +221,9 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
           </div>
         ) : (
           <div className="space-y-4 py-4">
-            <div className={`p-4 rounded-lg text-center ${result.difference >= 0 ? "bg-green-50" : "bg-red-50"}`}>
+            <div className={`p-4 rounded-lg text-center ${result.difference >= 0 ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"}`}>
               <p className="text-sm text-muted-foreground">Shift Berhasil Ditutup</p>
-              <p className={`text-2xl font-bold mt-1 ${result.difference >= 0 ? "text-green-600" : "text-red-600"}`}>
+              <p className={`text-2xl font-bold mt-1 ${result.difference >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
                 {result.difference >= 0 ? formatRp(result.difference) : `-${formatRp(Math.abs(result.difference))}`}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
