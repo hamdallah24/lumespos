@@ -122,7 +122,7 @@ setTimeout(() => setLocation("/"), 300);
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1565FF]/5 via-[#F8FBFF] to-[#8ED8FF]/10 px-4 overflow-hidden">
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1565FF]/5 via-background to-[#8ED8FF]/10 dark:from-[#1565FF]/[0.08] dark:via-[#071426] dark:to-[#8ED8FF]/[0.05] px-4 overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-[#1565FF]/5 blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-[#8ED8FF]/10 blur-3xl" />
@@ -156,7 +156,7 @@ setTimeout(() => setLocation("/"), 300);
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 required
-                className="mt-1.5 w-full rounded-xl border border-border bg-white/80 px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
+                className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
                 placeholder="nama@email.com"
               />
             </div>
@@ -169,7 +169,7 @@ setTimeout(() => setLocation("/"), 300);
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   required
-                  className="mt-1.5 w-full rounded-xl border border-border bg-white/80 px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
+                  className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
                   placeholder="Nama lengkap"
                 />
               </div>
@@ -182,7 +182,7 @@ setTimeout(() => setLocation("/"), 300);
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
                 required
-                className="mt-1.5 w-full rounded-xl border border-border bg-white/80 px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
+                className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
                 placeholder="••••••••"
               />
               {mode === "signup" && (
@@ -207,12 +207,12 @@ setTimeout(() => setLocation("/"), 300);
                 <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center">
-                <span className="bg-white px-3 text-xs text-muted-foreground">atau</span>
+                <span className="px-3 text-xs text-muted-foreground bg-card dark:bg-background">atau</span>
               </div>
             </div>
             <a
               href="/api/auth/google"
-              className="w-full rounded-xl border border-border bg-white/80 px-4 py-3 text-sm font-medium text-foreground hover:bg-accent transition flex items-center justify-center gap-2 touch-target"
+              className="w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3 text-sm font-medium text-foreground hover:bg-accent transition flex items-center justify-center gap-2 touch-target"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z"/>
@@ -315,7 +315,7 @@ function ResetPasswordPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1565FF]/5 via-[#F8FBFF] to-[#8ED8FF]/10 px-4 overflow-hidden">
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1565FF]/5 via-background to-[#8ED8FF]/10 dark:from-[#1565FF]/[0.08] dark:via-[#071426] dark:to-[#8ED8FF]/[0.05] px-4 overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-[#1565FF]/5 blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-[#8ED8FF]/10 blur-3xl" />
@@ -348,13 +348,13 @@ function ResetPasswordPage() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   required
-                  className="mt-1.5 w-full rounded-xl border border-border bg-white/80 px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
+                  className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
                   placeholder="nama@email.com"
                 />
               </div>
 
               {error && <p className="text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2">{error}</p>}
-              {message && <p className="text-sm text-green-600 bg-green-50 rounded-xl px-3 py-2">{message}</p>}
+              {message && <p className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 rounded-xl px-3 py-2">{message}</p>}
 
               <motion.button
                 type="submit"
@@ -373,7 +373,7 @@ function ResetPasswordPage() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   required
-                  className="mt-1.5 w-full rounded-xl border border-border bg-white/80 px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
+                  className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
                   placeholder="nama@email.com"
                 />
               </div>
@@ -385,7 +385,7 @@ function ResetPasswordPage() {
                   onChange={(event) => setResetToken(event.target.value)}
                   required
                   readOnly={tokenFromLink}
-                  className="mt-1.5 w-full rounded-xl border border-border bg-white/80 px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
+                  className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
                   placeholder="Masukkan token"
                 />
               </div>
@@ -396,12 +396,12 @@ function ResetPasswordPage() {
                   value={newPassword}
                   onChange={(event) => setNewPassword(event.target.value)}
                   required
-                  className="mt-1.5 w-full rounded-xl border border-border bg-white/80 px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
+                  className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
                   placeholder="••••••••"
                 />
               </div>
               {error && <p className="text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2">{error}</p>}
-              {message && <p className="text-sm text-green-600 bg-green-50 rounded-xl px-3 py-2">{message}</p>}
+              {message && <p className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 rounded-xl px-3 py-2">{message}</p>}
 
               <motion.button
                 type="submit"

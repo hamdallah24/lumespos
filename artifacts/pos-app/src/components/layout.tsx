@@ -143,7 +143,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
             value={branchId != null ? String(branchId) : undefined}
             onValueChange={(v) => setBranchId(Number(v))}
           >
-            <SelectTrigger className="mt-1 bg-white/40 border-[#1565FF]/15 text-foreground rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+            <SelectTrigger className="mt-1 bg-card/50 border-[#1565FF]/15 text-foreground rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
               <div className="flex items-center gap-2 min-w-0">
                 <Store size={14} className="shrink-0 opacity-60" />
                 <SelectValue placeholder="Pilih cabang" />
@@ -195,7 +195,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
           </button>
           <button
             onClick={onSignOut}
-            className="w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all outline-none active:scale-[0.98] text-foreground/60 hover:bg-red-50 hover:text-red-500 text-sm"
+            className="w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all outline-none active:scale-[0.98] text-foreground/60 hover:bg-red-500/10 dark:hover:bg-red-500/15 hover:text-red-500 text-sm"
           >
             <LogOut size={16} />
             <span className="font-medium">Keluar</span>
@@ -369,7 +369,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
             </div>
           </nav>
 
-          <div className="p-4 border-t border-[#1565FF]/8 bg-white/40 dark:bg-[#0A1A33]/60">
+          <div className="p-4 border-t border-[#1565FF]/8 bg-card/50 dark:bg-[#0A1A33]/60">
             <div className="flex items-center gap-3 mb-3 px-1">
               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF]/10 to-[#1565FF]/5 flex items-center justify-center font-bold text-sm text-[#1565FF] shrink-0">
                 {initials}

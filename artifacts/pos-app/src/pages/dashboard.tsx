@@ -312,7 +312,7 @@ export default function DashboardPage() {
         <div className="p-4 lg:p-6 space-y-4">
           {/* Grafik Penjualan — Glassmorphism top */}
           <div className="relative rounded-2xl overflow-hidden border border-[#1565FF]/20 shadow-lg">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1565FF]/[0.12] via-[#1565FF]/[0.03] to-white/90 backdrop-blur-xl" />
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1565FF]/[0.12] via-[#1565FF]/[0.03] to-background/90 dark:to-[#071426]/90 backdrop-blur-xl" />
             <div className="relative p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
@@ -323,7 +323,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               {loadingChart ? (
-                <div className="h-48 lg:h-56 rounded-xl bg-white/40 animate-pulse" />
+                <div className="h-48 lg:h-56 rounded-xl bg-muted/40 animate-pulse" />
               ) : formattedChart.length === 0 ? (
                 <div className="h-48 lg:h-56 flex items-center justify-center text-muted-foreground">
                   <p className="text-sm">Belum ada data penjualan</p>
@@ -376,8 +376,8 @@ export default function DashboardPage() {
                         isAnimationActive={true}
                         animationDuration={800}
                         animationEasing="ease-out"
-                        dot={{ r: 3, fill: "#1565FF", stroke: "white", strokeWidth: 2 }}
-                        activeDot={{ r: 5, fill: "#1565FF", stroke: "white", strokeWidth: 2 }}
+                        dot={{ r: 3, fill: "#1565FF", stroke: "hsl(var(--card))", strokeWidth: 2 }}
+                        activeDot={{ r: 5, fill: "#1565FF", stroke: "hsl(var(--card))", strokeWidth: 2 }}
                       />
                       <Area
                         type="monotone"
@@ -389,8 +389,8 @@ export default function DashboardPage() {
                         isAnimationActive={true}
                         animationDuration={800}
                         animationEasing="ease-out"
-                        dot={{ r: 2, fill: "#EF4444", stroke: "white", strokeWidth: 1.5 }}
-                        activeDot={{ r: 4, fill: "#EF4444", stroke: "white", strokeWidth: 1.5 }}
+                        dot={{ r: 2, fill: "#EF4444", stroke: "hsl(var(--card))", strokeWidth: 1.5 }}
+                        activeDot={{ r: 4, fill: "#EF4444", stroke: "hsl(var(--card))", strokeWidth: 1.5 }}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
