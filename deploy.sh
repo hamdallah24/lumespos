@@ -51,11 +51,15 @@ sudo chmod o+x /home/ubuntu
 sudo tee /etc/nginx/sites-available/pos > /dev/null << 'NGINX'
 server {
     listen 80;
-    server_name 43.157.227.205;
+    server_name 43.157.227.205 43.157.227.205.nip.io;
 
-    # Frontend static files
-    root /home/ubuntu/lumespos/artifacts/pos-app;
+    root /home/ubuntu/lumespos/artifacts/pos-app/dist/public;
     index index.html;
+
+    # CORS for Android Chrome module scripts
+    location /assets/ {
+        add_header Access-Control-Allow-Origin "*" always;
+    }
 
     location / {
         try_files $uri $uri/ /index.html;
