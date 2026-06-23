@@ -219,6 +219,7 @@ export default function CashierPage() {
         branchId={branchId ?? 0}
         cashierId={me?.id ?? 0}
         cashierName={me?.name ?? "Kasir"}
+        role={me?.role}
       />
     );
   }

@@ -6,36 +6,31 @@ import { toast } from "sonner";
 import { apiFetch } from "@/lib/csrf";
 import { getErrorMessage } from "@/lib/error";
 
+import { X } from "lucide-react";
+
 interface StartShiftDialogProps {
   open: boolean;
   onStart: () => void;
   branchId: number;
   cashierId: number;
   cashierName: string;
+  role?: string;
 }
 
-export function StartShiftDialog({ open, onStart, branchId, cashierId, cashierName }: StartShiftDialogProps) {
+export function StartShiftDialog({ open, onStart, branchId, cashierId, cashierName, role }: StartShiftDialogProps) {
   const [openingBalance, setOpeningBalance] = useState("");
   const [loading, setLoading] = useState(false);
+  const isOwnerManager = role === "owner" || role === "manager";
 
   const handleStart = async () => {
     const balance = parseFloat(openingBalance);
-    if (isNaN(balance) || balance < 0) {
-      toast.error("Uang modal awal harus diisi dengan benar");
+    if (!isOwnerManager && (isNaN(balance) || balance < 0)) {
+      toast.error("Uang modal awal harus diisi dengan benar", { duration: 1000 });
       return;
-      console.log("cashierId being sent:", cashierId);
-console.log("branchId being sent:", branchId);
     }
 
     setLoading(true);
     try {
-      console.log("Sending start shift request:", {
-        branchId: Number(branchId),
-        cashierId: Number(cashierId),
-        cashierName,
-        openingBalance: balance,
-      });
-
       const res = await apiFetch("/api/shift/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -43,13 +38,12 @@ console.log("branchId being sent:", branchId);
           branchId: Number(branchId),
           cashierId: Number(cashierId),
           cashierName,
-          openingBalance: balance,
+          openingBalance: isOwnerManager && (isNaN(balance) || balance < 0) ? 0 : balance,
         }),
         credentials: "include",
       });
 
       const data = await res.json();
-      console.log("Response:", { status: res.status, data });
 
       if (!res.ok) {
         throw new Error(data.error || "Gagal memulai shift");
@@ -58,12 +52,11 @@ console.log("branchId being sent:", branchId);
       toast.success(`Shift dimulai. Modal awal: ${new Intl.NumberFormat("id-ID", { 
         style: "currency", 
         currency: "IDR" 
-      }).format(balance)}`);
+      }).format(isOwnerManager && (isNaN(balance) || balance < 0) ? 0 : balance)}`);
       
       onStart();
     } catch (err) {
-      console.error("Start shift error:", err);
-      toast.error(getErrorMessage(err, "Gagal memulai shift"));
+      toast.error(getErrorMessage(err, "Gagal memulai shift"), { duration: 1000 });
     } finally {
       setLoading(false);
     }
@@ -72,27 +65,45 @@ console.log("branchId being sent:", branchId);
   return (
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+        <DialogHeader className="relative">
+          {isOwnerManager && (
+            <button
+              className="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-muted hover:bg-muted/80 flex items-center justify-center"
+              onClick={onStart}
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
           <DialogTitle className="text-xl">Mulai Shift</DialogTitle>
           <DialogDescription>
-            Isi uang modal awal yang ada di laci kas sebelum memulai transaksi.
+            {isOwnerManager
+              ? "Isi uang modal awal jika bertugas sebagai kasir, atau klik X untuk lewati."
+              : "Isi uang modal awal yang ada di laci kas sebelum memulai transaksi."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
           <div>
-            <label className="text-sm font-medium">Uang Modal Awal (Rp)</label>
+            <label className="text-sm font-medium">
+              Uang Modal Awal (Rp) {!isOwnerManager && <span className="text-red-500">*</span>}
+            </label>
             <Input
               type="number"
               value={openingBalance}
               onChange={(e) => setOpeningBalance(e.target.value)}
-              placeholder="cth. 500000"
+              placeholder={isOwnerManager ? "Kosongkan jika hanya melihat dashboard" : "cth. 500000"}
               autoFocus
               className="mt-1"
             />
+            {isOwnerManager && (
+              <p className="text-xs text-muted-foreground mt-1">Opsional untuk owner/manager</p>
+            )}
           </div>
         </div>
-        <DialogFooter>
-          <Button onClick={handleStart} disabled={loading} className="w-full">
+        <DialogFooter className="flex gap-2">
+          {isOwnerManager && (
+            <Button variant="outline" onClick={onStart} className="flex-1">Lewati</Button>
+          )}
+          <Button onClick={handleStart} disabled={loading} className="flex-1">
             {loading ? "Memulai..." : "Mulai Shift"}
           </Button>
         </DialogFooter>
