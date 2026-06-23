@@ -162,7 +162,7 @@ setTimeout(() => setLocation("/"), 300);
               />
             </div>
 
-            {mode === "signup" && (
+            {mode === "signup" && (<>
               <div>
                 <label className="block text-sm font-medium text-foreground/80">Nama</label>
                 <input
@@ -187,7 +187,7 @@ setTimeout(() => setLocation("/"), 300);
                 />
                 <p className="mt-1 text-xs text-muted-foreground">Diperlukan untuk mendaftar</p>
               </div>
-            )}
+            </>)}
 
             <div>
               <label className="block text-sm font-medium text-foreground/80">Password</label>
@@ -201,7 +201,7 @@ setTimeout(() => setLocation("/"), 300);
               />
               {mode === "signup" && (
                 <p className="mt-1 text-xs text-muted-foreground">Minimal 8 karakter, mengandung huruf &amp; angka</p>
-              )}
+            </>)}
             </div>
 
             {error && <p className="text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2">{error}</p>}
