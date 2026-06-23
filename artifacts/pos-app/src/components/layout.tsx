@@ -205,27 +205,24 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
 
       {/* Main content area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative lg:ml-[17.5rem]">
-        {/* Mobile header */}
-        <div className="lg:hidden h-14 border-b border-[#1565FF]/10 px-4 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-30 rounded-2xl mt-3">
-          <button className="text-muted-foreground touch-target flex items-center justify-center" onClick={() => setSidebarOpen(true)}>
-            <Menu size={22} />
+        {/* Mobile header — 72px Apple-style */}
+        <div className="lg:hidden h-[72px] border-b border-slate-100 dark:border-slate-800 px-4 flex items-center shrink-0 sticky top-0 z-30 bg-white/90 dark:bg-[#0F1D32]/90 backdrop-blur-xl">
+          <button className="w-10 h-10 flex items-center justify-center text-slate-600 dark:text-slate-400" onClick={() => setSidebarOpen(true)}>
+            <Menu size={24} />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1565FF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-xs shadow-md shadow-[#1565FF]/20">
+          <div className="flex-1 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-[#2563EB] flex items-center justify-center text-white font-bold text-sm shadow-md shadow-[#2563EB]/30">
               L
             </div>
-            <span className="font-bold text-base tracking-tight">Lume's</span>
+            <span className="ml-2 font-bold text-lg text-slate-800 dark:text-slate-200">Lume's</span>
           </div>
-          <div className="ml-auto flex items-center gap-2">
-            <button onClick={toggleTheme} className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center text-muted-foreground">
-              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-            </button>
-            <span className="text-xs text-muted-foreground">{roleLabel(role)}</span>
-          </div>
+          <button onClick={toggleTheme} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
+            {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
         </div>
 
-        {/* Page content */}
-        <div className="flex-1 overflow-y-auto pb-20 lg:pb-0 px-4 md:px-6">
+        {/* Page content — 16px side padding */}
+        <div className="flex-1 overflow-y-auto pb-24 lg:pb-0 px-4">
           <AnimatePresence mode="wait">
             <motion.div
               key={location}
@@ -240,32 +237,32 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
           </AnimatePresence>
         </div>
 
-        {/* Mobile bottom navigation */}
-        <nav className="lg:hidden fixed bottom-3 inset-x-3 z-40 safe-bottom">
-          <div className="flex items-center justify-around h-16 px-2 rounded-2xl bg-gradient-to-br from-[#1565FF]/[0.08] via-white to-white backdrop-blur-xl border border-[#1565FF]/20 shadow-lg shadow-[#1565FF]/5 dark:from-[#0A1F44] dark:via-[#0A1F44]/95 dark:to-[#0A1F44] dark:border-white/[0.06]">
+        {/* Mobile bottom navigation — 72px Premium */}
+        <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 safe-bottom">
+          <div className="bottom-nav-native">
             {bottomNav.map((item) => {
               if (item.href === "#account") {
                 return (
-                  <button key={item.label} onClick={handleAccountClick} className={`flex flex-col items-center gap-0.5 relative min-w-0 flex-1 py-1 text-muted-foreground`}>
-                    <item.icon size={20} />
-                    <span className="text-[10px] font-medium truncate max-w-full">{item.label}</span>
+                  <button key={item.label} onClick={handleAccountClick} className="flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1 nav-item">
+                    <item.icon size={24} />
+                    <span className="text-[12px] font-medium">{item.label}</span>
                   </button>
                 );
               }
               const active = isBottomActive(item);
               return (
-                <Link key={item.label} href={item.href} className={`flex flex-col items-center gap-0.5 relative min-w-0 flex-1 py-1 ${active ? "text-primary" : "text-muted-foreground"}`}>
-                  {active && <motion.div layoutId="nav-indicator" className="absolute -top-1 w-8 h-0.5 rounded-full bg-primary dark:bg-white" />}
-                  <item.icon size={20} />
-                  <span className="text-[10px] font-medium truncate max-w-full">{item.label}</span>
+                <Link key={item.label} href={item.href} className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1 nav-item ${active ? "active" : ""}`}>
+                  {active && <motion.div layoutId="nav-indicator" className="absolute -top-[1px] w-8 h-[3px] rounded-full bg-[#2563EB]" />}
+                  <item.icon size={24} />
+                  <span className="text-[12px] font-medium">{item.label}</span>
                 </Link>
               );
             })}
           </div>
         </nav>
 
-        {/* FAB */}
-        <div ref={fabRef} className="fixed bottom-24 right-4 z-50 lg:hidden">
+        {/* FAB — bottom:88px right:20px */}
+        <div ref={fabRef} className="fixed bottom-[88px] right-5 z-50 lg:hidden">
           <AnimatePresence>
             {fabOpen && (
               <motion.div
@@ -295,9 +292,9 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
             animate={{ rotate: fabOpen ? 45 : 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 20 }}
             onClick={() => setFabOpen(!fabOpen)}
-            className="w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform touch-target"
+            className="fab-btn touch-target"
           >
-            <Plus size={24} />
+            <Plus size={32} />
           </motion.button>
         </div>
 

@@ -220,3 +220,94 @@ body {
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
+
+/* ═══════════════════════════════════════════ */
+/* Lume Mobile Dashboard Design System v2      */
+/* Apple + Stripe quality, Material 3 accents  */
+/* ═══════════════════════════════════════════ */
+
+/* ── Shadow System ── */
+.shadow-card { box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.shadow-lg-card { box-shadow: 0 4px 16px rgba(0,0,0,.06); }
+.shadow-fab { box-shadow: 0 12px 30px rgba(37,99,235,.30); }
+.dark .shadow-card, .dark .shadow-lg-card { box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+
+/* ── Card Baseline ── */
+.card-premium {
+  background: #fff;
+  border-radius: 24px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  border: none;
+}
+.dark .card-premium { background: #0F1D32; }
+
+/* ── KPI Icon Container ── */
+.kpi-icon-box {
+  width: 48px; height: 48px;
+  border-radius: 50%;
+  background: #EFF6FF;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.dark .kpi-icon-box { background: rgba(37,99,235,.15); }
+.kpi-icon-box svg { width: 28px; height: 28px; color: #2563EB; }
+
+/* ── Typography Utilities ── */
+.heading-dash { font-size: 32px; font-weight: 700; line-height: 40px; letter-spacing: -.5px; }
+.metric-primary { font-size: 32px; font-weight: 700; line-height: 36px; letter-spacing: -.4px; }
+.metric-secondary { font-size: 14px; font-weight: 600; }
+.card-title-text { font-size: 14px; font-weight: 500; line-height: 20px; color: #64748B; }
+
+/* ── Segmented Control ── */
+.segmented-control {
+  display: flex; background: #F1F5F9; border-radius: 26px; padding: 3px; height: 46px;
+  gap: 2px;
+}
+.dark .segmented-control { background: #1E293B; }
+.seg-control-btn {
+  flex: 1; border-radius: 23px; font-size: 14px; font-weight: 500;
+  transition: all .2s; border: none; cursor: pointer;
+  color: #64748B; background: transparent; display: flex; align-items: center; justify-content: center;
+}
+.seg-control-btn.active { background: #2563EB; color: #fff; font-weight: 600; }
+
+/* ── Alert Card ── */
+.alert-card {
+  background: #FFF5F5; border-radius: 20px; padding: 0 16px;
+  height: 56px; display: flex; align-items: center; gap: 10px;
+  border: none;
+}
+.dark .alert-card { background: rgba(239,68,68,.1); }
+.alert-card .alert-icon { width: 22px; height: 22px; color: #EF4444; flex-shrink: 0; }
+
+/* ── Bottom Nav ── */
+.bottom-nav-native {
+  height: 72px; border-top: 1px solid #E2E8F0;
+  background: rgba(255,255,255,.95); backdrop-filter: blur(20px);
+  display: flex; align-items: center; justify-content: space-around;
+}
+.dark .bottom-nav-native { background: rgba(15,29,50,.95); border-color: #1E293B; }
+.nav-item { font-size: 12px; font-weight: 500; color: #64748B; }
+.nav-item.active { color: #2563EB; }
+.nav-item svg { width: 24px; height: 24px; }
+
+/* ── FAB ── */
+.fab-btn {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: #2563EB; color: #fff;
+  box-shadow: 0 12px 30px rgba(37,99,235,.30);
+  display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer;
+}
+.fab-btn svg { width: 32px; height: 32px; }
+.fab-btn:active { transform: scale(.92); transition: transform .1s; }
+
+/* ── Progress Bar ── */
+.progress-native { height: 8px; border-radius: 999px; background: #F1F5F9; overflow: hidden; }
+.dark .progress-native { background: #1E293B; }
+.progress-native-fill { height: 100%; border-radius: 999px; background: #2563EB; }
+
+/* ── Chart Grid ── */
+.chart-card { background: #fff; border-radius: 24px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.dark .chart-card { background: #0F1D32; }

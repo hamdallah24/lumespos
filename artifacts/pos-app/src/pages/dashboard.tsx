@@ -264,59 +264,224 @@ export default function DashboardPage() {
   }
   return (
     <div className="flex flex-col h-full">
-      <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-2 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mt-3">
-        <h1 className="font-bold text-lg tracking-tight shrink-0">Dashboard</h1>
-        <div className="flex items-center gap-2 ml-auto overflow-x-auto scrollbar-none">
-          {/* Quick period */}
-          <div className="flex gap-0.5 bg-accent/50 rounded-xl p-0.5 border border-border/50 shrink-0">
-            {[{k:"today",l:"Hr Ini"},{k:"7d",l:"7 Hari"},{k:"30d",l:"30 Hari"}].map(p => (
-              <button key={p.k} onClick={() => setPeriod(p.k)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium whitespace-nowrap touch-target transition-all ${period === p.k ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}>
-                {p.l}
-              </button>
-            ))}
-          </div>
-          {/* Custom date range */}
-          <div className="relative">
-            <CalendarPicker label="Dari" value={customStart} onChange={(v) => { setCustomStart(v); setPeriod("custom"); }} />
-          </div>
-          <span className="text-muted-foreground/30 text-[10px]">—</span>
-          <div className="relative">
-            <CalendarPicker label="Ke" value={customEnd} onChange={(v) => { setCustomEnd(v); setPeriod("custom"); }} />
-          </div>
+      <div className="h-[52px] border-b border-slate-100 dark:border-slate-800 px-4 flex items-center shrink-0 bg-white dark:bg-[#0F1D32]">
+        <h1 className="font-bold text-lg text-slate-800 dark:text-slate-200">Dashboard</h1>
+        <div className="ml-auto flex items-center gap-1.5">
           <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-            <SelectTrigger className="w-[120px] lg:w-[150px] h-7 text-[11px] bg-accent border-0 rounded-lg">
+            <SelectTrigger className="w-[120px] h-[34px] text-[13px] bg-slate-50 dark:bg-slate-800 border-0 rounded-full">
               <SelectValue placeholder="Pilih Cabang" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">
-                <div className="flex items-center">
-                  <LayoutGrid className="w-3 h-3 mr-2" />
-                  Semua Cabang {allBranches.length > 0 && `(${allBranches.length})`}
-                </div>
-              </SelectItem>
-              {allBranches.map((b) => (
-                <SelectItem key={b.id} value={String(b.id)}>
-                  <div className="flex items-center">
-                    <Building2 className="w-3 h-3 mr-2" />
-                    {b.name}
-                  </div>
-                </SelectItem>
-              ))}
+              <SelectItem value="all">Semua Cabang</SelectItem>
+              {allBranches.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-4 lg:p-6 space-y-4">
-          {/* Grafik Penjualan — Glassmorphism top */}
-          <div className="relative rounded-2xl overflow-hidden border border-[#1565FF]/20 shadow-lg">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1565FF]/[0.12] via-[#1565FF]/[0.03] to-background/90 dark:to-[#071426]/90 backdrop-blur-xl" />
-            <div className="relative p-3 sm:p-4">
-              <div className="flex items-center justify-between mb-2 sm:mb-3">
+        <div className="px-4 py-6 space-y-4">
+          {/* Headline */}
+          <div>
+            <h1 className="heading-dash text-slate-800 dark:text-slate-200">Dashboard</h1>
+            <p className="text-[13px] text-slate-500 mt-1">
+              {new Date(startDate).toLocaleDateString("id-ID", {day:"numeric",month:"long",year:"numeric"})}
+              {startDate !== endDate ? ` — ${new Date(endDate).toLocaleDateString("id-ID", {day:"numeric",month:"long",year:"numeric"})}` : ""}
+            </p>
+          </div>
+
+          {/* Segmented Control */}
+          <div className="segmented-control">
+            {[{k:"today",l:"Hr Ini"},{k:"7d",l:"7 Hari"},{k:"30d",l:"30 Hari"}].map(p => (
+              <button key={p.k} onClick={() => setPeriod(p.k)} className={`seg-control-btn ${period === p.k ? "active" : ""}`}>
+                {p.l}
+              </button>
+            ))}
+          </div>
+
+          {/* Date Picker Row */}
+          <div className="flex items-center gap-2">
+            <CalendarPicker label="Dari" value={customStart} onChange={(v) => { setCustomStart(v); setPeriod("custom"); }} />
+            <span className="text-slate-300 text-sm">—</span>
+            <CalendarPicker label="Ke" value={customEnd} onChange={(v) => { setCustomEnd(v); setPeriod("custom"); }} />
+          </div>
+
+          {/* KPI Cards — 2-col grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {loadingSummary ? (
+              [1,2,3,4].map((i) => <div key={i} className="h-[120px] rounded-[24px] bg-slate-100 dark:bg-slate-800 animate-pulse" />)
+            ) : summary ? (<>
+              <div className="card-premium flex flex-col justify-between" style={{height:120}}>
                 <div>
-                  <h2 className="text-xs sm:text-sm font-semibold text-foreground">Grafik Penjualan</h2>
+                  <div className="kpi-icon-box mb-3"><Banknote size={28} /></div>
+                  <p className="card-title-text">Penjualan Hari Ini</p>
+                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{formatRp(summary.todayRevenue)}</p>
+                </div>
+                {(summary.todayRevenueDiff ?? 0) !== 0 && (
+                  <span className={`metric-secondary ${summary.todayRevenueDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                    {summary.todayRevenueDiff >= 0 ? "+" : ""}{summary.todayRevenueDiff.toFixed(1)}% vs kemarin
+                  </span>
+                )}
+              </div>
+              <div className="card-premium flex flex-col justify-between" style={{height:120}}>
+                <div>
+                  <div className="kpi-icon-box mb-3" style={{background:"#FFF5F5"}}><Wallet size={28} style={{color:"#EF4444"}} /></div>
+                  <p className="card-title-text">Pengeluaran Hari Ini</p>
+                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{formatRp(summary.todayExpenses)}</p>
+                </div>
+              </div>
+              <div className="card-premium flex flex-col justify-between" style={{height:120}}>
+                <div>
+                  <div className="kpi-icon-box mb-3" style={{background:"#F0FDF4"}}><ShoppingCart size={28} style={{color:"#16A34A"}} /></div>
+                  <p className="card-title-text">Transaksi</p>
+                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{summary.todayOrders}</p>
+                </div>
+              </div>
+              <div className="card-premium flex flex-col justify-between" style={{height:120}}>
+                <div>
+                  <div className="kpi-icon-box mb-3" style={{background:"#EFF6FF"}}><Package size={28} style={{color:"#2563EB"}} /></div>
+                  <p className="card-title-text">Produk Aktif</p>
+                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{summary.totalProducts}</p>
+                </div>
+              </div>
+            </>) : null}
+          </div>
+
+          {/* Analytics Chart */}
+          <div className="chart-card">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200">Grafik Penjualan</h2>
+                <p className="caption mt-0.5">
+                  {new Date(startDate).toLocaleDateString("id-ID")} — {new Date(endDate).toLocaleDateString("id-ID")}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                {trendUp ? <ArrowUpRight className="w-4 h-4 text-emerald-500" /> : <ArrowDownRight className="w-4 h-4 text-red-500" />}
+                <span className={`text-[13px] font-semibold ${trendUp ? "text-emerald-500" : "text-red-500"}`}>
+                  {trendUp ? "Meningkat" : "Menurun"}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 mb-4">
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor:"#2563EB"}} />
+                <span className="text-xs text-slate-500">Pendapatan</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2.5 h-2.5 rounded-full" style={{backgroundColor:"#EF4444"}} />
+                <span className="text-xs text-slate-500">Pengeluaran</span>
+              </div>
+            </div>
+            {loadingChart ? (
+              <div className="h-[200px] rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
+            ) : formattedChart.length === 0 ? (
+              <div className="h-[200px] flex items-center justify-center text-slate-400 text-sm">Belum ada data penjualan</div>
+            ) : (
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={formattedChart} margin={{ top: 4, right: 0, left: -10, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#2563EB" stopOpacity={0.15} />
+                        <stop offset="100%" stopColor="#2563EB" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#EF4444" stopOpacity={0.12} />
+                        <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
+                    <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={40} />
+                    <Tooltip content={<PremiumChartTooltip />} cursor={{ stroke: "#2563EB", strokeDasharray: "4 4", strokeWidth: 1 }} />
+                    <Area type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={4} fill="url(#chartGrad)" dot={false} activeDot={{ r: 5, fill: "#2563EB", stroke: "#fff", strokeWidth: 3 }} />
+                    <Area type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={3} strokeDasharray="4" fill="url(#expenseGrad)" dot={false} activeDot={{ r: 5, fill: "#EF4444", stroke: "#fff", strokeWidth: 3 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+
+          {/* Alert Stok Menipis */}
+          {!loadingLow && lowStock.length > 0 && (
+            <div className="alert-card">
+              <AlertTriangle className="alert-icon" />
+              <span className="text-sm font-semibold text-red-600 flex-1">Stok Menipis</span>
+              <span className="text-xs font-medium text-red-400">{lowStock.length} item</span>
+              <ChevronRight className="w-4 h-4 text-red-300" />
+            </div>
+          )}
+
+          {/* Best Seller */}
+          {!loadingTop && topProducts.length > 0 && (
+            <div className="chart-card">
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Produk Terlaris</h2>
+              <div className="space-y-4">
+                {topProducts.map((p: any, idx: number) => {
+                  const maxSold = topProducts[0]?.totalSold ?? 1;
+                  const pct = (p.totalSold / maxSold) * 100;
+                  return (
+                    <div key={p.productId} className="flex items-center gap-3">
+                      <span className={`w-5 text-center text-sm font-bold ${idx === 0 ? "text-[#2563EB]" : "text-slate-400"}`}>{idx + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-center mb-1.5">
+                          <span className="text-[16px] font-semibold text-slate-800 dark:text-slate-200 truncate">{p.productName}</span>
+                          <span className="text-[14px] font-medium text-slate-400 ml-2 shrink-0">{p.totalSold} terjual</span>
+                        </div>
+                        <div className="progress-native">
+                          <div className="progress-native-fill" style={{width:`${pct}%`}} />
+                        </div>
+                      </div>
+                      <span className="text-sm font-semibold text-[#2563EB] shrink-0">{formatRp(p.totalRevenue)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Financial Section */}
+          {financial && (
+            <div className="chart-card">
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Keuangan</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  {l:"Pendapatan",v:financial.grossRevenue,c:""},
+                  {l:"HPP",v:financial.totalCogs,c:""},
+                  {l:"Laba Kotor",v:financial.grossProfit,c:"text-emerald-600"},
+                  {l:"Margin Kotor",v:`${financial.grossMarginPct.toFixed(1)}%`,c:""},
+                  {l:"Pengeluaran",v:financial.totalExpenses,c:"text-red-500"},
+                  {l:"Laba Bersih",v:financial.netProfit,c:"text-emerald-600"},
+                ].map((item, i) => (
+                  <div key={i} className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4">
+                    <p className="card-title-text mb-1">{item.l}</p>
+                    <p className={`text-base font-bold ${item.c || "text-slate-800 dark:text-slate-200"}`}>
+                      {typeof item.v === "number" ? formatRp(item.v) : item.v}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Aktivitas */}
+          {soldItems.length > 0 && (
+            <div className="chart-card">
+              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Aktivitas Penjualan</h2>
+              <div className="space-y-2">
+                {soldItems.slice(0,10).map((item: any, idx: number) => (
+                  <div key={idx} className="flex items-center justify-between py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{item.productName}</p>
+                      <p className="text-xs text-slate-400">{item.variantName ?? "Reguler"} · {item.totalSold} terjual</p>
+                    </div>
+                    <span className="text-sm font-semibold text-[#2563EB] ml-3">{formatRp(item.totalRevenue)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
                   <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
                     {new Date(startDate).toLocaleDateString("id-ID")} — {new Date(endDate).toLocaleDateString("id-ID")}
                   </p>
@@ -397,214 +562,6 @@ export default function DashboardPage() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Stock Ticker — compact scrolling low stock */}
-          <div className="relative rounded-2xl overflow-hidden border border-destructive/20 bg-destructive/[0.02]">
-            <div className="flex items-center gap-2 px-3 py-2 border-b border-destructive/10">
-              <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />
-              <span className="text-xs font-semibold text-destructive">Stok Menipis</span>
-              {lowStock.length > 0 && (
-                <span className="text-[10px] font-medium text-destructive/70 ml-auto">{lowStock.length} item</span>
-              )}
-            </div>
-            {loadingLow ? (
-              <div className="h-9 bg-muted/50 animate-pulse" />
-            ) : lowStock.length === 0 ? (
-              <div className="px-3 py-2">
-                <p className="text-xs text-muted-foreground">Semua stok dalam batas aman.</p>
-              </div>
-            ) : (
-              <div className="relative h-10 px-3 flex items-center overflow-hidden">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={stockIndex}
-                    initial={{ y: 24, opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: -24, opacity: 0 }}
-                    transition={{ duration: 0.25, ease: "easeInOut" }}
-                    className="flex items-center gap-1.5 text-xs font-medium text-destructive/90 max-w-full"
-                  >
-                    {lowStock[stockIndex].itemType === "semi_finished"
-                      ? <FlaskConical className="w-3.5 h-3.5 shrink-0" />
-                      : <Package className="w-3.5 h-3.5 shrink-0" />}
-                    <span className="truncate">{lowStock[stockIndex].name}</span>
-                    <span className="font-semibold shrink-0 text-destructive">
-                      {lowStock[stockIndex].currentStock}
-                    </span>
-                    <span className="text-destructive/60 shrink-0">{lowStock[stockIndex].unit}</span>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            )}
-          </div>
-
-          {/* Priority cards row */}
-          <div className="grid grid-cols-2 gap-3">
-            {loadingSummary ? (
-              [1,2,3,4].map((i) => <div key={i} className="h-24 rounded-2xl bg-muted animate-pulse" />)
-            ) : summary ? (
-              <>
-                <StatCard title="Penjualan Hari Ini" value={summary.todayRevenue} diff={summary.todayRevenueDiff} icon={Banknote} format="currency" />
-                <StatCard title="Pengeluaran Hari Ini" value={summary.todayExpenses} diff={summary.todayExpensesDiff} icon={Wallet} format="currency" />
-                <StatCard title="Transaksi" value={summary.todayOrders} diff={summary.todayOrdersDiff} icon={ShoppingCart} />
-                <StatCard title="Produk Aktif" value={summary.totalProducts} icon={Package} />
-              </>
-            ) : null}
-          </div>
-
-
-
-          {/* Produk Terlaris */}
-          <div className="bg-card border border-border rounded-2xl p-3 sm:p-4">
-            <h2 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3">Produk Terlaris</h2>
-            {loadingTop ? (
-              <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded-xl" />)}</div>
-            ) : topProducts.length === 0 ? (
-              <div className="py-6 text-center text-muted-foreground">
-                <ShoppingCart className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" />
-                <p className="text-sm">Belum ada data penjualan</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {(topProducts as any[]).map((p, idx) => {
-                  const maxSold = (topProducts as any[])[0]?.totalSold ?? 1;
-                  const pct = (p.totalSold / maxSold) * 100;
-                  return (
-                    <div key={p.productId} className="flex items-center gap-2 sm:gap-3">
-                      <span className={`w-4 sm:w-5 text-center text-xs sm:text-sm font-bold ${idx === 0 ? "text-primary" : "text-muted-foreground"}`}>{idx + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center mb-0.5 sm:mb-1">
-                          <span className="text-xs sm:text-sm font-medium truncate">{p.productName}</span>
-                          <span className="text-[10px] sm:text-xs text-muted-foreground ml-2 shrink-0">{p.totalSold} terjual</span>
-                        </div>
-                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                      <span className="text-[10px] sm:text-xs font-semibold text-primary shrink-0">{formatRp(p.totalRevenue)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Kas Masuk/Keluar & Laporan Keuangan */}
-          <div className="bg-card border border-border rounded-2xl p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-2 sm:mb-3">
-              <h2 className="text-xs sm:text-sm font-semibold">
-                Keuangan
-                {isAllBranches && <span className="ml-1 sm:ml-2 text-primary text-[10px] sm:text-xs">Semua Cabang</span>}
-              </h2>
-              <span className="text-[10px] sm:text-[11px] text-muted-foreground">
-                {new Date(startDate).toLocaleDateString("id-ID")} — {new Date(endDate).toLocaleDateString("id-ID")}
-              </span>
-            </div>
-            {loadingFinancial ? (
-              <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}</div>
-            ) : financial ? (
-              <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Pendapatan</p>
-                  <p className="text-sm sm:text-base font-bold mt-1">{formatRp(financial?.grossRevenue ?? 0)}</p>
-                </div>
-                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">HPP (COGS)</p>
-                  <p className="text-sm sm:text-base font-bold mt-1">{formatRp(financial?.totalCogs ?? 0)}</p>
-                </div>
-                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Laba Kotor</p>
-                  <p className="text-sm sm:text-base font-bold mt-1 text-green-600">{formatRp(financial?.grossProfit ?? 0)}</p>
-                </div>
-                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Margin Kotor</p>
-                  <p className="text-sm sm:text-base font-bold mt-1">{(financial?.grossMarginPct ?? 0).toFixed(1)}%</p>
-                </div>
-                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Pengeluaran</p>
-                  <p className="text-sm sm:text-base font-bold mt-1 text-red-500">{formatRp(financial?.totalExpenses ?? 0)}</p>
-                </div>
-                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Laba Bersih</p>
-                  <p className="text-sm sm:text-base font-bold mt-1 text-green-600">{formatRp(financial?.netProfit ?? 0)}</p>
-                </div>
-                <div className="col-span-2 bg-accent/50 rounded-xl p-2.5 sm:p-3">
-                  <p className="text-[10px] sm:text-xs text-muted-foreground">Margin Bersih</p>
-                  <p className="text-sm sm:text-base font-bold mt-1">{(financial?.netMarginPct ?? 0).toFixed(1)}%</p>
-                </div>
-              </div>
-            ) : null}
-          </div>
-
-
-
-          {/* Aktivitas Terbaru — Barang Terjual */}
-          <div className="bg-card border border-border rounded-2xl p-3 sm:p-4">
-            <h2 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-2">
-              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              Aktivitas Penjualan
-              {isAllBranches && <Badge variant="secondary" className="text-xs ml-1 rounded-full">Semua Cabang</Badge>}
-            </h2>
-
-            {loadingSold ? (
-              <div className="space-y-2">{[1,2,3].map((i) => <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />)}</div>
-            ) : soldItems.length === 0 ? (
-              <div className="py-6 text-center text-muted-foreground">
-                <ShoppingCart className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" />
-                <p className="text-sm">Belum ada data penjualan</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {soldItems.slice(0, 10).map((item, idx) => (
-                  <div key={`${item.productId}-${item.variantId ?? 'default'}-${idx}`}
-                    className="flex items-center justify-between p-2.5 sm:p-3 bg-accent/30 rounded-xl">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs sm:text-sm font-medium truncate">{item.productName}</p>
-                      <p className="text-[10px] sm:text-xs text-muted-foreground">{item.variantName ?? "Reguler"} · {item.totalSold} terjual</p>
-                    </div>
-                    <span className="text-xs sm:text-sm font-semibold text-primary ml-2 sm:ml-3">{formatRp(item.totalRevenue)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Performa Kasir */}
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <Users className="w-4 h-4" /> Performa Kasir
-            </h2>
-            {loadingCashier ? (
-              <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded-xl" />)}</div>
-            ) : cashierPerf.length === 0 ? (
-              <div className="py-6 text-center text-muted-foreground">
-                <Users className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" />
-                <p className="text-sm">Belum ada data</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {(cashierPerf as any[]).map((c, idx) => {
-                  const maxRev = (cashierPerf as any[])[0]?.totalRevenue ?? 1;
-                  const pct = (c.totalRevenue / maxRev) * 100;
-                  return (
-                    <div key={c.cashierId} className="flex items-center gap-3">
-                      <span className={`w-5 text-center text-sm font-bold ${idx === 0 ? "text-primary" : "text-muted-foreground"}`}>{idx + 1}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm font-medium truncate">{c.cashierName}</span>
-                          <span className="text-xs text-muted-foreground ml-2 shrink-0">{c.totalOrders} transaksi</span>
-                        </div>
-                        <div className="h-1.5 bg-muted rounded-full overflow-hidden">
-                          <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                      <span className="text-xs font-semibold text-primary shrink-0">{formatRp(c.totalRevenue)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
 
         </div>
