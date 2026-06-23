@@ -18,7 +18,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ShieldCheck, ChevronRight } from "lucide-react";
+import { ClipboardCheck, AlertTriangle, CheckCircle2, Clock, ShieldCheck, Eye } from "lucide-react";
 
 function statusBadge(status: string) {
   if (status === "verified") return <Badge className="bg-green-600 hover:bg-green-600"><CheckCircle2 className="w-3 h-3 mr-1" />Terverifikasi</Badge>;
@@ -63,8 +63,7 @@ export default function AuditsPage() {
                       {a.shiftEnd ? formatDate(a.shiftEnd) : "—"}
                     </p>
                   </div>
-                  <Button variant="ghost" size="sm" className="hidden sm:flex">Periksa</Button>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground sm:hidden" />
+                  <Button variant="ghost" size="icon" className="h-8 w-8"><Eye className="w-4 h-4" /></Button>
                 </CardContent>
               </Card>
             ))

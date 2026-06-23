@@ -672,15 +672,17 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
                   )}
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <Button size="sm" variant="ghost" className="hidden sm:flex" onClick={() => setRecipeFor({ id: sf.id, name: sf.name })}>
-                    <ChefHat className="w-4 h-4 mr-1.5" />Resep
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setRecipeFor({ id: sf.id, name: sf.name })} title="Resep">
+                    <ChefHat className="w-4 h-4" />
                   </Button>
                   <Button
-                    size="sm"
+                    size="icon"
                     variant="outline"
+                    className="h-8 w-8"
                     onClick={() => setProduceFor({ id: sf.id, name: sf.name, yieldUnit: sf.yieldUnit ?? sf.unit })}
+                    title="Produksi"
                   >
-                    <PackagePlus className="w-4 h-4 mr-1.5" />Produksi
+                    <PackagePlus className="w-4 h-4" />
                   </Button>
                   <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem(sf)}>
                     <Trash2 className="w-4 h-4" />
