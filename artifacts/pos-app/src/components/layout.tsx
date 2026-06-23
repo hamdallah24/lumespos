@@ -204,7 +204,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
       </aside>
 
       {/* Main content area */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative lg:ml-[17.5rem]">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative lg:ml-[17.5rem] min-h-dvh">
         {/* Mobile header — 72px Apple-style */}
         <div className="lg:hidden h-[72px] border-b border-slate-100 dark:border-slate-800 px-4 flex items-center shrink-0 sticky top-0 z-30 bg-white/90 dark:bg-[#0F1D32]/90 backdrop-blur-xl">
           <button className="w-10 h-10 flex items-center justify-center text-slate-600 dark:text-slate-400" onClick={() => setSidebarOpen(true)}>
@@ -222,7 +222,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
         </div>
 
         {/* Page content — 16px side padding */}
-        <div className="flex-1 overflow-y-auto pb-24 lg:pb-0 px-4">
+        <div className="flex-1 overflow-y-auto pb-24 lg:pb-0 px-4 min-h-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={location}
@@ -244,8 +244,8 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
               if (item.href === "#account") {
                 return (
                   <button key={item.label} onClick={handleAccountClick} className="flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1 nav-item">
-                    <item.icon size={24} />
-                    <span className="text-[12px] font-medium">{item.label}</span>
+                    <item.icon size={22} />
+                    <span className="text-[clamp(9px,2.2vw,12px)] font-medium">{item.label}</span>
                   </button>
                 );
               }
@@ -253,8 +253,8 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
               return (
                 <Link key={item.label} href={item.href} className={`flex flex-col items-center gap-0.5 min-w-0 flex-1 py-1 nav-item ${active ? "active" : ""}`}>
                   {active && <motion.div layoutId="nav-indicator" className="absolute -top-[1px] w-8 h-[3px] rounded-full bg-[#2563EB]" />}
-                  <item.icon size={24} />
-                  <span className="text-[12px] font-medium">{item.label}</span>
+                  <item.icon size={22} />
+                  <span className="text-[clamp(9px,2.2vw,12px)] font-medium">{item.label}</span>
                 </Link>
               );
             })}

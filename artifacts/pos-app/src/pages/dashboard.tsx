@@ -264,7 +264,7 @@ export default function DashboardPage() {
   }
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <ScrollArea className="flex-1 overflow-x-hidden">
+      <ScrollArea className="flex-1 overflow-x-hidden min-h-0">
         <div className="px-4 py-5 space-y-3 min-w-0">
           {/* Headline + branch selector */}
           <div className="flex items-start justify-between">

@@ -164,9 +164,17 @@
 * {
   border-color: hsl(var(--border));
   outline-color: hsl(var(--ring));
+  min-width: 0;
+}
+
+html {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
+  overflow-x: hidden;
+  max-width: 100vw;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   font-family: var(--app-font-sans);
@@ -289,11 +297,12 @@ body {
   height: 72px; border-top: 1px solid #E2E8F0;
   background: rgba(255,255,255,.95); backdrop-filter: blur(20px);
   display: flex; align-items: center; justify-content: space-around;
+  padding: 2px 0;
 }
 .dark .bottom-nav-native { background: rgba(15,29,50,.95); border-color: #1E293B; }
-.nav-item { font-size: 12px; font-weight: 500; color: #64748B; }
+.nav-item { font-size: 12px; font-weight: 500; color: #64748B; flex: 1 1 0; min-width: 0; }
 .nav-item.active { color: #2563EB; }
-.nav-item svg { width: 24px; height: 24px; }
+.nav-item svg { width: clamp(18px,4.5vw,26px); height: clamp(18px,4.5vw,26px); flex-shrink: 0; }
 
 /* ── FAB ── */
 .fab-btn {
