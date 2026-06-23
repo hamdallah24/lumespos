@@ -1,0 +1,447 @@
+{
+  "name": "Sub-Agent: Dynamic Specialist (Chameleon) - Anti Typo",
+  "nodes": [
+    {
+      "parameters": {
+        "workflowInputs": {
+          "values": [
+            {
+              "name": "skill_file"
+            },
+            {
+              "name": "task_description"
+            },
+            {
+              "name": "repo_owner"
+            },
+            {
+              "name": "repo_name"
+            },
+            {
+              "name": "branch"
+            },
+            {
+              "name": "telegram_chat_id"
+            }
+          ]
+        }
+      },
+      "id": "86513c65-3582-4bb8-ac69-f23dbe3e5243",
+      "name": "Execute Workflow Trigger",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -272,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// SANITASI & VALIDASI INPUT (Versi Adaptasi GitHub Tanpa Underscore)\n// ============================================================\n\nconst input = $input.first().json;\n\n// Helper aman\nconst toStr = (val, fallback = '') => {\n  if (val === undefined || val === null) return fallback;\n  return String(val).trim();\n};\n\n// Ambil input dari berbagai kemungkinan format key (karena n8n suka ubah key)\nlet rawFile = toStr(\n  input.skill_file || input.skillfile || input.skillfilepath || input.skill_file_path, ''\n);\nlet rawTask = toStr(input.task_description || input.taskdescription || input.chatInput, 'Audit teknis');\nlet rawChatId = toStr(input.telegram_chat_id || input.telegramchatid || input.chat_id || input.chatid, '7218843690');\n\n// Normalisasi untuk pencarian\nconst lowerFile = rawFile.toLowerCase();\nlet targetFile = '';\n\n// 💥 LOOKUP TABLE: Disesuaikan dengan file GitHub Anda yang TANPA underscore\nif (lowerFile.includes('security')) {\n  targetFile = 'Securityskill.md';\n} else if (lowerFile.includes('devops')) {\n  targetFile = 'devopsskill.md';\n} else if (lowerFile.includes('qa') || lowerFile.includes('test')) {\n  targetFile = 'qaskill.md';\n} else if (lowerFile.includes('architect') || lowerFile.includes('software')) {\n  targetFile = 'softwarearchitectskill.md';\n} else if (lowerFile.includes('backend')) {\n  targetFile = 'backendskill.md';\n} else if (lowerFile.includes('frontend')) {\n  targetFile = 'Frontendskill.md';\n} else {\n  targetFile = 'Securityskill.md'; // Fallback aman\n}\n\n// 💥 OUTPUT JSON: Kunci (keys) dan Value 100% bebas underscore agar n8n tidak error\nreturn {\n  json: {\n    valid: true,\n    errors: [],\n    skillfile: targetFile,\n    skillfilepath: 'docs/aiskills/' + targetFile,  // ✅ Target folder baru di GitHub!\n    taskdescription: rawTask,\n    repoowner: toStr(input.repo_owner || input.repoowner, 'hamdallah24'),\n    reponame: toStr(input.repo_name || input.reponame, 'pos-app'),\n    branch: toStr(input.branch, 'Staging'),\n    telegramchatid: rawChatId\n  }\n};\n"
+      },
+      "id": "1460dc4c-fceb-4506-933f-56f29a9dd6e0",
+      "name": "Sanitasi & Validasi Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": true,
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "ccb5c772-b52b-4ba3-99d0-13dcb2902778",
+      "name": "Validasi OK?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        240,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "method": "HEAD",
+        "url": "=https://api.github.com/repos/{{ $json.repoowner }}/{{ $json.reponame }}/contents/{{ $json.skillfilepath }}?ref={{ $json.branch }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3.raw"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "83cb3a51-52c1-4085-82a4-405af6c71e7e",
+      "name": "Cek Skill File (HEAD)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        448,
+        688
+      ],
+      "retryOnFail": false,
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const upstream = $('Validasi OK?').first().json;\n\nreturn {\n  json: {\n    ...upstream,\n    skill_exists: true\n  }\n};"
+      },
+      "id": "4e0635c0-1885-4bc3-8c40-5acc04fbca58",
+      "name": "Skill File OK",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ambil data dari node sebelumnya\nconst input = $input.first().json;\n\n// Ambil konten skill (dari Fetch Skill)\nconst skillContent = input.body || input.data || input.json || '';\n\n// Bangun system message lengkap\nconst systemMessage = `\nAnda adalah Specialist Agent untuk proyek POST App.\n\n=== SKILL (SOP) ===\n${skillContent}\n\n=== INSTRUKSI ===\nGunakan skill di atas untuk menyelesaikan tugas user.\n\n=== TOOLS YANG TERSEDIA ===\n1. github_read_file - baca file dari GitHub\n2. github_list_directory - lihat daftar folder\n\n=== ATURAN ===\n- Respons singkat, padat, jelas\n- Gunakan bahasa Indonesia\n- Jika tool gagal 2 kali, laporkan ke user\n`;\n\n// Pastikan output memiliki field yang dibutuhkan Agent\nreturn {\n  json: {\n    systemMessage: systemMessage,\n    task_description: input.task_description || 'Tidak ada deskripsi tugas',\n    chatInput: input.task_description || 'Tidak ada deskripsi tugas'  // <-- Penting!\n  }\n};"
+      },
+      "id": "e1eb89db-7e92-4e52-b963-87c58f1a739b",
+      "name": "Bangun System Message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1152,
+        688
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "=Gunakan tool ini untuk melihat daftar file dan folder di dalam repository.\nInput 'path' bisa dikosongkan untuk melihat root, atau diisi dengan nama folder.",
+        "url": "=https://api.github.com/repos/hamdallah24/pos-app/contents/{{ $fromAI('path') }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3+json"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dcaab040-9de8-4f23-bf51-18f1a255da04",
+      "name": "github_list_directory",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        1392,
+        928
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "=Gunakan tool ini untuk membaca isi dari sebuah file spesifik.\nInput 'path' harus diisi dengan path file lengkap (misal: src/index.ts).",
+        "url": "=https://api.github.com/repos/hamdallah24/pos-app/contents/{{ $fromAI('path') }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3.raw"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5d43d881-1752-4bfb-9d59-ff052496170f",
+      "name": "github_read_file",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.2,
+      "position": [
+        1552,
+        912
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// INI ADALAH FALLBACK (ERROR HANDLING)\n// Jika ada error, jalankan kode ini\n\nconst input = $input.first().json;\n\n// Ambil error message dari berbagai kemungkinan\nconst errorMessage = input.error || input.message || input.errorDescription || 'Unknown error';\nconst statusCode = input.statusCode || input.code || 500;\n\n// Buat pesan error yang jelas\nlet userMessage = `❌ Terjadi kesalahan saat menjalankan sub-agent:\\n\\n`;\nuserMessage += `📌 **Error:** ${errorMessage}\\n`;\nuserMessage += `📊 **Status Code:** ${statusCode}\\n\\n`;\n\n// Tambahkan saran perbaikan berdasarkan error\nif (statusCode === 404) {\n  userMessage += `💡 **Saran:** File skill '${input.skillfile || input.skill_file || 'unknown'}' tidak ditemukan.\\n`;\n  userMessage += `Pastikan nama file benar dan sudah di-upload ke docs/ai_skills/\\n`;\n  userMessage += `Di repository: ${input.repo_owner || '?'}/${input.repo_name || '?'}`;\n} else if (statusCode === 401) {\n  userMessage += `💡 **Saran:** Token GitHub tidak valid atau expired.\\n`;\n  userMessage += `Periksa credential GitHub di n8n.`;\n} else if (statusCode === 403) {\n  userMessage += `💡 **Saran:** Rate limit GitHub tercapai. Tunggu beberapa menit.`;\n} else {\n  userMessage += `💡 **Saran:** Periksa input dan coba lagi.\\n`;\n  userMessage += `Input: ${JSON.stringify(input, null, 2)}`;\n}\n\nreturn {\n  json: {\n    error: true,\n    message: userMessage,\n    raw: input\n  }\n};"
+      },
+      "id": "bfd8dd4b-08ff-43c0-8f8f-c374dbd7ba89",
+      "name": "Error Handler (Fallback)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        928
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_chat_id || '7218843690' }}",
+        "text": "={{ $json.message || $json.output || JSON.stringify($json, null, 2) }}",
+        "additionalFields": {}
+      },
+      "id": "b43fbf26-7e8e-4188-9277-32541092983d",
+      "name": "Notify via Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        880,
+        928
+      ],
+      "webhookId": "3ea4b237-8eac-4274-b471-11e1a1a471c6",
+      "credentials": {
+        "telegramApi": {
+          "id": "A4JQuid6W9BzisPl",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{ $json.repoowner }}/{{ $json.reponame }}/contents/{{ $json.skillfilepath }}?ref={{ $json.branch }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.v3.raw"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fa396ed1-b1fd-4dec-9ce0-e3d806a1ad23",
+      "name": "Fetch Skill (SOP) dari GitHub1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        928,
+        688
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "Bearer Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "deepseek-v4-pro",
+          "mode": "list",
+          "cachedResultName": "DEEPSEEK-V4-PRO"
+        },
+        "responses": {
+          "values": [
+            {
+              "role": "system"
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.3,
+      "position": [
+        1312,
+        688
+      ],
+      "id": "7ad9e07a-1d49-4cc7-bf2c-1abebbacec9d",
+      "name": "Sub-Agent: Dynamic Specialist ",
+      "credentials": {
+        "openAiApi": {
+          "id": "a6DMiTwRmzjqacwH",
+          "name": "OpenAI account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Execute Workflow Trigger": {
+      "main": [
+        [
+          {
+            "node": "Sanitasi & Validasi Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitasi & Validasi Input": {
+      "main": [
+        [
+          {
+            "node": "Validasi OK?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validasi OK?": {
+      "main": [
+        [
+          {
+            "node": "Cek Skill File (HEAD)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Handler (Fallback)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cek Skill File (HEAD)": {
+      "main": [
+        [
+          {
+            "node": "Skill File OK",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Handler (Fallback)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skill File OK": {
+      "main": [
+        [
+          {
+            "node": "Fetch Skill (SOP) dari GitHub1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bangun System Message": {
+      "main": [
+        [
+          {
+            "node": "Sub-Agent: Dynamic Specialist ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "github_list_directory": {
+      "ai_tool": [
+        [
+          {
+            "node": "Sub-Agent: Dynamic Specialist ",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "github_read_file": {
+      "ai_tool": [
+        [
+          {
+            "node": "Sub-Agent: Dynamic Specialist ",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Handler (Fallback)": {
+      "main": [
+        [
+          {
+            "node": "Notify via Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Skill (SOP) dari GitHub1": {
+      "main": [
+        [
+          {
+            "node": "Bangun System Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sub-Agent: Dynamic Specialist ": {
+      "main": [
+        [
+          {
+            "node": "Notify via Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "7f6ec21e-1c89-4229-bc85-de3b14f10b59",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dc96f10ae7dc95d3c138575ba243a0a167923dbcb524841d451aadf9135d5fb3"
+  },
+  "nodeGroups": [],
+  "id": "RV5wbuCzWhbGS3Nf",
+  "tags": []
+}

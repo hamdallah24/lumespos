@@ -1,0 +1,1980 @@
+{
+  "name": "Code Generator Stage 4 - Lume POS (FIXED + GUARDLINE)",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Normalize incoming payload from CTO Agent (Telegram-origin call)\n// Expected upstream shape (from Execute Workflow call):\n// { user_message: string, repo_owner: string, repo_name: string, branch: string, chat_id: string }\n\nconst input = $input.first().json;\n\nif (!input.user_message || typeof input.user_message !== 'string' || input.user_message.trim().length < 3) {\n  throw new Error(\n    'user_message tidak valid (kosong/terlalu pendek, min 5 karakter). ' +\n    'Kemungkinan penyebab: CTO_Agent gagal mengisi parameter via $fromAI() ' +\n    'karena description tool ambigu atau system prompt kurang spesifik. ' +\n    'Payload diterima: ' + JSON.stringify(input)\n  );\n}\n\nreturn [{\n  json: {\n    user_message: input.user_message.trim(),\n    repo_owner: input.repo_owner || '',\n    repo_name: input.repo_name || '',\n    branch: input.branch || '',\n    chat_id: input.chat_id || '',\n    received_at: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "347407e8-cd7e-47f6-94aa-3062cc34f464",
+      "name": "Normalize Input (min 3)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -3552,
+        4832
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "deepseek-v4-pro",
+          "mode": "list",
+          "cachedResultName": "DEEPSEEK-V4-PRO"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Kamu adalah Intent Parser untuk CTO Agent, sebuah sistem otomasi yang membaca dan mengubah file di repository GitHub.\n\nTugasmu HANYA menganalisis pesan pengguna (yang mungkin berbahasa Indonesia santai, ada typo, atau ambigu) dan mengeluarkan JSON terstruktur yang menentukan rute eksekusi berikutnya.\n\nATURAN ROUTING:\n- route = \"direct_hit\" JIKA: pengguna menyebutkan file/path SPESIFIK dan jenis perubahan yang JELAS (contoh: \"ubah warna button di Login.tsx jadi biru\", \"di server/routes/auth.ts tambahin validasi email\")\n- route = \"needs_analysis\" JIKA: permintaan umum/ambigu tanpa file spesifik, butuh eksplorasi struktur repo dulu (contoh: \"perbaiki bug di shift audit\", \"kenapa stock adjustment error\")\n\nKamu HARUS membalas HANYA dengan JSON valid, tanpa markdown fence, tanpa penjelasan tambahan, tanpa teks lain apapun. Format wajib:\n\n{\n  \"route\": \"direct_hit\" | \"needs_analysis\",\n  \"confidence\": \"high\" | \"medium\" | \"low\",\n  \"target_file\": string | null,\n  \"action_type\": \"update\" | \"create\" | \"delete\" | \"read_only\",\n  \"clarified_intent\": string,\n  \"original_message\": string\n}\n\nJika confidence \"low\", paksa route menjadi \"needs_analysis\" meskipun ada nama file disebutkan, karena risiko salah eksekusi terlalu tinggi untuk direct hit.\n\nclarified_intent harus berupa kalimat bahasa Indonesia yang jelas dan tidak ambigu, hasil koreksi dari typo/bahasa santai pengguna, yang akan dibaca oleh AI lain di tahap berikutnya.",
+              "role": "system"
+            },
+            {
+              "content": "={{ $('Normalize Input').item.json.user_message || $json.user_message || 'Tidak ada pesan' }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "2dcbb0c0-b25e-495f-b480-be57ba8497a1",
+      "name": "Intent Parser (AI)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [
+        -3328,
+        4832
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "a6DMiTwRmzjqacwH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Intent Parser's JSON output safely.\n// Handles cases where model wraps output in markdown fences despite instructions.\n\nconst raw = $input.first().json.message?.content\n  || $input.first().json.content\n  || $input.first().json.text\n  || '';\n\nlet cleaned = raw.trim();\ncleaned = cleaned.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '');\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (err) {\n  // Malformed JSON from Intent Parser itself -> force safe fallback\n  // (do NOT throw here; route to needs_analysis so downstream AI Analyzer\n  // can still attempt to handle the raw user message with full context)\n  const original = $('Normalize Input').first().json;\n  return [{\n    json: {\n      route: 'needs_analysis',\n      confidence: 'low',\n      target_file: null,\n      action_type: 'read_only',\n      clarified_intent: original.user_message,\n      original_message: original.user_message,\n      parse_error: true,\n      parse_error_detail: err.message\n    }\n  }];\n}\n\n// Defensive defaults in case model omits a field\nconst original = $('Normalize Input').first().json;\n\nreturn [{\n  json: {\n    route: parsed.route === 'direct_hit' ? 'direct_hit' : 'needs_analysis',\n    confidence: parsed.confidence || 'low',\n    target_file: parsed.target_file || null,\n    action_type: parsed.action_type || 'update',\n    clarified_intent: parsed.clarified_intent || original.user_message,\n    original_message: original.user_message,\n    repo_owner: original.repo_owner,\n    repo_name: original.repo_name,\n    branch: original.branch,\n    chat_id: original.chat_id,\n    parse_error: false\n  }\n}];"
+      },
+      "id": "5c18e60f-87fd-4319-8f2e-d72dccd20e45",
+      "name": "Parse Intent Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2944,
+        4848
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Needs Analysis path\n// Target file unknown or confidence too low for direct execution.\n// Shapes payload for the full repo tree fetch -> AI Analyzer pipeline (Stage 2/3).\n\nconst input = $input.first().json;\n\nreturn [{\n  json: {\n    ...input,\n    resolution_path: 'needs_analysis',\n    fetch_mode: 'full_tree',\n    files_to_fetch: [],\n    skip_analyzer: false\n  }\n}];"
+      },
+      "id": "2cec76e6-2775-46f2-af20-ed6e93610490",
+      "name": "Route to Full Analysis",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2496,
+        4976
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-route-direct",
+              "leftValue": "={{ $json.route }}",
+              "rightValue": "direct_hit",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "cond-confidence-high",
+              "leftValue": "={{ $json.confidence }}",
+              "rightValue": "high",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a48c3dde-79e3-495e-88ef-366fefb46a6a",
+      "name": "IF Direct Hit?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -2720,
+        4848
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Direct Hit Resolver\n// Target file & action are already clear from Intent Parser.\n// This node just shapes the payload for the single-file fetch path,\n// SKIPPING the full repo tree fetch + AI Analyzer stage entirely.\n\nconst input = $input.first().json;\n\nreturn [{\n  json: {\n    ...input,\n    resolution_path: 'direct_hit',\n    fetch_mode: 'single_file',\n    files_to_fetch: [input.target_file],\n    skip_analyzer: true\n  }\n}];"
+      },
+      "id": "4ec3e2af-471d-443f-b86c-ad6e0cac9435",
+      "name": "Direct Hit Resolver1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2496,
+        4736
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-skip-analyzer",
+              "leftValue": "={{ $json.skip_analyzer }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4d8d36dc-9227-4309-882b-4fc666a2f93b",
+      "name": "IF Direct Hit Path? (FIXED)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -736,
+        4672
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{ $json.repo_owner }}/{{ $json.repo_name }}/contents/{{ $json.target_file }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ref",
+              "value": "={{ $json.branch }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "8879bbb0-89d8-4a75-be4c-6fc8ef408b72",
+      "name": "Fetch Single File (Contents API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -544,
+        4576
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{ $json.repo_owner }}/{{ $json.repo_name }}/git/trees/{{ $json.branch }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "recursive",
+              "value": "true"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "800ba555-1f72-4d9e-8eec-3e547e72a42d",
+      "name": "Fetch Full Tree (Git Trees API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -544,
+        4800
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// SELF-HEALING LAYER 1 — Technical/Infrastructure Diagnosis\n// Pure deterministic logic. No AI call.\n// Handles both Contents API (single file) and Git Trees API (full tree) responses.\n// ============================================================\n\nconst item = $input.first().json;\nconst upstream = $('IF Direct Hit Path?').first().json;\n\n// n8n httpRequest with fullResponse:true + neverError:true wraps the real\n// response under .body and always gives us .statusCode regardless of success/fail.\nconst statusCode = item.statusCode || null;\nconst body = item.body || {};\nconst headers = item.headers || {};\n\nconst retryCount = upstream.retry_count || 0;\nconst MAX_RETRY_RATELIMIT = 3;\nconst MAX_RETRY_PATH = 2;\nconst MAX_RETRY_GENERIC = 1;\n\nlet diagnosis = {\n  ...upstream,\n  retry_count: retryCount,\n  status_code: statusCode,\n  fetch_mode: upstream.fetch_mode\n};\n\n// --- SUCCESS PATH ---\nif (statusCode >= 200 && statusCode < 300) {\n\n  if (upstream.fetch_mode === 'single_file') {\n    // Contents API success\n    if (!body.content || body.encoding !== 'base64') {\n      diagnosis.action = retryCount < MAX_RETRY_GENERIC ? 'retry_no_wait' : 'stop_alert';\n      diagnosis.reason = 'Response sukses tapi field content/encoding tidak sesuai ekspektasi Contents API';\n      diagnosis.retry_count = retryCount + 1;\n      diagnosis.wait_seconds = 0;\n      return [{ json: diagnosis }];\n    }\n\n    let decoded;\n    try {\n      decoded = Buffer.from(body.content, 'base64').toString('utf-8');\n    } catch (err) {\n      diagnosis.action = retryCount < MAX_RETRY_GENERIC ? 'retry_no_wait' : 'stop_alert';\n      diagnosis.reason = 'Base64 decode gagal: ' + err.message;\n      diagnosis.retry_count = retryCount + 1;\n      diagnosis.wait_seconds = 0;\n      return [{ json: diagnosis }];\n    }\n\n    diagnosis.action = 'success';\n    diagnosis.file_content = decoded;\n    diagnosis.file_sha = body.sha;\n    diagnosis.file_path = body.path;\n    diagnosis.file_size = body.size;\n    return [{ json: diagnosis }];\n  }\n\n  if (upstream.fetch_mode === 'full_tree') {\n    // Git Trees API success\n    if (!Array.isArray(body.tree)) {\n      diagnosis.action = retryCount < MAX_RETRY_GENERIC ? 'retry_no_wait' : 'stop_alert';\n      diagnosis.reason = 'Response sukses tapi field tree[] tidak ditemukan';\n      diagnosis.retry_count = retryCount + 1;\n      diagnosis.wait_seconds = 0;\n      return [{ json: diagnosis }];\n    }\n\n    diagnosis.action = 'success';\n    diagnosis.tree = body.tree.map(t => ({ path: t.path, type: t.type, size: t.size || null }));\n    diagnosis.tree_truncated = body.truncated === true;\n\n    if (diagnosis.tree_truncated) {\n      // Not a hard error, but downstream (AI Analyzer) must know the tree\n      // is incomplete so it doesn't assume full repo visibility.\n      diagnosis.warning = 'GitHub memotong hasil tree (truncated=true). Repo terlalu besar untuk 1 call recursive. AI Analyzer harus fetch per-folder untuk area yang relevan.';\n    }\n    return [{ json: diagnosis }];\n  }\n}\n\n// --- ERROR PATH ---\nconst errorMessage = (body.message || '').toLowerCase();\nconst rateLimitRemaining = headers['x-ratelimit-remaining'];\n\nif (statusCode === 401 || errorMessage.includes('bad credentials')) {\n  diagnosis.action = 'stop_alert';\n  diagnosis.reason = 'GitHub PAT invalid atau expired. Cek ulang token di credential.';\n\n} else if (statusCode === 403 && (rateLimitRemaining === '0' || errorMessage.includes('rate limit'))) {\n  if (retryCount >= MAX_RETRY_RATELIMIT) {\n    diagnosis.action = 'stop_alert';\n    diagnosis.reason = `Rate limit GitHub masih kena setelah ${retryCount}x retry`;\n  } else {\n    diagnosis.action = 'retry_with_wait';\n    diagnosis.reason = 'GitHub API rate limit tercapai';\n    diagnosis.wait_seconds = 5 * Math.pow(3, retryCount); // 5s, 15s, 45s\n    diagnosis.retry_count = retryCount + 1;\n  }\n\n} else if (statusCode === 403) {\n  diagnosis.action = 'stop_alert';\n  diagnosis.reason = 'GitHub menolak akses (403) bukan karena rate limit — kemungkinan PAT tidak punya permission ke repo ini';\n\n} else if (statusCode === 404) {\n  if (retryCount >= MAX_RETRY_PATH) {\n    diagnosis.action = 'stop_alert';\n    diagnosis.reason = `Path/branch tidak ditemukan setelah ${retryCount}x percobaan normalisasi: ${upstream.target_file || upstream.branch}`;\n  } else {\n    diagnosis.action = 'path_normalize_retry';\n    diagnosis.reason = 'Path file atau nama branch kemungkinan salah / case-sensitivity issue';\n    diagnosis.wait_seconds = 0;\n    diagnosis.retry_count = retryCount + 1;\n    diagnosis.normalized_target_file = (upstream.target_file || '').trim().replace(/^\\/+/, '');\n  }\n\n} else if (statusCode === 409) {\n  diagnosis.action = 'stop_alert';\n  diagnosis.reason = 'Conflict (409) — kemungkinan repo kosong atau branch belum punya commit sama sekali';\n\n} else if (statusCode === null) {\n  diagnosis.action = retryCount < MAX_RETRY_GENERIC ? 'retry_no_wait' : 'stop_alert';\n  diagnosis.reason = 'Tidak ada response sama sekali (kemungkinan network timeout)';\n  diagnosis.retry_count = retryCount + 1;\n  diagnosis.wait_seconds = 0;\n\n} else {\n  // Unrecognized error — do not blindly auto-retry\n  diagnosis.action = 'stop_alert';\n  diagnosis.reason = `Error tidak dikenali (status ${statusCode}): ${errorMessage || 'unknown'}`;\n}\n\nreturn [{ json: diagnosis }];"
+      },
+      "id": "d458726a-e3ad-444e-ac16-bcec79720526",
+      "name": "Diagnose Error (Self-Healing L1)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -304,
+        4656
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-action-success",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bfa52e6c-ffd3-49a8-a28a-703a0072fbf8",
+      "name": "IF Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -112,
+        4672
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-action-stop",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "stop_alert",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "1b8f9f4e-a498-4aa9-849b-13e5e97ca0db",
+      "name": "IF Should Stop?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        128,
+        4832
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-action-wait",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "retry_with_wait",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ac45951b-356f-44c2-b3b4-211ba8341d1c",
+      "name": "IF Needs Wait?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        352,
+        4976
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.wait_seconds }}"
+      },
+      "id": "f2b07ad9-07e5-468d-b91b-48f097036aec",
+      "name": "Wait Before Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        544,
+        4816
+      ],
+      "webhookId": "4a025d9f-4bc8-41e3-87a2-879a5eebf0ca"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Apply path normalization (if any) before looping back to fetch.\n// Also carries forward the incremented retry_count so the loop terminates.\n\nconst item = $input.first().json;\n\nconst output = { ...item };\n\nif (item.normalized_target_file) {\n  output.target_file = item.normalized_target_file;\n}\n\nreturn [{ json: output }];"
+      },
+      "id": "26599302-d320-4b0e-aa6d-eeba6d96af85",
+      "name": "Prepare Retry Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        576,
+        5056
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_chat_id || '7218843690' }}",
+        "text": "=⚠️ CTO Agent gagal mengambil data dari GitHub.\n\nAlasan: {{ $json.reason }}\nFetch mode: {{ $json.fetch_mode }}\nTarget: {{ $json.target_file || $json.repo_name }}\nRetry count: {{ $json.retry_count }}\n\nWorkflow dihentikan. Mohon dicek manual.",
+        "additionalFields": {}
+      },
+      "id": "5a096388-82b9-4ec1-b9d2-15c99a905c16",
+      "name": "Telegram Alert (Stop)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        352,
+        4784
+      ],
+      "webhookId": "2e35e511-26c0-427f-9471-5d5daae820ae",
+      "credentials": {
+        "telegramApi": {
+          "id": "A4JQuid6W9BzisPl",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Stage 2 successful output contract.\n// This is what gets returned to whatever called this sub-workflow\n// (either back to Stage 1 orchestrator, or directly to Stage 3 AI Analyzer\n// depending on how the parent workflow wires Execute Workflow nodes).\n\nconst item = $input.first().json;\n\nreturn [{\n  json: {\n    resolution_path: item.resolution_path,\n    fetch_mode: item.fetch_mode,\n    repo_owner: item.repo_owner,\n    repo_name: item.repo_name,\n    branch: item.branch,\n    chat_id: item.chat_id,\n    clarified_intent: item.clarified_intent,\n    action_type: item.action_type,\n    skip_analyzer: item.skip_analyzer,\n    // single_file mode fields\n    file_content: item.file_content || null,\n    file_path: item.file_path || null,\n    file_sha: item.file_sha || null,\n    // full_tree mode fields\n    tree: item.tree || null,\n    tree_truncated: item.tree_truncated || false,\n    tree_warning: item.warning || null\n  }\n}];"
+      },
+      "id": "0ec19282-3ba4-4936-825f-13870904ba73",
+      "name": "Format Stage 2 Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        128,
+        4672
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Init Analyzer Loop\n// Sets up the loop state used to bound how many rounds the AI Analyzer\n// can request additional files before being forced to conclude.\n\nconst input = $input.first().json;\n\nreturn [{\n  json: {\n    ...input,\n    analysis_round: 1,\n    max_rounds: 3,\n    force_conclude: false,\n    fetched_files: {}, // { \"path/to/file.ts\": \"...content...\" }\n    fetch_failures: [] // paths that failed to fetch, so AI doesn't re-request them blindly\n  }\n}];"
+      },
+      "id": "918bee7e-b07e-4e68-a4c5-722d85c96a79",
+      "name": "Init Analyzer Loop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2272,
+        4976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the prompt context for this round.\n// Compresses tree + already-fetched file contents into a single string\n// so the OpenAI node's user message stays simple.\n\nconst input = $input.first().json;\n\nconst treeSummary = Array.isArray(input.tree)\n  ? input.tree.filter(t => t.type === 'blob').map(t => t.path).join('\\n')\n  : '(tidak ada tree, mode single_file)';\n\nconst fetchedSummary = Object.entries(input.fetched_files || {})\n  .map(([path, content]) => `--- FILE: ${path} ---\\n${content}\\n--- END FILE ---`)\n  .join('\\n\\n') || '(belum ada file yang di-fetch)';\n\nconst failuresSummary = (input.fetch_failures || []).length > 0\n  ? `File yang GAGAL di-fetch sebelumnya (jangan diminta lagi): ${input.fetch_failures.join(', ')}`\n  : '';\n\nconst truncatedNote = input.tree_truncated\n  ? '\\nPERHATIAN: tree di atas TERPOTONG (repo terlalu besar). Jika file relevan tidak terlihat di daftar, sebutkan di reasoning bahwa kamu perlu eksplorasi folder tertentu.'\n  : '';\n\nreturn [{\n  json: {\n    ...input,\n    prompt_tree_summary: treeSummary,\n    prompt_fetched_summary: fetchedSummary,\n    prompt_failures_summary: failuresSummary,\n    prompt_truncated_note: truncatedNote\n  }\n}];"
+      },
+      "id": "6f709896-6966-4633-bce7-e6182ee2a91d",
+      "name": "Build Round Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2048,
+        4976
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "deepseek-v4-flash",
+          "mode": "list",
+          "cachedResultName": "DEEPSEEK-V4-FLASH"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Kamu adalah AI Analyzer untuk CTO Agent — sistem yang membaca dan mengubah file di repository GitHub milik sebuah monorepo POS system (React + Vite + TypeScript frontend, Express + Drizzle ORM backend, PostgreSQL).\n\nTugasmu: pelajari struktur repo dan isi file yang relevan, lalu hasilkan analisis yang akan dipakai oleh Code Generator untuk menulis perubahan kode. Kamu TIDAK menulis kode — kamu HANYA menganalisis dan menentukan apa yang perlu diubah dan di mana.\n\nKamu punya budget MAKSIMAL {{ $json.max_rounds }} putaran untuk meminta file tambahan. Sekarang ini putaran ke-{{ $json.analysis_round }}.\n\n{{ $json.force_conclude ? 'PUTARAN TERAKHIR — kamu WAJIB memberi status \"ready\" sekarang, gunakan informasi yang sudah ada walau belum sempurna. Sebutkan asumsi yang kamu buat di reasoning.' : '' }}\n\nKamu HARUS membalas HANYA dengan JSON valid, tanpa markdown fence, tanpa teks lain. Format wajib:\n\n{\n  \"status\": \"need_more_files\" | \"ready\",\n  \"files_needed\": string[],\n  \"reasoning\": string,\n  \"analysis\": null | {\n    \"files_to_modify\": [ { \"path\": string, \"change_summary\": string, \"relevant_lines_or_section\": string } ],\n    \"context_notes\": string\n  }\n}\n\nATURAN:\n- Jika status \"need_more_files\", field \"analysis\" HARUS null, dan \"files_needed\" HARUS berisi path yang ADA di daftar tree (jangan menebak path yang tidak terlihat).\n- Jika status \"ready\", field \"files_needed\" HARUS array kosong [].\n- Minta SEMUA file yang kamu perlukan sekaligus dalam satu putaran ini, jangan minta satu-satu secara bertahap kecuali benar-benar baru kamu sadari setelah melihat isi file sebelumnya.\n- Jangan minta file yang sudah ada di 'File yang sudah di-fetch' atau yang ada di daftar kegagalan fetch.",
+              "role": "system"
+            },
+            {
+              "content": "=PERMINTAAN PENGGUNA (sudah diklarifikasi):\n{{ $json.clarified_intent }}\n\nJENIS AKSI: {{ $json.action_type }}\n\nDAFTAR FILE DI REPO (tree):\n{{ $json.prompt_tree_summary }}\n{{ $json.prompt_truncated_note }}\n\nFILE YANG SUDAH DI-FETCH:\n{{ $json.prompt_fetched_summary }}\n\n{{ $json.prompt_failures_summary }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "6f79d210-e4a0-4c15-8123-cc611ac90cf4",
+      "name": "AI Analyzer",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1904,
+        4976
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "a6DMiTwRmzjqacwH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse AI Analyzer's JSON output safely.\n\nconst raw = $input.first().json.message?.content\n  || $input.first().json.content\n  || $input.first().json.text\n  || '';\n\nlet cleaned = raw.trim();\ncleaned = cleaned.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '');\n\nconst loopState = $('Build Round Context').first().json;\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (err) {\n  // Malformed JSON from Analyzer -> force conclude with whatever we have,\n  // rather than crashing the whole pipeline.\n  return [{\n    json: {\n      ...loopState,\n      status: 'ready',\n      files_needed: [],\n      reasoning: 'Analyzer output tidak valid JSON, forced ready dengan data yang tersedia.',\n      analysis: {\n        files_to_modify: [],\n        context_notes: 'PARSE ERROR pada AI Analyzer round ' + loopState.analysis_round + ': ' + err.message\n      },\n      analyzer_parse_error: true\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...loopState,\n    status: parsed.status === 'ready' ? 'ready' : 'need_more_files',\n    files_needed: Array.isArray(parsed.files_needed) ? parsed.files_needed : [],\n    reasoning: parsed.reasoning || '',\n    analysis: parsed.analysis || null,\n    analyzer_parse_error: false\n  }\n}];"
+      },
+      "id": "d2f56d14-73be-49af-9adc-18635d51c638",
+      "name": "Parse Analyzer Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1616,
+        4976
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-status-ready",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "50c51cdd-afb9-4c5f-a436-0b35e1f27696",
+      "name": "IF Ready?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1392,
+        4976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Format Stage 3 successful output contract.\n// This goes to Stage 4 (Code Generator).\n\nconst item = $input.first().json;\n\nreturn [{\n  json: {\n    repo_owner: item.repo_owner,\n    repo_name: item.repo_name,\n    branch: item.branch,\n    chat_id: item.chat_id,\n    clarified_intent: item.clarified_intent,\n    action_type: item.action_type,\n    analysis: item.analysis,\n    fetched_files: item.fetched_files,\n    rounds_used: item.analysis_round,\n    analyzer_forced_conclude: item.force_conclude === true,\n    analyzer_parse_error: item.analyzer_parse_error === true\n  }\n}];"
+      },
+      "id": "e2f42004-4d3c-46a4-b102-2dd341469984",
+      "name": "Format Stage 3 Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1168,
+        4864
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-round-exceeded",
+              "leftValue": "={{ $json.analysis_round }}",
+              "rightValue": "={{ $json.max_rounds }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "407f6ec6-4bbd-48e5-8f84-5b5abbc7f918",
+      "name": "IF Max Rounds Reached?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1168,
+        5104
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mark force_conclude so the NEXT Analyzer call is told (in the system\n// prompt) that this is the final round and it must return status:ready.\n// We still loop back through one more AI call rather than fabricating\n// the analysis ourselves — only the AI has the context to summarize\n// what's known so far.\n\nconst item = $input.first().json;\n\nreturn [{\n  json: {\n    ...item,\n    force_conclude: true\n  }\n}];"
+      },
+      "id": "de09ef19-04be-4ab2-a065-a47c0e411fb0",
+      "name": "Set Force Conclude",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -928,
+        5184
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split files_needed into separate items so Execute Workflow can\n// (depending on n8n's batch/loop execution mode) fetch each one,\n// while preserving the shared loop state for re-merging afterward.\n\nconst item = $input.first().json;\nconst filesNeeded = item.files_needed || [];\n\nreturn filesNeeded.map(path => ({\n  json: {\n    repo_owner: item.repo_owner,\n    repo_name: item.repo_name,\n    branch: item.branch,\n    chat_id: item.chat_id,\n    clarified_intent: item.clarified_intent,\n    action_type: item.action_type,\n    target_file: path,\n    skip_analyzer: true,\n    fetch_mode: 'single_file',\n    resolution_path: 'analyzer_requested',\n    retry_count: 0,\n    _loop_state: item // carry full loop state through, unpacked after fetch\n  }\n}));"
+      },
+      "id": "68d83802-fab3-4253-b7f3-73f24038cffb",
+      "name": "Prepare File Requests",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -944,
+        4976
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge all fetched files (success or failure) back into one item,\n// reconstructing the shared loop state, then increment the round counter.\n// Runs once, AFTER the file-fetch loop (Loop Over Items) has finished\n// iterating every requested file via Fetch File In Loop -> Diagnose Fetch In Loop.\n\nconst items = $input.all();\nconst requestItems = $('Prepare File Requests').all();\n\n// loop_state was identical across all items in this round; take from the first request\nconst loopState = requestItems[0]?.json._loop_state || {};\n\nconst fetchedFiles = { ...(loopState.fetched_files || {}) };\nconst fetchFailures = [ ...(loopState.fetch_failures || []) ];\n\nitems.forEach((item) => {\n  const result = item.json;\n  const requestedPath = result.target_file;\n\n  if (result.loop_action === 'success' && result.file_content && requestedPath) {\n    fetchedFiles[requestedPath] = result.file_content;\n  } else if (requestedPath) {\n    fetchFailures.push(requestedPath);\n  }\n});\n\nreturn [{\n  json: {\n    ...loopState,\n    fetched_files: fetchedFiles,\n    fetch_failures: fetchFailures,\n    analysis_round: loopState.analysis_round + 1\n  }\n}];"
+      },
+      "id": "8a98f34b-2962-4f25-bbd3-fca0d7c42dc2",
+      "name": "Merge Fetched Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -432,
+        4992
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Init Generator/Validator loop state\nconst input = $input.first().json;\n\nreturn [{\n  json: {\n    ...input,\n    repair_attempts: 0,\n    max_repair_attempts: 2,\n    last_validation_errors: []\n  }\n}];"
+      },
+      "id": "e740346a-d7cd-4abb-98e9-d70310305156",
+      "name": "Init Generator Loop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2272,
+        3984
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\n\n// =============================\n// NORMALIZE FILE INPUT\n// =============================\nlet files = {};\n\n// Case 1: batch format\nif (input.fetched_files && typeof input.fetched_files === 'object') {\n  files = input.fetched_files;\n}\n\n// Case 2: single file format\nelse if (input.file_path && input.file_content) {\n  files[input.file_path] = input.file_content;\n}\n\n// =============================\n// BUILD FILE CONTEXT\n// =============================\nconst filesContext = Object.keys(files).length > 0\n  ? Object.entries(files)\n      .map(([path, content]) =>\n`--- FILE: ${path} ---\n${content}\n--- END FILE ---`\n      )\n      .join('\\n\\n')\n  : '(tidak ada file fetched, gunakan analysis.files_to_modify sebagai panduan)';\n\n// =============================\n// FILES TO MODIFY CONTEXT\n// =============================\nconst filesToModify = (input.analysis?.files_to_modify || [])\n  .map(f =>\n`- ${f.path}: ${f.change_summary} (${f.relevant_lines_or_section})`\n  )\n  .join('\\n') || '(tidak ada instruksi file modify)';\n\n// =============================\n// REPAIR NOTE\n// =============================\nconst repairNote = input.repair_attempts > 0\n  ? `\nINI ADALAH PERCOBAAN PERBAIKAN ke-${input.repair_attempts}.\nOutput sebelumnya GAGAL validasi dengan error berikut:\n\n${JSON.stringify(input.last_validation_errors, null, 2)}\n`\n  : '';\n\n// =============================\n// OUTPUT\n// =============================\nreturn [{\n  json: {\n    ...input,\n    normalized_files: files,\n    prompt_files_context: filesContext,\n    prompt_files_to_modify: filesToModify,\n    prompt_repair_note: repairNote\n  }\n}];"
+      },
+      "id": "1fb7e9d6-05eb-424f-8474-21e587c15df4",
+      "name": "Build Generator Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        3984
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "deepseek-v4-pro",
+          "mode": "list",
+          "cachedResultName": "DEEPSEEK-V4-PRO"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Kamu adalah Code Generator untuk CTO Agent. Tugasmu menulis perubahan kode dalam format SEARCH-AND-REPLACE block, BUKAN menulis ulang seluruh file.\n\nATURAN KETAT:\n1. Field \"search\" HARUS berupa teks yang ADA PERSIS (character-for-character, termasuk indentasi/whitespace) di dalam isi file yang diberikan. Jangan parafrase atau rapikan whitespace.\n2. Field \"search\" harus cukup unik dan cukup panjang (minimal beberapa baris konteks) supaya tidak match di tempat lain yang tidak diinginkan.\n3. Field \"replace\" adalah teks pengganti lengkap, dengan indentasi yang konsisten dengan gaya file aslinya.\n4. Jangan ubah bagian yang tidak relevan dengan permintaan.\n5. Pastikan syntax valid: kurung/brace/bracket seimbang, tidak ada koma trailing yang salah, import yang dibutuhkan disertakan jika menambah dependency baru.\n\nKamu HARUS membalas HANYA dengan JSON valid, tanpa markdown fence, tanpa teks lain. Format wajib:\n\n{\n  \"files\": [\n    {\n      \"path\": string,\n      \"edits\": [\n        { \"search\": string, \"replace\": string }\n      ],\n      \"commit_message\": string\n    }\n  ]\n}\n\nJika sebuah file butuh banyak perubahan terpisah di lokasi berbeda, gunakan beberapa object di array \"edits\" untuk file yang sama, jangan digabung jadi satu search besar yang mencakup seluruh file.",
+              "role": "system"
+            },
+            {
+              "content": "=PERMINTAAN (sudah diklarifikasi): {{ $json.clarified_intent }}\n\nFILE YANG PERLU DIUBAH (menurut analisis):\n{{ $json.prompt_files_to_modify }}\n\nISI FILE SAAT INI:\n{{ $json.prompt_files_context }}\n{{ $json.prompt_repair_note }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "d2433a05-26eb-4699-b7b7-04ddac11d7eb",
+      "name": "Code Generator (AI)",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.3,
+      "position": [
+        -1936,
+        3984
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "a6DMiTwRmzjqacwH",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Code Generator's JSON output safely.\n\nconst raw = $input.first().json.message?.content\n  || $input.first().json.content\n  || $input.first().json.text\n  || '';\n\nlet cleaned = raw.trim();\ncleaned = cleaned.replace(/^```json\\s*/i, '').replace(/^```\\s*/i, '').replace(/```\\s*$/i, '');\n\nconst loopState = $('Build Generator Context').first().json;\n\nlet parsed;\ntry {\n  parsed = JSON.parse(cleaned);\n} catch (err) {\n  return [{\n    json: {\n      ...loopState,\n      generator_output: { files: [] },\n      generator_parse_error: true,\n      generator_parse_error_detail: err.message\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    ...loopState,\n    generator_output: parsed,\n    generator_parse_error: false\n  }\n}];"
+      },
+      "id": "ef7bd59c-5984-4756-9f18-7114d230c091",
+      "name": "Parse Generator Output",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1632,
+        3984
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// VALIDATOR (Self-Healing Layer 2 - deterministic gate)\n// Pure JS, no AI call. Checks:\n//   1. Generator JSON structure itself valid\n//   2. Every edit's \"search\" text exists EXACTLY ONCE in the target file\n//   3. After virtually applying all edits, basic syntax sanity (balanced\n//      brackets/braces/parens) holds for the patched result\n// Produces patched_files{} ready for commit ONLY if fully valid.\n// ============================================================\n\nconst state = $input.first().json;\nconst errors = [];\nconst patchedFiles = {};\n\nif (!state.generator_output) {\n  return [{\n    json: {\n      valid: false,\n      validation_errors: [\n        {\n          type: \"missing_generator_output\",\n          detail: \"generator_output not found\"\n        }\n      ]\n    }\n  }];\n}\n\nif (state.generator_parse_error) {\n  errors.push({ type: 'json_parse_error', detail: state.generator_parse_error_detail });\n}\n\nconst genOutput = state.generator_output || {};\nconst files = Array.isArray(genOutput.files) ? genOutput.files : [];\n\nif (files.length === 0 && !state.generator_parse_error) {\n  errors.push({ type: 'empty_output', detail: 'Code Generator tidak menghasilkan file apapun untuk diubah' });\n}\n\nfunction checkBalanced(text) {\n  const pairs = { '(': ')', '{': '}', '[': ']' };\n  const closers = new Set(Object.values(pairs));\n  const stack = [];\n  let inString = null; // tracks ' \" ` while scanning, to skip brackets inside strings\n  for (let i = 0; i < text.length; i++) {\n    const ch = text[i];\n    const prev = text[i - 1];\n\n    if (inString) {\n      if (ch === inString && prev !== '\\\\') inString = null;\n      continue;\n    }\n    if (ch === '\"' || ch === \"'\" || ch === '`') { inString = ch; continue; }\n\n    if (pairs[ch]) stack.push(pairs[ch]);\n    else if (closers.has(ch)) {\n      if (stack.pop() !== ch) return false;\n    }\n  }\n  return stack.length === 0;\n}\n\nfor (const file of files) {\n  if (!file.path || !Array.isArray(file.edits) || file.edits.length === 0) {\n    errors.push({ type: 'malformed_file_entry', detail: `File entry tidak lengkap: ${JSON.stringify(file).slice(0, 200)}` });\n    continue;\n  }\n\n  const originalContent = (state.fetched_files || {})[file.path];\n  if (typeof originalContent !== 'string') {\n    errors.push({ type: 'unknown_file', path: file.path, detail: 'File tidak ada di fetched_files, tidak bisa di-patch' });\n    continue;\n  }\n\n  let working = originalContent;\n  let fileHasError = false;\n\n  for (const edit of file.edits) {\n    if (typeof edit.search !== 'string' || typeof edit.replace !== 'string' || edit.search.length === 0) {\n      errors.push({ type: 'malformed_edit', path: file.path, detail: 'edit.search/replace tidak valid atau kosong' });\n      fileHasError = true;\n      continue;\n    }\n\n    const occurrences = working.split(edit.search).length - 1;\n    if (occurrences === 0) {\n      errors.push({ type: 'search_not_found', path: file.path, detail: `Teks search tidak ditemukan persis di file: \"${edit.search.slice(0, 80)}...\"` });\n      fileHasError = true;\n      continue;\n    }\n    if (occurrences > 1) {\n      errors.push({ type: 'search_ambiguous', path: file.path, detail: `Teks search match ${occurrences}x (harus unik 1x): \"${edit.search.slice(0, 80)}...\"` });\n      fileHasError = true;\n      continue;\n    }\n\n    working = working.replace(edit.search, edit.replace);\n  }\n\n  if (!fileHasError) {\n    if (!checkBalanced(working)) {\n      errors.push({ type: 'unbalanced_brackets', path: file.path, detail: 'Hasil patch memiliki kurung/brace/bracket tidak seimbang' });\n      fileHasError = true;\n    }\n  }\n\n  if (!fileHasError) {\n    patchedFiles[file.path] = {\n      content: working,\n      sha: (state.fetched_file_shas || {})[file.path] || null,\n      commit_message: file.commit_message || `CTO Agent: update ${file.path}`\n    };\n  }\n}\n\nconst valid = errors.length === 0 && Object.keys(patchedFiles).length > 0;\n\nreturn [{\n  json: {\n    ...state,\n    valid,\n    validation_errors: errors,\n    patched_files: patchedFiles\n  }\n}];"
+      },
+      "id": "3b080691-1975-45c7-aff6-c453832be1d7",
+      "name": "Validator",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1424,
+        3984
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "290891b7-9989-4edf-a2d7-09ba25ceca1d",
+      "name": "IF Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1184,
+        3984
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-repair-budget",
+              "leftValue": "={{ $json.repair_attempts }}",
+              "rightValue": "={{ $json.max_repair_attempts }}",
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "791b589e-2bb8-4533-b540-9cced64fc7d2",
+      "name": "IF Repair Budget Left?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -1184,
+        4176
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Prepare state for the Repair Engine call: carry validation_errors\n// forward as last_validation_errors, increment attempt counter.\n\nconst state = $input.first().json;\n\nreturn [{\n  json: {\n    ...state,\n    last_validation_errors: state.validation_errors,\n    repair_attempts: (state.repair_attempts || 0) + 1\n  }\n}];"
+      },
+      "id": "d2a2f099-222b-4a31-b299-46b554d9a2e4",
+      "name": "Prepare Repair Attempt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -784,
+        4224
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_chat_id || '7218843690' }}",
+        "text": "=⚠️ CTO Agent gagal menghasilkan kode valid setelah {{ $json.repair_attempts }}x percobaan.\n\nPermintaan: {{ $json.clarified_intent }}\n\nError terakhir:\n{{ JSON.stringify($json.validation_errors, null, 2) }}\n\nTIDAK ADA perubahan yang di-commit ke GitHub. Mohon dicek manual.",
+        "additionalFields": {}
+      },
+      "id": "39ae35ef-efaa-47af-8b2e-ed5f7f2da9a8",
+      "name": "Telegram Alert (Validation Failed)",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -976,
+        4416
+      ],
+      "webhookId": "debea030-b3f8-415c-ac78-15ee2f302e1e",
+      "credentials": {
+        "telegramApi": {
+          "id": "A4JQuid6W9BzisPl",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Split patched_files into individual items for per-file commit.\n\nconst state = $input.first().json;\nconst entries = Object.entries(state.patched_files || {});\n\nreturn entries.map(([path, data]) => ({\n  json: {\n    repo_owner: state.repo_owner,\n    repo_name: state.repo_name,\n    branch: state.branch,\n    chat_id: state.chat_id,\n    path,\n    content: data.content,\n    sha: data.sha,\n    commit_message: data.commit_message\n  }\n}));"
+      },
+      "id": "98f2ab0b-36d4-4a9f-a542-63309d204fd7",
+      "name": "Prepare Commit Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -976,
+        3856
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.github.com/repos/{{ $json.repo_owner }}/{{ $json.repo_name }}/contents/{{ $json.path }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $credentials.githubPat.token }}"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json.commit_message, content: Buffer.from($json.content).toString('base64'), sha: $json.sha, branch: $json.branch }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "92aa8422-2f5b-4c34-ac88-e5ddc0edd4cc",
+      "name": "GitHub Commit File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -752,
+        3856
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Aggregate commit results across all files (this node receives one item\n// per file, since GitHub Commit File runs once per item from Prepare Commit Items).\n\nconst items = $input.all();\n\nconst results = items.map(item => {\n  const body = item.json.body || {};\n  const statusCode = item.json.statusCode;\n  const success = statusCode >= 200 && statusCode < 300;\n  return {\n    path: item.json.path,\n    success,\n    status_code: statusCode,\n    commit_sha: success ? body.commit?.sha : null,\n    error: success ? null : (body.message || 'unknown error')\n  };\n});\n\nconst allSuccess = results.every(r => r.success);\nconst chatId = items[0]?.json?.chat_id;\n\nreturn [{\n  json: {\n    all_success: allSuccess,\n    chat_id: chatId,\n    results\n  }\n}];"
+      },
+      "id": "be1273a7-fae3-4b0c-abed-56df64be54ea",
+      "name": "Aggregate Commit Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        3856
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_chat_id || '7218843690' }}",
+        "text": "={{ $json.all_success ? '✅ CTO Agent berhasil commit ' + $json.results.length + ' file:\\n' + $json.results.map(r => '- ' + r.path).join('\\n') : '⚠️ Sebagian commit GAGAL:\\n' + $json.results.filter(r => !r.success).map(r => '- ' + r.path + ': ' + r.error).join('\\n') }}",
+        "additionalFields": {}
+      },
+      "id": "938c20b2-b511-4788-b49d-c96c47e5eca4",
+      "name": "Telegram Notify Result",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -336,
+        3872
+      ],
+      "webhookId": "68ea41da-abfb-461d-8f66-b799ad0bc2d7",
+      "credentials": {
+        "telegramApi": {
+          "id": "A4JQuid6W9BzisPl",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-fixed",
+              "leftValue": "={{ $json.skip_analyzer }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3ec12a39-360d-439c-8ea3-260703c6dfbc",
+      "name": "IF Skip Analyzer? (FIXED)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        368,
+        4656
+      ]
+    },
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"user_message\": \"{{ $fromAI('user_message') }}\",\n  \"repo_owner\": \"{{ $fromAI('repo_owner') }}\",\n  \"repo_name\": \"{{ $fromAI('repo_name') }}\",\n  \"branch\": \"{{ $fromAI('branch') }}\",\n  \"chat_id\": \"{{ $fromAI('chat_id') }}\"\n}"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -3888,
+        4832
+      ],
+      "id": "d151ccee-9c23-4d1c-8a71-b60de3042e83",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -736,
+        4976
+      ],
+      "id": "4413b97c-aaf5-4e89-84e2-e428b4f85c15",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "23399536-9418-40fd-9826-be1cd25d5459",
+              "name": "repair_attempt",
+              "value": "={{ ($json.repair_attempt || 0) + 1 }}",
+              "type": "string"
+            },
+            {
+              "id": "29e60e97-7f8f-448b-ab54-4be3dbdd1845",
+              "name": "last_validation_error",
+              "value": "={{ $json.error || 'validation_failed' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -928,
+        4224
+      ],
+      "id": "d71edf2c-1583-4123-bd61-54211aed02da",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.github.com/repos/{{ $json.repo_owner }}/{{ $json.repo_name }}/contents/{{ $json.target_file }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "ref",
+              "value": "={{ $json.branch }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            },
+            {
+              "name": "Accept",
+              "value": "application/vnd.github+json"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "d50a53f7-1672-49d0-a0d6-c02f93e43168",
+      "name": "Fetch File In Loop",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -352,
+        5216
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "O6uVngt5buq6gMMf",
+          "name": "Bearer Auth account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// SELF-HEALING for files requested by AI Analyzer inside the loop.\n// Adapted from \"Diagnose Error (Self-Healing L1)\" but scoped so that\n// a single failed file NEVER stops the whole pipeline (no stop_alert\n// here) — it only ever resolves to 'success' or 'mark_failed', so the\n// loop can move on to the next file regardless.\n//\n// IMPORTANT: \"Fetch File In Loop\" (HTTP Request node) REPLACES $json\n// with the raw response ({ body, statusCode, headers }) — it does NOT\n// carry forward target_file / _loop_state / loop_retry_count.\n// We read those from \"Set Fetch Context\" instead of \"Loop Over Items\",\n// because Set Fetch Context re-runs on EVERY attempt (initial + every\n// retry), while Loop Over Items only runs once per file and would always\n// report retry_count = 0 on retries -> infinite retry risk.\n// ============================================================\n\nconst httpResult = $input.first().json;\nconst upstream = $('Set Fetch Context').first().json;\n\nconst statusCode = httpResult.statusCode || null;\nconst body = httpResult.body || {};\nconst headers = httpResult.headers || {};\n\nconst retryCount = upstream.loop_retry_count || 0;\nconst MAX_RETRY_RATELIMIT = 3;\nconst MAX_RETRY_GENERIC = 1;\n\nlet diagnosis = {\n  ...upstream,\n  loop_retry_count: retryCount\n};\n\n// --- SUCCESS PATH ---\nif (statusCode >= 200 && statusCode < 300) {\n  if (!body.content || body.encoding !== 'base64') {\n    diagnosis.loop_action = 'mark_failed';\n    diagnosis.loop_fail_reason = 'Response sukses tapi field content/encoding tidak sesuai ekspektasi Contents API';\n    return [{ json: diagnosis }];\n  }\n\n  let decoded;\n  try {\n    decoded = Buffer.from(body.content, 'base64').toString('utf-8');\n  } catch (err) {\n    diagnosis.loop_action = 'mark_failed';\n    diagnosis.loop_fail_reason = 'Base64 decode gagal: ' + err.message;\n    return [{ json: diagnosis }];\n  }\n\n  diagnosis.loop_action = 'success';\n  diagnosis.file_content = decoded;\n  diagnosis.file_sha = body.sha;\n  diagnosis.file_path = body.path;\n  return [{ json: diagnosis }];\n}\n\n// --- ERROR PATH (bounded retry, never stop_alert) ---\nconst errorMessage = (body.message || '').toLowerCase();\nconst rateLimitRemaining = headers['x-ratelimit-remaining'];\n\nif (statusCode === 403 && (rateLimitRemaining === '0' || errorMessage.includes('rate limit'))) {\n  if (retryCount >= MAX_RETRY_RATELIMIT) {\n    diagnosis.loop_action = 'mark_failed';\n    diagnosis.loop_fail_reason = `Rate limit GitHub masih kena setelah ${retryCount}x retry`;\n  } else {\n    diagnosis.loop_action = 'retry_with_wait';\n    diagnosis.loop_wait_seconds = 5 * Math.pow(3, retryCount); // 5s, 15s, 45s\n    diagnosis.loop_retry_count = retryCount + 1;\n  }\n} else if (statusCode === 404) {\n  if (retryCount >= MAX_RETRY_GENERIC) {\n    diagnosis.loop_action = 'mark_failed';\n    diagnosis.loop_fail_reason = `404 Not Found untuk path: ${upstream.target_file}`;\n  } else {\n    diagnosis.loop_action = 'retry_no_wait';\n    diagnosis.loop_retry_count = retryCount + 1;\n  }\n} else if (statusCode === null) {\n  if (retryCount >= MAX_RETRY_GENERIC) {\n    diagnosis.loop_action = 'mark_failed';\n    diagnosis.loop_fail_reason = 'Tidak ada response (kemungkinan network timeout)';\n  } else {\n    diagnosis.loop_action = 'retry_no_wait';\n    diagnosis.loop_retry_count = retryCount + 1;\n  }\n} else {\n  diagnosis.loop_action = 'mark_failed';\n  diagnosis.loop_fail_reason = `Error tidak dikenali (status ${statusCode}): ${errorMessage || 'unknown'}`;\n}\n\nreturn [{ json: diagnosis }];\n"
+      },
+      "id": "2b113bb2-569b-451a-8cd9-0ed54195e2ba",
+      "name": "Diagnose Fetch In Loop",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -112,
+        5216
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-loop-success",
+              "leftValue": "={{ $json.loop_action }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b4d33b06-5657-4013-9ac7-c9c885183825",
+      "name": "IF Loop Fetch Success?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        144,
+        5216
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-loop-needs-wait",
+              "leftValue": "={{ $json.loop_action }}",
+              "rightValue": "retry_with_wait",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "3aba7ac5-1d85-4317-a5ee-f3a524e47863",
+      "name": "IF Loop Needs Wait?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        144,
+        5456
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-loop-retry-no-wait",
+              "leftValue": "={{ $json.loop_action }}",
+              "rightValue": "retry_no_wait",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b072f566-8fbb-4ec0-968e-eb6a7a45eb2e",
+      "name": "IF Loop Should Retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        384,
+        5456
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.loop_wait_seconds || 5 }}"
+      },
+      "id": "987336e1-5a40-4c9c-9dee-3da45b756df6",
+      "name": "Wait Loop Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        144,
+        5696
+      ],
+      "webhookId": "cf2fe7ff-878c-4437-96e4-2fc064381895"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Passthrough node — exists purely so Diagnose Fetch In Loop can reliably\n// reference $('Set Fetch Context').first().json to get the CURRENT\n// target_file / loop_retry_count, regardless of whether this run came\n// from the initial loop iteration or a retry cycle. This avoids relying\n// on $('Loop Over Items'), which never re-runs during retries and would\n// always report retry_count = 0 (infinite-retry risk).\n\nconst item = $input.first().json;\nreturn [{ json: { ...item } }];"
+      },
+      "id": "5b359083-58e3-4d68-871a-8a568a83cd6e",
+      "name": "Set Fetch Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -592,
+        5216
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const i=$input.first().json;\nconst files=i.fetched_files||{};\nconst MAX=250;\nconst tr={};\nfor(const[p,c]of Object.entries(files)){\n  const l=String(c).split(\"\\n\");\n  if(l.length>MAX)tr[p]=[...l.slice(0,150),\n`/* ... ${l.length-MAX} lines truncated ... */\n`,...l.slice(-100)].join(\"\\n\");\n  else tr[p]=c;\n}\nreturn[{json:{...i,fetched_files:tr}}];"
+      },
+      "id": "trunc-large-files-v3",
+      "name": "Truncate Large Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2080,
+        3984
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || $json.telegram_chat_id || \"7218843690\" }}",
+        "text": "=📋 PROPOSAL PERUBAHAN\n\nFile yang akan di-commit:\n{{ JSON.stringify(Object.keys($json.patched_files||{}),null,2) }}\n\nPerubahan: {{ $json.clarified_intent }}\n\n⚠️ Lanjutkan commit? Balas: SETUJU / TIDAK SETUJU",
+        "additionalFields": {}
+      },
+      "id": "guard-proposal-tg",
+      "name": "Send Proposal to User",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -784,
+        3744
+      ],
+      "webhookId": "guard-proposal-webhook",
+      "credentials": {
+        "telegramApi": {
+          "id": "A4JQuid6W9BzisPl",
+          "name": "Telegram Bot"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Intent Parser (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Intent Parser (AI)": {
+      "main": [
+        [
+          {
+            "node": "Parse Intent Output",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Normalize Input1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Intent Output": {
+      "main": [
+        [
+          {
+            "node": "IF Direct Hit?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Direct Hit?1": {
+      "main": [
+        [
+          {
+            "node": "Direct Hit Resolver1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route to Full Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Direct Hit Path?": {
+      "main": [
+        [
+          {
+            "node": "Fetch Single File (Contents API)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Repair Attempt1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Full Tree (Git Trees API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Single File (Contents API)": {
+      "main": [
+        [
+          {
+            "node": "Diagnose Error (Self-Healing L1)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Prepare Repair Attempt2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Full Tree (Git Trees API)": {
+      "main": [
+        [
+          {
+            "node": "Diagnose Error (Self-Healing L1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diagnose Error (Self-Healing L1)": {
+      "main": [
+        [
+          {
+            "node": "IF Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Success?": {
+      "main": [
+        [
+          {
+            "node": "Format Stage 2 Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Should Stop?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Should Stop?": {
+      "main": [
+        [
+          {
+            "node": "Telegram Alert (Stop)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Needs Wait?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Needs Wait?": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Retry Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Retry": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retry Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Retry Payload": {
+      "main": [
+        [
+          {
+            "node": "IF Direct Hit Path?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route to Full Analysis": {
+      "main": [
+        [
+          {
+            "node": "Init Analyzer Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Analyzer Loop": {
+      "main": [
+        [
+          {
+            "node": "Build Round Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Round Context": {
+      "main": [
+        [
+          {
+            "node": "AI Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Analyzer": {
+      "main": [
+        [
+          {
+            "node": "Parse Analyzer Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Analyzer Output": {
+      "main": [
+        [
+          {
+            "node": "IF Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Ready?": {
+      "main": [
+        [
+          {
+            "node": "Format Stage 3 Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Max Rounds Reached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Max Rounds Reached?": {
+      "main": [
+        [
+          {
+            "node": "Set Force Conclude",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare File Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Force Conclude": {
+      "main": [
+        [
+          {
+            "node": "Build Round Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare File Requests": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Fetched Files": {
+      "main": [
+        [
+          {
+            "node": "Build Round Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Generator Loop": {
+      "main": [
+        [
+          {
+            "node": "Build Generator Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Generator Context": {
+      "main": [
+        [
+          {
+            "node": "Code Generator (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code Generator (AI)": {
+      "main": [
+        [
+          {
+            "node": "Parse Generator Output",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Parse Generator Output1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Generator Output": {
+      "main": [
+        [
+          {
+            "node": "Validator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validator": {
+      "main": [
+        [
+          {
+            "node": "IF Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Valid?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Commit Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Repair Budget Left?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Repair Budget Left?": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Alert (Validation Failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Repair Attempt": {
+      "main": [
+        [
+          {
+            "node": "Build Generator Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Commit Items": {
+      "main": [
+        [
+          {
+            "node": "GitHub Commit File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GitHub Commit File": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Commit Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Commit Results": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notify Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Direct Hit Resolver1": {
+      "main": [
+        [
+          {
+            "node": "IF Direct Hit Path?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Stage 3 Output": {
+      "main": [
+        [
+          {
+            "node": "Init Generator Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Stage 2 Output": {
+      "main": [
+        [
+          {
+            "node": "IF Direct Hit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Direct Hit?": {
+      "main": [
+        [
+          {
+            "node": "Init Generator Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Init Analyzer Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Merge Fetched Files",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Fetch Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Prepare Repair Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input1": {
+      "main": [
+        [
+          {
+            "node": "Parse Intent Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Generator Output1": {
+      "main": [
+        [
+          {
+            "node": "Parse Generator Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Repair Attempt1": {
+      "main": [
+        [
+          {
+            "node": "Fetch Single File (Contents API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Repair Attempt2": {
+      "main": [
+        [
+          {
+            "node": "Diagnose Error (Self-Healing L1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch File In Loop": {
+      "main": [
+        [
+          {
+            "node": "Diagnose Fetch In Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Diagnose Fetch In Loop": {
+      "main": [
+        [
+          {
+            "node": "IF Loop Fetch Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Loop Fetch Success?": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Loop Needs Wait?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Loop Needs Wait?": {
+      "main": [
+        [
+          {
+            "node": "Wait Loop Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Loop Should Retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Loop Retry": {
+      "main": [
+        [
+          {
+            "node": "Set Fetch Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Loop Should Retry?": {
+      "main": [
+        [
+          {
+            "node": "Set Fetch Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Fetch Context": {
+      "main": [
+        [
+          {
+            "node": "Fetch File In Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Truncate Large Files": {
+      "main": [
+        [
+          {
+            "node": "Build Generator Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Proposal to User": {
+      "main": [
+        [
+          {
+            "node": "Prepare Commit Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "v3-fixed-guardline",
+  "meta": {
+    "instanceId": "dc96f10ae7dc95d3c138575ba243a0a167923dbcb524841d451aadf9135d5fb3"
+  },
+  "nodeGroups": [],
+  "id": "86eCJ8nbprRs0CUW-v3",
+  "tags": []
+}
