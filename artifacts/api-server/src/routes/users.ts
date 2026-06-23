@@ -132,12 +132,6 @@ router.delete("/users/:id", requireRole("owner"), async (req, res) => {
       return;
     }
 
-    // Tidak bisa hapus owner lain
-    if (existing.role === "owner") {
-      res.status(400).json({ error: "Tidak bisa menghapus akun owner" });
-      return;
-    }
-
     await db.delete(usersTable).where(eq(usersTable.id, id));
     res.status(204).send();
   } catch (err) {
