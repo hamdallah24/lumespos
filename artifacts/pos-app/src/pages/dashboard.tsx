@@ -264,30 +264,26 @@ export default function DashboardPage() {
   }
   return (
     <div className="flex flex-col h-full">
-      <div className="h-[52px] border-b border-slate-100 dark:border-slate-800 px-4 flex items-center shrink-0 bg-white dark:bg-[#0F1D32]">
-        <h1 className="font-bold text-lg text-slate-800 dark:text-slate-200">Dashboard</h1>
-        <div className="ml-auto flex items-center gap-1.5">
-          <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-            <SelectTrigger className="shrink-0 w-auto max-w-[120px] h-[34px] text-[13px] bg-slate-50 dark:bg-slate-800 border-0 rounded-full">
-              <SelectValue placeholder="Pilih Cabang" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua Cabang</SelectItem>
-              {allBranches.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
       <ScrollArea className="flex-1">
-        <div className="px-4 py-6 space-y-4">
-          {/* Headline */}
-          <div>
-            <h1 className="heading-dash text-slate-800 dark:text-slate-200">Dashboard</h1>
-            <p className="text-[13px] text-slate-500 mt-1">
-              {new Date(startDate).toLocaleDateString("id-ID", {day:"numeric",month:"long",year:"numeric"})}
-              {startDate !== endDate ? ` — ${new Date(endDate).toLocaleDateString("id-ID", {day:"numeric",month:"long",year:"numeric"})}` : ""}
-            </p>
+        <div className="px-4 py-5 space-y-4">
+          {/* Headline + branch selector */}
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="heading-dash text-slate-800 dark:text-slate-200">Dashboard</h1>
+              <p className="text-[13px] text-slate-500 mt-1">
+                {new Date(startDate).toLocaleDateString("id-ID", {day:"numeric",month:"long",year:"numeric"})}
+                {startDate !== endDate ? ` — ${new Date(endDate).toLocaleDateString("id-ID", {day:"numeric",month:"long",year:"numeric"})}` : ""}
+              </p>
+            </div>
+            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+              <SelectTrigger className="shrink-0 h-[34px] text-[13px] bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-3">
+                <SelectValue placeholder="Cabang" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Semua Cabang</SelectItem>
+                {allBranches.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Segmented Control */}
