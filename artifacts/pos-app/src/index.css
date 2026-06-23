@@ -312,18 +312,5 @@ body {
 .chart-card { background: #fff; border-radius: 24px; padding: 24px; box-shadow: 0 2px 8px rgba(0,0,0,.05); overflow: hidden; }
 .dark .chart-card { background: #0F1D32; }
 
-/* ── Ticker Animation ── */
-.ticker-track {
-  display: flex; gap: 0; animation: ticker-scroll 20s linear infinite;
-  width: max-content;
-}
-.ticker-item { flex-shrink: 0; }
-.ticker-track:hover { animation-play-state: paused; }
-
-@keyframes ticker-scroll {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-
 /* ── Overflow guard for all cards ── */
 .card-premium, .chart-card, .alert-card { overflow: hidden; }

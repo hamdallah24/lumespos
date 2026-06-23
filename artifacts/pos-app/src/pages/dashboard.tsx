@@ -390,28 +390,30 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Alert Stok Menipis — animated ticker */}
+          {/* Alert Stok Menipis — slide-up animation */}
           {!loadingLow && lowStock.length > 0 && (
-            <div className="alert-card overflow-hidden">
+            <div className="alert-card relative overflow-hidden">
               <AlertTriangle className="alert-icon" />
               <span className="text-xs font-semibold text-red-600 shrink-0">Stok Menipis</span>
-              <span className="text-[11px] font-medium text-red-400 mr-1 shrink-0">{lowStock.length} item</span>
-              <div className="flex-1 min-w-0 overflow-hidden relative h-full">
-                <div className="ticker-track">
-                  {lowStock.map((s: any, i: number) => (
-                    <span key={i} className="ticker-item text-xs font-medium text-red-500 whitespace-nowrap">
-                      {s.name} ({s.currentStock} {s.unit})
-                      {i < lowStock.length - 1 && <span className="mx-2 text-red-300">·</span>}
+              <div className="flex-1 min-w-0 relative h-full flex items-center">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={stockIndex}
+                    initial={{ y: 16, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -16, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeInOut" }}
+                    className="absolute inset-0 flex items-center"
+                  >
+                    <span className="text-xs font-medium text-red-500 truncate">
+                      {lowStock[stockIndex].name}
                     </span>
-                  ))}
-                  {/* Duplicate for seamless loop */}
-                  {lowStock.map((s: any, i: number) => (
-                    <span key={`dup-${i}`} className="ticker-item text-xs font-medium text-red-500 whitespace-nowrap">
-                      {s.name} ({s.currentStock} {s.unit})
-                      {i < lowStock.length - 1 && <span className="mx-2 text-red-300">·</span>}
+                    <span className="text-xs font-semibold text-red-500 ml-1.5 shrink-0">
+                      {lowStock[stockIndex].currentStock}
                     </span>
-                  ))}
-                </div>
+                    <span className="text-xs text-red-400 ml-0.5 shrink-0">{lowStock[stockIndex].unit}</span>
+                  </motion.div>
+                </AnimatePresence>
               </div>
               <ChevronRight className="w-4 h-4 text-red-300 shrink-0" />
             </div>
