@@ -47,11 +47,11 @@ async function loginWithPassword(email: string, password: string) {
   return response.json();
 }
 
-async function signupWithPassword(email: string, name: string, password: string) {
+async function signupWithPassword(email: string, name: string, password: string, inviteCode: string) {
   const response = await fetch("/api/auth/signup", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, name, password }),
+    body: JSON.stringify({ email, name, password, inviteCode }),
     credentials: "include",
   });
 
@@ -95,6 +95,7 @@ function LoginForm({ mode }: { mode: "signin" | "signup" }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [, setLocation] = useLocation();
 
@@ -112,7 +113,7 @@ function LoginForm({ mode }: { mode: "signin" | "signup" }) {
       if (mode === "signin") {
         await loginWithPassword(email, password);
       } else {
-        await signupWithPassword(email, name, password);
+        await signupWithPassword(email, name, password, inviteCode);
       }
       await queryClient.invalidateQueries();
 setTimeout(() => setLocation("/"), 300);
@@ -172,6 +173,19 @@ setTimeout(() => setLocation("/"), 300);
                   className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
                   placeholder="Nama lengkap"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-foreground/80">Kode Undangan</label>
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(event) => setInviteCode(event.target.value)}
+                  required
+                  className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target"
+                  placeholder="Masukkan kode undangan"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Diperlukan untuk mendaftar</p>
               </div>
             )}
 

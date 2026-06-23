@@ -24,15 +24,31 @@ function validatePassword(password: string): string | null {
 }
 
 router.post("/auth/signup", async (req, res, next) => {
-  const { email, name, password } = req.body as {
+  const { email, name, password, inviteCode } = req.body as {
     email?: string;
     name?: string;
     password?: string;
+    inviteCode?: string;
   };
 
   if (!email || !password) {
     res.status(400).json({ error: "Email dan password diperlukan" });
     return;
+  }
+
+  // Invite code check: first user (owner) is free, others need code
+  const signupCode = process.env.SIGNUP_CODE;
+  if (signupCode) {
+    let isFirstUser = false;
+    try {
+      isFirstUser = (await db.select().from(usersTable).limit(1)).length === 0;
+    } catch {
+      isFirstUser = mockStorage.list().length === 0;
+    }
+    if (!isFirstUser && (!inviteCode || inviteCode !== signupCode)) {
+      res.status(403).json({ error: "Kode undangan tidak valid" });
+      return;
+    }
   }
 
   const passwordError = validatePassword(password);
