@@ -125,7 +125,9 @@ if (googleClientId && googleClientSecret) {
             isFirstUser = (await db.select().from(usersTable).limit(1)).length === 0;
           } catch {}
           if (signupCode && !isFirstUser) {
-            return done(null, false, { message: "Akun belum terdaftar. Silakan daftar melalui form dengan kode undangan terlebih dahulu, lalu login dengan Google." });
+            // Store pending Google user in session, redirect to invite page
+            done(null, { _pending: { googleId, email, name } } as any);
+            return;
           }
 
           // Create new user

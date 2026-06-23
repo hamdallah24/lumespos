@@ -264,10 +264,69 @@ router.get(
   "/auth/google/callback",
   passport.authenticate("google", { failureRedirect: "/sign-in" }),
   (req, res) => {
+    const user = req.user as any;
+    // If user has _pending property, redirect to invite page
+    if (user?._pending) {
+      (req.session as any).pendingGoogleUser = user._pending;
+      res.redirect("/sign-up/invite?via=google");
+      return;
+    }
     const redirectTo = (req.session as any)?.authRedirect ?? "/";
     delete (req.session as any).authRedirect;
     res.redirect(redirectTo);
   },
 );
+
+// Verify invite code for pending Google user
+router.post("/auth/verify-google-invite", async (req, res) => {
+  const { inviteCode } = req.body as { inviteCode?: string };
+  const pending = (req.session as any)?.pendingGoogleUser;
+
+  if (!pending) {
+    res.status(400).json({ error: "Tidak ada sesi pendaftaran" });
+    return;
+  }
+
+  const signupCode = process.env.SIGNUP_CODE;
+  if (!signupCode) {
+    res.status(500).json({ error: "Kode undangan tidak dikonfigurasi" });
+    return;
+  }
+
+  if (!inviteCode || inviteCode !== signupCode) {
+    res.status(403).json({ error: "Kode undangan tidak valid" });
+    return;
+  }
+
+  try {
+    const passwordHash = await hashPassword("google-" + Date.now());
+    const role = "cashier";
+
+    const created = await db
+      .insert(usersTable as any)
+      .values({
+        clerkId: pending.googleId,
+        email: pending.email ?? `${pending.googleId}@google.local`,
+        name: pending.name,
+        passwordHash,
+        role,
+      } as any)
+      .returning();
+
+    const newUser = (created as any[])[0];
+    delete (req.session as any).pendingGoogleUser;
+
+    req.login(newUser as Express.User, (err) => {
+      if (err) {
+        res.status(500).json({ error: "Gagal login setelah daftar" });
+        return;
+      }
+      res.json({ success: true, user: newUser });
+    });
+  } catch (err) {
+    console.error("verify-google-invite error:", err);
+    res.status(500).json({ error: "Gagal membuat akun" });
+  }
+});
 
 export default router;

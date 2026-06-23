@@ -91,6 +91,68 @@ async function resetPassword(email: string, resetToken: string, newPassword: str
   }
 }
 
+function GoogleInvitePage() {
+  const [inviteCode, setInviteCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    if (!inviteCode.trim()) { setError("Kode undangan harus diisi"); return; }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/verify-google-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteCode: inviteCode.trim() }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Gagal verifikasi");
+      await queryClient.invalidateQueries();
+      setLocation("/");
+    } catch (err) {
+      setError(getErrorMessage(err, "Kode undangan tidak valid"));
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="relative flex min-h-screen items-center justify-center bg-gradient-to-br from-[#1565FF]/5 via-background to-[#8ED8FF]/10 dark:from-[#1565FF]/[0.08] dark:via-[#071426] dark:to-[#8ED8FF]/[0.05] px-4 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-[#1565FF]/5 blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-[#8ED8FF]/10 blur-3xl" />
+      </div>
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="relative w-full max-w-md">
+        <div className="glass rounded-2xl p-8 shadow-xl">
+          <div className="mb-8 text-center">
+            <motion.div initial={{ scale: 0.8 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 200, damping: 15 }} className="w-16 h-16 rounded-2xl bg-primary mx-auto mb-4 flex items-center justify-center shadow-lg">
+              <span className="text-2xl font-bold text-white">L</span>
+            </motion.div>
+            <h1 className="text-xl font-bold text-foreground">Verifikasi Akun</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Akun Google kamu belum terdaftar. Masukkan kode undangan untuk melanjutkan.</p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground/80">Kode Undangan</label>
+              <input type="text" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} required autoFocus className="mt-1.5 w-full rounded-xl border border-border bg-card/80 backdrop-blur-sm px-4 py-3.5 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/50 touch-target" placeholder="Masukkan kode undangan" />
+            </div>
+            {error && <p className="text-sm text-destructive bg-destructive/10 rounded-xl px-3 py-2">{error}</p>}
+            <motion.button type="submit" whileTap={{ scale: 0.97 }} disabled={loading} className="w-full rounded-xl bg-primary px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-primary/25 transition hover:bg-primary/90 touch-target">
+              {loading ? "Memverifikasi..." : "Daftar"}
+            </motion.button>
+          </form>
+          <div className="mt-5 text-center">
+            <button type="button" className="text-sm text-muted-foreground hover:text-foreground transition" onClick={() => setLocation("/sign-in")}>← Kembali ke login</button>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 function LoginForm({ mode }: { mode: "signin" | "signup" }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
@@ -496,7 +558,8 @@ function ProtectedApp() {
           {!canManage && <Route path="/products">{() => <Redirect to="/" />}</Route>}
           {!canManage && <Route path="/audits">{() => <Redirect to="/" />}</Route>}
           {!canManage && <Route path="/dashboard">{() => <Redirect to="/" />}</Route>}
-          <Route component={NotFound} />
+      <Route path="/sign-up/invite" component={GoogleInvitePage} />
+      <Route component={NotFound} />
         </Switch>
       </Layout>
     </BranchProvider>
