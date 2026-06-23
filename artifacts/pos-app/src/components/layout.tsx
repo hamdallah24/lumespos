@@ -225,8 +225,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
         </div>
 
         {/* Page content */}
-        <div className="flex-1 overflow-y-auto pb-20 lg:pb-0 px-3 sm:px-4">
-          <div className="w-full max-w-2xl mx-auto h-full">
+        <div className="flex-1 overflow-y-auto pb-20 lg:pb-0 px-4 md:px-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={location}
@@ -239,7 +238,6 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
               {children}
             </motion.div>
           </AnimatePresence>
-          </div>
         </div>
 
         {/* Mobile bottom navigation */}
