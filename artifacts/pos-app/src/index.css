@@ -244,14 +244,14 @@ body {
 
 /* ── KPI Icon Container ── */
 .kpi-icon-box {
-  width: 56px; height: 56px;
+  width: 48px; height: 48px;
   border-radius: 50%;
   background: #EFF6FF;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .dark .kpi-icon-box { background: rgba(37,99,235,.15); }
-.kpi-icon-box svg { width: 28px; height: 28px; color: #2563EB; }
+.kpi-icon-box svg { width: 24px; height: 24px; color: #2563EB; }
 
 /* ── Typography Utilities ── */
 .heading-dash { font-size: 32px; font-weight: 700; line-height: 40px; letter-spacing: -.5px; }

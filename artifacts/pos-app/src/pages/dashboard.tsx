@@ -126,7 +126,7 @@ const CalendarPicker = ({ label, value, onChange }: { label: string; value: stri
         <div ref={popupRef}
           style={{ position: "fixed", top: popupPos.top, left: popupPos.left, zIndex: 9999 }}
           className="bg-card border border-border/60 rounded-2xl shadow-xl backdrop-blur-xl p-3 w-[260px]">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-1.5">
             <button onClick={() => nav(-1)}
               className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors text-sm">‹</button>
             <span className="text-sm font-semibold">
@@ -305,43 +305,31 @@ export default function DashboardPage() {
           {/* KPI Cards — 2-col grid */}
           <div className="grid grid-cols-2 gap-3">
             {loadingSummary ? (
-              [1,2,3,4].map((i) => <div key={i} className="h-[150px] rounded-[24px] bg-slate-100 dark:bg-slate-800 animate-pulse" />)
+              [1,2,3,4].map((i) => <div key={i} className="h-[160px] rounded-[24px] bg-slate-100 dark:bg-slate-800 animate-pulse" />)
             ) : summary ? (<>
-              <div className="card-premium flex flex-col min-w-0" style={{height:150}}>
-                <div className="kpi-icon-box mb-2.5"><Banknote /></div>
-                <p className="card-title-text mb-0.5">Penjualan Hari Ini</p>
-                <p className="metric-primary text-slate-800 dark:text-slate-100 truncate">{formatRp(summary.todayRevenue)}</p>
-                <div className="mt-auto pt-1">
-                  {(summary.todayRevenueDiff ?? 0) !== 0 && (
-                    <span className={`metric-secondary ${summary.todayRevenueDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-                      {summary.todayRevenueDiff >= 0 ? "+" : ""}{summary.todayRevenueDiff.toFixed(1)}% vs kemarin
-                    </span>
-                  )}
-                </div>
+              <div className="card-premium flex flex-col min-w-0" style={{height:160}}>
+                <div className="kpi-icon-box mb-1.5"><Banknote /></div>
+                <p className="card-title-text">Penjualan Hari Ini</p>
+                <p className="metric-primary text-slate-800 dark:text-slate-100">{formatRp(summary.todayRevenue)}</p>
+                <div className="mt-auto">{(summary.todayRevenueDiff ?? 0) !== 0 && (<span className={`metric-secondary ${summary.todayRevenueDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>{summary.todayRevenueDiff >= 0 ? "+" : ""}{summary.todayRevenueDiff.toFixed(1)}% vs kemarin</span>)}</div>
               </div>
-              <div className="card-premium flex flex-col min-w-0" style={{height:150}}>
-                <div className="kpi-icon-box mb-2.5" style={{background:"#FFF5F5"}}><Wallet /></div>
-                <p className="card-title-text mb-0.5">Pengeluaran Hari Ini</p>
-                <p className="metric-primary text-slate-800 dark:text-slate-100 truncate">{formatRp(summary.todayExpenses)}</p>
-                <div className="mt-auto pt-1">
-                  <span className="metric-secondary text-slate-400">—</span>
-                </div>
+              <div className="card-premium flex flex-col min-w-0" style={{height:160}}>
+                <div className="kpi-icon-box mb-1.5" style={{background:"#FFF5F5"}}><Wallet /></div>
+                <p className="card-title-text">Pengeluaran Hari Ini</p>
+                <p className="metric-primary text-slate-800 dark:text-slate-100">{formatRp(summary.todayExpenses)}</p>
+                <div className="mt-auto"><span className="metric-secondary text-slate-400">—</span></div>
               </div>
-              <div className="card-premium flex flex-col min-w-0" style={{height:150}}>
-                <div className="kpi-icon-box mb-2.5" style={{background:"#F0FDF4"}}><ShoppingCart /></div>
-                <p className="card-title-text mb-0.5">Transaksi</p>
+              <div className="card-premium flex flex-col min-w-0" style={{height:160}}>
+                <div className="kpi-icon-box mb-1.5" style={{background:"#F0FDF4"}}><ShoppingCart /></div>
+                <p className="card-title-text">Transaksi</p>
                 <p className="metric-primary text-slate-800 dark:text-slate-100">{summary.todayOrders}</p>
-                <div className="mt-auto pt-1">
-                  <span className="metric-secondary text-slate-400">—</span>
-                </div>
+                <div className="mt-auto"><span className="metric-secondary text-slate-400">—</span></div>
               </div>
-              <div className="card-premium flex flex-col min-w-0" style={{height:150}}>
-                <div className="kpi-icon-box mb-2.5" style={{background:"#EFF6FF"}}><Package /></div>
-                <p className="card-title-text mb-0.5">Produk Aktif</p>
+              <div className="card-premium flex flex-col min-w-0" style={{height:160}}>
+                <div className="kpi-icon-box mb-1.5" style={{background:"#EFF6FF"}}><Package /></div>
+                <p className="card-title-text">Produk Aktif</p>
                 <p className="metric-primary text-slate-800 dark:text-slate-100">{summary.totalProducts}</p>
-                <div className="mt-auto pt-1">
-                  <span className="metric-secondary text-slate-400">—</span>
-                </div>
+                <div className="mt-auto"><span className="metric-secondary text-slate-400">—</span></div>
               </div>
             </>) : null}
           </div>
