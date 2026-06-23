@@ -295,49 +295,52 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          {/* Date Picker Row */}
-          <div className="flex items-center gap-1.5 min-w-0">
+          {/* Date Picker Row — centered */}
+          <div className="flex items-center justify-center gap-1.5">
             <div className="flex-1 min-w-0"><CalendarPicker label="Dari" value={customStart} onChange={(v) => { setCustomStart(v); setPeriod("custom"); }} /></div>
             <span className="text-slate-300 text-sm shrink-0">—</span>
             <div className="flex-1 min-w-0"><CalendarPicker label="Ke" value={customEnd} onChange={(v) => { setCustomEnd(v); setPeriod("custom"); }} /></div>
           </div>
 
-          {/* KPI Cards — 2-col grid, no overflow */}
-          <div className="grid grid-cols-2 gap-3 overflow-hidden">
+          {/* KPI Cards — 2-col grid */}
+          <div className="grid grid-cols-2 gap-3">
             {loadingSummary ? (
-              [1,2,3,4].map((i) => <div key={i} className="h-[120px] rounded-[24px] bg-slate-100 dark:bg-slate-800 animate-pulse" />)
+              [1,2,3,4].map((i) => <div key={i} className="h-[150px] rounded-[24px] bg-slate-100 dark:bg-slate-800 animate-pulse" />)
             ) : summary ? (<>
-              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:150}}>
-                <div>
-                  <div className="kpi-icon-box mb-3"><Banknote /></div>
-                  <p className="card-title-text">Penjualan Hari Ini</p>
-                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1 truncate">{formatRp(summary.todayRevenue)}</p>
-                </div>
-                {(summary.todayRevenueDiff ?? 0) !== 0 && (
-                  <span className={`metric-secondary ${summary.todayRevenueDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-                    {summary.todayRevenueDiff >= 0 ? "+" : ""}{summary.todayRevenueDiff.toFixed(1)}% vs kemarin
-                  </span>
-                )}
-              </div>
-              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:150}}>
-                <div>
-                  <div className="kpi-icon-box mb-3" style={{background:"#FFF5F5"}}><Wallet /></div>
-                  <p className="card-title-text">Pengeluaran Hari Ini</p>
-                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{formatRp(summary.todayExpenses)}</p>
+              <div className="card-premium flex flex-col min-w-0" style={{height:150}}>
+                <div className="kpi-icon-box mb-2.5"><Banknote /></div>
+                <p className="card-title-text mb-0.5">Penjualan Hari Ini</p>
+                <p className="metric-primary text-slate-800 dark:text-slate-100 truncate">{formatRp(summary.todayRevenue)}</p>
+                <div className="mt-auto pt-1">
+                  {(summary.todayRevenueDiff ?? 0) !== 0 && (
+                    <span className={`metric-secondary ${summary.todayRevenueDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
+                      {summary.todayRevenueDiff >= 0 ? "+" : ""}{summary.todayRevenueDiff.toFixed(1)}% vs kemarin
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:150}}>
-                <div>
-                  <div className="kpi-icon-box mb-3" style={{background:"#F0FDF4"}}><ShoppingCart /></div>
-                  <p className="card-title-text">Transaksi</p>
-                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{summary.todayOrders}</p>
+              <div className="card-premium flex flex-col min-w-0" style={{height:150}}>
+                <div className="kpi-icon-box mb-2.5" style={{background:"#FFF5F5"}}><Wallet /></div>
+                <p className="card-title-text mb-0.5">Pengeluaran Hari Ini</p>
+                <p className="metric-primary text-slate-800 dark:text-slate-100 truncate">{formatRp(summary.todayExpenses)}</p>
+                <div className="mt-auto pt-1">
+                  <span className="metric-secondary text-slate-400">—</span>
                 </div>
               </div>
-              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:150}}>
-                <div>
-                  <div className="kpi-icon-box mb-3" style={{background:"#EFF6FF"}}><Package /></div>
-                  <p className="card-title-text">Produk Aktif</p>
-                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{summary.totalProducts}</p>
+              <div className="card-premium flex flex-col min-w-0" style={{height:150}}>
+                <div className="kpi-icon-box mb-2.5" style={{background:"#F0FDF4"}}><ShoppingCart /></div>
+                <p className="card-title-text mb-0.5">Transaksi</p>
+                <p className="metric-primary text-slate-800 dark:text-slate-100">{summary.todayOrders}</p>
+                <div className="mt-auto pt-1">
+                  <span className="metric-secondary text-slate-400">—</span>
+                </div>
+              </div>
+              <div className="card-premium flex flex-col min-w-0" style={{height:150}}>
+                <div className="kpi-icon-box mb-2.5" style={{background:"#EFF6FF"}}><Package /></div>
+                <p className="card-title-text mb-0.5">Produk Aktif</p>
+                <p className="metric-primary text-slate-800 dark:text-slate-100">{summary.totalProducts}</p>
+                <div className="mt-auto pt-1">
+                  <span className="metric-secondary text-slate-400">—</span>
                 </div>
               </div>
             </>) : null}
