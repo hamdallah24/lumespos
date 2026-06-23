@@ -276,7 +276,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-              <SelectTrigger className="shrink-0 h-[34px] text-[13px] bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-3">
+              <SelectTrigger className="shrink-0 h-[30px] text-[12px] bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-2.5 w-auto">
                 <SelectValue placeholder="Cabang" />
               </SelectTrigger>
               <SelectContent>
