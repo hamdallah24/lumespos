@@ -231,7 +231,7 @@ export default function CashierPage() {
   return (
     <div className="flex h-full w-full bg-background overflow-hidden flex-col lg:flex-row">
       <div className="flex-1 flex flex-col h-full min-w-0">
-        <div className="px-3 pt-3 pb-2 lg:px-6 lg:pt-4 bg-white dark:bg-[#0F1D32] border-b border-slate-100 dark:border-slate-800 shrink-0 sticky top-0 z-20 ">
+        <div className="px-3 pt-3 pb-2 lg:px-6 lg:pt-4 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl border-b border-[#1565FF]/10 shrink-0 sticky top-0 z-20 rounded-2xl mt-3">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <Input

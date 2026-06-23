@@ -591,7 +591,7 @@ export default function ProductsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-[52px] border-b border-slate-100 dark:border-slate-800 px-4 lg:px-6 flex items-center gap-3 bg-white dark:bg-[#0F1D32] shrink-0 sticky top-0 z-20 "><h1 className="font-bold text-lg tracking-tight">Produk</h1><button className="ml-auto shrink-0 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium flex items-center gap-1.5 touch-target active:scale-[0.97] transition-transform" onClick={() => { setEditingProduct(null); setFormOpen(true); }}><Plus className="w-4 h-4" /> Tambah</button></div>
+      <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mt-3"><h1 className="font-bold text-lg tracking-tight">Produk</h1><button className="ml-auto shrink-0 h-10 px-4 rounded-xl bg-primary text-primary-foreground text-sm font-medium flex items-center gap-1.5 touch-target active:scale-[0.97] transition-transform" onClick={() => { setEditingProduct(null); setFormOpen(true); }}><Plus className="w-4 h-4" /> Tambah</button></div>
       <div className="flex-1 p-4 md:p-6 flex flex-col gap-4 overflow-hidden">
         <Tabs defaultValue="products" className="flex flex-col flex-1 overflow-hidden">
           <div className="flex items-center gap-4 shrink-0"><TabsList className="flex-wrap h-auto"><TabsTrigger value="products" className="gap-1.5"><Package className="w-4 h-4" /> Produk</TabsTrigger><TabsTrigger value="categories" className="gap-1.5"><Tag className="w-4 h-4" /> Kategori</TabsTrigger></TabsList></div>

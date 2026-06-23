@@ -134,7 +134,7 @@ export default function OrdersPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="h-[52px] border-b border-slate-100 dark:border-slate-800 px-4 lg:px-6 flex items-center gap-3 bg-white dark:bg-[#0F1D32] shrink-0 sticky top-0 z-20 ">
+      <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mt-3">
         <h1 className="font-bold text-lg tracking-tight shrink-0">Riwayat Transaksi</h1>
         <div className="ml-auto flex items-center gap-2 md:gap-3">
           {/* Summary ringkas untuk desktop */}
