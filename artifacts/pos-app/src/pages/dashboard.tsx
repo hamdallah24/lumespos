@@ -390,13 +390,30 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Alert Stok Menipis */}
+          {/* Alert Stok Menipis — animated ticker */}
           {!loadingLow && lowStock.length > 0 && (
-            <div className="alert-card">
+            <div className="alert-card overflow-hidden">
               <AlertTriangle className="alert-icon" />
-              <span className="text-sm font-semibold text-red-600 flex-1">Stok Menipis</span>
-              <span className="text-xs font-medium text-red-400">{lowStock.length} item</span>
-              <ChevronRight className="w-4 h-4 text-red-300" />
+              <span className="text-xs font-semibold text-red-600 shrink-0">Stok Menipis</span>
+              <span className="text-[11px] font-medium text-red-400 mr-1 shrink-0">{lowStock.length} item</span>
+              <div className="flex-1 min-w-0 overflow-hidden relative h-full">
+                <div className="ticker-track">
+                  {lowStock.map((s: any, i: number) => (
+                    <span key={i} className="ticker-item text-xs font-medium text-red-500 whitespace-nowrap">
+                      {s.name} ({s.currentStock} {s.unit})
+                      {i < lowStock.length - 1 && <span className="mx-2 text-red-300">·</span>}
+                    </span>
+                  ))}
+                  {/* Duplicate for seamless loop */}
+                  {lowStock.map((s: any, i: number) => (
+                    <span key={`dup-${i}`} className="ticker-item text-xs font-medium text-red-500 whitespace-nowrap">
+                      {s.name} ({s.currentStock} {s.unit})
+                      {i < lowStock.length - 1 && <span className="mx-2 text-red-300">·</span>}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-red-300 shrink-0" />
             </div>
           )}
 
