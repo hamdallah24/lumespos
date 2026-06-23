@@ -107,9 +107,9 @@ const csrfEnabled = process.env.CSRF_ENABLED === "true";
 const { generateCsrfToken, doubleCsrfProtection } = doubleCsrf({
   getSecret: () => sessionSecret,
   getSessionIdentifier: (req: Request) => req.sessionID ?? "",
-  cookieName: "__Host-pos.csrf",
+  cookieName: "pos-csrf",
   cookieOptions: {
-    sameSite: "strict" as const,
+    sameSite: "lax" as const,
     path: "/",
     secure: isProduction,
     httpOnly: false,
