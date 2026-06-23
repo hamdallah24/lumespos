@@ -118,9 +118,20 @@ if (googleClientId && googleClientSecret) {
             } catch {}
           }
 
-          // Create new user
-          const isFirstUser = (await db.select().from(usersTable).limit(1)).length === 0;
-          const role = isFirstUser ? "owner" : "cashier";
+          // Reject new Google signup if invite code is required
+          const signupCode = process.env.SIGNUP_CODE;
+          if (signupCode) {
+            let isFirstUser = false;
+            try {
+              isFirstUser = (await db.select().from(usersTable).limit(1)).length === 0;
+            } catch {}
+            if (!isFirstUser) {
+              return done(null, false, { message: "Akun belum terdaftar. Silakan daftar melalui form dengan kode undangan terlebih dahulu, lalu login dengan Google." });
+            }
+          }
+
+          // Create new user (first user only)
+          const role = "owner";
 
           const createdResult = await db
             .insert(usersTable as any)
