@@ -119,7 +119,7 @@ const CalendarPicker = ({ label, value, onChange }: { label: string; value: stri
     <div className="flex items-center gap-1.5">
       <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
       <button ref={btnRef} onClick={openPopup}
-        className="relative w-[120px] bg-accent/60 border border-border/40 rounded-lg px-2 py-1.5 text-xs font-medium text-foreground text-left cursor-pointer hover:bg-accent/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20">
+        className="relative flex-1 min-w-0 max-w-[120px] bg-accent/60 border border-border/40 rounded-lg px-2 py-1.5 text-xs font-medium text-foreground text-left cursor-pointer hover:bg-accent/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 truncate">
         {d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
       </button>
       {open && ReactDOM.createPortal(
@@ -268,7 +268,7 @@ export default function DashboardPage() {
         <h1 className="font-bold text-lg text-slate-800 dark:text-slate-200">Dashboard</h1>
         <div className="ml-auto flex items-center gap-1.5">
           <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-            <SelectTrigger className="w-[120px] h-[34px] text-[13px] bg-slate-50 dark:bg-slate-800 border-0 rounded-full">
+            <SelectTrigger className="shrink-0 w-auto max-w-[120px] h-[34px] text-[13px] bg-slate-50 dark:bg-slate-800 border-0 rounded-full">
               <SelectValue placeholder="Pilih Cabang" />
             </SelectTrigger>
             <SelectContent>
@@ -300,22 +300,22 @@ export default function DashboardPage() {
           </div>
 
           {/* Date Picker Row */}
-          <div className="flex items-center gap-2">
-            <CalendarPicker label="Dari" value={customStart} onChange={(v) => { setCustomStart(v); setPeriod("custom"); }} />
-            <span className="text-slate-300 text-sm">—</span>
-            <CalendarPicker label="Ke" value={customEnd} onChange={(v) => { setCustomEnd(v); setPeriod("custom"); }} />
+          <div className="flex items-center gap-1.5 min-w-0">
+            <div className="flex-1 min-w-0"><CalendarPicker label="Dari" value={customStart} onChange={(v) => { setCustomStart(v); setPeriod("custom"); }} /></div>
+            <span className="text-slate-300 text-sm shrink-0">—</span>
+            <div className="flex-1 min-w-0"><CalendarPicker label="Ke" value={customEnd} onChange={(v) => { setCustomEnd(v); setPeriod("custom"); }} /></div>
           </div>
 
-          {/* KPI Cards — 2-col grid */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* KPI Cards — 2-col grid, no overflow */}
+          <div className="grid grid-cols-2 gap-3 overflow-hidden">
             {loadingSummary ? (
               [1,2,3,4].map((i) => <div key={i} className="h-[120px] rounded-[24px] bg-slate-100 dark:bg-slate-800 animate-pulse" />)
             ) : summary ? (<>
-              <div className="card-premium flex flex-col justify-between" style={{height:120}}>
+              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:120}}>>
                 <div>
                   <div className="kpi-icon-box mb-3"><Banknote size={28} /></div>
                   <p className="card-title-text">Penjualan Hari Ini</p>
-                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{formatRp(summary.todayRevenue)}</p>
+                  <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1 truncate">{formatRp(summary.todayRevenue)}</p>
                 </div>
                 {(summary.todayRevenueDiff ?? 0) !== 0 && (
                   <span className={`metric-secondary ${summary.todayRevenueDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>
@@ -323,21 +323,21 @@ export default function DashboardPage() {
                   </span>
                 )}
               </div>
-              <div className="card-premium flex flex-col justify-between" style={{height:120}}>
+              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:120}}>>
                 <div>
                   <div className="kpi-icon-box mb-3" style={{background:"#FFF5F5"}}><Wallet size={28} style={{color:"#EF4444"}} /></div>
                   <p className="card-title-text">Pengeluaran Hari Ini</p>
                   <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{formatRp(summary.todayExpenses)}</p>
                 </div>
               </div>
-              <div className="card-premium flex flex-col justify-between" style={{height:120}}>
+              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:120}}>>
                 <div>
                   <div className="kpi-icon-box mb-3" style={{background:"#F0FDF4"}}><ShoppingCart size={28} style={{color:"#16A34A"}} /></div>
                   <p className="card-title-text">Transaksi</p>
                   <p className="metric-primary text-slate-800 dark:text-slate-100 mt-1">{summary.todayOrders}</p>
                 </div>
               </div>
-              <div className="card-premium flex flex-col justify-between" style={{height:120}}>
+              <div className="card-premium flex flex-col justify-between min-w-0" style={{height:120}}>>
                 <div>
                   <div className="kpi-icon-box mb-3" style={{background:"#EFF6FF"}}><Package size={28} style={{color:"#2563EB"}} /></div>
                   <p className="card-title-text">Produk Aktif</p>
