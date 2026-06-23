@@ -280,7 +280,7 @@ export default function CashierPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
                   key={product.id}
-                  className="native-card overflow-hidden cursor-pointer active:scale-[0.97] transition-transform"
+                  className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer active:scale-[0.97] transition-transform"
                   onClick={() => handleProductClick(product)}
                 >
                   <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
@@ -417,7 +417,7 @@ export default function CashierPage() {
               initial={{ y: 60, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 60, opacity: 0 }}
-              className="native-card shadow-xl p-3 pointer-events-auto"
+              className="bg-card border border-border rounded-2xl shadow-xl p-3 pointer-events-auto"
             >
               <button onClick={() => setCartOpen(true)} className="w-full flex items-center justify-between">
                 <div className="flex items-center gap-3">
