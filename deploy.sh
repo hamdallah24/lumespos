@@ -8,23 +8,24 @@ echo "============================================"
 echo ""
 
 # 1. Update system
-echo "[1/9] 📦 Updating system..."
-sudo apt update -y && sudo apt upgrade -y
+echo "[1/8] 📦 Updating system..."
+export DEBIAN_FRONTEND=noninteractive
+sudo apt update -y && sudo apt upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 
-# 2. Install Node.js 20.x
-echo "[2/9] 📦 Installing Node.js 20.x..."
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+# 2. Install Node.js 22.x
+echo "[2/8] 📦 Installing Node.js 22.x..."
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
 echo "   Node.js $(node -v) | npm $(npm -v)"
 
 # 3. Enable pnpm via corepack
-echo "[3/9] 📦 Installing pnpm..."
+echo "[3/8] 📦 Installing pnpm..."
 sudo corepack enable
 corepack prepare pnpm@latest --activate
 echo "   pnpm $(pnpm -v)"
 
 # 4. Install PM2
-echo "[4/9] 📦 Installing PM2..."
+echo "[4/8] 📦 Installing PM2..."
 sudo npm install -g pm2
 
 # 5. Install nginx
