@@ -38,8 +38,10 @@ cd ~/lumespos
 pnpm install
 
 # 7. Build only what's needed
-echo "[7/9] 🔨 Building project (api-server + lumespos)..."
-pnpm --filter ./artifacts/api-server --filter ./artifacts/lumespos run build
+echo "[7/9] 🔨 Building API server..."
+pnpm --filter ./artifacts/api-server run build
+echo "🔨 Building frontend..."
+pnpm --filter ./artifacts/pos-app run build
 echo "   Build complete!"
 
 # 8. Setup nginx
