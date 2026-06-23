@@ -1962,6 +1962,137 @@
           }
         ]
       ]
+    },
+    "4ec3e2af-471d-443f-b86c-ad6e0cac9435": {
+      "main": [
+        [
+          {
+            "node": "IF Direct Hit Path? (FIXED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2cec76e6-2775-46f2-af20-ed6e93610490": {
+      "main": [
+        [
+          {
+            "node": "IF Direct Hit Path? (FIXED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4d8d36dc-9227-4309-882b-4fc666a2f93b": {
+      "main": [
+        [
+          {
+            "node": "Fetch Single File (Contents API)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch Full Tree (Git Trees API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8879bbb0-89d8-4a75-be4c-6fc8ef408b72": {
+      "main": [
+        [
+          {
+            "node": "Diagnose Error (Self-Healing L1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "800ba555-1f72-4d9e-8eec-3e547e72a42d": {
+      "main": [
+        [
+          {
+            "node": "Diagnose Error (Self-Healing L1)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "d458726a-e3ad-444e-ac16-bcec79720526": {
+      "main": [
+        [
+          {
+            "node": "Format Stage 2 Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0ec19282-3ba4-4936-825f-13870904ba73": {
+      "main": [
+        [
+          {
+            "node": "IF Skip Analyzer? (FIXED)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3ec12a39-360d-439c-8ea3-260703c6dfbc": {
+      "main": [
+        [
+          {
+            "node": "Init Generator Loop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Init Analyzer Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "290891b7-9989-4edf-a2d7-09ba25ceca1d": {
+      "main": [
+        [
+          {
+            "node": "Send Proposal to User",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Repair Budget?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "guard-proposal-tg": {
+      "main": [
+        [
+          {
+            "node": "Prepare Commit Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": true,
