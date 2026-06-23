@@ -145,7 +145,7 @@ function VariantsPanel({ productId, onVariantChange }: { productId: number; onVa
 
       {variants.length === 0 ? (
         <div className="text-center text-muted-foreground py-6">
-          <List className="w-8 h-8 mx-auto mb-2 opacity-20" />
+          <List className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" />
           <p className="text-sm">Belum ada varian</p>
         </div>
       ) : (
@@ -288,7 +288,7 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
       </div>
 
       {recipe.length === 0 ? (
-        <div className="text-center text-muted-foreground py-6"><ChefHat className="w-8 h-8 mx-auto mb-2 opacity-20" /><p className="text-sm">Belum ada BOM untuk target ini</p></div>
+        <div className="text-center text-muted-foreground py-6"><ChefHat className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" /><p className="text-sm">Belum ada BOM untuk target ini</p></div>
       ) : (
         <div className="border rounded-lg overflow-hidden">
           {recipe.map((r, idx) => (
@@ -464,7 +464,7 @@ function CategoryTab({ categories, onCategoryChange }: { categories: Category[];
   const handleAdd = () => { if (!newCatName.trim()) return; createCategory.mutate({ data: { name: newCatName.trim() } }, { onSuccess: () => { toast.success("Kategori ditambahkan"); setNewCatName(""); refreshCategories(); }, onError: () => toast.error("Gagal menambah kategori") }); };
   const handleDelete = (id: number) => { deleteCategory.mutate({ id }, { onSuccess: () => { toast.success("Kategori dihapus"); refreshCategories(); setDeletingId(null); }, onError: () => toast.error("Gagal menghapus kategori") }); };
 
-  return (<div className="space-y-4"><div className="flex gap-2"><Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nama kategori baru..." onKeyDown={e => e.key === "Enter" && handleAdd()} /><Button onClick={handleAdd} disabled={createCategory.isPending || !newCatName.trim()}><Plus className="w-4 h-4 mr-1" /> Tambah</Button></div><div className="border rounded-lg overflow-hidden">{categories.length === 0 ? (<div className="p-8 text-center text-muted-foreground"><Tag className="w-8 h-8 mx-auto mb-2 opacity-20" /><p>Belum ada kategori</p></div>) : (categories.map((cat, idx) => (<div key={cat.id} className={`flex items-center justify-between px-4 py-3 ${idx < categories.length - 1 ? "border-b" : ""}`}><div><p className="font-medium">{cat.name}</p><p className="text-xs text-muted-foreground">{cat.productCount} produk</p></div><Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => setDeletingId(cat.id)}><Trash2 className="w-4 h-4" /></Button></div>)))}</div><AlertDialog open={deletingId !== null} onOpenChange={() => setDeletingId(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hapus Kategori?</AlertDialogTitle><AlertDialogDescription>Produk dalam kategori ini tidak akan terhapus, hanya kategorinya saja yang dihapus.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction className="bg-destructive" onClick={() => deletingId && handleDelete(deletingId)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div>);
+  return (<div className="space-y-4"><div className="flex gap-2"><Input value={newCatName} onChange={e => setNewCatName(e.target.value)} placeholder="Nama kategori baru..." onKeyDown={e => e.key === "Enter" && handleAdd()} /><Button onClick={handleAdd} disabled={createCategory.isPending || !newCatName.trim()}><Plus className="w-4 h-4 mr-1" /> Tambah</Button></div><div className="border rounded-lg overflow-hidden">{categories.length === 0 ? (<div className="p-6 text-center text-muted-foreground"><Tag className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" /><p>Belum ada kategori</p></div>) : (categories.map((cat, idx) => (<div key={cat.id} className={`flex items-center justify-between px-4 py-3 ${idx < categories.length - 1 ? "border-b" : ""}`}><div><p className="font-medium">{cat.name}</p><p className="text-xs text-muted-foreground">{cat.productCount} produk</p></div><Button variant="ghost" size="icon" className="text-muted-foreground hover:text-destructive" onClick={() => setDeletingId(cat.id)}><Trash2 className="w-4 h-4" /></Button></div>)))}</div><AlertDialog open={deletingId !== null} onOpenChange={() => setDeletingId(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hapus Kategori?</AlertDialogTitle><AlertDialogDescription>Produk dalam kategori ini tidak akan terhapus, hanya kategorinya saja yang dihapus.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction className="bg-destructive" onClick={() => deletingId && handleDelete(deletingId)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog></div>);
 }
 
 /* ──────────────────────────────────── */

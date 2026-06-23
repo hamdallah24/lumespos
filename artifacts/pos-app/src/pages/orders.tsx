@@ -185,7 +185,7 @@ export default function OrdersPage() {
           </div>
         ) : orders.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-32">
-            <Receipt className="w-12 h-12 mb-3 opacity-20" />
+            <Receipt className="w-10 h-10 mb-3 opacity-20" />
             <p className="font-medium">Belum ada transaksi</p>
             <p className="text-sm mt-1 opacity-60">Coba ubah filter tanggal atau metode bayar</p>
           </div>

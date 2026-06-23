@@ -323,14 +323,14 @@ export default function ShiftPage() {
           ) : !shiftId ? (
              <Card className="max-w-xl mx-auto mt-10">
                <CardContent className="py-12 flex flex-col items-center justify-center text-center">
-                 <ClipboardList className="w-12 h-12 text-muted-foreground mb-4 opacity-50" />
+                 <ClipboardList className="w-10 h-10 text-muted-foreground mb-4 opacity-50" />
                  <h2 className="text-lg font-semibold mb-2">Tidak Ada Shift Aktif</h2>
                  <p className="text-muted-foreground text-sm mb-6">Anda tidak memiliki shift yang sedang berjalan saat ini.</p>
                  <Button onClick={() => setLocation("/")}>Ke Kasir</Button>
                </CardContent>
              </Card>
           ) : !result ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               
               {/* Kolom Kiri: Penjualan dan Audit Fisik */}
               <div className="space-y-6">
@@ -449,7 +449,7 @@ export default function ShiftPage() {
                     {isLoadingStock ? (
                       <div className="space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-10 bg-muted rounded animate-pulse" />)}</div>
                     ) : displayedStock.length === 0 ? (
-                      <p className="text-sm text-muted-foreground py-8 text-center border rounded-lg bg-muted/30">
+                      <p className="text-sm text-muted-foreground py-6 text-center border rounded-lg bg-muted/30">
                         {stockSearch ? "Bahan tidak ditemukan." : "Belum ada bahan untuk dihitung."}
                       </p>
                     ) : (
@@ -497,7 +497,7 @@ export default function ShiftPage() {
                         <video ref={videoRef} playsInline muted className="w-full h-full object-cover" />
                       ) : (
                         <div className="text-center text-muted-foreground p-4">
-                          <Camera className="w-12 h-12 mx-auto mb-2 opacity-30" />
+                          <Camera className="w-10 h-10 mx-auto mb-2 opacity-30" />
                           <p className="text-sm">Ambil foto stok / uang sebagai bukti</p>
                         </div>
                       )}
@@ -546,7 +546,7 @@ export default function ShiftPage() {
                 </Card>
 
                 <Button
-                  className="w-full h-14 text-lg font-bold shadow-lg"
+                  className="w-full h-12 text-base font-bold shadow-lg"
                   onClick={handleSubmit}
                   disabled={loading || !salesData}
                 >
@@ -558,9 +558,9 @@ export default function ShiftPage() {
           ) : (
             <Card className="max-w-xl mx-auto mt-10">
               <CardContent className="py-12 space-y-6 text-center">
-                <div className={`p-6 rounded-xl inline-block ${result.difference >= 0 ? "bg-green-50" : "bg-red-50"}`}>
+                <div className={`p-4 sm:p-6 rounded-xl inline-block ${result.difference >= 0 ? "bg-green-50 dark:bg-green-950" : "bg-red-50 dark:bg-red-950"}`}>
                   <p className="text-lg text-muted-foreground font-medium mb-2">Shift Berhasil Ditutup</p>
-                  <p className={`text-4xl font-bold ${result.difference >= 0 ? "text-green-600" : "text-red-600"}`}>
+                  <p className={`text-2xl sm:text-3xl font-bold ${result.difference >= 0 ? "text-green-600" : "text-red-600"}`}>
                     {result.difference >= 0 ? formatRp(result.difference) : `-${formatRp(Math.abs(result.difference))}`}
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">

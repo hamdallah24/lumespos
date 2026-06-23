@@ -229,11 +229,11 @@ function PengeluaranPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Deskripsi</label>
-              <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="cth. Beli es batu" autoFocus className="h-12 rounded-xl" />
+              <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="cth. Beli es batu" autoFocus className="h-10 rounded-xl" />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Jumlah (Rp)</label>
-              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="h-12 rounded-xl" />
+              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" className="h-10 rounded-xl" />
             </div>
             {canManage && (
               <div className="space-y-1.5">
@@ -241,7 +241,7 @@ function PengeluaranPage() {
                 <select
                   value={category}
                   onChange={(e) => setCategory(e.target.value)}
-                  className="w-full h-12 rounded-xl border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full h-10 rounded-xl border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/50"
                 >
                   {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
@@ -249,7 +249,7 @@ function PengeluaranPage() {
             )}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Catatan (opsional)</label>
-              <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tambahkan catatan..." className="h-12 rounded-xl" />
+              <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tambahkan catatan..." className="h-10 rounded-xl" />
             </div>
           </div>
           <DialogFooter>

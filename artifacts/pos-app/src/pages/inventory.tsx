@@ -177,7 +177,7 @@ function StockTab({ branchId }: { branchId: number }) {
           {!action ? (
             <div>
               <div className="p-5 text-center border-b border-border/50">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-3 ${
+                <div className={`w-12 h-10 rounded-2xl flex items-center justify-center mx-auto mb-3 ${
                   selectedItem && isLow(selectedItem) ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
                 }`}>
                   {selectedItem?.itemType === "semi_finished" ? <FlaskConical className="w-6 h-6" /> : <Package className="w-6 h-6" />}
@@ -248,23 +248,23 @@ function StockTab({ branchId }: { branchId: number }) {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Jumlah ({selectedItem?.unit})</label>
-                  <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" autoFocus className="h-12 rounded-xl" />
+                  <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" autoFocus className="h-10 rounded-xl" />
                 </div>
                 {action === "in" && (
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Total Harga Beli (Rp)</label>
-                    <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="cth. 150000" className="h-12 rounded-xl" />
+                    <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="cth. 150000" className="h-10 rounded-xl" />
                     <p className="text-[11px] text-muted-foreground">Dipakai menghitung HPP moving average.</p>
                   </div>
                 )}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Catatan (opsional)</label>
-                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tambahkan catatan..." className="h-12 rounded-xl" />
+                  <Input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Tambahkan catatan..." className="h-10 rounded-xl" />
                 </div>
               </div>
               <div className="p-4 pt-0 flex gap-2">
-                <Button variant="outline" className="flex-1 rounded-xl h-12" onClick={reset}>Batal</Button>
-                <Button className="flex-[2] rounded-xl h-12" onClick={submitAdj} disabled={createAdj.isPending}>
+                <Button variant="outline" className="flex-1 rounded-xl h-10" onClick={reset}>Batal</Button>
+                <Button className="flex-[2] rounded-xl h-10" onClick={submitAdj} disabled={createAdj.isPending}>
                   {createAdj.isPending ? "Menyimpan..." : "Simpan"}
                 </Button>
               </div>

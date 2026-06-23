@@ -287,7 +287,7 @@ export default function CashierPage() {
                     {product.imageUrl ? (
                       <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-background flex items-center justify-center text-muted-foreground font-bold text-lg md:text-2xl shadow-sm">
+                      <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-background flex items-center justify-center text-muted-foreground font-bold text-lg md:text-2xl shadow-sm">
                         {product.name.charAt(0)}
                       </div>
                     )}
@@ -308,7 +308,7 @@ export default function CashierPage() {
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-20">
-              <LayoutGrid className="w-12 h-12 mb-2 opacity-20" />
+              <LayoutGrid className="w-10 h-10 mb-2 opacity-20" />
               <p>Tidak ada produk ditemukan</p>
             </div>
           )}
@@ -392,7 +392,7 @@ export default function CashierPage() {
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-20 opacity-50">
-              <ShoppingBag className="w-12 h-12 mb-4" />
+              <ShoppingBag className="w-10 h-10 mb-4" />
               <p>Belum ada produk</p>
             </div>
           )}
@@ -430,10 +430,10 @@ export default function CashierPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-bold text-lg text-primary">{formatRp(cartTotal)}</span>
+                   <span className="font-bold text-base sm:text-lg text-primary">{formatRp(cartTotal)}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); setPaymentDialogOpen(true); }}
-                    className="h-12 px-6 rounded-xl bg-primary text-primary-foreground font-semibold text-sm shadow-lg shadow-primary/25 active:scale-95 transition-transform"
+                    className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-xs sm:text-sm shadow-lg shadow-primary/25 active:scale-95 transition-transform"
                   >
                     Bayar
                   </button>
@@ -485,7 +485,7 @@ export default function CashierPage() {
               </div>
             ) : (
               <div className="h-40 flex flex-col items-center justify-center text-muted-foreground">
-                <ShoppingBag className="w-12 h-12 mb-4 opacity-50" />
+                <ShoppingBag className="w-10 h-10 mb-4 opacity-50" />
                 <p>Belum ada produk di pesanan</p>
               </div>
             )}
@@ -494,12 +494,12 @@ export default function CashierPage() {
           <div className="p-4 border-t shrink-0 space-y-3 safe-bottom">
             <div className="flex justify-between items-end">
               <span className="text-muted-foreground text-sm">Total</span>
-              <span className="font-bold text-2xl text-primary">{formatRp(cartTotal)}</span>
+              <span className="font-bold text-xl text-primary">{formatRp(cartTotal)}</span>
             </div>
             <button
               onClick={() => { setCartOpen(false); setPaymentDialogOpen(true); }}
               disabled={cart.length === 0}
-              className="w-full h-14 text-lg font-bold rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 disabled:opacity-50 active:scale-[0.98] transition-transform"
+              className="w-full h-12 text-base font-bold rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 disabled:opacity-50 active:scale-[0.98] transition-transform"
             >
               Bayar Sekarang
             </button>
@@ -516,7 +516,7 @@ export default function CashierPage() {
           <div className="py-3 space-y-4">
             <div className="text-center p-4 bg-primary/5 rounded-2xl border border-primary/10">
               <p className="text-xs text-muted-foreground mb-1">Total Tagihan</p>
-              <p className="text-3xl font-bold text-primary">{formatRp(cartTotal)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-primary">{formatRp(cartTotal)}</p>
               {me && <p className="text-xs text-muted-foreground mt-1">Kasir: {me.name}</p>}
             </div>
 
@@ -534,7 +534,7 @@ export default function CashierPage() {
                       setPaymentMethod(key);
                       if (key !== "cash") setAmountPaidStr(cartTotal.toString());
                     }}
-                    className={`h-14 rounded-xl flex flex-col items-center justify-center gap-1 text-xs font-medium transition-colors touch-target ${paymentMethod === key ? "bg-primary text-primary-foreground shadow-sm" : "bg-accent text-muted-foreground"}`}
+                    className={`h-12 rounded-xl flex flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors touch-target ${paymentMethod === key ? "bg-primary text-primary-foreground shadow-sm" : "bg-accent text-muted-foreground"}`}
                   >
                     <Icon className="w-4 h-4" />
                     <span>{label}</span>

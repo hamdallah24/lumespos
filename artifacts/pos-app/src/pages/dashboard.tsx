@@ -462,7 +462,7 @@ export default function DashboardPage() {
               <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded-xl" />)}</div>
             ) : topProducts.length === 0 ? (
               <div className="py-6 text-center text-muted-foreground">
-                <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <ShoppingCart className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" />
                 <p className="text-sm">Belum ada data penjualan</p>
               </div>
             ) : (
@@ -551,7 +551,7 @@ export default function DashboardPage() {
               <div className="space-y-2">{[1,2,3].map((i) => <div key={i} className="h-12 bg-muted rounded-xl animate-pulse" />)}</div>
             ) : soldItems.length === 0 ? (
               <div className="py-6 text-center text-muted-foreground">
-                <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <ShoppingCart className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" />
                 <p className="text-sm">Belum ada data penjualan</p>
               </div>
             ) : (
@@ -579,7 +579,7 @@ export default function DashboardPage() {
               <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded-xl" />)}</div>
             ) : cashierPerf.length === 0 ? (
               <div className="py-6 text-center text-muted-foreground">
-                <Users className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <Users className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" />
                 <p className="text-sm">Belum ada data</p>
               </div>
             ) : (
