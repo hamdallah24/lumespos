@@ -558,8 +558,7 @@ function ProtectedApp() {
           {!canManage && <Route path="/products">{() => <Redirect to="/" />}</Route>}
           {!canManage && <Route path="/audits">{() => <Redirect to="/" />}</Route>}
           {!canManage && <Route path="/dashboard">{() => <Redirect to="/" />}</Route>}
-      <Route path="/sign-up/invite" component={GoogleInvitePage} />
-      <Route component={NotFound} />
+          <Route component={NotFound} />
         </Switch>
       </Layout>
     </BranchProvider>
@@ -582,6 +581,7 @@ function AppRoutes() {
       <Route path="/sign-in" component={() => <LoginForm mode="signin" />} />
       <Route path="/sign-up" component={() => <LoginForm mode="signup" />} />
       <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/sign-up/invite" component={GoogleInvitePage} />
       <Route component={NotFound} />
     </Switch>
   );
