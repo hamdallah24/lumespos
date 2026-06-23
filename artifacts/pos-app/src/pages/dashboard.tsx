@@ -264,7 +264,7 @@ export default function DashboardPage() {
   }
   return (
     <div className="flex flex-col h-full">
-      <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-2 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mx-3 mt-3">
+      <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-2 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mt-3">
         <h1 className="font-bold text-lg tracking-tight shrink-0">Dashboard</h1>
         <div className="flex items-center gap-2 ml-auto overflow-x-auto scrollbar-none">
           {/* Quick period */}

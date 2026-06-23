@@ -206,7 +206,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
       {/* Main content area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative lg:ml-[17.5rem]">
         {/* Mobile header */}
-        <div className="lg:hidden h-14 border-b border-[#1565FF]/10 px-4 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-30 rounded-2xl mx-3 mt-3">
+        <div className="lg:hidden h-14 border-b border-[#1565FF]/10 px-4 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-30 rounded-2xl mt-3">
           <button className="text-muted-foreground touch-target flex items-center justify-center" onClick={() => setSidebarOpen(true)}>
             <Menu size={22} />
           </button>
@@ -225,7 +225,8 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
         </div>
 
         {/* Page content */}
-        <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
+        <div className="flex-1 overflow-y-auto pb-20 lg:pb-0 px-3 sm:px-4">
+          <div className="w-full max-w-2xl mx-auto h-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={location}
@@ -238,6 +239,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
               {children}
             </motion.div>
           </AnimatePresence>
+          </div>
         </div>
 
         {/* Mobile bottom navigation */}
