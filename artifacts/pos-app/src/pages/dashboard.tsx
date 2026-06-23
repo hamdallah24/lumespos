@@ -40,11 +40,11 @@ function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
 }) {
   const isPositive = (diff ?? 0) >= 0;
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-2xl p-4">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-2xl p-3 sm:p-4">
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
-          <p className="text-xs text-muted-foreground font-medium">{title}</p>
-          <p className="text-xl font-bold mt-1 tracking-tight truncate">
+          <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">{title}</p>
+          <p className="text-lg font-bold mt-1 tracking-tight truncate">
             {format === "currency" ? formatRp(value) : value.toLocaleString("id-ID")}
           </p>
           {diff !== undefined && (
@@ -54,8 +54,8 @@ function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
             </div>
           )}
         </div>
-        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 ml-3">
-          <Icon className="w-5 h-5" />
+        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 ml-2 sm:ml-3">
+          <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
         </div>
       </div>
     </motion.div>
@@ -313,11 +313,11 @@ export default function DashboardPage() {
           {/* Grafik Penjualan — Glassmorphism top */}
           <div className="relative rounded-2xl overflow-hidden border border-[#1565FF]/20 shadow-lg">
             <div className="absolute inset-0 bg-gradient-to-br from-[#1565FF]/[0.12] via-[#1565FF]/[0.03] to-background/90 dark:to-[#071426]/90 backdrop-blur-xl" />
-            <div className="relative p-4">
-              <div className="flex items-center justify-between mb-3">
+            <div className="relative p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-2 sm:mb-3">
                 <div>
-                  <h2 className="text-sm font-semibold text-foreground">Grafik Penjualan</h2>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                  <h2 className="text-xs sm:text-sm font-semibold text-foreground">Grafik Penjualan</h2>
+                  <p className="text-[10px] sm:text-[11px] text-muted-foreground mt-0.5">
                     {new Date(startDate).toLocaleDateString("id-ID")} — {new Date(endDate).toLocaleDateString("id-ID")}
                   </p>
                 </div>
@@ -329,15 +329,15 @@ export default function DashboardPage() {
                   <p className="text-sm">Belum ada data penjualan</p>
                 </div>
               ) : (
-                <div className="h-48 lg:h-56">
-                  <div className="flex items-center gap-4 mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#1565FF" }} />
-                      <span className="text-xs font-medium text-foreground/80">Pendapatan</span>
+                <div className="h-44 sm:h-48 lg:h-56">
+                  <div className="flex items-center gap-3 sm:gap-4 mb-2 sm:mb-3">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full" style={{ backgroundColor: "#1565FF" }} />
+                      <span className="text-[10px] sm:text-xs font-medium text-foreground/80">Pendapatan</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "#EF4444" }} />
-                      <span className="text-xs font-medium text-foreground/80">Pengeluaran</span>
+                    <div className="flex items-center gap-1 sm:gap-1.5">
+                      <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full" style={{ backgroundColor: "#EF4444" }} />
+                      <span className="text-[10px] sm:text-xs font-medium text-foreground/80">Pengeluaran</span>
                     </div>
                     <div className="flex items-center gap-1 ml-auto">
                       {trendUp ? (
@@ -345,13 +345,13 @@ export default function DashboardPage() {
                       ) : (
                         <ArrowDownRight className="w-3.5 h-3.5 text-red-500" />
                       )}
-                      <span className={`text-xs font-medium ${trendUp ? "text-green-500" : "text-red-500"}`}>
+                      <span className={`text-[10px] sm:text-xs font-medium ${trendUp ? "text-green-500" : "text-red-500"}`}>
                         {trendUp ? "Meningkat" : "Menurun"}
                       </span>
                     </div>
                   </div>
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={formattedChart} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                    <AreaChart data={formattedChart} margin={{ top: 4, right: 0, left: -10, bottom: 0 }}>
                       <defs>
                         <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#1565FF" stopOpacity={0.15} />
@@ -456,8 +456,8 @@ export default function DashboardPage() {
 
 
           {/* Produk Terlaris */}
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <h2 className="text-sm font-semibold mb-3">Produk Terlaris</h2>
+          <div className="bg-card border border-border rounded-2xl p-3 sm:p-4">
+            <h2 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3">Produk Terlaris</h2>
             {loadingTop ? (
               <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded-xl" />)}</div>
             ) : topProducts.length === 0 ? (
@@ -471,18 +471,18 @@ export default function DashboardPage() {
                   const maxSold = (topProducts as any[])[0]?.totalSold ?? 1;
                   const pct = (p.totalSold / maxSold) * 100;
                   return (
-                    <div key={p.productId} className="flex items-center gap-3">
-                      <span className={`w-5 text-center text-sm font-bold ${idx === 0 ? "text-primary" : "text-muted-foreground"}`}>{idx + 1}</span>
+                    <div key={p.productId} className="flex items-center gap-2 sm:gap-3">
+                      <span className={`w-4 sm:w-5 text-center text-xs sm:text-sm font-bold ${idx === 0 ? "text-primary" : "text-muted-foreground"}`}>{idx + 1}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm font-medium truncate">{p.productName}</span>
-                          <span className="text-xs text-muted-foreground ml-2 shrink-0">{p.totalSold} terjual</span>
+                        <div className="flex justify-between items-center mb-0.5 sm:mb-1">
+                          <span className="text-xs sm:text-sm font-medium truncate">{p.productName}</span>
+                          <span className="text-[10px] sm:text-xs text-muted-foreground ml-2 shrink-0">{p.totalSold} terjual</span>
                         </div>
                         <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                           <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
                         </div>
                       </div>
-                      <span className="text-xs font-semibold text-primary shrink-0">{formatRp(p.totalRevenue)}</span>
+                      <span className="text-[10px] sm:text-xs font-semibold text-primary shrink-0">{formatRp(p.totalRevenue)}</span>
                     </div>
                   );
                 })}
@@ -491,47 +491,47 @@ export default function DashboardPage() {
           </div>
 
           {/* Kas Masuk/Keluar & Laporan Keuangan */}
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold">
+          <div className="bg-card border border-border rounded-2xl p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-2 sm:mb-3">
+              <h2 className="text-xs sm:text-sm font-semibold">
                 Keuangan
-                {isAllBranches && <span className="ml-2 text-primary text-xs">Semua Cabang</span>}
+                {isAllBranches && <span className="ml-1 sm:ml-2 text-primary text-[10px] sm:text-xs">Semua Cabang</span>}
               </h2>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[10px] sm:text-[11px] text-muted-foreground">
                 {new Date(startDate).toLocaleDateString("id-ID")} — {new Date(endDate).toLocaleDateString("id-ID")}
               </span>
             </div>
             {loadingFinancial ? (
               <div className="grid grid-cols-2 gap-3">{[1,2,3,4].map((i) => <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />)}</div>
             ) : financial ? (
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-accent/50 rounded-xl p-3">
-                  <p className="text-xs text-muted-foreground">Pendapatan</p>
-                  <p className="text-base font-bold mt-1">{formatRp(financial?.grossRevenue ?? 0)}</p>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Pendapatan</p>
+                  <p className="text-sm sm:text-base font-bold mt-1">{formatRp(financial?.grossRevenue ?? 0)}</p>
                 </div>
-                <div className="bg-accent/50 rounded-xl p-3">
-                  <p className="text-xs text-muted-foreground">HPP (COGS)</p>
-                  <p className="text-base font-bold mt-1">{formatRp(financial?.totalCogs ?? 0)}</p>
+                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">HPP (COGS)</p>
+                  <p className="text-sm sm:text-base font-bold mt-1">{formatRp(financial?.totalCogs ?? 0)}</p>
                 </div>
-                <div className="bg-accent/50 rounded-xl p-3">
-                  <p className="text-xs text-muted-foreground">Laba Kotor</p>
-                  <p className="text-base font-bold mt-1 text-green-600">{formatRp(financial?.grossProfit ?? 0)}</p>
+                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Laba Kotor</p>
+                  <p className="text-sm sm:text-base font-bold mt-1 text-green-600">{formatRp(financial?.grossProfit ?? 0)}</p>
                 </div>
-                <div className="bg-accent/50 rounded-xl p-3">
-                  <p className="text-xs text-muted-foreground">Margin Kotor</p>
-                  <p className="text-base font-bold mt-1">{(financial?.grossMarginPct ?? 0).toFixed(1)}%</p>
+                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Margin Kotor</p>
+                  <p className="text-sm sm:text-base font-bold mt-1">{(financial?.grossMarginPct ?? 0).toFixed(1)}%</p>
                 </div>
-                <div className="bg-accent/50 rounded-xl p-3">
-                  <p className="text-xs text-muted-foreground">Pengeluaran</p>
-                  <p className="text-base font-bold mt-1 text-red-500">{formatRp(financial?.totalExpenses ?? 0)}</p>
+                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Pengeluaran</p>
+                  <p className="text-sm sm:text-base font-bold mt-1 text-red-500">{formatRp(financial?.totalExpenses ?? 0)}</p>
                 </div>
-                <div className="bg-accent/50 rounded-xl p-3">
-                  <p className="text-xs text-muted-foreground">Laba Bersih</p>
-                  <p className="text-base font-bold mt-1 text-green-600">{formatRp(financial?.netProfit ?? 0)}</p>
+                <div className="bg-accent/50 rounded-xl p-2.5 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Laba Bersih</p>
+                  <p className="text-sm sm:text-base font-bold mt-1 text-green-600">{formatRp(financial?.netProfit ?? 0)}</p>
                 </div>
-                <div className="col-span-2 bg-accent/50 rounded-xl p-3">
-                  <p className="text-xs text-muted-foreground">Margin Bersih</p>
-                  <p className="text-base font-bold mt-1">{(financial?.netMarginPct ?? 0).toFixed(1)}%</p>
+                <div className="col-span-2 bg-accent/50 rounded-xl p-2.5 sm:p-3">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground">Margin Bersih</p>
+                  <p className="text-sm sm:text-base font-bold mt-1">{(financial?.netMarginPct ?? 0).toFixed(1)}%</p>
                 </div>
               </div>
             ) : null}
@@ -540,9 +540,9 @@ export default function DashboardPage() {
 
 
           {/* Aktivitas Terbaru — Barang Terjual */}
-          <div className="bg-card border border-border rounded-2xl p-4">
-            <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
-              <ShoppingCart className="w-4 h-4" />
+          <div className="bg-card border border-border rounded-2xl p-3 sm:p-4">
+            <h2 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-2">
+              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               Aktivitas Penjualan
               {isAllBranches && <Badge variant="secondary" className="text-xs ml-1 rounded-full">Semua Cabang</Badge>}
             </h2>
@@ -558,12 +558,12 @@ export default function DashboardPage() {
               <div className="space-y-2">
                 {soldItems.slice(0, 10).map((item, idx) => (
                   <div key={`${item.productId}-${item.variantId ?? 'default'}-${idx}`}
-                    className="flex items-center justify-between p-3 bg-accent/30 rounded-xl">
+                    className="flex items-center justify-between p-2.5 sm:p-3 bg-accent/30 rounded-xl">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{item.productName}</p>
-                      <p className="text-xs text-muted-foreground">{item.variantName ?? "Reguler"} · {item.totalSold} terjual</p>
+                      <p className="text-xs sm:text-sm font-medium truncate">{item.productName}</p>
+                      <p className="text-[10px] sm:text-xs text-muted-foreground">{item.variantName ?? "Reguler"} · {item.totalSold} terjual</p>
                     </div>
-                    <span className="text-sm font-semibold text-primary ml-3">{formatRp(item.totalRevenue)}</span>
+                    <span className="text-xs sm:text-sm font-semibold text-primary ml-2 sm:ml-3">{formatRp(item.totalRevenue)}</span>
                   </div>
                 ))}
               </div>
