@@ -33,12 +33,12 @@ sudo apt install nginx -y
 
 # 6. Navigate to project
 echo "[6/9] 📁 Installing dependencies..."
-cd ~/pos-app
+cd ~/lumespos
 pnpm install
 
 # 7. Build only what's needed
-echo "[7/9] 🔨 Building project (api-server + pos-app)..."
-pnpm --filter ./artifacts/api-server --filter ./artifacts/pos-app run build
+echo "[7/9] 🔨 Building project (api-server + lumespos)..."
+pnpm --filter ./artifacts/api-server --filter ./artifacts/lumespos run build
 echo "   Build complete!"
 
 # 8. Setup nginx
@@ -49,7 +49,7 @@ server {
     server_name 43.157.227.205;
 
     # Frontend static files
-    root /home/ubuntu/pos-app/artifacts/pos-app/dist;
+    root /home/ubuntu/lumespos/artifacts/lumespos/dist;
     index index.html;
 
     location / {
@@ -81,7 +81,7 @@ echo "[9/9] 🚀 Starting API server..."
 pnpm add -w dotenv
 pm2 delete pos-api 2>/dev/null || true
 pm2 start dist/index.mjs --name pos-api \
-  --cwd /home/ubuntu/pos-app/artifacts/api-server \
+  --cwd /home/ubuntu/lumespos/artifacts/api-server \
   --node-args="-r dotenv/config --enable-source-maps"
 pm2 save
 pm2 startup
