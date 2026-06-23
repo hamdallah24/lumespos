@@ -1,0 +1,260 @@
+{
+  "name": "CTO Agent - Lume's Everywhere (FIXED)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "14a86541-69ee-4ba0-8f46-51ed774a8dbb",
+      "name": "Think",
+      "type": "@n8n/n8n-nodes-langchain.toolThink",
+      "position": [128, 672],
+      "typeVersion": 1.1
+    },
+    {
+      "parameters": {
+        "toolDescription": "=Gunakan untuk membaca isi file di repository GitHub.\nInput: path file relatif (contoh: artifacts/pos-app/src/App.tsx)\nRepository: hamdallah24/pos-app branch Staging",
+        "url": "=https://api.github.com/repos/hamdallah24/pos-app/contents/{{ $fromAI('path') }}?ref=Staging",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github.v3.raw" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [256, 672],
+      "id": "ac93a68d-d7c4-4930-bdfa-6f2f37a0bc85",
+      "name": "github_read_file",
+      "credentials": { "httpBearerAuth": { "id": "O6uVngt5buq6gMMf", "name": "GitHub PAT" } }
+    },
+    {
+      "parameters": {
+        "toolDescription": "=Gunakan untuk melihat daftar file dan folder di repository GitHub.\nInput: path folder (contoh: artifacts/pos-app/src atau kosongkan untuk root)\nRepository: hamdallah24/pos-app branch Staging",
+        "url": "=https://api.github.com/repos/hamdallah24/pos-app/contents/{{ $fromAI('path') }}?ref=Staging",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBearerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Accept", "value": "application/vnd.github.v3+json" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [512, 672],
+      "id": "bf7acaad-b94a-40e2-9f81-8f54444c48c2",
+      "name": "github_list_directory",
+      "credentials": { "httpBearerAuth": { "id": "O6uVngt5buq6gMMf", "name": "GitHub PAT" } }
+    },
+    {
+      "parameters": {
+        "model": { "__rl": true, "value": "deepseek-v4-flash", "mode": "list", "cachedResultName": "DEEPSEEK-V4-FLASH" },
+        "options": {}
+      },
+      "id": "f091a7d8-4390-4093-9ba1-59eb49fb59b9",
+      "name": "DeepSeek Chat Model (Flash)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [16, 672],
+      "typeVersion": 1.2,
+      "credentials": { "openAiApi": { "id": "a6DMiTwRmzjqacwH", "name": "OpenAI/DeepSeek API" } }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $json.telegram_chat_id || $json.chat_id || '7218843690' }}",
+        "collectionName": "Memory",
+        "databaseName": "CLevelAgent",
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryMongoDbChat",
+      "typeVersion": 1.1,
+      "position": [-128, 672],
+      "id": "262894f2-1c3d-4a02-b745-650961f5b369",
+      "name": "MongoDB Chat Memory",
+      "credentials": { "mongoDb": { "id": "jcufsOhjW9TwWu9Y", "name": "MongoDB" } }
+    },
+    {
+      "parameters": {
+        "description": "=Gunakan tool ini SETELAH kamu menganalisis masalah dan user sudah menyetujui proposal perubahan.\n\nWAJIB isi parameter:\n- user_message: instruksi teknis detail\n- repo_owner: selalu \"hamdallah24\"\n- repo_name: selalu \"pos-app\"\n- branch: selalu \"Staging\"\n- chat_id: ID Telegram user",
+        "workflowId": { "__rl": true, "value": "86eCJ8nbprRs0CUW", "mode": "list", "cachedResultUrl": "/workflow/86eCJ8nbprRs0CUW", "cachedResultName": "Code Generator Stage 4" },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "user_message": "={{ $json.user_message || $json.text }}",
+            "repo_owner": "hamdallah24",
+            "repo_name": "pos-app",
+            "branch": "Staging",
+            "chat_id": "={{ String($json.chat_id || '7218843690') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "user_message", "displayName": "user_message", "type": "string", "required": false },
+            { "id": "repo_owner", "displayName": "repo_owner", "type": "string", "required": false },
+            { "id": "repo_name", "displayName": "repo_name", "type": "string", "required": false },
+            { "id": "branch", "displayName": "branch", "type": "string", "required": false },
+            { "id": "chat_id", "displayName": "chat_id", "type": "string", "required": false }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [624, 672],
+      "id": "bbf5cb76-df73-4b3e-bc98-2eb8da0dc5cf",
+      "name": "Code Generator (Stage 4)"
+    },
+    {
+      "parameters": {
+        "description": "=Gunakan untuk mendelegasikan ke Sub-Agent spesialis. Pilih skill_file sesuai domain.\n\nSkill file: Securityskill.md | devopsskill.md | qaskill.md | softwarearchitectskill.md\n\nWAJIB isi: skill_file, task_description (teknis & jelas)\n\nParameter otomatis: repo_owner=hamdallah24, repo_name=pos-app, branch=Staging",
+        "workflowId": { "__rl": true, "value": "RV5wbuCzWhbGS3Nf", "mode": "list", "cachedResultUrl": "/workflow/RV5wbuCzWhbGS3Nf", "cachedResultName": "Dynamic Specialist" },
+        "workflowInputs": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "repo_owner": "hamdallah24",
+            "repo_name": "pos-app",
+            "branch": "Staging",
+            "telegram_chat_id": "={{ String($json.chat_id || '7218843690') }}",
+            "task_description": "={{ $json.task_description }}",
+            "skill_file": "={{ $json.skill_file || 'softwarearchitectskill.md' }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            { "id": "skill_file", "displayName": "skill_file", "type": "string", "required": false },
+            { "id": "task_description", "displayName": "task_description", "type": "string", "required": false },
+            { "id": "repo_owner", "displayName": "repo_owner", "type": "string", "required": false },
+            { "id": "repo_name", "displayName": "repo_name", "type": "string", "required": false },
+            { "id": "branch", "displayName": "branch", "type": "string", "required": false },
+            { "id": "telegram_chat_id", "displayName": "telegram_chat_id", "type": "string", "required": false }
+          ]
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+      "typeVersion": 2.2,
+      "position": [384, 672],
+      "id": "b652bffb-eae1-4844-948f-6e817dce4ba7",
+      "name": "Dynamic Specialist"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text || $json.chatInput || 'Tidak ada pesan' }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Anda adalah CTO Agent untuk POS App Lume's Everywhere — Stack: React+Vite+Tailwind, Express+Drizzle+PostgreSQL (Neon), PM2+Nginx di Ubuntu 22.04 VPS.\n\nPERAN\nAnda TIDAK menulis kode. Tugas Anda: pahami permintaan → delegasikan ke tool yang tepat → evaluasi hasil → minta persetujuan user untuk aksi destruktif.\n\n⚠️ GUARDLINE — WAJIB DIPATUHI (priority di atas segalanya)\n1. Untuk commit/deploy/delete: WAJIB berikan analisis + daftar file yang akan diubah + alasan. Akhiri dengan: \"Lanjutkan commit? Balas: SETUJU / TIDAK SETUJU\"\n2. JANGAN PERNAH commit atau deploy tanpa kata SETUJU dari user.\n3. Jika user TIDAK SETUJU, berhenti dan tawarkan revisi.\n\nROUTING\n- Baca file (contoh: \"baca package.json\") → gunakan github_read_file\n- Lihat struktur folder → github_list_directory\n- Analisis teknis → Dynamic Specialist (pilih skill_file yang relevan)\n- Setelah user SETUJU → Code Generator\n\nBAHASA\nIndonesia, ringkas, profesional. Maks 3000 karakter.\n\nPEMILIHAN SKILL\n- Security → Securityskill.md\n- DevOps/deploy/server → devopsskill.md\n- QA/testing/bug → qaskill.md\n- Fitur/refactor/arsitektur → softwarearchitectskill.md",
+          "maxIterations": 3
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [176, 400],
+      "id": "b5dbd6c3-416d-4161-8793-58cea17fd04d",
+      "name": "CTO_Agent",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.3,
+      "position": [-400, 384],
+      "id": "dc9f79eb-64ab-43da-8008-5e1a5fd059e4",
+      "name": "Telegram Trigger",
+      "webhookId": "c90da280-1312-4351-8642-ae96168ab91a",
+      "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n-duatuonaiw0g.jkt6.sumopod.my.id/webhook/logger-v1",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "={{ $json.message.chat.id }}" },
+            { "name": "level", "value": "SUCCESS" },
+            { "name": "agent", "value": "CTO" },
+            { "name": "message", "value": "={{ '✅ Selesai. ' + ($json.output || '').substring(0, 200) }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [496, 400],
+      "id": "55295c23-edb5-4c5c-847b-2c8c0a5fc0ff",
+      "name": "Log success"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://n8n-duatuonaiw0g.jkt6.sumopod.my.id/webhook/logger-v1",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "chat_id", "value": "={{ $json.chat_id }}" },
+            { "name": "level", "value": "={{ $json.level }}" },
+            { "name": "agent", "value": "={{ $json.agent }}" },
+            { "name": "message", "value": "={{ $json.message }}" }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [-128, 384],
+      "id": "b4854e93-4cc4-4a9b-941e-a08be242e6e3",
+      "name": "INFO",
+      "retryOnFail": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = $json.message?.chat?.id || '7218843690';\nconst messageText = $json.message?.text || '';\n\nreturn [{\n  json: {\n    chat_id: chatId,\n    level: 'INFO',\n    agent: 'CTO',\n    message: `📥 Task diterima: ${messageText.substring(0, 100)}`,\n    text: messageText\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-272, 384],
+      "id": "8ed4091d-7a64-4d9f-8f1a-22dc893214f3",
+      "name": "Parse Telegram Input"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || $json.telegram_chat_id || '7218843690' }}",
+        "text": "={{ $json.output || $json.message || JSON.stringify($json).substring(0, 3000) }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [640, 400],
+      "id": "24e1c1cd-ffc6-48cd-8027-d6f821da90b7",
+      "name": "Reply via Telegram",
+      "webhookId": "c9612f18-4d93-467b-915f-90ef24a61788",
+      "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+    }
+  ],
+  "connections": {
+    "Think": { "ai_tool": [[{ "node": "CTO_Agent", "type": "ai_tool", "index": 0 }]] },
+    "github_read_file": { "ai_tool": [[{ "node": "CTO_Agent", "type": "ai_tool", "index": 0 }]] },
+    "github_list_directory": { "ai_tool": [[{ "node": "CTO_Agent", "type": "ai_tool", "index": 0 }]] },
+    "DeepSeek Chat Model (Flash)": { "ai_languageModel": [[{ "node": "CTO_Agent", "type": "ai_languageModel", "index": 0 }]] },
+    "MongoDB Chat Memory": { "ai_memory": [[{ "node": "CTO_Agent", "type": "ai_memory", "index": 0 }]] },
+    "Code Generator (Stage 4)": { "ai_tool": [[{ "node": "CTO_Agent", "type": "ai_tool", "index": 0 }]] },
+    "Dynamic Specialist": { "ai_tool": [[{ "node": "CTO_Agent", "type": "ai_tool", "index": 0 }]] },
+    "CTO_Agent": { "main": [[{ "node": "Log success", "type": "main", "index": 0 }]] },
+    "Telegram Trigger": { "main": [[{ "node": "Parse Telegram Input", "type": "main", "index": 0 }]] },
+    "Log success": { "main": [[{ "node": "Reply via Telegram", "type": "main", "index": 0 }]] },
+    "INFO": { "main": [[{ "node": "CTO_Agent", "type": "main", "index": 0 }]] },
+    "Parse Telegram Input": { "main": [[{ "node": "INFO", "type": "main", "index": 0 }, { "node": "CTO_Agent", "type": "main", "index": 0 }]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate", "availableInMCP": false },
+  "versionId": "v2-fixed-cto-agent",
+  "meta": { "templateCredsSetupCompleted": true },
+  "id": "W4oIbAiNz2GUw6Mb",
+  "tags": [{ "name": "CTO", "color": "#1565FF" }, { "name": "production", "color": "#00B341" }]
+}

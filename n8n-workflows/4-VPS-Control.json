@@ -1,0 +1,175 @@
+{
+  "name": "VPS Control - Deploy, Monitor, Report",
+  "nodes": [
+    {
+      "parameters": { "updates": ["message"], "additionalFields": {} },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.3,
+      "position": [-800, 400],
+      "id": "vps-trigger-tg",
+      "name": "Telegram Trigger",
+      "webhookId": "vps-control-telegram",
+      "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "minutes", "minutesInterval": 5 } ] }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [-800, 600],
+      "id": "vps-cron",
+      "name": "Cron: Every 5 min"
+    },
+    {
+      "parameters": {
+        "rule": { "interval": [ { "field": "hours", "hoursInterval": 24, "triggerAtHour": 22, "triggerAtMinute": 0 } ] }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [-800, 800],
+      "id": "vps-cron-daily",
+      "name": "Cron: Daily 22:00"
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = ($json.message?.text || '').trim().toLowerCase();\nlet command = 'unknown';\nif (msg.startsWith('/deploy') || msg === 'deploy') command = 'deploy';\nelse if (msg.startsWith('/status') || msg === 'status') command = 'status';\nelse if (msg.startsWith('/restart') || msg === 'restart') command = 'restart';\nelse if (msg.startsWith('/logs') || msg === 'logs') command = 'logs';\nelse if (msg.startsWith('/health') || msg === 'health') command = 'health';\nconst chatId = $json.message?.chat?.id || '7218843690';\nreturn [{ json: { command, chat_id: chatId, original: msg } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 400],
+      "id": "vps-parse-cmd",
+      "name": "Parse Command"
+    },
+    {
+      "parameters": {
+        "conditions": { "options": {}, "conditions": [{"id":"1","leftValue":"={{ $json.command }}","rightValue":"unknown","operator":{"type":"string","operation":"notEquals"}}], "combinator":"and" }
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-320, 400],
+      "id": "vps-if-valid",
+      "name": "IF Valid Command?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const cmd = $input.first().json.command;\nlet sshCmd = '';\nlet label = '';\n\nswitch (cmd) {\n  case 'deploy':\n    sshCmd = 'cd ~/lumespos && git pull origin Staging && pnpm --filter ./artifacts/pos-app --filter ./artifacts/api-server run build && cp $(find node_modules -name \"table.sql\" -path \"*connect-pg*\" | head -1) artifacts/api-server/dist/ && pm2 restart pos-api && sleep 2 && curl -s http://127.0.0.1:3000/api/health';\n    label = 'Deploy';\n    break;\n  case 'status':\n    sshCmd = 'echo \"=== PM2 ===\" && pm2 status && echo \"\" && echo \"=== RAM ===\" && free -m && echo \"\" && echo \"=== DISK ===\" && df -h / && echo \"\" && echo \"=== UPTIME ===\" && uptime && echo \"\" && echo \"=== HEALTH ===\" && curl -s -o /dev/null -w \"HTTP %{http_code}\" http://127.0.0.1:3000/api/health';\n    label = 'Status';\n    break;\n  case 'restart':\n    sshCmd = 'pm2 restart pos-api && sleep 2 && pm2 status';\n    label = 'Restart';\n    break;\n  case 'logs':\n    sshCmd = 'pm2 logs pos-api --lines 30 --nostream';\n    label = 'Logs';\n    break;\n  case 'health':\n    sshCmd = 'curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:3000/api/health';\n    label = 'Health';\n    break;\n}\n\nconst chatId = $input.first().json.chat_id || '7218843690';\nreturn [{ json: { command: cmd, ssh_cmd: sshCmd, label: label, chat_id: chatId } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, 400],
+      "id": "vps-build-cmd",
+      "name": "Build SSH Command"
+    },
+    {
+      "parameters": {
+        "command": "={{ $json.ssh_cmd }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.ssh",
+      "typeVersion": 1,
+      "position": [160, 400],
+      "id": "vps-ssh-exec",
+      "name": "SSH Execute",
+      "credentials": { "sshPassword": { "id": "SSH_VPS_CRED", "name": "VPS SSH (43.157.227.205)" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || '7218843690' }}",
+        "text": "={{ $json.label }} Result:\n\n```\n{{ $json.stdout || $json.result || 'no output' }}\n```",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [400, 400],
+      "id": "vps-notify",
+      "name": "Reply via Telegram",
+      "webhookId": "vps-notify-webhook",
+      "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || '7218843690' }}",
+        "text": "⛔ Command tidak dikenal. Gunakan: /deploy, /status, /restart, /logs, /health",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [-80, 560],
+      "id": "vps-unknown",
+      "name": "Reply: Unknown Command",
+      "webhookId": "vps-unknown-webhook",
+      "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    command: 'health',\n    ssh_cmd: 'curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:3000/api/health',\n    label: 'Auto Health Check',\n    chat_id: '7218843690'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 600],
+      "id": "vps-auto-health",
+      "name": "Auto Health Check"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    command: 'daily_report',\n    ssh_cmd: 'echo \"=== SALES TODAY ===\" && curl -s http://127.0.0.1:3000/api/dashboard/summary && echo \"\" && echo \"=== PM2 STATUS ===\" && pm2 status && echo \"\" && echo \"=== DISK ===\" && df -h / | tail -1',\n    label: 'Daily Report',\n    chat_id: '7218843690'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 800],
+      "id": "vps-daily-report",
+      "name": "Daily Report"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || '7218843690' }}",
+        "text": "⚠️ Auto Health: {{ $json.stdout || 'no output' }} — jika bukan 200, server mungkin down",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [160, 600],
+      "id": "vps-health-reply",
+      "name": "Health Result",
+      "webhookId": "vps-health-webhook",
+      "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id || '7218843690' }}",
+        "text": "=📊 LAPORAN HARIAN\n\n{{ $json.stdout || 'no output' }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [160, 800],
+      "id": "vps-daily-reply",
+      "name": "Daily Report Result",
+      "webhookId": "vps-daily-webhook",
+      "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": { "main": [[{"node":"Parse Command","type":"main","index":0}]] },
+    "Parse Command": { "main": [[{"node":"IF Valid Command?","type":"main","index":0}]] },
+    "IF Valid Command?": {
+      "main": [
+        [{ "node": "Build SSH Command", "type": "main", "index": 0 }],
+        [{ "node": "Reply: Unknown Command", "type": "main", "index": 0 }]
+      ]
+    },
+    "Build SSH Command": { "main": [[{"node":"SSH Execute","type":"main","index":0}]] },
+    "SSH Execute": { "main": [[{"node":"Reply via Telegram","type":"main","index":0}]] },
+    "Cron: Every 5 min": { "main": [[{"node":"Auto Health Check","type":"main","index":0}]] },
+    "Auto Health Check": { "main": [[{"node":"SSH Execute","type":"main","index":0}],[{"node":"Health Result","type":"main","index":0}]] },
+    "Cron: Daily 22:00": { "main": [[{"node":"Daily Report","type":"main","index":0}]] },
+    "Daily Report": { "main": [[{"node":"SSH Execute","type":"main","index":0}],[{"node":"Daily Report Result","type":"main","index":0}]] }
+  },
+  "active": true,
+  "settings": { "executionOrder": "v1", "binaryMode": "separate" },
+  "versionId": "v1-vps-control",
+  "meta": { "templateCredsSetupCompleted": true },
+  "id": "VPS-CONTROL-LUMES",
+  "tags": [{ "name": "VPS", "color": "#FF5722" }, { "name": "production", "color": "#00B341" }]
+}
