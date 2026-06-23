@@ -30,7 +30,7 @@ import {
   TrendingUp, TrendingDown, ShoppingCart, Package,
   AlertTriangle, Banknote, Users, Wallet, Receipt,
   Percent, FlaskConical, Building2, LayoutGrid,
-  ArrowUpRight, ArrowDownRight,
+  ArrowUpRight, ArrowDownRight, ChevronRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
