@@ -51,7 +51,7 @@ server {
     server_name 43.157.227.205;
 
     # Frontend static files
-    root /home/ubuntu/lumespos/artifacts/pos-app/dist/public;
+    root /home/ubuntu/lumespos/artifacts/pos-app;
     index index.html;
 
     location / {
