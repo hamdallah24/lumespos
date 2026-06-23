@@ -40,7 +40,7 @@ function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
 }) {
   const isPositive = (diff ?? 0) >= 0;
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-2xl p-3 sm:p-4">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="native-card">
       <div className="flex items-start justify-between">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] sm:text-xs text-muted-foreground font-medium">{title}</p>
@@ -309,11 +309,10 @@ export default function DashboardPage() {
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-4 lg:p-6 space-y-4">
-          {/* Grafik Penjualan — Glassmorphism top */}
-          <div className="relative rounded-2xl overflow-hidden border border-[#1565FF]/20 shadow-lg">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1565FF]/[0.12] via-[#1565FF]/[0.03] to-background/90 dark:to-[#071426]/90 backdrop-blur-xl" />
-            <div className="relative p-3 sm:p-4">
+        <div className="space-y-3 pb-2">
+          {/* Grafik Penjualan */}
+          <div className="native-card overflow-hidden">
+            <div className="p-3 sm:p-4">
               <div className="flex items-center justify-between mb-2 sm:mb-3">
                 <div>
                   <h2 className="text-xs sm:text-sm font-semibold text-foreground">Grafik Penjualan</h2>
@@ -400,7 +399,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Stock Ticker — compact scrolling low stock */}
-          <div className="relative rounded-2xl overflow-hidden border border-destructive/20 bg-destructive/[0.02]">
+          <div className="native-card bg-destructive/[0.02]">
             <div className="flex items-center gap-2 px-3 py-2 border-b border-destructive/10">
               <AlertTriangle className="w-3.5 h-3.5 text-destructive shrink-0" />
               <span className="text-xs font-semibold text-destructive">Stok Menipis</span>
@@ -456,7 +455,7 @@ export default function DashboardPage() {
 
 
           {/* Produk Terlaris */}
-          <div className="bg-card border border-border rounded-2xl p-3 sm:p-4">
+          <div className="native-card">
             <h2 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3">Produk Terlaris</h2>
             {loadingTop ? (
               <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse rounded-xl" />)}</div>
@@ -491,7 +490,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Kas Masuk/Keluar & Laporan Keuangan */}
-          <div className="bg-card border border-border rounded-2xl p-3 sm:p-4">
+          <div className="native-card">
             <div className="flex items-center justify-between mb-2 sm:mb-3">
               <h2 className="text-xs sm:text-sm font-semibold">
                 Keuangan
@@ -540,7 +539,7 @@ export default function DashboardPage() {
 
 
           {/* Aktivitas Terbaru — Barang Terjual */}
-          <div className="bg-card border border-border rounded-2xl p-3 sm:p-4">
+          <div className="native-card">
             <h2 className="text-xs sm:text-sm font-semibold mb-2 sm:mb-3 flex items-center gap-2">
               <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               Aktivitas Penjualan
@@ -571,7 +570,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Performa Kasir */}
-          <div className="bg-card border border-border rounded-2xl p-4">
+          <div className="native-card">
             <h2 className="text-sm font-semibold mb-3 flex items-center gap-2">
               <Users className="w-4 h-4" /> Performa Kasir
             </h2>
