@@ -128,7 +128,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
       {/* Desktop sidebar — floating glass panel */}
       <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:shrink-0 lg:fixed lg:left-3 lg:top-3 lg:bottom-3 lg:rounded-2xl bg-gradient-to-b from-[#1565FF]/[0.10] via-[#0A1F44]/[0.04] to-[#0A1F44]/[0.02] backdrop-blur-xl border border-[#1565FF]/20 shadow-lg shadow-[#1565FF]/5 text-foreground dark:from-[#0A1F44] dark:via-[#0A1F44]/95 dark:to-[#0A1F44] dark:border-white/[0.06]">
         <div className="h-16 flex items-center px-6 border-b border-[#1565FF]/10 dark:border-white/[0.06] gap-3">
-          <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25">
             L
           </div>
           <div className="flex flex-col">
@@ -205,18 +205,21 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
 
       {/* Main content area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative lg:ml-[17.5rem] min-h-dvh">
-        {/* Mobile header — 72px Apple-style */}
-        <div className="lg:hidden h-[72px] border-b border-slate-100 dark:border-slate-800 px-4 flex items-center shrink-0 sticky top-0 z-30 bg-white/90 dark:bg-[#0F1D32]/90 backdrop-blur-xl">
-          <button className="w-10 h-10 flex items-center justify-center text-slate-600 dark:text-slate-400" onClick={() => setSidebarOpen(true)}>
+        {/* Mobile header — Premium Glassmorphism */}
+        <div className="lg:hidden h-[72px] border-b border-[#1565FF]/10 px-4 flex items-center shrink-0 sticky top-0 z-30 bg-gradient-to-br from-[#1565FF]/[0.06] via-white/95 to-white/95 backdrop-blur-xl shadow-sm dark:from-[#0A1F44]/90 dark:via-[#0A1F44]/95 dark:to-[#071426]/95 dark:border-white/[0.06]">
+          <button className="w-10 h-10 rounded-xl hover:bg-[#1565FF]/5 active:scale-90 transition-all flex items-center justify-center text-slate-500 dark:text-slate-400" onClick={() => setSidebarOpen(true)}>
             <Menu size={24} />
           </button>
-          <div className="flex-1 flex items-center justify-center">
-            <div className="w-10 h-10 rounded-full bg-[#2563EB] flex items-center justify-center text-white font-bold text-sm shadow-md shadow-[#2563EB]/30">
+          <div className="flex-1 flex items-center justify-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25">
               L
             </div>
-            <span className="ml-2 font-bold text-lg text-slate-800 dark:text-slate-200">Lume's</span>
+            <div className="flex flex-col">
+              <span className="font-bold text-lg tracking-tight leading-tight text-slate-800 dark:text-white">Lume's</span>
+              <span className="text-[10px] text-slate-400 dark:text-white/60 font-medium">Everywhere</span>
+            </div>
           </div>
-          <button onClick={toggleTheme} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400">
+          <button onClick={toggleTheme} className="w-10 h-10 rounded-xl hover:bg-[#1565FF]/5 dark:hover:bg-white/5 active:scale-90 transition-all flex items-center justify-center text-slate-500 dark:text-slate-400">
             {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
           </button>
         </div>
