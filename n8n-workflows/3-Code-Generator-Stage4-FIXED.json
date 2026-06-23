@@ -1251,7 +1251,18 @@
   ],
   "pinData": {},
   "connections": {
-    "Normalize Input": {
+    "d151ccee-9c23-4d1c-8a71-b60de3042e83": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input (min 3)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "347407e8-cd7e-47f6-94aa-3062cc34f464": {
       "main": [
         [
           {
@@ -1262,23 +1273,18 @@
         ]
       ]
     },
-    "Intent Parser (AI)": {
+    "2dcbb0c0-b25e-495f-b480-be57ba8497a1": {
       "main": [
         [
           {
             "node": "Parse Intent Output",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "Normalize Input1",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
     },
-    "Parse Intent Output": {
+    "5c18e60f-87fd-4319-8f2e-d72dccd20e45": {
       "main": [
         [
           {
@@ -1289,7 +1295,7 @@
         ]
       ]
     },
-    "IF Direct Hit?1": {
+    "a48c3dde-79e3-495e-88ef-366fefb46a6a": {
       "main": [
         [
           {
@@ -1301,662 +1307,6 @@
         [
           {
             "node": "Route to Full Analysis",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Direct Hit Path?": {
-      "main": [
-        [
-          {
-            "node": "Fetch Single File (Contents API)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Prepare Repair Attempt1",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Fetch Full Tree (Git Trees API)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Single File (Contents API)": {
-      "main": [
-        [
-          {
-            "node": "Diagnose Error (Self-Healing L1)",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Prepare Repair Attempt2",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch Full Tree (Git Trees API)": {
-      "main": [
-        [
-          {
-            "node": "Diagnose Error (Self-Healing L1)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Diagnose Error (Self-Healing L1)": {
-      "main": [
-        [
-          {
-            "node": "IF Success?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Success?": {
-      "main": [
-        [
-          {
-            "node": "Format Stage 2 Output",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "IF Should Stop?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Should Stop?": {
-      "main": [
-        [
-          {
-            "node": "Telegram Alert (Stop)",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "IF Needs Wait?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Needs Wait?": {
-      "main": [
-        [
-          {
-            "node": "Wait Before Retry",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Prepare Retry Payload",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait Before Retry": {
-      "main": [
-        [
-          {
-            "node": "Prepare Retry Payload",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare Retry Payload": {
-      "main": [
-        [
-          {
-            "node": "IF Direct Hit Path?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Route to Full Analysis": {
-      "main": [
-        [
-          {
-            "node": "Init Analyzer Loop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Init Analyzer Loop": {
-      "main": [
-        [
-          {
-            "node": "Build Round Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Round Context": {
-      "main": [
-        [
-          {
-            "node": "AI Analyzer",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "AI Analyzer": {
-      "main": [
-        [
-          {
-            "node": "Parse Analyzer Output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Analyzer Output": {
-      "main": [
-        [
-          {
-            "node": "IF Ready?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Ready?": {
-      "main": [
-        [
-          {
-            "node": "Format Stage 3 Output",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "IF Max Rounds Reached?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Max Rounds Reached?": {
-      "main": [
-        [
-          {
-            "node": "Set Force Conclude",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Prepare File Requests",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Set Force Conclude": {
-      "main": [
-        [
-          {
-            "node": "Build Round Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare File Requests": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Merge Fetched Files": {
-      "main": [
-        [
-          {
-            "node": "Build Round Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Init Generator Loop": {
-      "main": [
-        [
-          {
-            "node": "Build Generator Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Build Generator Context": {
-      "main": [
-        [
-          {
-            "node": "Code Generator (AI)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Code Generator (AI)": {
-      "main": [
-        [
-          {
-            "node": "Parse Generator Output",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Parse Generator Output1",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Generator Output": {
-      "main": [
-        [
-          {
-            "node": "Validator",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Validator": {
-      "main": [
-        [
-          {
-            "node": "IF Valid?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Valid?": {
-      "main": [
-        [
-          {
-            "node": "Prepare Commit Items",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "IF Repair Budget Left?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Repair Budget Left?": {
-      "main": [
-        [
-          {
-            "node": "Edit Fields",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Telegram Alert (Validation Failed)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare Repair Attempt": {
-      "main": [
-        [
-          {
-            "node": "Build Generator Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare Commit Items": {
-      "main": [
-        [
-          {
-            "node": "GitHub Commit File",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "GitHub Commit File": {
-      "main": [
-        [
-          {
-            "node": "Aggregate Commit Results",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Aggregate Commit Results": {
-      "main": [
-        [
-          {
-            "node": "Telegram Notify Result",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Direct Hit Resolver1": {
-      "main": [
-        [
-          {
-            "node": "IF Direct Hit Path?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format Stage 3 Output": {
-      "main": [
-        [
-          {
-            "node": "Init Generator Loop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Format Stage 2 Output": {
-      "main": [
-        [
-          {
-            "node": "IF Direct Hit?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Direct Hit?": {
-      "main": [
-        [
-          {
-            "node": "Init Generator Loop",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Init Analyzer Loop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "When Executed by Another Workflow": {
-      "main": [
-        [
-          {
-            "node": "Normalize Input",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Loop Over Items": {
-      "main": [
-        [
-          {
-            "node": "Merge Fetched Files",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Set Fetch Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Edit Fields": {
-      "main": [
-        [
-          {
-            "node": "Prepare Repair Attempt",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Normalize Input1": {
-      "main": [
-        [
-          {
-            "node": "Parse Intent Output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Parse Generator Output1": {
-      "main": [
-        [
-          {
-            "node": "Parse Generator Output",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare Repair Attempt1": {
-      "main": [
-        [
-          {
-            "node": "Fetch Single File (Contents API)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Prepare Repair Attempt2": {
-      "main": [
-        [
-          {
-            "node": "Diagnose Error (Self-Healing L1)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Fetch File In Loop": {
-      "main": [
-        [
-          {
-            "node": "Diagnose Fetch In Loop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Diagnose Fetch In Loop": {
-      "main": [
-        [
-          {
-            "node": "IF Loop Fetch Success?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Loop Fetch Success?": {
-      "main": [
-        [
-          {
-            "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "IF Loop Needs Wait?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Loop Needs Wait?": {
-      "main": [
-        [
-          {
-            "node": "Wait Loop Retry",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "IF Loop Should Retry?",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Wait Loop Retry": {
-      "main": [
-        [
-          {
-            "node": "Set Fetch Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "IF Loop Should Retry?": {
-      "main": [
-        [
-          {
-            "node": "Set Fetch Context",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Loop Over Items",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Set Fetch Context": {
-      "main": [
-        [
-          {
-            "node": "Fetch File In Loop",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Truncate Large Files": {
-      "main": [
-        [
-          {
-            "node": "Build Generator Context",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Send Proposal to User": {
-      "main": [
-        [
-          {
-            "node": "Prepare Commit Items",
             "type": "main",
             "index": 0
           }
@@ -2029,7 +1379,83 @@
       "main": [
         [
           {
+            "node": "IF Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "bfa52e6c-ffd3-49a8-a28a-703a0072fbf8": {
+      "main": [
+        [
+          {
             "node": "Format Stage 2 Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Should Stop?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1b8f9f4e-a498-4aa9-849b-13e5e97ca0db": {
+      "main": [
+        [
+          {
+            "node": "Telegram Alert (Stop)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Needs Wait?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ac45951b-356f-44c2-b3b4-211ba8341d1c": {
+      "main": [
+        [
+          {
+            "node": "Wait Before Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Retry Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "f2b07ad9-07e5-468d-b91b-48f097036aec": {
+      "main": [
+        [
+          {
+            "node": "Prepare Retry Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "26599302-d320-4b0e-aa6d-eeba6d96af85": {
+      "main": [
+        [
+          {
+            "node": "IF Direct Hit Path? (FIXED)",
             "type": "main",
             "index": 0
           }
@@ -2065,6 +1491,301 @@
         ]
       ]
     },
+    "918bee7e-b07e-4e68-a4c5-722d85c96a79": {
+      "main": [
+        [
+          {
+            "node": "Build Round Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6f709896-6966-4633-bce7-e6182ee2a91d": {
+      "main": [
+        [
+          {
+            "node": "AI Analyzer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6f79d210-e4a0-4c15-8123-cc611ac90cf4": {
+      "main": [
+        [
+          {
+            "node": "Parse Analyzer Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "d2f56d14-73be-49af-9adc-18635d51c638": {
+      "main": [
+        [
+          {
+            "node": "IF Ready?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "50c51cdd-afb9-4c5f-a436-0b35e1f27696": {
+      "main": [
+        [
+          {
+            "node": "Format Stage 3 Output",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Max Rounds Reached?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "407f6ec6-4bbd-48e5-8f84-5b5abbc7f918": {
+      "main": [
+        [
+          {
+            "node": "Set Force Conclude",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare File Requests",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "de09ef19-04be-4ab2-a065-a47c0e411fb0": {
+      "main": [
+        [
+          {
+            "node": "Build Round Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "68d83802-fab3-4253-b7f3-73f24038cffb": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4413b97c-aaf5-4e89-84e2-e428b4f85c15": {
+      "main": [
+        [
+          {
+            "node": "Merge Fetched Files",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Set Fetch Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5b359083-58e3-4d68-871a-8a568a83cd6e": {
+      "main": [
+        [
+          {
+            "node": "Fetch File In Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "d50a53f7-1672-49d0-a0d6-c02f93e43168": {
+      "main": [
+        [
+          {
+            "node": "Diagnose Fetch In Loop",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2b113bb2-569b-451a-8cd9-0ed54195e2ba": {
+      "main": [
+        [
+          {
+            "node": "IF Loop Fetch Success?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "b4d33b06-5657-4013-9ac7-c9c885183825": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Loop Needs Wait?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3aba7ac5-1d85-4317-a5ee-f3a524e47863": {
+      "main": [
+        [
+          {
+            "node": "Wait Loop Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IF Loop Should Retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "b072f566-8fbb-4ec0-968e-eb6a7a45eb2e": {
+      "main": [
+        [
+          {
+            "node": "Set Fetch Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "987336e1-5a40-4c9c-9dee-3da45b756df6": {
+      "main": [
+        [
+          {
+            "node": "Set Fetch Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8a98f34b-2962-4f25-bbd3-fca0d7c42dc2": {
+      "main": [
+        [
+          {
+            "node": "Build Round Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "e740346a-d7cd-4abb-98e9-d70310305156": {
+      "main": [
+        [
+          {
+            "node": "Truncate Large Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "trunc-large-files-v3": {
+      "main": [
+        [
+          {
+            "node": "Build Generator Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1fb7e9d6-05eb-424f-8474-21e587c15df4": {
+      "main": [
+        [
+          {
+            "node": "Code Generator (AI)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "d2433a05-26eb-4699-b7b7-04ddac11d7eb": {
+      "main": [
+        [
+          {
+            "node": "Parse Generator Output",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ef7bd59c-5984-4756-9f18-7114d230c091": {
+      "main": [
+        [
+          {
+            "node": "Validator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3b080691-1975-45c7-aff6-c453832be1d7": {
+      "main": [
+        [
+          {
+            "node": "IF Valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "290891b7-9989-4edf-a2d7-09ba25ceca1d": {
       "main": [
         [
@@ -2076,7 +1797,7 @@
         ],
         [
           {
-            "node": "IF Repair Budget?",
+            "node": "IF Repair Budget Left?",
             "type": "main",
             "index": 0
           }
@@ -2088,6 +1809,90 @@
         [
           {
             "node": "Prepare Commit Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "791b589e-2bb8-4533-b540-9cced64fc7d2": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Telegram Alert (Validation Failed)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "d71edf2c-1583-4123-bd61-54211aed02da": {
+      "main": [
+        [
+          {
+            "node": "Prepare Repair Attempt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "d2a2f099-222b-4a31-b299-46b554d9a2e4": {
+      "main": [
+        [
+          {
+            "node": "Build Generator Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "98f2ab0b-36d4-4a9f-a542-63309d204fd7": {
+      "main": [
+        [
+          {
+            "node": "GitHub Commit File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "92aa8422-2f5b-4c34-ac88-e5ddc0edd4cc": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Commit Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "be1273a7-fae3-4b0c-abed-56df64be54ea": {
+      "main": [
+        [
+          {
+            "node": "Telegram Notify Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "e2f42004-4d3c-46a4-b102-2dd341469984": {
+      "main": [
+        [
+          {
+            "node": "Init Generator Loop",
             "type": "main",
             "index": 0
           }
