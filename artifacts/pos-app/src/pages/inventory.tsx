@@ -409,7 +409,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
                   <Package className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(ing)}>
-                  <span className="font-medium text-sm">{ing.name}</span>
+                  <span className="font-medium text-sm truncate">{ing.name}</span>
                   <p className="text-xs text-muted-foreground truncate break-words min-w-0">
                     HPP {formatRp(ing.costPricePerUnit)} / {ing.unit} · Min {formatQty(ing.minimalStock)}
                   </p>
@@ -656,7 +656,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
                   <FlaskConical className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(sf)}>
-                  <span className="font-medium text-sm">{sf.name}</span>
+                  <span className="font-medium text-sm truncate">{sf.name}</span>
                   <p className="text-xs text-muted-foreground truncate break-words min-w-0">
                     HPP {formatRp(sf.costPricePerUnit)} / {sf.unit} · Stok {formatQty(sf.currentStock)}
                     {sf.yieldQuantity && sf.yieldUnit && ` · Yield ${sf.yieldQuantity} ${sf.yieldUnit}/batch`}
@@ -671,7 +671,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
                     <Badge variant="outline" className="text-[10px] text-muted-foreground gap-1">Lewati</Badge>
                   )}
                 </div>
-                <div className="flex gap-0.5 flex-wrap min-w-0">
+                <div className="flex gap-0.5 shrink-0">
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setRecipeFor({ id: sf.id, name: sf.name })} title="Resep">
                     <ChefHat className="w-4 h-4" />
                   </Button>
