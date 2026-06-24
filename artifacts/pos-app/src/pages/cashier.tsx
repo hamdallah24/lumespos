@@ -229,7 +229,7 @@ export default function CashierPage() {
   }
 
   return (
-    <div className="flex h-full w-full bg-background overflow-hidden flex-col lg:flex-row">
+    <div className="flex h-full w-full bg-background flex-col lg:flex-row">
       <div className="flex-1 flex flex-col h-full min-w-0">
         <div className="px-3 pt-3 pb-2 lg:px-6 lg:pt-4 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl border-b border-[#1565FF]/10 shrink-0 sticky top-0 z-20 rounded-2xl mt-3">
           <div className="relative">
