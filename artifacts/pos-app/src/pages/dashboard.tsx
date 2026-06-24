@@ -349,22 +349,22 @@ export default function DashboardPage() {
             ) : formattedChart.length === 0 ? (
               <div className="h-[200px] flex items-center justify-center text-slate-400 text-sm">Belum ada data penjualan</div>
             ) : (
-              <div className="h-[200px]">
+              <div className="h-[180px] sm:h-[200px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={formattedChart} margin={{ top: 4, right: 0, left: -10, bottom: 0 }}>
+                  <AreaChart data={formattedChart} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
                     <defs>
                       <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#2563EB" stopOpacity={0.15} />
+                        <stop offset="0%" stopColor="#2563EB" stopOpacity={0.2} />
                         <stop offset="100%" stopColor="#2563EB" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#EF4444" stopOpacity={0.12} />
+                        <stop offset="0%" stopColor="#EF4444" stopOpacity={0.15} />
                         <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" vertical={false} />
-                    <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={40} />
+                    <XAxis dataKey="dateLabel" tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
+                    <YAxis tick={{ fontSize: 10, fill: "#94A3B8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={35} />
                     <Tooltip content={<PremiumChartTooltip />} cursor={{ stroke: "#2563EB", strokeDasharray: "4 4", strokeWidth: 1 }} />
                     <Area type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={4} fill="url(#chartGrad)" dot={false} activeDot={{ r: 5, fill: "#2563EB", stroke: "#fff", strokeWidth: 3 }} />
                     <Area type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={4} fill="url(#expenseGrad)" dot={false} activeDot={{ r: 5, fill: "#EF4444", stroke: "#fff", strokeWidth: 3 }} />
