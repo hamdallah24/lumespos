@@ -376,7 +376,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const chatId = $json.message?.chat?.id || '7218843690';\nconst messageText = $json.message?.text || '';\n\nreturn [{\n  json: {\n    chat_id: chatId,\n    level: 'INFO',\n    agent: 'CTO',\n    message: `📥 Task diterima: ${messageText.substring(0, 100)}`,\n    text: messageText\n  }\n}];"
+        "jsCode": "const chatId = $json.message?.chat?.id || '7218843690';\nconst messageText = $json.message?.text || '';\n\nreturn [{\n  json: {\n    chat_id: chatId,\n    source: 'telegram',\n    level: 'INFO',\n    agent: 'CTO',\n    message: `📥 Task diterima: ${messageText.substring(0, 100)}`,\n    text: messageText\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -408,6 +408,114 @@
           "name": "Telegram Bot"
         }
       }
+    },
+    {
+      "parameters": {
+        "path": "cto-webhook",
+        "options": {
+          "responseMode": "onReceived"
+        }
+      },
+      "id": "e7b3a2c1-5d4f-4a6b-8c9d-0e1f2a3b4c5d",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        500
+      ],
+      "webhookId": "wh-cto-webhook-001"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "27743678-5d6b-4c9a-bcf3-91a8e2f1c3d4",
+              "leftValue": "={{ $json.message?.chat?.id ? true : false }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equal",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5e",
+      "name": "IF Router: Source?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = $json.message || '';\nconst chatId = $json.chat_id || 'webhook';\nreturn [{ json: { chat_id: chatId, text: msg, source: 'webhook', level: 'INFO', agent: 'CTO', message: '📥 Task via Webhook: ' + msg.substring(0, 100) } }];"
+      },
+      "id": "f1e2d3c4-b5a6-4c7d-8e9f-0a1b2c3d4e5f",
+      "name": "Parse Webhook Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -272,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.output || $json.message || JSON.stringify($json).substring(0, 3000) }}"
+      },
+      "id": "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c6a",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        640,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "3d4e5f6a-7b8c-4d9e-af0b-1c2d3e4f5a6b",
+              "leftValue": "={{ $json.source || 'telegram' }}",
+              "rightValue": "telegram",
+              "operator": {
+                "type": "string",
+                "operation": "equal",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "2b3c4d5e-6f7a-4b8c-9d0e-1f2a3b4c5d6b",
+      "name": "IF Output: Source Telegram?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        496,
+        500
+      ]
     }
   ],
   "connections": {
@@ -503,7 +611,36 @@
       "main": [
         [
           {
+            "node": "IF Router: Source?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "IF Router: Source?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Router: Source?": {
+      "main": [
+        [
+          {
             "node": "Parse Telegram Input",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Parse Webhook Input",
             "type": "main",
             "index": 0
           }
@@ -514,7 +651,25 @@
       "main": [
         [
           {
+            "node": "IF Output: Source Telegram?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Output: Source Telegram?": {
+      "main": [
+        [
+          {
             "node": "Reply via Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond to Webhook",
             "type": "main",
             "index": 0
           }
@@ -533,6 +688,22 @@
       ]
     },
     "Parse Telegram Input": {
+      "main": [
+        [
+          {
+            "node": "INFO",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "CTO_Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Webhook Input": {
       "main": [
         [
           {

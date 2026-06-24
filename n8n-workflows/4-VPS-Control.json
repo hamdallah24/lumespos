@@ -148,6 +148,40 @@
       "name": "Daily Report Result",
       "webhookId": "vps-daily-webhook",
       "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+    },
+    {
+      "parameters": {
+        "path": "vps-webhook",
+        "options": {
+          "responseMode": "onReceived"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [-800, 200],
+      "id": "vps-webhook-trigger",
+      "name": "Webhook Trigger"
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = ($json.message || '').trim().toLowerCase();\nlet command = 'unknown';\nif (msg.startsWith('/deploy') || msg === 'deploy') command = 'deploy';\nelse if (msg.startsWith('/status') || msg === 'status') command = 'status';\nelse if (msg.startsWith('/restart') || msg === 'restart') command = 'restart';\nelse if (msg.startsWith('/logs') || msg === 'logs') command = 'logs';\nelse if (msg.startsWith('/health') || msg === 'health') command = 'health';\nconst chatId = $json.chat_id || 'webhook';\nreturn [{ json: { command, chat_id: chatId, original: msg, source: 'webhook' } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-560, 200],
+      "id": "vps-parse-webhook",
+      "name": "Parse Webhook Input"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.stdout || $json.result || JSON.stringify($json) }}"
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [400, 200],
+      "id": "vps-webhook-respond",
+      "name": "Respond to Webhook"
     }
   ],
   "connections": {
@@ -160,11 +194,13 @@
       ]
     },
     "Build SSH Command": { "main": [[{"node":"SSH Execute","type":"main","index":0}]] },
-    "SSH Execute": { "main": [[{"node":"Reply via Telegram","type":"main","index":0}]] },
+    "SSH Execute": { "main": [[{"node":"Reply via Telegram","type":"main","index":0},{"node":"Respond to Webhook","type":"main","index":0}]] },
     "Cron: Every 5 min": { "main": [[{"node":"Auto Health Check","type":"main","index":0}]] },
     "Auto Health Check": { "main": [[{"node":"SSH Execute","type":"main","index":0}],[{"node":"Health Result","type":"main","index":0}]] },
     "Cron: Daily 22:00": { "main": [[{"node":"Daily Report","type":"main","index":0}]] },
-    "Daily Report": { "main": [[{"node":"SSH Execute","type":"main","index":0}],[{"node":"Daily Report Result","type":"main","index":0}]] }
+    "Daily Report": { "main": [[{"node":"SSH Execute","type":"main","index":0}],[{"node":"Daily Report Result","type":"main","index":0}]] },
+    "Webhook Trigger": { "main": [[{"node":"Parse Webhook Input","type":"main","index":0}]] },
+    "Parse Webhook Input": { "main": [[{"node":"Build SSH Command","type":"main","index":0}]] }
   },
   "active": true,
   "settings": { "executionOrder": "v1", "binaryMode": "separate" },

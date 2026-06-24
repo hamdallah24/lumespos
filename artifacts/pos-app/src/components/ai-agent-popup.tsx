@@ -70,23 +70,35 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const shortcuts = [
+    { label: "Cek stok menipis", text: "cek stok yg menipis" },
+    { label: "Lihat menu", text: "lihat menu apa aja" },
+    { label: "Catat pengeluaran", text: "catat pengeluaran 50000" },
+    { label: "Produksi", text: "produksi" },
+    { label: "Laporan keuangan", text: "lihat laporan keuangan" },
+    { label: "Tambah fitur", text: "tambah fitur laporan excel" },
+    { label: "Deploy", text: "deploy terbaru" },
+    { label: "Strategi bisnis", text: "gimana cara naikin omzet?" },
+  ];
 
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim()) return;
-    const text = input.trim();
+  const sendMessage = async (text?: string) => {
+    const msg = (text || input).trim();
+    if (!msg) return;
     setInput("");
-    setMessages((prev) => [...prev, { role: "user", text }]);
+    setMessages((prev) => [...prev, { role: "user", text: msg }]);
     setLoading(true);
 
     try {
       const res = await apiFetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text }),
+        body: JSON.stringify({ message: msg }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -145,14 +157,23 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0">
               {messages.length === 0 && !loading && (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
+                <div className="flex flex-col items-center justify-center py-4 text-center">
                   <SiriWave />
-                  <p className="mt-4 text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 font-medium">
                     Tanya apa saja tentang bisnis Anda
                   </p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                    Ketik pertanyaan untuk memulai
-                  </p>
+
+                  <div className="flex flex-wrap justify-center gap-2 mt-5 px-2">
+                    {shortcuts.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => { setInput(s.text); inputRef.current?.focus(); }}
+                        className="px-3.5 py-2 text-xs font-medium rounded-xl border border-[#1565FF]/15 bg-[#1565FF]/5 hover:bg-[#1565FF]/10 active:scale-95 transition-all text-slate-600 dark:text-slate-300 whitespace-nowrap"
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -202,6 +223,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
             <div className="px-4 pb-4 pt-2 border-t border-[#1565FF]/10">
               <div className="flex items-center gap-2 bg-slate-100 dark:bg-white/5 rounded-2xl px-4 py-2.5">
                 <input
+                  ref={inputRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
@@ -209,7 +231,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                   className="flex-1 bg-transparent text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none min-w-0"
                 />
                 <button
-                  onClick={sendMessage}
+                  onClick={() => sendMessage()}
                   disabled={!input.trim()}
                   className="w-8 h-8 rounded-xl bg-[#1565FF] text-white flex items-center justify-center hover:bg-[#1565FF]/90 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                 >

@@ -1,0 +1,99 @@
+{
+  "name": "Chat Agent - Lume's Everywhere",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "chat-webhook",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "id": "e7b3c1a4-5d8f-4a2b-9c6e-1f3d8b7a0c2e",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "position": [-400, 300],
+      "typeVersion": 1,
+      "webhookId": "chat-webhook"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "deepseek-v4-pro",
+          "mode": "list",
+          "cachedResultName": "DEEPSEEK-V4-PRO"
+        },
+        "options": {}
+      },
+      "id": "a9c8e6f4-2d1b-4e7a-8c3f-5b0d9a1e6c4f",
+      "name": "DeepSeek Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [16, 600],
+      "typeVersion": 1.2,
+      "credentials": {
+        "openAiApi": {
+          "id": "a6DMiTwRmzjqacwH",
+          "name": "OpenAI/DeepSeek API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "options": {
+          "systemMessage": "Kamu adalah asisten ramah untuk Lume's Everywhere — aplikasi POS kuliner. Jawab pertanyaan casual, bantu brainstorming ide bisnis, resep, atau sekedar ngobrol santai. Jawab dalam Bahasa Indonesia yang santai dan hangat. Maks 500 karakter. Jika ditanya teknis tentang sistem, arahkan ke CTO Agent atau Business Assistant."
+        }
+      },
+      "id": "f4e3d2c1-0b9a-4e7f-8d6c-5b4a3e2f1d0c",
+      "name": "Chat Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [176, 300],
+      "typeVersion": 3.1,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.output || $json.message || JSON.stringify($json) }}"
+      },
+      "id": "b2a1c3d5-e7f9-4a6b-8c0d-2e4f6a8b0c1e",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [496, 300],
+      "typeVersion": 1
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Chat Agent", "type": "main", "index": 0 }]]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [[{ "node": "Chat Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "Chat Agent": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "v1-chat-agent",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "id": "CHAT-AGENT-LUMES",
+  "tags": [
+    {
+      "name": "chat",
+      "color": "#8B5CF6"
+    },
+    {
+      "name": "production",
+      "color": "#00B341"
+    }
+  ]
+}
