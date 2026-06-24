@@ -1251,7 +1251,7 @@
   ],
   "pinData": {},
   "connections": {
-    "d151ccee-9c23-4d1c-8a71-b60de3042e83": {
+    "When Executed by Another Workflow": {
       "main": [
         [
           {
@@ -1262,7 +1262,7 @@
         ]
       ]
     },
-    "347407e8-cd7e-47f6-94aa-3062cc34f464": {
+    "Normalize Input (min 3)": {
       "main": [
         [
           {
@@ -1273,7 +1273,7 @@
         ]
       ]
     },
-    "2dcbb0c0-b25e-495f-b480-be57ba8497a1": {
+    "Intent Parser (AI)": {
       "main": [
         [
           {
@@ -1284,7 +1284,7 @@
         ]
       ]
     },
-    "5c18e60f-87fd-4319-8f2e-d72dccd20e45": {
+    "Parse Intent Output": {
       "main": [
         [
           {
@@ -1295,7 +1295,7 @@
         ]
       ]
     },
-    "a48c3dde-79e3-495e-88ef-366fefb46a6a": {
+    "IF Direct Hit?1": {
       "main": [
         [
           {
@@ -1313,7 +1313,7 @@
         ]
       ]
     },
-    "4ec3e2af-471d-443f-b86c-ad6e0cac9435": {
+    "Direct Hit Resolver1": {
       "main": [
         [
           {
@@ -1324,7 +1324,7 @@
         ]
       ]
     },
-    "2cec76e6-2775-46f2-af20-ed6e93610490": {
+    "Route to Full Analysis": {
       "main": [
         [
           {
@@ -1335,7 +1335,7 @@
         ]
       ]
     },
-    "4d8d36dc-9227-4309-882b-4fc666a2f93b": {
+    "IF Direct Hit Path? (FIXED)": {
       "main": [
         [
           {
@@ -1353,7 +1353,7 @@
         ]
       ]
     },
-    "8879bbb0-89d8-4a75-be4c-6fc8ef408b72": {
+    "Fetch Single File (Contents API)": {
       "main": [
         [
           {
@@ -1364,7 +1364,7 @@
         ]
       ]
     },
-    "800ba555-1f72-4d9e-8eec-3e547e72a42d": {
+    "Fetch Full Tree (Git Trees API)": {
       "main": [
         [
           {
@@ -1375,7 +1375,7 @@
         ]
       ]
     },
-    "d458726a-e3ad-444e-ac16-bcec79720526": {
+    "Diagnose Error (Self-Healing L1)": {
       "main": [
         [
           {
@@ -1386,7 +1386,7 @@
         ]
       ]
     },
-    "bfa52e6c-ffd3-49a8-a28a-703a0072fbf8": {
+    "IF Success?": {
       "main": [
         [
           {
@@ -1404,7 +1404,7 @@
         ]
       ]
     },
-    "1b8f9f4e-a498-4aa9-849b-13e5e97ca0db": {
+    "IF Should Stop?": {
       "main": [
         [
           {
@@ -1422,7 +1422,7 @@
         ]
       ]
     },
-    "ac45951b-356f-44c2-b3b4-211ba8341d1c": {
+    "IF Needs Wait?": {
       "main": [
         [
           {
@@ -1440,7 +1440,7 @@
         ]
       ]
     },
-    "f2b07ad9-07e5-468d-b91b-48f097036aec": {
+    "Wait Before Retry": {
       "main": [
         [
           {
@@ -1451,7 +1451,7 @@
         ]
       ]
     },
-    "26599302-d320-4b0e-aa6d-eeba6d96af85": {
+    "Prepare Retry Payload": {
       "main": [
         [
           {
@@ -1462,7 +1462,7 @@
         ]
       ]
     },
-    "0ec19282-3ba4-4936-825f-13870904ba73": {
+    "Format Stage 2 Output": {
       "main": [
         [
           {
@@ -1473,7 +1473,7 @@
         ]
       ]
     },
-    "3ec12a39-360d-439c-8ea3-260703c6dfbc": {
+    "IF Skip Analyzer? (FIXED)": {
       "main": [
         [
           {
@@ -1491,7 +1491,7 @@
         ]
       ]
     },
-    "918bee7e-b07e-4e68-a4c5-722d85c96a79": {
+    "Init Analyzer Loop": {
       "main": [
         [
           {
@@ -1502,7 +1502,7 @@
         ]
       ]
     },
-    "6f709896-6966-4633-bce7-e6182ee2a91d": {
+    "Build Round Context": {
       "main": [
         [
           {
@@ -1513,7 +1513,7 @@
         ]
       ]
     },
-    "6f79d210-e4a0-4c15-8123-cc611ac90cf4": {
+    "AI Analyzer": {
       "main": [
         [
           {
@@ -1524,7 +1524,7 @@
         ]
       ]
     },
-    "d2f56d14-73be-49af-9adc-18635d51c638": {
+    "Parse Analyzer Output": {
       "main": [
         [
           {
@@ -1535,7 +1535,7 @@
         ]
       ]
     },
-    "50c51cdd-afb9-4c5f-a436-0b35e1f27696": {
+    "IF Ready?": {
       "main": [
         [
           {
@@ -1553,7 +1553,7 @@
         ]
       ]
     },
-    "407f6ec6-4bbd-48e5-8f84-5b5abbc7f918": {
+    "IF Max Rounds Reached?": {
       "main": [
         [
           {
@@ -1571,7 +1571,7 @@
         ]
       ]
     },
-    "de09ef19-04be-4ab2-a065-a47c0e411fb0": {
+    "Set Force Conclude": {
       "main": [
         [
           {
@@ -1582,7 +1582,7 @@
         ]
       ]
     },
-    "68d83802-fab3-4253-b7f3-73f24038cffb": {
+    "Prepare File Requests": {
       "main": [
         [
           {
@@ -1593,7 +1593,7 @@
         ]
       ]
     },
-    "4413b97c-aaf5-4e89-84e2-e428b4f85c15": {
+    "Loop Over Items": {
       "main": [
         [
           {
@@ -1611,7 +1611,7 @@
         ]
       ]
     },
-    "5b359083-58e3-4d68-871a-8a568a83cd6e": {
+    "Set Fetch Context": {
       "main": [
         [
           {
@@ -1622,7 +1622,7 @@
         ]
       ]
     },
-    "d50a53f7-1672-49d0-a0d6-c02f93e43168": {
+    "Fetch File In Loop": {
       "main": [
         [
           {
@@ -1633,7 +1633,7 @@
         ]
       ]
     },
-    "2b113bb2-569b-451a-8cd9-0ed54195e2ba": {
+    "Diagnose Fetch In Loop": {
       "main": [
         [
           {
@@ -1644,7 +1644,7 @@
         ]
       ]
     },
-    "b4d33b06-5657-4013-9ac7-c9c885183825": {
+    "IF Loop Fetch Success?": {
       "main": [
         [
           {
@@ -1662,7 +1662,7 @@
         ]
       ]
     },
-    "3aba7ac5-1d85-4317-a5ee-f3a524e47863": {
+    "IF Loop Needs Wait?": {
       "main": [
         [
           {
@@ -1680,7 +1680,7 @@
         ]
       ]
     },
-    "b072f566-8fbb-4ec0-968e-eb6a7a45eb2e": {
+    "IF Loop Should Retry?": {
       "main": [
         [
           {
@@ -1698,7 +1698,7 @@
         ]
       ]
     },
-    "987336e1-5a40-4c9c-9dee-3da45b756df6": {
+    "Wait Loop Retry": {
       "main": [
         [
           {
@@ -1709,7 +1709,7 @@
         ]
       ]
     },
-    "8a98f34b-2962-4f25-bbd3-fca0d7c42dc2": {
+    "Merge Fetched Files": {
       "main": [
         [
           {
@@ -1720,7 +1720,7 @@
         ]
       ]
     },
-    "e740346a-d7cd-4abb-98e9-d70310305156": {
+    "Init Generator Loop": {
       "main": [
         [
           {
@@ -1731,7 +1731,7 @@
         ]
       ]
     },
-    "trunc-large-files-v3": {
+    "Truncate Large Files": {
       "main": [
         [
           {
@@ -1742,7 +1742,7 @@
         ]
       ]
     },
-    "1fb7e9d6-05eb-424f-8474-21e587c15df4": {
+    "Build Generator Context": {
       "main": [
         [
           {
@@ -1753,7 +1753,7 @@
         ]
       ]
     },
-    "d2433a05-26eb-4699-b7b7-04ddac11d7eb": {
+    "Code Generator (AI)": {
       "main": [
         [
           {
@@ -1764,7 +1764,7 @@
         ]
       ]
     },
-    "ef7bd59c-5984-4756-9f18-7114d230c091": {
+    "Parse Generator Output": {
       "main": [
         [
           {
@@ -1775,7 +1775,7 @@
         ]
       ]
     },
-    "3b080691-1975-45c7-aff6-c453832be1d7": {
+    "Validator": {
       "main": [
         [
           {
@@ -1786,7 +1786,7 @@
         ]
       ]
     },
-    "290891b7-9989-4edf-a2d7-09ba25ceca1d": {
+    "IF Valid?": {
       "main": [
         [
           {
@@ -1804,7 +1804,7 @@
         ]
       ]
     },
-    "guard-proposal-tg": {
+    "Send Proposal to User": {
       "main": [
         [
           {
@@ -1815,7 +1815,7 @@
         ]
       ]
     },
-    "791b589e-2bb8-4533-b540-9cced64fc7d2": {
+    "IF Repair Budget Left?": {
       "main": [
         [
           {
@@ -1833,7 +1833,7 @@
         ]
       ]
     },
-    "d71edf2c-1583-4123-bd61-54211aed02da": {
+    "Edit Fields": {
       "main": [
         [
           {
@@ -1844,7 +1844,7 @@
         ]
       ]
     },
-    "d2a2f099-222b-4a31-b299-46b554d9a2e4": {
+    "Prepare Repair Attempt": {
       "main": [
         [
           {
@@ -1855,7 +1855,7 @@
         ]
       ]
     },
-    "98f2ab0b-36d4-4a9f-a542-63309d204fd7": {
+    "Prepare Commit Items": {
       "main": [
         [
           {
@@ -1866,7 +1866,7 @@
         ]
       ]
     },
-    "92aa8422-2f5b-4c34-ac88-e5ddc0edd4cc": {
+    "GitHub Commit File": {
       "main": [
         [
           {
@@ -1877,7 +1877,7 @@
         ]
       ]
     },
-    "be1273a7-fae3-4b0c-abed-56df64be54ea": {
+    "Aggregate Commit Results": {
       "main": [
         [
           {
@@ -1888,7 +1888,7 @@
         ]
       ]
     },
-    "e2f42004-4d3c-46a4-b102-2dd341469984": {
+    "Format Stage 3 Output": {
       "main": [
         [
           {
