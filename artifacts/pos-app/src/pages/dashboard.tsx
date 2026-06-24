@@ -156,11 +156,11 @@ export default function DashboardPage() {
 
   const [stockIndex, setStockIndex] = useState(0);
 
-  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary({ ...params, startDate, endDate } as any);
+  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary({ branchId: activeBranchId, startDate, endDate });
   const { data: topProducts = [], isLoading: loadingTop } = useGetTopProducts({ limit: 5, branchId: activeBranchId, startDate, endDate });
-  const { data: chartData = [], isLoading: loadingChart } = useGetSalesChart(dateParams as any);
-  const { data: cashierPerf = [], isLoading: loadingCashier } = useGetCashierPerformance(dateParams as any);
-  const { data: financial, isLoading: loadingFinancial } = useGetFinancialReport(dateParams as any);
+  const { data: chartData = [], isLoading: loadingChart } = useGetSalesChart({ branchId: activeBranchId, startDate, endDate });
+  const { data: cashierPerf = [], isLoading: loadingCashier } = useGetCashierPerformance({ branchId: activeBranchId, startDate, endDate });
+  const { data: financial, isLoading: loadingFinancial } = useGetFinancialReport({ branchId: activeBranchId, startDate, endDate });
   const { data: lowStock = [], isLoading: loadingLow } = useGetLowStock(params);
 
   useEffect(() => {

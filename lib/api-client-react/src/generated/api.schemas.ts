@@ -541,6 +541,8 @@ status?: string;
 
 export type GetDashboardSummaryParams = {
 branchId?: number;
+startDate?: string;
+endDate?: string;
 };
 
 export type GetTopProductsParams = {
@@ -552,6 +554,8 @@ endDate?: string;
 
 export type GetSalesChartParams = {
 branchId?: number;
+startDate?: string;
+endDate?: string;
 };
 
 export type GetCashierPerformanceParams = {
@@ -604,6 +608,7 @@ branchId?: number;
 
 export type GetFinancialReportParams = {
 branchId?: number;
-days?: number;
+startDate?: string;
+endDate?: string;
 };
 
