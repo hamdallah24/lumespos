@@ -363,7 +363,7 @@ body {
   --gap-scale: clamp(4px, 1.5vw, 8px);
 }
 
-/* Auto-shrink all card icons */
+/* Auto-shrink everything inside card-responsive */
 @media (max-width: 420px) {
   .card-responsive svg,
   .card-responsive img {
@@ -378,5 +378,17 @@ body {
   }
   .card-responsive .pad-shrink {
     padding: clamp(6px, 2vw, 12px) !important;
+  }
+  /* Shrink button icons */
+  .card-responsive button svg {
+    width: clamp(14px, 4vw, 20px) !important;
+    height: clamp(14px, 4vw, 20px) !important;
+  }
+  /* Shrink badge + label text */
+  .card-responsive .text-xs {
+    font-size: clamp(9px, 2.4vw, 12px) !important;
+  }
+  .card-responsive .text-sm {
+    font-size: clamp(11px, 3vw, 14px) !important;
   }
 }
