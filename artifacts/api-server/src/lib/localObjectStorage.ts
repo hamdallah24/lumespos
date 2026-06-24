@@ -19,9 +19,7 @@ export class ObjectNotFoundError extends Error {
 export class ObjectStorageService {
   async getObjectEntityUploadURL(): Promise<string> {
   const objectId = randomUUID();
-  const port = process.env.PORT || 3000;
-  const baseUrl = (process.env.PUBLIC_API_BASE_URL || `http://localhost:${port}`).replace(/\/$/, "");
-  return `${baseUrl}/api/local-upload/${objectId}`;
+  return `/api/local-upload/${objectId}`;
 }
 
   normalizeObjectEntityPath(rawPath: string): string {

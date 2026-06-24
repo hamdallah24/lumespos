@@ -93,7 +93,7 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: isProduction,
+    secure: isProduction && !!process.env.HTTPS_ENABLED,
       sameSite: "strict",
       maxAge: 24 * 60 * 60 * 1000,
     },

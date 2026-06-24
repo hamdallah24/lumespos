@@ -171,6 +171,7 @@ router.put("/local-upload/:objectId", requireAuth, async (req: Request, res: Res
     req.on("data", (chunk: Buffer) => {
       received += chunk.length;
       if (received > MAX_UPLOAD_BYTES) {
+        res.status(413).json({ error: "Upload too large" });
         req.destroy();
         return;
       }
