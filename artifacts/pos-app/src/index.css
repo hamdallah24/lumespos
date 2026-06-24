@@ -352,3 +352,31 @@ body {
     -webkit-overflow-scrolling: touch;
   }
 }
+
+/* ═══════════════════════════════════════════ */
+/* Global Responsive Scaling                    */
+/* Icons & text shrink to fit the container     */
+/* ═══════════════════════════════════════════ */
+:root {
+  --icon-scale: clamp(16px, 5vw, 24px);
+  --text-scale: clamp(11px, 3.2vw, 14px);
+  --gap-scale: clamp(4px, 1.5vw, 8px);
+}
+
+/* Auto-shrink all card icons */
+@media (max-width: 420px) {
+  .card-responsive svg,
+  .card-responsive img {
+    width: clamp(14px, 4.5vw, 22px) !important;
+    height: clamp(14px, 4.5vw, 22px) !important;
+  }
+  .card-responsive .text-shrink {
+    font-size: clamp(10px, 2.8vw, 13px) !important;
+  }
+  .card-responsive .gap-shrink {
+    gap: clamp(2px, 1vw, 6px) !important;
+  }
+  .card-responsive .pad-shrink {
+    padding: clamp(6px, 2vw, 12px) !important;
+  }
+}

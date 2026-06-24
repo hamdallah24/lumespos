@@ -143,7 +143,7 @@ function StockTab({ branchId }: { branchId: number }) {
                 }`}
                 onClick={() => { setSelectedItem(item); setAction(null); }}
               >
-                <div className="p-3 md:p-4 flex items-center gap-2 min-w-0">
+                <div className="card-responsive p-3 md:p-4 flex items-center gap-2 min-w-0">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                     low ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
                   }`}>
@@ -404,7 +404,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
         ) : (
           (ingredients as IngredientItem[]).map((ing) => (
             <Card key={ing.id} className="hover:bg-muted/50 transition-colors">
-              <CardContent className="p-3 md:p-4 flex items-center gap-2 min-w-0">
+              <CardContent className="card-responsive p-3 md:p-4 flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <Package className="w-4 h-4" />
                 </div>
@@ -651,7 +651,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
         ) : (
           (items as SemiFinishedItem[]).map((sf) => (
             <Card key={sf.id}>
-              <CardContent className="p-3 md:p-4 flex items-center gap-2 min-w-0">
+              <CardContent className="card-responsive p-3 md:p-4 flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <FlaskConical className="w-3.5 h-3.5" />
                 </div>

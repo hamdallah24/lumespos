@@ -225,7 +225,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
         </div>
 
         {/* Page content — CSS containment isolated */}
-        <div className="page-root flex-1 overflow-y-auto pb-24 lg:pb-0 px-4 min-h-0">
+        <div className="page-root card-responsive flex-1 overflow-y-auto pb-24 lg:pb-0 px-4 min-h-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={location}
