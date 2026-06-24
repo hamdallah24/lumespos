@@ -403,7 +403,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
           <Empty icon={Package} text="Belum ada bahan baku" />
         ) : (
           (ingredients as IngredientItem[]).map((ing) => (
-            <Card key={ing.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => setMobileIngFor(ing)}>
+            <Card key={ing.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => openEdit(ing)}>
               <CardContent className="card-responsive p-3 md:p-4 flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <Package className="w-4 h-4" />
@@ -531,7 +531,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
   const [producedWeight, setProducedWeight] = useState("");
   const [recipeFor, setRecipeFor] = useState<{ id: number; name: string } | null>(null);
   const [mobileActionFor, setMobileActionFor] = useState<SemiFinishedItem | null>(null);
-  const [mobileIngFor, setMobileIngFor] = useState<IngredientItem | null>(null);
+
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListSemiFinishedQueryKey({ branchId }) });
     qc.invalidateQueries({ queryKey: getListInventoryQueryKey({ branchId }) });
@@ -770,32 +770,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
         </DialogContent>
       </Dialog>
 
-      {/* Mobile Action Popup — Bahan Baku */}
-      <Dialog open={!!mobileIngFor} onOpenChange={(o) => !o && setMobileIngFor(null)}>
-        <DialogContent className="p-0">
-          {mobileIngFor && (
-            <>
-              <div className="px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800">
-                <DialogTitle className="text-lg">{mobileIngFor.name}</DialogTitle>
-                <DialogDescription className="mt-0.5">
-                  HPP {formatRp(mobileIngFor.costPricePerUnit)} / {mobileIngFor.unit} · Stok {formatQty(mobileIngFor.currentStock)}
-                </DialogDescription>
-              </div>
-              <div className="p-3 space-y-1.5">
-                <Button variant="ghost" className="w-full justify-start h-12 text-base gap-3 rounded-xl" onClick={() => { openEdit(mobileIngFor); setMobileIngFor(null); }}>
-                  <Pencil className="w-5 h-5 text-slate-500" /> Edit Item
-                </Button>
-                <Button variant="ghost" className="w-full justify-start h-12 text-base gap-3 rounded-xl text-destructive" onClick={() => { setDeleteItem(mobileIngFor); setMobileIngFor(null); }}>
-                  <Trash2 className="w-5 h-5" /> Hapus
-                </Button>
-              </div>
-              <div className="px-3 pb-3">
-                <Button variant="outline" className="w-full rounded-xl" onClick={() => setMobileIngFor(null)}>Batal</Button>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+
 
       {/* Dialog Produksi (hanya input hasil timbangan) */}
       <Dialog open={!!produceFor} onOpenChange={(o) => !o && setProduceFor(null)}>

@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
-import ReactDOM from "react-dom";
 import {
   useGetDashboardSummary,
   useGetTopProducts,
@@ -22,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
 import {
   AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
@@ -30,9 +30,10 @@ import {
   TrendingUp, TrendingDown, ShoppingCart, Package,
   AlertTriangle, Banknote, Users, Wallet, Receipt,
   Percent, FlaskConical, Building2, LayoutGrid,
-  ArrowUpRight, ArrowDownRight, ChevronRight,
+  ArrowUpRight, ArrowDownRight, ChevronRight, CalendarDays,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import type { DateRange } from "react-day-picker";
 
 function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
   title: string; value: number; diff?: number;
@@ -62,108 +63,74 @@ function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
   );
 }
 
-const CalendarPicker = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => {
+function DateRangeFilter({ dateRange, onDateRangeChange }: { dateRange: DateRange | undefined; onDateRangeChange: (r: DateRange | undefined) => void }) {
   const [open, setOpen] = useState(false);
-  const [viewMonth, setViewMonth] = useState(() => new Date(value));
-  const [popupPos, setPopupPos] = useState({ top: 0, left: 0 });
-  const btnRef = useRef<HTMLButtonElement>(null);
-  const popupRef = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node) &&
-          btnRef.current && !btnRef.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
     if (open) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  const d = new Date(value);
-  const selDay = d.getDate(), selMonth = d.getMonth(), selYear = d.getFullYear();
-  const vmYear = viewMonth.getFullYear(), vmMonth = viewMonth.getMonth();
-  const firstDay = new Date(vmYear, vmMonth, 1).getDay();
-  const daysInMonth = new Date(vmYear, vmMonth + 1, 0).getDate();
-  const todayStr = new Date().toDateString();
+  const presets = [
+    { k: "today", l: "Hr Ini", get: () => ({ from: new Date(), to: new Date() }) },
+    { k: "7d", l: "7 Hari", get: () => ({ from: new Date(Date.now() - 6 * 86400000), to: new Date() }) },
+    { k: "30d", l: "30 Hari", get: () => ({ from: new Date(Date.now() - 29 * 86400000), to: new Date() }) },
+  ];
 
-  const rows: number[][] = [];
-  let row: number[] = [];
-  for (let i = 0; i < firstDay; i++) row.push(0);
-  for (let day = 1; day <= daysInMonth; day++) {
-    row.push(day);
-    if (row.length === 7) { rows.push(row); row = []; }
-  }
-  if (row.length) rows.push(row);
-
-  const openPopup = () => {
-    if (btnRef.current) {
-      const rect = btnRef.current.getBoundingClientRect();
-      setPopupPos({ top: rect.bottom + 4, left: rect.left });
-    }
-    setOpen(true);
+  const isPresetMatch = (p: typeof presets[0]) => {
+    const v = p.get();
+    return dateRange?.from?.toDateString() === v.from.toDateString() && dateRange?.to?.toDateString() === v.to.toDateString();
   };
-
-  const select = (day: number) => {
-    const nd = new Date(vmYear, vmMonth, day);
-    onChange(nd.toISOString().split("T")[0]);
-    setOpen(false);
-  };
-
-  const nav = (delta: number) => {
-    const nd = new Date(vmYear, vmMonth + delta, 1);
-    setViewMonth(nd);
-  };
-
-  const dayNames = ["Min","Sen","Sel","Rab","Kam","Jum","Sab"];
 
   return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
-      <button ref={btnRef} onClick={openPopup}
-        className="relative flex-1 min-w-0 max-w-[120px] bg-accent/60 border border-border/40 rounded-lg px-2 py-1.5 text-xs font-medium text-foreground text-left cursor-pointer hover:bg-accent/80 transition-colors focus:outline-none focus:ring-2 focus:ring-primary/20 truncate">
-        {d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}
-      </button>
-      {open && ReactDOM.createPortal(
-        <div ref={popupRef}
-          style={{ position: "fixed", top: popupPos.top, left: popupPos.left, zIndex: 9999 }}
-          className="bg-card border border-border/60 rounded-2xl shadow-xl backdrop-blur-xl p-3 w-[260px]">
-          <div className="flex items-center justify-between mb-1.5">
-            <button onClick={() => nav(-1)}
-              className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors text-sm">‹</button>
-            <span className="text-sm font-semibold">
-              {["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agu","Sep","Okt","Nov","Des"][vmMonth]} {vmYear}
-            </span>
-            <button onClick={() => nav(1)}
-              className="w-7 h-7 rounded-lg hover:bg-accent flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors text-sm">›</button>
+    <div className="flex items-center gap-2 flex-wrap" ref={ref}>
+      {presets.map(p => (
+        <button key={p.k} onClick={() => { onDateRangeChange(p.get()); setOpen(false); }}
+          className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
+            isPresetMatch(p)
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+          }`}>
+          {p.l}
+        </button>
+      ))}
+      <div className="relative">
+        <button onClick={() => setOpen(!open)}
+          className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
+            !presets.some(isPresetMatch) && open
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : !presets.some(isPresetMatch)
+              ? "bg-primary/10 text-primary"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+          }`}>
+          <CalendarDays className="w-3.5 h-3.5" />
+          {dateRange?.from && dateRange?.to
+            ? `${dateRange.from.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} — ${dateRange.to.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`
+            : "Pilih Tanggal"}
+        </button>
+        {open && (
+          <div className="absolute top-full mt-2 left-0 z-50 bg-card border border-border/60 rounded-2xl shadow-xl backdrop-blur-xl p-3">
+            <Calendar
+              mode="range"
+              defaultMonth={dateRange?.from}
+              selected={dateRange}
+              onSelect={(r) => { onDateRangeChange(r); if (r?.from && r?.to && r.to > r.from) setOpen(false); }}
+              numberOfMonths={1}
+              min={5}
+            />
+            <div className="text-muted-foreground text-center text-xs mt-1">
+              Minimum 5 hari
+            </div>
           </div>
-          <div className="grid grid-cols-7 mb-1">
-            {dayNames.map(n => (
-              <div key={n} className="text-[10px] text-muted-foreground font-medium text-center py-1">{n}</div>
-            ))}
-          </div>
-          <div className="space-y-0.5">
-            {rows.map((r, ri) => (
-              <div key={ri} className="grid grid-cols-7">
-                {r.map((day, di) => {
-                  if (day === 0) return <div key={di} />;
-                  const isSelected = day === selDay && vmMonth === selMonth && vmYear === selYear;
-                  const isToday = new Date(vmYear, vmMonth, day).toDateString() === todayStr;
-                  return (
-                    <button key={di} onClick={() => select(day)}
-                      className={`w-full aspect-square rounded-lg text-xs font-medium transition-all touch-target
-                        ${isSelected ? "bg-primary text-primary-foreground shadow-sm" : isToday ? "bg-primary/10 text-primary" : "text-foreground hover:bg-accent"}`}>
-                      {day}
-                    </button>
-                  );
-                })}
-              </div>
-            ))}
-          </div>
-        </div>,
-        document.body
-      )}
+        )}
+      </div>
     </div>
   );
-};
+}
 
 export default function DashboardPage() {
   const { branchId, currentBranch } = useBranch();
@@ -175,19 +142,15 @@ export default function DashboardPage() {
   const isAllBranches = selectedBranch === "all";
   const params = { branchId: activeBranchId };
 
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);
 
-  const [period, setPeriod] = useState<string>("30d");
-  const [customStart, setCustomStart] = useState<string>(() => {
-    const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().split("T")[0];
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(Date.now() - 29 * 86400000),
+    to: today,
   });
-  const [customEnd, setCustomEnd] = useState<string>(today.toISOString().split("T")[0]);
 
-  const startDate = period === "today" ? today.toISOString().split("T")[0]
-    : period === "7d" ? new Date(Date.now() - 7 * 86400000).toISOString().split("T")[0]
-    : period === "30d" ? new Date(Date.now() - 30 * 86400000).toISOString().split("T")[0]
-    : customStart;
-  const endDate = period === "custom" ? customEnd : today.toISOString().split("T")[0];
+  const startDate = dateRange?.from ? dateRange.from.toISOString().split("T")[0] : new Date(Date.now() - 29 * 86400000).toISOString().split("T")[0];
+  const endDate = dateRange?.to ? dateRange.to.toISOString().split("T")[0] : today.toISOString().split("T")[0];
 
   const dateParams = { ...params, startDate, endDate };
 
@@ -270,21 +233,8 @@ export default function DashboardPage() {
             </Select>
           </div>
 
-          {/* Segmented Control */}
-          <div className="segmented-control">
-            {[{k:"today",l:"Hr Ini"},{k:"7d",l:"7 Hari"},{k:"30d",l:"30 Hari"}].map(p => (
-              <button key={p.k} onClick={() => setPeriod(p.k)} className={`seg-control-btn ${period === p.k ? "active" : ""}`}>
-                {p.l}
-              </button>
-            ))}
-          </div>
-
-          {/* Date Picker Row — centered */}
-          <div className="flex items-center justify-center gap-1.5">
-            <div className="flex-1 min-w-0"><CalendarPicker label="Dari" value={customStart} onChange={(v) => { setCustomStart(v); setPeriod("custom"); }} /></div>
-            <span className="text-slate-300 text-sm shrink-0">—</span>
-            <div className="flex-1 min-w-0"><CalendarPicker label="Ke" value={customEnd} onChange={(v) => { setCustomEnd(v); setPeriod("custom"); }} /></div>
-          </div>
+          {/* Date Range Filter */}
+          <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
 
           {/* KPI Cards — 2-col grid */}
           <div className="grid grid-cols-2 gap-3">
