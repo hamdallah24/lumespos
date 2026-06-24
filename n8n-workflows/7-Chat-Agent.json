@@ -40,9 +40,11 @@
     {
       "parameters": {
         "promptType": "define",
-        "text": "={{ $json.message }}",
+        "text": "={{ $json.message || 'Halo' }}",
+        "hasOutputParser": true,
         "options": {
-          "systemMessage": "Kamu adalah asisten ramah untuk Lume's Everywhere — aplikasi POS kuliner. Jawab pertanyaan casual, bantu brainstorming ide bisnis, resep, atau sekedar ngobrol santai. Jawab dalam Bahasa Indonesia yang santai dan hangat. Maks 500 karakter. Jika ditanya teknis tentang sistem, arahkan ke CTO Agent atau Business Assistant."
+          "systemMessage": "Kamu adalah asisten ramah untuk Lume's Everywhere — aplikasi POS kuliner. Jawab pertanyaan casual, bantu brainstorming ide bisnis, resep, atau sekedar ngobrol santai. Jawab dalam Bahasa Indonesia yang santai dan hangat. Maks 500 karakter. Jika ditanya teknis tentang sistem, arahkan ke CTO Agent atau Business Assistant.",
+          "maxIterations": 2
         }
       },
       "id": "f4e3d2c1-0b9a-4e7f-8d6c-5b4a3e2f1d0c",
