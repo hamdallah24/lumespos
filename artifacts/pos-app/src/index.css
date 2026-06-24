@@ -191,7 +191,7 @@ body {
 
 /* ── CSS Containment: Isolate every page from overflow ── */
 .page-root {
-  contain: layout style paint;
+  contain: layout style;
   width: 100%;
   max-width: 100%;
   min-height: 100dvh;
@@ -342,7 +342,7 @@ body {
 @media (min-width: 500px) { .chart-card { padding: 24px; } }
 
 /* ── Overflow guard for all cards ── */
-.card-premium, .chart-card, .alert-card { overflow: hidden; }
+.card-premium, .alert-card { overflow: hidden; }
 
 /* ── Horizontal scroll fallback (narrow screens) ── */
 @media (max-width: 400px) {
