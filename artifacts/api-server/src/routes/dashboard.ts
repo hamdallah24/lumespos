@@ -18,71 +18,71 @@ function branchId(req: { query: Record<string, unknown> }): number | undefined {
 }
 
 router.get("/dashboard/summary", requireRole("owner", "manager"), async (req, res) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  const startDateStr = req.query["startDate"] as string | undefined;
+  const endDateStr = req.query["endDate"] as string | undefined;
 
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayEnd = new Date(todayEnd);
-  yesterdayEnd.setDate(yesterdayEnd.getDate() - 1);
+  const currentStart = startDateStr ? new Date(startDateStr) : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+  const currentEnd = endDateStr ? new Date(endDateStr) : (() => { const d = new Date(); d.setHours(23, 59, 59, 999); return d; })();
+  if (!startDateStr) currentStart.setHours(0, 0, 0, 0);
+  if (endDateStr) currentEnd.setHours(23, 59, 59, 999);
+  else currentEnd.setHours(23, 59, 59, 999);
+
+  const periodMs = currentEnd.getTime() - currentStart.getTime() + 1;
+  const prevStart = new Date(currentStart.getTime() - periodMs);
+  const prevEnd = new Date(currentStart.getTime() - 1);
 
   const branch = branchFilter(req);
   const expBranch = branchId(req);
 
-  const [todayStats] = await db
+  const [currentStats] = await db
     .select({ revenue: sum(ordersTable.total), orders: count(ordersTable.id) })
     .from(ordersTable)
-    .where(and(gte(ordersTable.createdAt, today), lte(ordersTable.createdAt, todayEnd), branch));
+    .where(and(gte(ordersTable.createdAt, currentStart), lte(ordersTable.createdAt, currentEnd), branch));
 
-  const [yesterdayStats] = await db
+  const [prevStats] = await db
     .select({ revenue: sum(ordersTable.total), orders: count(ordersTable.id) })
     .from(ordersTable)
-    .where(and(gte(ordersTable.createdAt, yesterday), lte(ordersTable.createdAt, yesterdayEnd), branch));
+    .where(and(gte(ordersTable.createdAt, prevStart), lte(ordersTable.createdAt, prevEnd), branch));
 
   const [productCounts] = await db
-    .select({
-      total: count(productsTable.id),
-      //lowStock: sql<number>`sum(case when  <= 5 then 1 else 0 end)`,
-    })
+    .select({ total: count(productsTable.id) })
     .from(productsTable)
     .where(eq(productsTable.isActive, true));
 
-  const [todayExp] = await db
+  const [currentExp] = await db
     .select({ total: sum(expensesTable.amount) })
     .from(expensesTable)
     .where(and(
-      gte(expensesTable.createdAt, today),
-      lte(expensesTable.createdAt, todayEnd),
+      gte(expensesTable.createdAt, currentStart),
+      lte(expensesTable.createdAt, currentEnd),
       expBranch ? eq(expensesTable.branchId, expBranch) : undefined,
     ));
 
-  const [yesterdayExp] = await db
+  const [prevExp] = await db
     .select({ total: sum(expensesTable.amount) })
     .from(expensesTable)
     .where(and(
-      gte(expensesTable.createdAt, yesterday),
-      lte(expensesTable.createdAt, yesterdayEnd),
+      gte(expensesTable.createdAt, prevStart),
+      lte(expensesTable.createdAt, prevEnd),
       expBranch ? eq(expensesTable.branchId, expBranch) : undefined,
     ));
 
-  const todayRevenue = parseFloat(todayStats?.revenue ?? "0");
-  const todayOrders = todayStats?.orders ?? 0;
-  const yRevenue = parseFloat(yesterdayStats?.revenue ?? "0");
-  const yOrders = yesterdayStats?.orders ?? 0;
-  const todayExpenses = parseFloat(todayExp?.total ?? "0");
-  const yExpenses = parseFloat(yesterdayExp?.total ?? "0");
+  const currentRevenue = parseFloat(currentStats?.revenue ?? "0");
+  const currentOrders = currentStats?.orders ?? 0;
+  const prevRevenue = parseFloat(prevStats?.revenue ?? "0");
+  const prevOrders = prevStats?.orders ?? 0;
+  const currentExpenses = parseFloat(currentExp?.total ?? "0");
+  const prevExpenses = parseFloat(prevExp?.total ?? "0");
 
   res.json({
-    todayRevenue,
-    todayOrders,
-    todayExpenses,
+    todayRevenue: currentRevenue,
+    todayOrders: currentOrders,
+    todayExpenses: currentExpenses,
     totalProducts: productCounts?.total ?? 0,
     lowStockCount: 0,
-    todayRevenueDiff: yRevenue > 0 ? ((todayRevenue - yRevenue) / yRevenue) * 100 : 0,
-    todayOrdersDiff: yOrders > 0 ? ((todayOrders - yOrders) / yOrders) * 100 : 0,
-    todayExpensesDiff: yExpenses > 0 ? ((todayExpenses - yExpenses) / yExpenses) * 100 : 0,
+    todayRevenueDiff: prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : 0,
+    todayOrdersDiff: prevOrders > 0 ? ((currentOrders - prevOrders) / prevOrders) * 100 : 0,
+    todayExpensesDiff: prevExpenses > 0 ? ((currentExpenses - prevExpenses) / prevExpenses) * 100 : 0,
   });
 });
 

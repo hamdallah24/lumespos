@@ -156,7 +156,7 @@ export default function DashboardPage() {
 
   const [stockIndex, setStockIndex] = useState(0);
 
-  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary(params);
+  const { data: summary, isLoading: loadingSummary } = useGetDashboardSummary({ ...params, startDate, endDate } as any);
   const { data: topProducts = [], isLoading: loadingTop } = useGetTopProducts({ limit: 5, branchId: activeBranchId, startDate, endDate });
   const { data: chartData = [], isLoading: loadingChart } = useGetSalesChart(dateParams as any);
   const { data: cashierPerf = [], isLoading: loadingCashier } = useGetCashierPerformance(dateParams as any);
@@ -243,21 +243,21 @@ export default function DashboardPage() {
             ) : summary ? (<>
               <div className="card-premium flex flex-col min-w-0">
                 <div className="kpi-icon-box mb-1.5"><Banknote /></div>
-                <p className="card-title-text">Penjualan Hari Ini</p>
+                <p className="card-title-text">Pendapatan</p>
                 <p className="metric-primary text-slate-800 dark:text-slate-100">{formatRp(summary.todayRevenue)}</p>
-                <div className="mt-auto">{(summary.todayRevenueDiff ?? 0) !== 0 && (<span className={`metric-secondary ${summary.todayRevenueDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>{summary.todayRevenueDiff >= 0 ? "+" : ""}{summary.todayRevenueDiff.toFixed(1)}% vs kemarin</span>)}</div>
+                <div className="mt-auto">{(summary.todayRevenueDiff ?? 0) !== 0 && (<span className={`metric-secondary ${summary.todayRevenueDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>{summary.todayRevenueDiff >= 0 ? "+" : ""}{summary.todayRevenueDiff.toFixed(1)}% vs periode sebelumnya</span>)}</div>
               </div>
               <div className="card-premium flex flex-col min-w-0">
                 <div className="kpi-icon-box mb-1.5" style={{background:"#FFF5F5"}}><Wallet /></div>
-                <p className="card-title-text">Pengeluaran Hari Ini</p>
+                <p className="card-title-text">Pengeluaran</p>
                 <p className="metric-primary text-slate-800 dark:text-slate-100">{formatRp(summary.todayExpenses)}</p>
-                <div className="mt-auto"><span className="metric-secondary text-slate-400">—</span></div>
+                <div className="mt-auto">{summary.todayExpensesDiff !== 0 ? (<span className={`metric-secondary ${summary.todayExpensesDiff <= 0 ? "text-emerald-500" : "text-red-500"}`}>{summary.todayExpensesDiff >= 0 ? "+" : ""}{summary.todayExpensesDiff.toFixed(1)}% vs periode sebelumnya</span>) : <span className="metric-secondary text-slate-400">—</span>}</div>
               </div>
               <div className="card-premium flex flex-col min-w-0">
                 <div className="kpi-icon-box mb-1.5" style={{background:"#F0FDF4"}}><ShoppingCart /></div>
                 <p className="card-title-text">Transaksi</p>
                 <p className="metric-primary text-slate-800 dark:text-slate-100">{summary.todayOrders}</p>
-                <div className="mt-auto"><span className="metric-secondary text-slate-400">—</span></div>
+                <div className="mt-auto">{(summary.todayOrdersDiff ?? 0) !== 0 && (<span className={`metric-secondary ${summary.todayOrdersDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>{summary.todayOrdersDiff >= 0 ? "+" : ""}{summary.todayOrdersDiff.toFixed(1)}% vs periode sebelumnya</span>)}</div>
               </div>
               <div className="card-premium flex flex-col min-w-0">
                 <div className="kpi-icon-box mb-1.5" style={{background:"#EFF6FF"}}><Package /></div>
