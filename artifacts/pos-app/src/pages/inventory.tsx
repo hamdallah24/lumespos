@@ -411,7 +411,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(ing)}>
                   <span className="font-medium text-sm truncate">{ing.name}</span>
                   <p className="text-xs text-muted-foreground truncate break-words min-w-0">
-                    HPP {formatRp(ing.costPricePerUnit)} / {ing.unit} · Min {formatQty(ing.minimalStock)}
+                    HPP {formatRp(ing.costPricePerUnit)} / {ing.unit}<span className="hidden sm:inline"> · Min {formatQty(ing.minimalStock)}</span>
                   </p>
                 </div>
                 <div className="shrink-0 mr-1">
@@ -658,8 +658,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(sf)}>
                   <span className="font-medium text-sm truncate">{sf.name}</span>
                   <p className="text-xs text-muted-foreground truncate break-words min-w-0">
-                    HPP {formatRp(sf.costPricePerUnit)} / {sf.unit} · Stok {formatQty(sf.currentStock)}
-                    {sf.yieldQuantity && sf.yieldUnit && ` · ${sf.yieldQuantity} ${sf.yieldUnit}`}
+                    HPP {formatRp(sf.costPricePerUnit)} / {sf.unit}<span className="hidden sm:inline"> · Stok {formatQty(sf.currentStock)}{sf.yieldQuantity && ` · ${sf.yieldQuantity} ${sf.yieldUnit}`}</span>
                   </p>
                 </div>
                 <div className="shrink-0">
