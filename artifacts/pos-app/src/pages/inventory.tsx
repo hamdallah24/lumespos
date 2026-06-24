@@ -143,8 +143,8 @@ function StockTab({ branchId }: { branchId: number }) {
                 }`}
                 onClick={() => { setSelectedItem(item); setAction(null); }}
               >
-                <div className="p-3 md:p-4 flex items-center gap-3 md:gap-4 min-w-0">
-                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                <div className="p-3 md:p-4 flex items-center gap-2 min-w-0">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
                     low ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
                   }`}>
                     {item.itemType === "semi_finished" ? <FlaskConical className="w-5 h-5" /> : <Package className="w-5 h-5" />}
@@ -404,8 +404,8 @@ function IngredientsTab({ branchId }: { branchId: number }) {
         ) : (
           (ingredients as IngredientItem[]).map((ing) => (
             <Card key={ing.id} className="hover:bg-muted/50 transition-colors">
-              <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <CardContent className="p-3 md:p-4 flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <Package className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(ing)}>
@@ -651,24 +651,24 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
         ) : (
           (items as SemiFinishedItem[]).map((sf) => (
             <Card key={sf.id}>
-              <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                  <FlaskConical className="w-4 h-4" />
+              <CardContent className="p-3 md:p-4 flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                  <FlaskConical className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(sf)}>
                   <span className="font-medium text-sm truncate">{sf.name}</span>
                   <p className="text-xs text-muted-foreground truncate break-words min-w-0">
                     HPP {formatRp(sf.costPricePerUnit)} / {sf.unit} · Stok {formatQty(sf.currentStock)}
-                    {sf.yieldQuantity && sf.yieldUnit && ` · Yield ${sf.yieldQuantity} ${sf.yieldUnit}/batch`}
+                    {sf.yieldQuantity && sf.yieldUnit && ` · ${sf.yieldQuantity} ${sf.yieldUnit}`}
                   </p>
                 </div>
-                <div className="shrink-0 mr-1">
+                <div className="shrink-0">
                   {sf.trackInShift ? (
-                    <Badge variant="outline" className="text-[10px] text-green-600 border-green-200 bg-green-50 gap-1">
+                    <Badge variant="outline" className="text-[10px] text-green-600 border-green-200 bg-green-50 gap-1 px-1.5 py-0 h-5">
                       <ClipboardCheck className="w-3 h-3" />Diaudit
                     </Badge>
                   ) : (
-                    <Badge variant="outline" className="text-[10px] text-muted-foreground gap-1">Lewati</Badge>
+                    <Badge variant="outline" className="text-[10px] text-muted-foreground gap-1 px-1.5 py-0 h-5">Lewati</Badge>
                   )}
                 </div>
                 <div className="flex gap-0.5 shrink-0">
