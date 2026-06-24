@@ -224,8 +224,8 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
           </button>
         </div>
 
-        {/* Page content — 16px side padding */}
-        <div className="flex-1 overflow-y-auto pb-24 lg:pb-0 px-4 min-h-0 overflow-fallback">
+        {/* Page content — CSS containment isolated */}
+        <div className="page-root flex-1 overflow-y-auto pb-24 lg:pb-0 px-4 min-h-0">
           <AnimatePresence mode="wait">
             <motion.div
               key={location}
