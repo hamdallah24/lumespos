@@ -1,0 +1,317 @@
+{
+  "name": "AI Business Assistant - Lume's Everywhere",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [-400, 300],
+      "typeVersion": 2,
+      "webhookId": "ai-business-assistant"
+    },
+    {
+      "parameters": {
+        "jsCode": "const { message, branchId, userId, role, userName } = $json.body;\n\nreturn [{\n  json: {\n    message: message || '',\n    branchId: branchId || null,\n    userId: userId || null,\n    role: role || null,\n    userName: userName || 'User'\n  }\n}];"
+      },
+      "id": "parse-input",
+      "name": "Parse Input",
+      "type": "n8n-nodes-base.code",
+      "position": [-256, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "deepseek-v4-pro",
+          "mode": "list",
+          "cachedResultName": "DEEPSEEK-V4-PRO"
+        },
+        "options": {}
+      },
+      "id": "deepseek-model",
+      "name": "DeepSeek Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "position": [128, 620],
+      "typeVersion": 1.2,
+      "credentials": {
+        "openAiApi": {
+          "id": "YOUR_OPENAI_DEEPSEEK_CREDENTIAL_ID",
+          "name": "OpenAI/DeepSeek API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message || 'Tidak ada pesan' }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Anda adalah AI Business Assistant untuk Lume's Everywhere POS. Anda membantu operasional bisnis sehari-hari.\n\nDATA PENGGUNA:\n- Nama: {{ $json.userName }}\n- Role: {{ $json.role }}\n- Branch ID: {{ $json.branchId }}\n\n⚠️ BATASAN AKSES:\n- Hanya role owner/manager yang bisa membuat/mengubah data (produk, bahan, stok, dll)\n- Role cashier hanya bisa MELIHAT data dan mencatat pengeluaran\n\n📋 TOOL YANG TERSEDIA:\n1. listIngredients — Lihat daftar bahan baku\n2. createIngredient — Tambah bahan baku baru (owner/manager only)\n3. adjustStock — Catat stok masuk/keluar/loss\n4. listSemiFinished — Lihat daftar setengah jadi\n5. produceSemiFinished — Produksi setengah jadi (habiskan bahan mentah)\n6. listProducts — Lihat daftar produk menu\n7. createProduct — Tambah produk menu baru (owner/manager only)\n8. listRecipes — Lihat resep (BOM)\n9. createExpense — Catat pengeluaran operasional\n10. getFinancialReport — Lihat laporan keuangan\n11. getLowStock — Cek stok menipis\n\n🌐 SEMUA TOOL menggunakan API base URL: http://localhost:3000/api\n\n🚫 JANGAN:\n- Mengubah data tanpa konfirmasi dari user\n- Membuat produk/bahan baru tanpa konfirmasi\n- Melakukan aksi di luar tool yang disediakan\n- Menggunakan cabang (branchId) yang tidak disebut user\n\n💬 FORMAT RESPON:\n- Bahasa Indonesia, ramah, ringkas\n- Jika berhasil melakukan aksi, laporkan detail hasilnya (nama item, jumlah, harga, dll)\n- Jika gagal, jelaskan penyebabnya\n- Jika butuh konfirmasi, tanyakan dengan jelas apa yang akan dilakukan",
+          "maxIterations": 5
+        }
+      },
+      "id": "ai-agent",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [128, 400],
+      "typeVersion": 3.1,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "toolDescription": "Lihat daftar bahan baku (ingredients) untuk cabang tertentu.\nInput: branchId (number, required). Contoh: 1\nMetode: GET",
+        "url": "=http://localhost:3000/api/ingredients?branchId={{ $fromAI('branchId') }}",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "tool-list-ingredients",
+      "name": "listIngredients",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [-256, 620],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Tambah bahan baku baru.\nInput: branchId (number), name (string), unit (string), costPricePerUnit (number, optional), minimalStock (number, optional)\nMetode: POST\nBody JSON: { branchId, name, unit, costPricePerUnit, minimalStock }",
+        "url": "http://localhost:3000/api/ingredients",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "branchId", "value": "={{ $fromAI('branchId') }}" },
+            { "name": "name", "value": "={{ $fromAI('name') }}" },
+            { "name": "unit", "value": "={{ $fromAI('unit') }}" },
+            { "name": "costPricePerUnit", "value": "={{ $fromAI('costPricePerUnit') }}" },
+            { "name": "minimalStock", "value": "={{ $fromAI('minimalStock') }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool-create-ingredient",
+      "name": "createIngredient",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [-128, 620],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Catat stok masuk/keluar/loss untuk bahan baku atau setengah jadi.\nInput: branchId (number), itemType ('ingredient'|'semi_finished'), itemId (number), adjustmentType ('in'|'out'|'loss'), quantity (number), purchasePriceTotal (number, optional), notes (string, optional)\nMetode: POST\nBody JSON: { branchId, itemType, itemId, adjustmentType, quantity, purchasePriceTotal, notes }",
+        "url": "http://localhost:3000/api/stock-adjustments",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "branchId", "value": "={{ $fromAI('branchId') }}" },
+            { "name": "itemType", "value": "={{ $fromAI('itemType') }}" },
+            { "name": "itemId", "value": "={{ $fromAI('itemId') }}" },
+            { "name": "adjustmentType", "value": "={{ $fromAI('adjustmentType') }}" },
+            { "name": "quantity", "value": "={{ $fromAI('quantity') }}" },
+            { "name": "purchasePriceTotal", "value": "={{ $fromAI('purchasePriceTotal') }}" },
+            { "name": "notes", "value": "={{ $fromAI('notes') }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool-adjust-stock",
+      "name": "adjustStock",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [0, 620],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Lihat daftar setengah jadi (semi-finished items) untuk cabang tertentu.\nInput: branchId (number, required)\nMetode: GET",
+        "url": "=http://localhost:3000/api/semi-finished?branchId={{ $fromAI('branchId') }}",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "tool-list-semi-finished",
+      "name": "listSemiFinished",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [128, 840],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Produksi setengah jadi. Menghabiskan bahan mentah sesuai resep dan menghasilkan stok setengah jadi.\nInput: semiFinishedId (number, required — ID setengah jadi), producedWeight (number, required — jumlah yang diproduksi)\nMetode: POST\nBody JSON: { producedWeight }",
+        "url": "=http://localhost:3000/api/semi-finished/{{ $fromAI('semiFinishedId') }}/produce",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "producedWeight", "value": "={{ $fromAI('producedWeight') }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool-produce",
+      "name": "produceSemiFinished",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [256, 840],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Lihat daftar produk menu untuk cabang tertentu.\nInput: branchId (number, required), search (string, optional — cari nama), categoryId (number, optional)\nMetode: GET",
+        "url": "=http://localhost:3000/api/products?branchId={{ $fromAI('branchId') }}{{% if $fromAI('search') %}}&search={{ $fromAI('search') }}{% endif %}}{{% if $fromAI('categoryId') %}}&categoryId={{ $fromAI('categoryId') }}{% endif %}}",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "tool-list-products",
+      "name": "listProducts",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [384, 840],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Tambah produk menu baru.\nInput: branchId (number), name (string), price (number), categoryId (number, optional), imageUrl (string, optional)\nMetode: POST\nBody JSON: { branchId, name, price, categoryId, imageUrl }",
+        "url": "http://localhost:3000/api/products",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "branchId", "value": "={{ $fromAI('branchId') }}" },
+            { "name": "name", "value": "={{ $fromAI('name') }}" },
+            { "name": "price", "value": "={{ $fromAI('price') }}" },
+            { "name": "categoryId", "value": "={{ $fromAI('categoryId') }}" },
+            { "name": "imageUrl", "value": "={{ $fromAI('imageUrl') }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool-create-product",
+      "name": "createProduct",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [512, 840],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Lihat resep (BOM) produk atau setengah jadi.\nInput: parentType ('product'|'semi_finished'), parentId (number)\nMetode: GET",
+        "url": "=http://localhost:3000/api/recipes?parentType={{ $fromAI('parentType') }}&parentId={{ $fromAI('parentId') }}",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "tool-list-recipes",
+      "name": "listRecipes",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [640, 840],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Catat pengeluaran operasional.\nInput: branchId (number), description (string), amount (number), category (string, optional — contoh: 'Bahan Baku', 'Listrik', 'Sewa', 'Lainnya'), notes (string, optional)\nMetode: POST\nBody JSON: { branchId, description, amount, category, notes }",
+        "url": "http://localhost:3000/api/expenses",
+        "authentication": "none",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "branchId", "value": "={{ $fromAI('branchId') }}" },
+            { "name": "description", "value": "={{ $fromAI('description') }}" },
+            { "name": "amount", "value": "={{ $fromAI('amount') }}" },
+            { "name": "category", "value": "={{ $fromAI('category') }}" },
+            { "name": "notes", "value": "={{ $fromAI('notes') }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "tool-create-expense",
+      "name": "createExpense",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [768, 840],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Lihat laporan keuangan (revenue, COGS, expenses, profit, margin).\nInput: branchId (number, optional), startDate (string YYYY-MM-DD, optional), endDate (string YYYY-MM-DD, optional)\nMetode: GET",
+        "url": "=http://localhost:3000/api/dashboard/financial?branchId={{ $fromAI('branchId') }}{{% if $fromAI('startDate') %}}&startDate={{ $fromAI('startDate') }}{% endif %}}{{% if $fromAI('endDate') %}}&endDate={{ $fromAI('endDate') }}{% endif %}}",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "tool-financial-report",
+      "name": "getFinancialReport",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [896, 840],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "toolDescription": "Cek bahan baku yang stoknya menipis (di bawah threshold).\nInput: branchId (number, optional — default 1)\nMetode: GET",
+        "url": "=http://localhost:3000/api/inventory/low-stock?branchId={{ $fromAI('branchId') }}",
+        "authentication": "none",
+        "options": {}
+      },
+      "id": "tool-low-stock",
+      "name": "getLowStock",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "position": [1024, 840],
+      "typeVersion": 4.4
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseMode": "lastNode",
+        "options": {
+          "responseData": "={{ $json.output || $json.reply || JSON.stringify($json) }}"
+        }
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [512, 300],
+      "typeVersion": 1.2
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [[{ "node": "Parse Input", "type": "main", "index": 0 }]]
+    },
+    "Parse Input": {
+      "main": [[{ "node": "AI Agent", "type": "main", "index": 0 }]]
+    },
+    "DeepSeek Chat Model": {
+      "ai_languageModel": [[{ "node": "AI Agent", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "listIngredients": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "createIngredient": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "adjustStock": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "listSemiFinished": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "produceSemiFinished": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "listProducts": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "createProduct": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "listRecipes": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "createExpense": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "getFinancialReport": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "getLowStock": {
+      "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
+    },
+    "AI Agent": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  }
+}

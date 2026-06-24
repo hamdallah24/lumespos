@@ -1,8 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Bot, User } from "lucide-react";
-
-const N8N_WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL || "";
+import { apiFetch } from "@/lib/csrf";
 
 type Message = {
   role: "user" | "assistant";
@@ -77,21 +76,25 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim() || !N8N_WEBHOOK_URL) return;
+    if (!input.trim()) return;
     const text = input.trim();
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text }]);
     setLoading(true);
 
     try {
-      const res = await fetch(N8N_WEBHOOK_URL, {
+      const res = await apiFetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: text }),
       });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        setMessages((prev) => [...prev, { role: "assistant", text: err.error || "Terjadi kesalahan." }]);
+        return;
+      }
       const data = await res.json();
-      const reply = typeof data === "string" ? data : data?.output || data?.response || JSON.stringify(data);
-      setMessages((prev) => [...prev, { role: "assistant", text: reply }]);
+      setMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
     } catch {
       setMessages((prev) => [...prev, { role: "assistant", text: "Maaf, terjadi kesalahan. Coba lagi." }]);
     } finally {
@@ -202,13 +205,12 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={N8N_WEBHOOK_URL ? "Tanya AI Agent..." : "Atur VITE_N8N_WEBHOOK_URL di .env"}
-                  disabled={!N8N_WEBHOOK_URL}
+                  placeholder="Tanya AI Agent..."
                   className="flex-1 bg-transparent text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none min-w-0"
                 />
                 <button
                   onClick={sendMessage}
-                  disabled={!input.trim() || !N8N_WEBHOOK_URL}
+                  disabled={!input.trim()}
                   className="w-8 h-8 rounded-xl bg-[#1565FF] text-white flex items-center justify-center hover:bg-[#1565FF]/90 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                 >
                   <Send size={15} />

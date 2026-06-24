@@ -15,6 +15,7 @@ import inventoryRouter from "./inventory";
 import expensesRouter from "./expenses";
 import shiftAuditsRouter from "./shiftAudits";
 import storageRouter from "./storage";
+import aiRouter from "./ai";
 
 const router = Router();
 
@@ -35,5 +36,6 @@ router.use("/", inventoryRouter);
 router.use("/", expensesRouter);
 router.use("/", shiftAuditsRouter);
 router.use("/", storageRouter);
+router.use("/", aiRouter);
 
 export default router;
