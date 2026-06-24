@@ -266,18 +266,6 @@
       "type": "n8n-nodes-base.code",
       "position": [384, 300],
       "typeVersion": 2
-    },
-    {
-      "parameters": {
-        "respondWith": "json",
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "id": "respond-webhook",
-      "name": "Respond to Webhook",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "position": [512, 300],
-      "typeVersion": 1.2
     }
   ],
   "connections": {
@@ -325,9 +313,6 @@
     },
     "AI Agent": {
       "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]]
-    },
-    "Format Response": {
-      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
     }
   }
 }
