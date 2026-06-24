@@ -19,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const { message, branchId, userId, role, userName } = $json;\n\nconst userContext = 'Data pengguna:\\n' +\n  '- Nama: ' + (userName || 'Tidak diketahui') + '\\n' +\n  '- Role: ' + (role || 'Tidak diketahui') + '\\n' +\n  '- Branch ID: ' + (branchId || 'Tidak diketahui') + '\\n\\n';\n\nconst fullMessage = userContext + 'Pesan: ' + (message || '');\n\nreturn [{ json: { message: fullMessage } }];"
+        "jsCode": "const { message, branchId, role, userName } = $json;\n\nconst userRole = (role || 'owner').toLowerCase();\nconst userBranch = branchId || 1;\nconst userNameClean = userName || 'Owner';\n\nlet msg = (message || '').toLowerCase().trim();\n\n// ===== NORMALISASI BAHASA INDONESIA =====\n// Hapus salam sapaan\nmsg = msg.replace(/^(halo|hallo|helo|hi|hey|hai|siang|pagi|sore|malam|permisi|misi|maaf|bro|bang|kak|tolong|bantu|coba|test|tes)\\b[\\s,]*/gi, '');\n\n// Hapus pengulangan identitas (sudah ada di context)\nmsg = msg.replace(/(saya|aku|gw|gue)\\s+(owner|adalah|pemilik|admin)\\b[\\s,]*/gi, '');\nmsg = msg.replace(/\\bcabang\\s*(id\\s*)?\\d+\\b[\\s,]*/gi, '');\nmsg = msg.replace(/\\bbranch\\s*(id\\s*)?\\d+\\b[\\s,]*/gi, '');\n\n// Normalisasi frasa umum\nconst replacements = {\n  'sikit': 'sedikit',\n  'dikit': 'sedikit',\n  'abis': 'habis',\n  'abiz': 'habis',\n  'cek': 'lihat',\n  'cekidot': 'lihat',\n  'check': 'lihat',\n  'nambah': 'tambah',\n  'nmbah': 'tambah',\n  'nmbh': 'tambah',\n  'bikin': 'buat',\n  'bikinin': 'buat',\n  'produk': 'produk',\n  'menu': 'produk',\n  'produksi': 'produksi',\n  'produsi': 'produksi',\n  'stok': 'stok',\n  'stock': 'stok',\n  'bahan': 'bahan',\n  'bhn': 'bahan',\n  'bhn baku': 'bahan baku',\n  'pengeluaran': 'pengeluaran',\n  'belanja': 'pengeluaran',\n  'biaya': 'pengeluaran',\n  'laporan': 'laporan',\n  'report': 'laporan',\n  'revenue': 'pendapatan',\n  'profit': 'keuntungan',\n  'untung': 'keuntungan',\n  'rugi': 'kerugian',\n};\nfor (const [key, val] of Object.entries(replacements)) {\n  const regex = new RegExp('\\\\b' + key + '\\\\b', 'gi');\n  msg = msg.replace(regex, val);\n}\n\n// Peta intent ke perintah teknis\nconst intentMap = [\n  { pattern: /lihat stok menipis|stok (habis|sedikit|menipis|kritis|tipis)|bahan (habis|sedikit|menipis)/, intent: 'INTENT: CEK_STOK_MENIPIS' },\n  { pattern: /lihat (bahan baku|bahan|ingredient)|daftar bahan/, intent: 'INTENT: LIHAT_BAHAN' },\n  { pattern: /tambah (bahan|bahan baku|ingredient)/, intent: 'INTENT: TAMBAH_BAHAN' },\n  { pattern: /stok (masuk|in|tambah)|tambah stok/, intent: 'INTENT: STOK_MASUK' },\n  { pattern: /stok (keluar|out|kurang)|kurang stok/, intent: 'INTENT: STOK_KELUAR' },\n  { pattern: /produksi|produk (jadi|setengah jadi)|bikin|buat (stok|produk)/, intent: 'INTENT: PRODUKSI' },\n  { pattern: /lihat (produk|menu|produk menu)/, intent: 'INTENT: LIHAT_PRODUK' },\n  { pattern: /tambah (produk|menu)/, intent: 'INTENT: TAMBAH_PRODUK' },\n  { pattern: /lihat (resep|bom|recipe)/, intent: 'INTENT: LIHAT_RESEP' },\n  { pattern: /catat (pengeluaran|biaya|belanja)/, intent: 'INTENT: CATAT_PENGELUARAN' },\n  { pattern: /laporan (keuangan|finansial)|lihat (laporan|keuangan|pendapatan|keuntungan)/, intent: 'INTENT: LAPORAN_KUANGAN' },\n];\n\nlet detectedIntent = '';\nfor (const entry of intentMap) {\n  if (entry.pattern.test(msg)) {\n    detectedIntent = entry.intent;\n    break;\n  }\n}\n\n// Bersihkan spasi berlebih\nmsg = msg.replace(/\\s+/g, ' ').trim();\n\n// Jika pesan kosong setelah normalisasi, pakai aslinya (kasih tau user)\nif (!msg) {\n  msg = (message || '').trim();\n}\n\nconst prefix = detectedIntent ? detectedIntent + '\\n' : '';\nconst context = 'USER: ' + userNameClean + ' | ROLE: ' + userRole + ' | BRANCH: ' + userBranch + '\\n';\nconst fullMessage = context + prefix + msg;\n\nreturn [{ json: { message: fullMessage, detectedIntent, userBranch } }];"
       },
       "id": "parse-input",
       "name": "Parse Input",
@@ -55,7 +55,7 @@
         "text": "={{ $json.message }}",
         "hasOutputParser": true,
         "options": {
-          "systemMessage": "Kamu adalah asisten pribadi owner Lume's Everywhere POS. Bantu semua operasional bisnis dengan santai dan to the point.\n\nTools API: http://localhost:3000/api\nBranch default: ID 1 (pakai ini kalau user tidak menyebut cabang lain)\n\n📋 TOOL YANG TERSEDIA:\n1. listIngredients — Lihat daftar bahan baku\n2. createIngredient — Tambah bahan baku baru\n3. adjustStock — Catat stok masuk/keluar/loss\n4. listSemiFinished — Lihat daftar setengah jadi\n5. produceSemiFinished — Produksi setengah jadi (habiskan bahan mentah)\n6. listProducts — Lihat daftar produk menu\n7. createProduct — Tambah produk menu baru\n8. listRecipes — Lihat resep (BOM)\n9. createExpense — Catat pengeluaran\n10. getFinancialReport — Lihat laporan keuangan\n11. getLowStock — Cek stok menipis\n\nAturan:\n- Langsung eksekusi kalau ada instruksi jelas\n- Kalau user bilang \"produksi\" tanpa jumlah, tanya balik\n- Kalau berhasil, kasih ringkasan hasilnya\n- Kalau gagal, bilang apa errornya\n- Bahasa Indonesia santai, ga perlu kaku",
+          "systemMessage": "Kamu adalah asisten operasional Lume's Everywhere POS. Kamu HARUS menggunakan tools untuk menjawab.\n\nATURAN WAJIB:\n1. BACA data user di awal pesan (USER, ROLE, BRANCH) — JANGAN tanya ulang\n2. JANGAN PERNAH memberi salam, perkenalan, atau sambutan\n3. JANGAN PERNAH mengulangi jawaban yang persis sama\n4. LANGSUNG panggil tool yang sesuai — jangan coba jawab dari pengetahuan umum\n5. Jika ada INTENT di pesan, gunakan tool yang paling cocok dengan intent tersebut\n6. Branch ID sudah ada — pakai untuk semua tool yang butuh branchId\n7. KALAU USER NANYA STOK → panggil getLowStock atau listIngredients\n8. KALAU USER MINTA PRODUKSI → panggil produceSemiFinished\n9. KALAU USER MINTA TAMBAH PRODUK/BAHAN → panggil createProduct/createIngredient\n10. KALAU USER MINTA LAPORAN → panggil getFinancialReport\n11. KALAU USER CATAT PENGELUARAN → panggil createExpense\n12. KALAU USER NANYA MENU/PRODUK → panggil listProducts\n\nOBROLAN UMUM: Jika user hanya ngobrol (bukan perintah bisnis), balas singkat 1-2 kalimat. TAPI jika ada perintah, WAJIB panggil tool.\n\nRESPON:\n- Jika tool berhasil: \"✅ [hasil]\" + ringkasan data\n- Jika tool gagal: \"❌ [penyebab]\"\n- Jika butuh info tambahan: tanya spesifik (bukan perkenalan)\n- Bahasa Indonesia santai dan to the point",
           "maxIterations": 5
         }
       },
@@ -68,7 +68,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Lihat daftar bahan baku (ingredients) untuk cabang tertentu.\nInput: branchId (number, required). Contoh: 1\nMetode: GET",
+        "toolDescription": "=Wajib dipakai jika user minta lihat daftar bahan baku atau ingredient.\nUrl: GET http://localhost:3000/api/ingredients?branchId=X\nParameter: branchId (number, ambil dari data pengguna)",
         "url": "=http://localhost:3000/api/ingredients?branchId={{ $fromAI('branchId') }}",
         "authentication": "none",
         "options": {}
@@ -81,7 +81,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Tambah bahan baku baru.\nInput: branchId (number), name (string), unit (string), costPricePerUnit (number, optional), minimalStock (number, optional)\nMetode: POST\nBody JSON: { branchId, name, unit, costPricePerUnit, minimalStock }",
+        "toolDescription": "=Wajib dipakai jika user minta TAMBAH bahan baku baru.\nMethod: POST http://localhost:3000/api/ingredients\nBody: { branchId, name, unit, costPricePerUnit, minimalStock }",
         "url": "http://localhost:3000/api/ingredients",
         "authentication": "none",
         "sendBody": true,
@@ -104,7 +104,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Catat stok masuk/keluar/loss untuk bahan baku atau setengah jadi.\nInput: branchId (number), itemType ('ingredient'|'semi_finished'), itemId (number), adjustmentType ('in'|'out'|'loss'), quantity (number), purchasePriceTotal (number, optional), notes (string, optional)\nMetode: POST\nBody JSON: { branchId, itemType, itemId, adjustmentType, quantity, purchasePriceTotal, notes }",
+        "toolDescription": "=Wajib dipakai jika user minta ADJUSTMENT stok (masuk/keluar/loss) untuk bahan atau setengah jadi.\nMethod: POST http://localhost:3000/api/stock-adjustments\nBody: { branchId, itemType, itemId, adjustmentType, quantity, purchasePriceTotal, notes }",
         "url": "http://localhost:3000/api/stock-adjustments",
         "authentication": "none",
         "sendBody": true,
@@ -129,7 +129,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Lihat daftar setengah jadi (semi-finished items) untuk cabang tertentu.\nInput: branchId (number, required)\nMetode: GET",
+        "toolDescription": "=Wajib dipakai jika user minta lihat daftar SETENGAH JADI (semi-finished items).\nUrl: GET http://localhost:3000/api/semi-finished?branchId=X\nParameter: branchId (number)",
         "url": "=http://localhost:3000/api/semi-finished?branchId={{ $fromAI('branchId') }}",
         "authentication": "none",
         "options": {}
@@ -142,7 +142,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Produksi setengah jadi. Menghabiskan bahan mentah sesuai resep dan menghasilkan stok setengah jadi.\nInput: semiFinishedId (number, required — ID setengah jadi), producedWeight (number, required — jumlah yang diproduksi)\nMetode: POST\nBody JSON: { producedWeight }",
+        "toolDescription": "=WAJIB dipakai jika user minta PRODUKSI setengah jadi.\nMethod: POST http://localhost:3000/api/semi-finished/{semiFinishedId}/produce\nBody: { producedWeight }\nParameter: semiFinishedId (number, dari user), producedWeight (number, dari user)",
         "url": "=http://localhost:3000/api/semi-finished/{{ $fromAI('semiFinishedId') }}/produce",
         "authentication": "none",
         "sendBody": true,
@@ -161,8 +161,8 @@
     },
     {
       "parameters": {
-        "toolDescription": "Lihat daftar produk menu untuk cabang tertentu.\nInput: branchId (number, required), search (string, optional — cari nama), categoryId (number, optional)\nMetode: GET",
-        "url": "=http://localhost:3000/api/products?branchId={{ $fromAI('branchId') }}{{% if $fromAI('search') %}}&search={{ $fromAI('search') }}{% endif %}}{{% if $fromAI('categoryId') %}}&categoryId={{ $fromAI('categoryId') }}{% endif %}}",
+        "toolDescription": "=Wajib dipakai jika user minta lihat daftar PRODUK MENU.\nUrl: GET http://localhost:3000/api/products?branchId=X&search=Y\nParameter: branchId (number), search (string, optional)",
+        "url": "=http://localhost:3000/api/products?branchId={{ $fromAI('branchId') }}{{% if $fromAI('search') %}}&search={{ $fromAI('search') }}{% endif %}}",
         "authentication": "none",
         "options": {}
       },
@@ -174,7 +174,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Tambah produk menu baru.\nInput: branchId (number), name (string), price (number), categoryId (number, optional), imageUrl (string, optional)\nMetode: POST\nBody JSON: { branchId, name, price, categoryId, imageUrl }",
+        "toolDescription": "=WAJIB dipakai jika user minta TAMBAH produk menu baru.\nMethod: POST http://localhost:3000/api/products\nBody: { branchId, name, price, categoryId, imageUrl }",
         "url": "http://localhost:3000/api/products",
         "authentication": "none",
         "sendBody": true,
@@ -197,7 +197,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Lihat resep (BOM) produk atau setengah jadi.\nInput: parentType ('product'|'semi_finished'), parentId (number)\nMetode: GET",
+        "toolDescription": "=Wajib dipakai jika user minta lihat RESEP (BOM) produk atau setengah jadi.\nUrl: GET http://localhost:3000/api/recipes?parentType=X&parentId=Y\nParameter: parentType ('product'|'semi_finished'), parentId (number)",
         "url": "=http://localhost:3000/api/recipes?parentType={{ $fromAI('parentType') }}&parentId={{ $fromAI('parentId') }}",
         "authentication": "none",
         "options": {}
@@ -210,7 +210,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Catat pengeluaran operasional.\nInput: branchId (number), description (string), amount (number), category (string, optional — contoh: 'Bahan Baku', 'Listrik', 'Sewa', 'Lainnya'), notes (string, optional)\nMetode: POST\nBody JSON: { branchId, description, amount, category, notes }",
+        "toolDescription": "=WAJIB dipakai jika user minta CATAT PENGELUARAN.\nMethod: POST http://localhost:3000/api/expenses\nBody: { branchId, description, amount, category, notes }",
         "url": "http://localhost:3000/api/expenses",
         "authentication": "none",
         "sendBody": true,
@@ -233,7 +233,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Lihat laporan keuangan (revenue, COGS, expenses, profit, margin).\nInput: branchId (number, optional), startDate (string YYYY-MM-DD, optional), endDate (string YYYY-MM-DD, optional)\nMetode: GET",
+        "toolDescription": "=WAJIB dipakai jika user minta LAPORAN KEUANGAN (pendapatan, profit, revenue, laporan).\nUrl: GET http://localhost:3000/api/dashboard/financial?branchId=X&startDate=Y&endDate=Z\nParameter: branchId (number), startDate (string, optional), endDate (string, optional)",
         "url": "=http://localhost:3000/api/dashboard/financial?branchId={{ $fromAI('branchId') }}{{% if $fromAI('startDate') %}}&startDate={{ $fromAI('startDate') }}{% endif %}}{{% if $fromAI('endDate') %}}&endDate={{ $fromAI('endDate') }}{% endif %}}",
         "authentication": "none",
         "options": {}
@@ -246,7 +246,7 @@
     },
     {
       "parameters": {
-        "toolDescription": "Cek bahan baku yang stoknya menipis (di bawah threshold).\nInput: branchId (number, optional — default 1)\nMetode: GET",
+        "toolDescription": "=WAJIB dipakai jika user minta CEK STOK MENIPIS (stok habis, stok sedikit, bahan menipis).\nUrl: GET http://localhost:3000/api/inventory/low-stock?branchId=X\nParameter: branchId (number, default 1)",
         "url": "=http://localhost:3000/api/inventory/low-stock?branchId={{ $fromAI('branchId') }}",
         "authentication": "none",
         "options": {}
