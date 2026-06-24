@@ -58,7 +58,7 @@ server {
 
     # Force Chrome Android to re-validate index.html every load
     location = /index.html {
-        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
         add_header Pragma "no-cache" always;
         add_header Expires "0" always;
     }

@@ -189,6 +189,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* ── CSS Containment: Isolate every page from overflow ── */
+.page-root {
+  contain: layout style paint;
+  width: 100%;
+  max-width: 100%;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
 .glass {
   background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(18px);
