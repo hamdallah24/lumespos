@@ -46,14 +46,16 @@ async function getComponentCost(
 // GET /api/orders
 router.get("/orders", requireAuth, async (req, res) => {
   try {
-    const { date, status, branchId, paymentMethod } = req.query as {
+    const { date, startDate, endDate, status, branchId, paymentMethod } = req.query as {
       date?: string;
+      startDate?: string;
+      endDate?: string;
       status?: string;
       branchId?: string;
       paymentMethod?: string;
     };
 
-    const conditions = [];
+    const conditions: any[] = [];
     if (branchId && !(await canAccessBranch(req, Number(branchId)))) {
       return res.status(403).json({ error: "Forbidden branch" });
     }
@@ -68,6 +70,15 @@ router.get("/orders", requireAuth, async (req, res) => {
       end.setHours(23, 59, 59, 999);
       conditions.push(gte(ordersTable.createdAt, start));
       conditions.push(lte(ordersTable.createdAt, end));
+    } else if (startDate) {
+      const s = new Date(startDate);
+      s.setHours(0, 0, 0, 0);
+      conditions.push(gte(ordersTable.createdAt, s));
+      if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        conditions.push(lte(ordersTable.createdAt, e));
+      }
     }
     if (status) conditions.push(eq(ordersTable.status, status));
     if (paymentMethod && paymentMethod !== "all") {
@@ -95,7 +106,7 @@ router.get("/orders", requireAuth, async (req, res) => {
       .groupBy(ordersTable.id)
       .orderBy(sql`${ordersTable.createdAt} desc`);
 
-    const aggConditions = [];
+    const aggConditions: any[] = [];
     if (branchId) aggConditions.push(eq(ordersTable.branchId, Number(branchId)));
     if (date) {
       const start = new Date(date);
@@ -104,6 +115,15 @@ router.get("/orders", requireAuth, async (req, res) => {
       end.setHours(23, 59, 59, 999);
       aggConditions.push(gte(ordersTable.createdAt, start));
       aggConditions.push(lte(ordersTable.createdAt, end));
+    } else if (startDate) {
+      const s = new Date(startDate);
+      s.setHours(0, 0, 0, 0);
+      aggConditions.push(gte(ordersTable.createdAt, s));
+      if (endDate) {
+        const e = new Date(endDate);
+        e.setHours(23, 59, 59, 999);
+        aggConditions.push(lte(ordersTable.createdAt, e));
+      }
     }
     if (status) aggConditions.push(eq(ordersTable.status, status));
 

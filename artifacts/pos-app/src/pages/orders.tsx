@@ -1,13 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatRp, formatDate } from "@/lib/format";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
   SelectContent,
@@ -15,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Receipt, Calendar, Banknote, CreditCard, QrCode, ChevronRight, X } from "lucide-react";
+import { Receipt, CalendarDays, Banknote, CreditCard, QrCode, ChevronRight, X } from "lucide-react";
 import { useBranch } from "@/lib/branch";
+import type { DateRange } from "react-day-picker";
 
 function paymentIcon(method: string) {
   if (method === "card") return <CreditCard className="w-3.5 h-3.5" />;
@@ -112,16 +113,33 @@ function OrderDetail({ orderId, onClose }: { orderId: number; onClose: () => voi
 
 export default function OrdersPage() {
   const { branchId } = useBranch();
-  const [dateFilter, setDateFilter] = useState(new Date().toISOString().split("T")[0]);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: new Date(),
+  });
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const rangeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (rangeRef.current && !rangeRef.current.contains(e.target as Node)) setRangeOpen(false);
+    };
+    if (rangeOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [rangeOpen]);
+
+  const startDate = dateRange?.from?.toISOString().split("T")[0] ?? "";
+  const endDate = dateRange?.to?.toISOString().split("T")[0] ?? "";
 
   const { data, isLoading } = useQuery({
-    queryKey: ["orders", { branchId, date: dateFilter, paymentMethod: paymentMethodFilter }],
+    queryKey: ["orders", { branchId, startDate, endDate, paymentMethod: paymentMethodFilter }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (branchId) params.append("branchId", String(branchId));
-      if (dateFilter) params.append("date", dateFilter);
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
       if (paymentMethodFilter && paymentMethodFilter !== "all") params.append("paymentMethod", paymentMethodFilter);
       const res = await fetch(`/api/orders?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch orders");
@@ -160,21 +178,33 @@ export default function OrdersPage() {
               <SelectItem value="card">Kartu</SelectItem>
             </SelectContent>
           </Select>
-          {/* Filter tanggal */}
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-            <Input
-              type="date"
-              className="pl-9 w-40 md:w-44"
-              value={dateFilter}
-              onChange={e => setDateFilter(e.target.value)}
-            />
-          </div>
-          {dateFilter && (
-            <Button variant="ghost" size="icon" onClick={() => setDateFilter("")}>
-              <X className="w-4 h-4" />
+          {/* Filter tanggal range */}
+          <div ref={rangeRef} className="relative">
+            <Button variant="outline" size="sm" onClick={() => setRangeOpen(!rangeOpen)} className="gap-1.5">
+              <CalendarDays className="w-4 h-4" />
+              {dateRange?.from && dateRange?.to
+                ? `${dateRange.from.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} — ${dateRange.to.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`
+                : "Pilih Tanggal"}
             </Button>
-          )}
+            {dateRange && (
+              <Button variant="ghost" size="icon" onClick={() => setDateRange(undefined)}>
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+            {rangeOpen && (
+              <div className="absolute top-full mt-2 right-0 z-50 bg-card border border-border/60 rounded-2xl shadow-xl backdrop-blur-xl p-3">
+                <Calendar
+                  mode="range"
+                  defaultMonth={dateRange?.from}
+                  selected={dateRange}
+                  onSelect={(r) => { setDateRange(r); if (r?.from && r?.to && r.to > r.from) setRangeOpen(false); }}
+                  numberOfMonths={1}
+                  min={5}
+                />
+                <div className="text-muted-foreground text-center text-xs mt-1">Minimum 5 hari</div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
