@@ -3,7 +3,12 @@
   "nodes": [
     {
       "parameters": {
-        "options": {}
+        "path": "ai-business-assistant",
+        "httpMethod": "POST",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": true
+        }
       },
       "id": "webhook-trigger",
       "name": "Webhook",
@@ -14,7 +19,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const { message, branchId, userId, role, userName } = $json.body;\n\nreturn [{\n  json: {\n    message: message || '',\n    branchId: branchId || null,\n    userId: userId || null,\n    role: role || null,\n    userName: userName || 'User'\n  }\n}];"
+        "jsCode": "const { message, branchId, userId, role, userName } = $json;\n\nreturn [{\n  json: {\n    message: message || '',\n    branchId: branchId || null,\n    userId: userId || null,\n    role: role || null,\n    userName: userName || 'User'\n  }\n}];"
       },
       "id": "parse-input",
       "name": "Parse Input",
@@ -254,11 +259,19 @@
     },
     {
       "parameters": {
+        "jsCode": "const output = $json.output || $json.reply || JSON.stringify($json);\nreturn [{ json: { reply: output } }];"
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "position": [384, 300],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
         "respondWith": "json",
         "responseMode": "lastNode",
-        "options": {
-          "responseData": "={{ $json.output || $json.reply || JSON.stringify($json) }}"
-        }
+        "options": {}
       },
       "id": "respond-webhook",
       "name": "Respond to Webhook",
@@ -311,6 +324,9 @@
       "ai_tool": [[{ "node": "AI Agent", "type": "ai_tool", "index": 0 }]]
     },
     "AI Agent": {
+      "main": [[{ "node": "Format Response", "type": "main", "index": 0 }]]
+    },
+    "Format Response": {
       "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
     }
   }
