@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutGrid, ShoppingBag, PieChart, Store, Users, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, LogOut, Menu, X, User, Package, Home, Plus, Receipt, Carrot, UserPlus, Sun, Moon, Wallet } from "lucide-react";
+import { LayoutGrid, ShoppingBag, PieChart, Store, Users, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, LogOut, Menu, X, User, Package, Home, Plus, Receipt, Carrot, UserPlus, Sun, Moon, Wallet, Sparkles } from "lucide-react";
+import { AiAgentPopup } from "@/components/ai-agent-popup";
 import type { AppUser } from "@workspace/api-client-react";
 import { useBranch } from "@/lib/branch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -43,6 +44,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [fabOpen, setFabOpen] = React.useState(false);
   const [accountOpen, setAccountOpen] = React.useState(false);
+  const [aiAgentOpen, setAiAgentOpen] = React.useState(false);
   const fabRef = React.useRef<HTMLDivElement>(null);
 
   const { theme, setTheme } = useTheme();
@@ -127,15 +129,19 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
     <div className="flex h-screen bg-background overflow-hidden">
       {/* Desktop sidebar — floating glass panel */}
       <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:shrink-0 lg:fixed lg:left-3 lg:top-3 lg:bottom-3 lg:rounded-2xl bg-gradient-to-b from-[#1565FF]/[0.10] via-[#0A1F44]/[0.04] to-[#0A1F44]/[0.02] backdrop-blur-xl border border-[#1565FF]/20 shadow-lg shadow-[#1565FF]/5 text-foreground dark:from-[#0A1F44] dark:via-[#0A1F44]/95 dark:to-[#0A1F44] dark:border-white/[0.06]">
-        <div className="h-16 flex items-center px-6 border-b border-[#1565FF]/10 dark:border-white/[0.06] gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25">
-            L
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-base tracking-tight leading-tight">Lume's</span>
-            <span className="text-[10px] text-muted-foreground font-medium">Everywhere</span>
-          </div>
-        </div>
+         <div className="h-16 flex items-center px-6 border-b border-[#1565FF]/10 dark:border-white/[0.06] gap-3">
+           <button
+             onClick={() => setAiAgentOpen(true)}
+             className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25 active:scale-90 transition-all cursor-pointer"
+           >
+             <Sparkles size={16} className="absolute opacity-0 group-hover:opacity-100 transition-opacity" />
+             L
+           </button>
+           <div className="flex flex-col">
+             <span className="font-bold text-base tracking-tight leading-tight">Lume's</span>
+             <span className="text-[10px] text-muted-foreground font-medium">Everywhere</span>
+           </div>
+         </div>
 
         <div className="px-3 pt-4">
           <label className="text-[11px] uppercase tracking-wide text-muted-foreground font-semibold px-1">Cabang</label>
@@ -210,15 +216,15 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
           <button className="w-10 h-10 rounded-xl hover:bg-[#1565FF]/5 active:scale-90 transition-all flex items-center justify-center text-slate-500 dark:text-slate-400" onClick={() => setSidebarOpen(true)}>
             <Menu size={24} />
           </button>
-          <div className="flex-1 flex items-center justify-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25">
-              L
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg tracking-tight leading-tight text-slate-800 dark:text-white">Lume's</span>
-              <span className="text-[10px] text-slate-400 dark:text-white/60 font-medium">Everywhere</span>
-            </div>
-          </div>
+           <button onClick={() => setAiAgentOpen(true)} className="flex-1 flex items-center justify-center gap-3 active:scale-[0.97] transition-transform cursor-pointer">
+             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25">
+               L
+             </div>
+             <div className="flex flex-col">
+               <span className="font-bold text-lg tracking-tight leading-tight text-slate-800 dark:text-white">Lume's</span>
+               <span className="text-[10px] text-slate-400 dark:text-white/60 font-medium">Everywhere</span>
+             </div>
+           </button>
           <button onClick={toggleTheme} className="w-10 h-10 rounded-xl hover:bg-[#1565FF]/5 dark:hover:bg-white/5 active:scale-90 transition-all flex items-center justify-center text-slate-500 dark:text-slate-400">
             {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
           </button>
@@ -447,6 +453,8 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
             </div>
           </SheetContent>
         </Sheet>
+
+        <AiAgentPopup open={aiAgentOpen} onClose={() => setAiAgentOpen(false)} />
       </main>
     </div>
   );
