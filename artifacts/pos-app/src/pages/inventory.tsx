@@ -57,7 +57,7 @@ export default function InventoryPage() {
         <Badge variant="outline" className="ml-3 text-xs">Multi-Cabang</Badge>
       </div>
       <Tabs defaultValue="stock" className="flex-1 flex flex-col min-h-0">
-        <div className="px-4 md:px-6 pt-3 md:pt-4 shrink-0">
+        <div className="px-4 md:px-6 pt-3 md:pt-4 shrink-0 overflow-hidden">
           <TabsList className="flex-wrap h-auto">
             <TabsTrigger value="stock"><Boxes className="w-4 h-4 mr-1.5" />Stok</TabsTrigger>
             <TabsTrigger value="ingredients"><Package className="w-4 h-4 mr-1.5" />Bahan Baku</TabsTrigger>
@@ -143,8 +143,8 @@ function StockTab({ branchId }: { branchId: number }) {
                 }`}
                 onClick={() => { setSelectedItem(item); setAction(null); }}
               >
-                <div className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                <div className="p-3 md:p-4 flex items-center gap-3 md:gap-4 min-w-0">
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${
                     low ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"
                   }`}>
                     {item.itemType === "semi_finished" ? <FlaskConical className="w-5 h-5" /> : <Package className="w-5 h-5" />}
@@ -155,7 +155,7 @@ function StockTab({ branchId }: { branchId: number }) {
                       {item.itemType === "semi_finished" && <Badge variant="secondary" className="text-[10px]">Setengah Jadi</Badge>}
                       {low && <Badge variant="destructive" className="text-[10px] animate-pulse">Stok Menipis</Badge>}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5">
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate break-words min-w-0">
                       HPP {formatRp(item.costPricePerUnit ?? 0)}/{item.unit}
                     </p>
                   </div>
@@ -404,13 +404,13 @@ function IngredientsTab({ branchId }: { branchId: number }) {
         ) : (
           (ingredients as IngredientItem[]).map((ing) => (
             <Card key={ing.id} className="hover:bg-muted/50 transition-colors">
-              <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
+              <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4 min-w-0">
                 <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <Package className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(ing)}>
                   <span className="font-medium text-sm">{ing.name}</span>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground truncate break-words min-w-0">
                     HPP {formatRp(ing.costPricePerUnit)} / {ing.unit} · Min {formatQty(ing.minimalStock)}
                   </p>
                 </div>
@@ -641,7 +641,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
       <div className="p-4 md:p-6 space-y-3">
         <div className="flex justify-end">
           <Button size="sm" onClick={openCreate}>
-            <Plus className="w-4 h-4 mr-1.5" />Tambah Item Setengah Jadi
+            <Plus className="w-4 h-4 mr-1.5" />Tambah SF<span className="hidden sm:inline"> | Setengah Jadi</span>
           </Button>
         </div>
         {isLoading ? (
@@ -651,13 +651,13 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
         ) : (
           (items as SemiFinishedItem[]).map((sf) => (
             <Card key={sf.id}>
-              <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4">
+              <CardContent className="p-3 md:p-4 flex items-center gap-3 md:gap-4 min-w-0">
                 <div className="w-9 h-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <FlaskConical className="w-4 h-4" />
                 </div>
                 <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(sf)}>
                   <span className="font-medium text-sm">{sf.name}</span>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground truncate break-words min-w-0">
                     HPP {formatRp(sf.costPricePerUnit)} / {sf.unit} · Stok {formatQty(sf.currentStock)}
                     {sf.yieldQuantity && sf.yieldUnit && ` · Yield ${sf.yieldQuantity} ${sf.yieldUnit}/batch`}
                   </p>
@@ -671,7 +671,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
                     <Badge variant="outline" className="text-[10px] text-muted-foreground gap-1">Lewati</Badge>
                   )}
                 </div>
-                <div className="flex gap-1 shrink-0">
+                <div className="flex gap-0.5 flex-wrap min-w-0">
                   <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setRecipeFor({ id: sf.id, name: sf.name })} title="Resep">
                     <ChefHat className="w-4 h-4" />
                   </Button>
