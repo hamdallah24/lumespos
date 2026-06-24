@@ -289,27 +289,27 @@ export default function DashboardPage() {
           {/* KPI Cards — 2-col grid */}
           <div className="grid grid-cols-2 gap-3">
             {loadingSummary ? (
-              [1,2,3,4].map((i) => <div key={i} className="h-[160px] rounded-[24px] bg-slate-100 dark:bg-slate-800 animate-pulse" />)
+              [1,2,3,4].map((i) => <div key={i} className="h-[140px] rounded-[24px] bg-slate-100 dark:bg-slate-800 animate-pulse" />)
             ) : summary ? (<>
-              <div className="card-premium flex flex-col min-w-0" style={{height:160}}>
+              <div className="card-premium flex flex-col min-w-0">
                 <div className="kpi-icon-box mb-1.5"><Banknote /></div>
                 <p className="card-title-text">Penjualan Hari Ini</p>
                 <p className="metric-primary text-slate-800 dark:text-slate-100">{formatRp(summary.todayRevenue)}</p>
                 <div className="mt-auto">{(summary.todayRevenueDiff ?? 0) !== 0 && (<span className={`metric-secondary ${summary.todayRevenueDiff >= 0 ? "text-emerald-500" : "text-red-500"}`}>{summary.todayRevenueDiff >= 0 ? "+" : ""}{summary.todayRevenueDiff.toFixed(1)}% vs kemarin</span>)}</div>
               </div>
-              <div className="card-premium flex flex-col min-w-0" style={{height:160}}>
+              <div className="card-premium flex flex-col min-w-0">
                 <div className="kpi-icon-box mb-1.5" style={{background:"#FFF5F5"}}><Wallet /></div>
                 <p className="card-title-text">Pengeluaran Hari Ini</p>
                 <p className="metric-primary text-slate-800 dark:text-slate-100">{formatRp(summary.todayExpenses)}</p>
                 <div className="mt-auto"><span className="metric-secondary text-slate-400">—</span></div>
               </div>
-              <div className="card-premium flex flex-col min-w-0" style={{height:160}}>
+              <div className="card-premium flex flex-col min-w-0">
                 <div className="kpi-icon-box mb-1.5" style={{background:"#F0FDF4"}}><ShoppingCart /></div>
                 <p className="card-title-text">Transaksi</p>
                 <p className="metric-primary text-slate-800 dark:text-slate-100">{summary.todayOrders}</p>
                 <div className="mt-auto"><span className="metric-secondary text-slate-400">—</span></div>
               </div>
-              <div className="card-premium flex flex-col min-w-0" style={{height:160}}>
+              <div className="card-premium flex flex-col min-w-0">
                 <div className="kpi-icon-box mb-1.5" style={{background:"#EFF6FF"}}><Package /></div>
                 <p className="card-title-text">Produk Aktif</p>
                 <p className="metric-primary text-slate-800 dark:text-slate-100">{summary.totalProducts}</p>
