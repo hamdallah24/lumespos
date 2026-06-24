@@ -200,22 +200,6 @@ export default function DashboardPage() {
   const { data: financial, isLoading: loadingFinancial } = useGetFinancialReport(dateParams as any);
   const { data: lowStock = [], isLoading: loadingLow } = useGetLowStock(params);
 
-  const [soldItems, setSoldItems] = useState<any[]>([]);
-  const [loadingSold, setLoadingSold] = useState(false);
-
-  React.useEffect(() => {
-    setLoadingSold(true);
-    const params = new URLSearchParams();
-    if (activeBranchId) params.set("branchId", String(activeBranchId));
-    params.set("startDate", startDate);
-    params.set("endDate", endDate);
-    fetch(`/api/dashboard/sold-items?${params.toString()}`, { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => { setSoldItems(Array.isArray(data) ? data : []); })
-      .catch(() => setSoldItems([]))
-      .finally(() => setLoadingSold(false));
-  }, [activeBranchId, startDate, endDate]);
-
   useEffect(() => {
     if (lowStock.length <= 1) return;
     const interval = setInterval(() => {
@@ -378,12 +362,12 @@ export default function DashboardPage() {
                         <stop offset="100%" stopColor="#EF4444" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.08)" vertical={false} />
                     <XAxis dataKey="dateLabel" tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: "#94A3B8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} width={40} />
                     <Tooltip content={<PremiumChartTooltip />} cursor={{ stroke: "#2563EB", strokeDasharray: "4 4", strokeWidth: 1 }} />
                     <Area type="monotone" dataKey="revenue" stroke="#2563EB" strokeWidth={4} fill="url(#chartGrad)" dot={false} activeDot={{ r: 5, fill: "#2563EB", stroke: "#fff", strokeWidth: 3 }} />
-                    <Area type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={3} strokeDasharray="4" fill="url(#expenseGrad)" dot={false} activeDot={{ r: 5, fill: "#EF4444", stroke: "#fff", strokeWidth: 3 }} />
+                    <Area type="monotone" dataKey="expenses" stroke="#EF4444" strokeWidth={4} fill="url(#expenseGrad)" dot={false} activeDot={{ r: 5, fill: "#EF4444", stroke: "#fff", strokeWidth: 3 }} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -471,23 +455,6 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Aktivitas */}
-          {soldItems.length > 0 && (
-            <div className="chart-card">
-              <h2 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-4">Aktivitas Penjualan</h2>
-              <div className="space-y-2">
-                {soldItems.slice(0,10).map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center justify-between py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">{item.productName}</p>
-                      <p className="text-xs text-slate-400">{item.variantName ?? "Reguler"} · {item.totalSold} terjual</p>
-                    </div>
-                    <span className="text-sm font-semibold text-[#2563EB] ml-3">{formatRp(item.totalRevenue)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </ScrollArea>
     </div>
