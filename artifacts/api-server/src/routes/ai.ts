@@ -1,11 +1,11 @@
 import { Router } from "express";
-import { requireAuth } from "../middlewares/requireAuth";
+import { requireRole } from "../middlewares/requireAuth";
 
 const router = Router();
 
 const N8N_WEBHOOK_URL = process.env.N8N_AI_AGENT_WEBHOOK_URL || "";
 
-router.post("/ai/chat", requireAuth, async (req, res) => {
+router.post("/ai/chat", requireRole("owner"), async (req, res) => {
   try {
     const { message } = req.body as { message?: string };
 

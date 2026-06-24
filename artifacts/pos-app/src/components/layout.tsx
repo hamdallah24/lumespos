@@ -130,13 +130,18 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
       {/* Desktop sidebar — floating glass panel */}
       <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:shrink-0 lg:fixed lg:left-3 lg:top-3 lg:bottom-3 lg:rounded-2xl bg-gradient-to-b from-[#1565FF]/[0.10] via-[#0A1F44]/[0.04] to-[#0A1F44]/[0.02] backdrop-blur-xl border border-[#1565FF]/20 shadow-lg shadow-[#1565FF]/5 text-foreground dark:from-[#0A1F44] dark:via-[#0A1F44]/95 dark:to-[#0A1F44] dark:border-white/[0.06]">
          <div className="h-16 flex items-center px-6 border-b border-[#1565FF]/10 dark:border-white/[0.06] gap-3">
-           <button
-             onClick={() => setAiAgentOpen(true)}
-             className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25 active:scale-90 transition-all cursor-pointer"
-           >
-             <Sparkles size={16} className="absolute opacity-0 group-hover:opacity-100 transition-opacity" />
-             L
-           </button>
+           {isOwner ? (
+             <button
+               onClick={() => setAiAgentOpen(true)}
+               className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25 active:scale-90 transition-all cursor-pointer"
+             >
+               L
+             </button>
+           ) : (
+             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25">
+               L
+             </div>
+           )}
            <div className="flex flex-col">
              <span className="font-bold text-base tracking-tight leading-tight">Lume's</span>
              <span className="text-[10px] text-muted-foreground font-medium">Everywhere</span>
@@ -216,15 +221,27 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
           <button className="w-10 h-10 rounded-xl hover:bg-[#1565FF]/5 active:scale-90 transition-all flex items-center justify-center text-slate-500 dark:text-slate-400" onClick={() => setSidebarOpen(true)}>
             <Menu size={24} />
           </button>
-           <button onClick={() => setAiAgentOpen(true)} className="flex-1 flex items-center justify-center gap-3 active:scale-[0.97] transition-transform cursor-pointer">
-             <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25">
-               L
+           {isOwner ? (
+             <button onClick={() => setAiAgentOpen(true)} className="flex-1 flex items-center justify-center gap-3 active:scale-[0.97] transition-transform cursor-pointer">
+               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25">
+                 L
+               </div>
+               <div className="flex flex-col">
+                 <span className="font-bold text-lg tracking-tight leading-tight text-slate-800 dark:text-white">Lume's</span>
+                 <span className="text-[10px] text-slate-400 dark:text-white/60 font-medium">Everywhere</span>
+               </div>
+             </button>
+           ) : (
+             <div className="flex-1 flex items-center justify-center gap-3">
+               <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1565FF] via-[#1A6BFF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-base shadow-md shadow-[#1565FF]/25">
+                 L
+               </div>
+               <div className="flex flex-col">
+                 <span className="font-bold text-lg tracking-tight leading-tight text-slate-800 dark:text-white">Lume's</span>
+                 <span className="text-[10px] text-slate-400 dark:text-white/60 font-medium">Everywhere</span>
+               </div>
              </div>
-             <div className="flex flex-col">
-               <span className="font-bold text-lg tracking-tight leading-tight text-slate-800 dark:text-white">Lume's</span>
-               <span className="text-[10px] text-slate-400 dark:text-white/60 font-medium">Everywhere</span>
-             </div>
-           </button>
+           )}
           <button onClick={toggleTheme} className="w-10 h-10 rounded-xl hover:bg-[#1565FF]/5 dark:hover:bg-white/5 active:scale-90 transition-all flex items-center justify-center text-slate-500 dark:text-slate-400">
             {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
           </button>
