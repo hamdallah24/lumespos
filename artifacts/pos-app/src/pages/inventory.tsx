@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/csrf";
-import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle, ClipboardCheck, ChevronRight, ChevronLeft } from "lucide-react";
+import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle, ClipboardCheck, ChevronRight, ChevronLeft, Pencil } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { motion } from "framer-motion";
 
@@ -530,6 +530,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
   const [produceFor, setProduceFor] = useState<{ id: number; name: string; yieldUnit: string } | null>(null);
   const [producedWeight, setProducedWeight] = useState("");
   const [recipeFor, setRecipeFor] = useState<{ id: number; name: string } | null>(null);
+  const [mobileActionFor, setMobileActionFor] = useState<SemiFinishedItem | null>(null);
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: getListSemiFinishedQueryKey({ branchId }) });
     qc.invalidateQueries({ queryKey: getListInventoryQueryKey({ branchId }) });
@@ -650,12 +651,12 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
           <Empty icon={FlaskConical} text="Belum ada item setengah jadi" />
         ) : (
           (items as SemiFinishedItem[]).map((sf) => (
-            <Card key={sf.id}>
+            <Card key={sf.id} className="cursor-pointer lg:cursor-default" onClick={() => { if (window.innerWidth < 1024) setMobileActionFor(sf); }}>
               <CardContent className="card-responsive p-3 md:p-4 flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <FlaskConical className="w-3.5 h-3.5" />
                 </div>
-                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => openEdit(sf)}>
+                <div className="flex-1 min-w-0 cursor-pointer lg:cursor-default" onClick={(e) => { if (window.innerWidth >= 1024) { e.stopPropagation(); openEdit(sf); } }}>
                   <span className="font-medium text-sm truncate">{sf.name}</span>
                   <p className="text-xs text-muted-foreground truncate break-words min-w-0">
                     HPP {formatRp(sf.costPricePerUnit)} / {sf.unit}<span className="hidden sm:inline"> · Stok {formatQty(sf.currentStock)}{sf.yieldQuantity && ` · ${sf.yieldQuantity} ${sf.yieldUnit}`}</span>
@@ -670,20 +671,20 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
                     <Badge variant="outline" className="text-[10px] text-muted-foreground gap-1 px-1.5 py-0 h-5">Lewati</Badge>
                   )}
                 </div>
-                <div className="flex gap-0.5 shrink-0">
-                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setRecipeFor({ id: sf.id, name: sf.name })} title="Resep">
+                <div className="hidden lg:flex gap-0.5 shrink-0">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setRecipeFor({ id: sf.id, name: sf.name }); }} title="Resep">
                     <ChefHat className="w-4 h-4" />
                   </Button>
                   <Button
                     size="icon"
                     variant="outline"
                     className="h-8 w-8"
-                    onClick={() => setProduceFor({ id: sf.id, name: sf.name, yieldUnit: sf.yieldUnit ?? sf.unit })}
+                    onClick={(e) => { e.stopPropagation(); setProduceFor({ id: sf.id, name: sf.name, yieldUnit: sf.yieldUnit ?? sf.unit }); }}
                     title="Produksi"
                   >
                     <PackagePlus className="w-4 h-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem(sf)}>
+                  <Button size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10" onClick={(e) => { e.stopPropagation(); setDeleteItem(sf); }}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
@@ -731,6 +732,40 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
               {createSf.isPending ? "Menyimpan..." : "Simpan"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mobile Action Popup — Setengah Jadi */}
+      <Dialog open={!!mobileActionFor} onOpenChange={(o) => !o && setMobileActionFor(null)}>
+        <DialogContent className="p-0">
+          {mobileActionFor && (
+            <>
+              <div className="px-5 pt-5 pb-4 border-b border-slate-100 dark:border-slate-800">
+                <DialogTitle className="text-lg">{mobileActionFor.name}</DialogTitle>
+                <DialogDescription className="mt-0.5">
+                  HPP {formatRp(mobileActionFor.costPricePerUnit)} / {mobileActionFor.unit} · Stok {formatQty(mobileActionFor.currentStock)}
+                  {mobileActionFor.yieldQuantity && ` · ${mobileActionFor.yieldQuantity} ${mobileActionFor.yieldUnit || mobileActionFor.unit}/batch`}
+                </DialogDescription>
+              </div>
+              <div className="p-3 space-y-1.5">
+                <Button variant="ghost" className="w-full justify-start h-12 text-base gap-3 rounded-xl" onClick={() => { setRecipeFor({ id: mobileActionFor.id, name: mobileActionFor.name }); setMobileActionFor(null); }}>
+                  <ChefHat className="w-5 h-5 text-blue-500" /> Edit Resep
+                </Button>
+                <Button variant="ghost" className="w-full justify-start h-12 text-base gap-3 rounded-xl" onClick={() => { setProduceFor({ id: mobileActionFor.id, name: mobileActionFor.name, yieldUnit: mobileActionFor.yieldUnit ?? mobileActionFor.unit }); setMobileActionFor(null); }}>
+                  <PackagePlus className="w-5 h-5 text-green-500" /> Produksi
+                </Button>
+                <Button variant="ghost" className="w-full justify-start h-12 text-base gap-3 rounded-xl" onClick={() => { openEdit(mobileActionFor); setMobileActionFor(null); }}>
+                  <Pencil className="w-5 h-5 text-slate-500" /> Edit Item
+                </Button>
+                <Button variant="ghost" className="w-full justify-start h-12 text-base gap-3 rounded-xl text-destructive" onClick={() => { setDeleteItem(mobileActionFor); setMobileActionFor(null); }}>
+                  <Trash2 className="w-5 h-5" /> Hapus
+                </Button>
+              </div>
+              <div className="px-3 pb-3">
+                <Button variant="outline" className="w-full rounded-xl" onClick={() => setMobileActionFor(null)}>Batal</Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
