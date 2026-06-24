@@ -403,12 +403,12 @@ function IngredientsTab({ branchId }: { branchId: number }) {
           <Empty icon={Package} text="Belum ada bahan baku" />
         ) : (
           (ingredients as IngredientItem[]).map((ing) => (
-            <Card key={ing.id} className="hover:bg-muted/50 transition-colors cursor-pointer lg:cursor-default" onClick={() => { if (window.innerWidth < 1024) setMobileIngFor(ing); }}>
+            <Card key={ing.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => setMobileIngFor(ing)}>
               <CardContent className="card-responsive p-3 md:p-4 flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <Package className="w-4 h-4" />
                 </div>
-                <div className="flex-1 min-w-0 cursor-pointer lg:cursor-default" onClick={(e) => { if (window.innerWidth >= 1024) { e.stopPropagation(); openEdit(ing); } }}>
+                <div className="flex-1 min-w-0">
                   <span className="font-medium text-sm truncate">{ing.name}</span>
                   <p className="text-xs text-muted-foreground truncate break-words min-w-0">
                     HPP {formatRp(ing.costPricePerUnit)} / {ing.unit}<span className="hidden sm:inline"> · Min {formatQty(ing.minimalStock)}</span>
@@ -423,7 +423,7 @@ function IngredientsTab({ branchId }: { branchId: number }) {
                     <Badge variant="outline" className="text-[10px] text-muted-foreground gap-1 px-1.5 py-0 h-5">Lewati</Badge>
                   )}
                 </div>
-                <div className="text-right shrink-0 cursor-pointer lg:cursor-default" onClick={(e) => { if (window.innerWidth >= 1024) { e.stopPropagation(); openEdit(ing); } }}>
+                <div className="text-right shrink-0">
                   <p className="font-bold text-sm md:text-base">{formatQty(ing.currentStock)}</p>
                   <p className="text-[11px] text-muted-foreground">{ing.unit}</p>
                 </div>
@@ -652,12 +652,12 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
           <Empty icon={FlaskConical} text="Belum ada item setengah jadi" />
         ) : (
           (items as SemiFinishedItem[]).map((sf) => (
-            <Card key={sf.id} className="cursor-pointer lg:cursor-default" onClick={() => { if (window.innerWidth < 1024) setMobileActionFor(sf); }}>
+            <Card key={sf.id} className="cursor-pointer" onClick={() => setMobileActionFor(sf)}>
               <CardContent className="card-responsive p-3 md:p-4 flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <FlaskConical className="w-3.5 h-3.5" />
                 </div>
-                <div className="flex-1 min-w-0 cursor-pointer lg:cursor-default" onClick={(e) => { if (window.innerWidth >= 1024) { e.stopPropagation(); openEdit(sf); } }}>
+                <div className="flex-1 min-w-0">
                   <span className="font-medium text-sm truncate">{sf.name}</span>
                   <p className="text-xs text-muted-foreground truncate break-words min-w-0">
                     HPP {formatRp(sf.costPricePerUnit)} / {sf.unit}<span className="hidden sm:inline"> · Stok {formatQty(sf.currentStock)}{sf.yieldQuantity && ` · ${sf.yieldQuantity} ${sf.yieldUnit}`}</span>
