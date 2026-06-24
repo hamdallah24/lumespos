@@ -79,7 +79,7 @@ export function CloseShiftDialog({ open, onClose, onSuccess, shiftId, openingBal
       });
       if (!urlRes.ok) throw new Error("Gagal mendapatkan URL upload");
       const { uploadURL, objectPath } = await urlRes.json();
-      await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type || "image/jpeg" }, body: file });
+      await apiFetch(uploadURL, { method: "PUT", headers: { "Content-Type": file.type || "image/jpeg" }, body: file });
       setPhotoProofUrl(objectPath);
       toast.success("Foto berhasil diupload", { duration: 1000 });
     } catch {
