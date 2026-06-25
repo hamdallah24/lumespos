@@ -7,9 +7,19 @@
       "typeVersion": 1,
       "position": [-800, 200],
       "id": "vps-webhook-in",
-      "name": "Webhook Trigger"
-    },
-    {
+       "name": "Webhook Trigger"
+     },
+     {
+       "parameters": { "updates": ["message"], "additionalFields": {} },
+       "type": "n8n-nodes-base.telegramTrigger",
+       "typeVersion": 1.3,
+       "position": [-800, 400],
+       "id": "vps-trigger-tg",
+       "name": "Telegram Trigger",
+       "webhookId": "vps-control-telegram",
+       "credentials": { "telegramApi": { "id": "A4JQuid6W9BzisPl", "name": "Telegram Bot" } }
+     },
+     {
       "parameters": {
         "rule": { "interval": [ { "field": "minutes", "minutesInterval": 5 } ] }
       },
