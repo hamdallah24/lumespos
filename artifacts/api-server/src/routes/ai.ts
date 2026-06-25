@@ -225,10 +225,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           const result = await executeOperation(analysis.intent, analysis.params, defaultBranchId);
           console.error(`[COO] Auto-execute ${analysis.intent}: ${result}. Params: ${JSON.stringify(analysis.params).slice(0, 200)}`);
           if (result === "ok") {
-            const ctxStr = analysis.context ? JSON.stringify(analysis.context).slice(0, 2000) : "";
-            res.json({ reply: `[EXEC ✅] Operasi ${analysis.intent} berhasil, bos. ${JSON.stringify(analysis.params).slice(0, 300)}` });
-            res.json({ reply: reply || `✅ Operasi ${analysis.intent} berhasil, bos.` });
-            remember(uid, "bisnis", clean, reply || "ok");
+            res.json({ reply: `[EXEC ✅] Operasi ${analysis.intent} berhasil, bos. ${JSON.stringify(analysis.params).slice(0, 200)}` });
+            remember(uid, "bisnis", clean, `[EXEC] ${analysis.intent} ok`);
             return;
           }
         }
