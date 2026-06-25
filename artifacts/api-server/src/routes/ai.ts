@@ -6,9 +6,9 @@ import { requireRole } from "../middlewares/requireAuth";
 import { callDeepSeek, fetchGitHubFile, fetchGitHubDir, sshExec, getHistory, remember, clearMemory } from "./ai-helpers";
 import { handleBusiness } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, BISNIS_SYSTEM } from "./ai-prompts";
+import { generateAndCommit } from "./ai-codegen";
 
 const router = Router();
-const N8N_CODE_GEN_WEBHOOK_URL = process.env.N8N_CODE_GEN_WEBHOOK_URL || "";
 
 // ── CTO STREAMING HELPER ──
 async function streamBANGResponse(res: any, uid: number, clean: string) {
@@ -102,15 +102,9 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
       // ── CTO ──
       case "cto": {
-        // Approval → n8n Code Generator
-        if (generateNow && N8N_CODE_GEN_WEBHOOK_URL) {
-          const resp = await fetch(N8N_CODE_GEN_WEBHOOK_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ user_message: clean, repo_owner: "hamdallah24", repo_name: "lumespos", branch: "Staging", chat_id: String(uid) }),
-          });
-          const data = await resp.json().catch(() => ({}));
-          const reply = (data as any).reply || (data as any).output || "Code Generator sedang bekerja. Cek hasilnya di repo sebentar lagi ya bos.";
+        // Approval → generate kode langsung di backend
+        if (generateNow) {
+          const reply = await generateAndCommit(clean, uid);
           res.json({ reply });
           remember(uid, m, clean, reply);
           return;
