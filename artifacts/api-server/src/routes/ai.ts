@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable } from "@workspace/db";
+import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable, stockAdjustmentsTable } from "@workspace/db";
 import { eq, and, gte, lte, sum } from "drizzle-orm";
-import { listInventoryForBranch, LOW_STOCK_DEFAULT } from "../services/inventory";
+import { listInventoryForBranch, LOW_STOCK_DEFAULT, adjustInventory } from "../services/inventory";
 import { exec } from "child_process";
 
 const router = Router();
@@ -208,6 +208,111 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
     if (low.length === 0) return "Stok aman semua, bos. Ga ada yang menipis.";
     const lines = low.slice(0, 10).map((i) => `• ${i.name}: ${i.currentStock} ${i.unit} (min: ${i.minimalStock || threshold} ${i.unit})`);
     return `Stok menipis di cabang ${userBranchId}:\n${lines.join("\n")}` + (low.length > 10 ? `\n...dan ${low.length - 10} lainnya` : "");
+  }
+
+  // ── TAMBAH STOK: "tambah stok air 19000 ml" ──
+  if (/tambah\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i.test(lower)) {
+    const match = lower.match(/tambah\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i);
+    if (!match) return "Format: tambah stok [nama] [jumlah] [unit]. Contoh: tambah stok air 19000 ml";
+    const name = match[1].trim();
+    const qty = parseFloat(match[2]);
+    const unit = match[3] || "";
+    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, userBranchId)));
+    const found = items.filter((i) => i.name.toLowerCase().includes(name));
+    if (found.length === 0) return `Ga nemu bahan "${name}" di cabang ${userBranchId}. Coba "lihat stok" dulu buat liat daftar.`;
+    if (found.length > 1) return `Ditemukan ${found.length} bahan mirip "${name}":\n${found.map((i) => `• ${i.name} (${i.unit})`).join("\n")}\n\nSebutkan nama yg lebih spesifik.`;
+    const item = found[0];
+    const finalUnit = unit || item.unit;
+    if (unit) await db.update(ingredientsTable).set({ unit }).where(eq(ingredientsTable.id, item.id)).catch(() => {});
+    await db.transaction(async (tx) => {
+      await adjustInventory(tx, userBranchId, "ingredient", item.id, qty);
+      await tx.insert(stockAdjustmentsTable).values({ branchId: userBranchId, itemType: "ingredient", itemId: item.id, adjustmentType: "in", quantity: String(qty), notes: `via AI: tambah stok` });
+    });
+    return `✅ Stok ${item.name} bertambah ${qty} ${finalUnit}. Cek "cari stok ${name}" buat liat total.`;
+  }
+
+  // ── KURANGI STOK: "kurangi stok air 500" ──
+  if (/kurangi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)/i.test(lower)) {
+    const match = lower.match(/kurangi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)/i);
+    if (!match) return "Format: kurangi stok [nama] [jumlah]. Contoh: kurangi stok air 500";
+    const name = match[1].trim();
+    const qty = parseFloat(match[2]);
+    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, userBranchId)));
+    const found = items.filter((i) => i.name.toLowerCase().includes(name));
+    if (found.length === 0) return `Ga nemu "${name}" di cabang ${userBranchId}, bos.`;
+    if (found.length > 1) return `Ada ${found.length} bahan mirip:\n${found.map((i) => `• ${i.name}`).join("\n")}\n\nSpesifikin.`;
+    const item = found[0];
+    await db.transaction(async (tx) => {
+      await adjustInventory(tx, userBranchId, "ingredient", item.id, -qty);
+      await tx.insert(stockAdjustmentsTable).values({ branchId: userBranchId, itemType: "ingredient", itemId: item.id, adjustmentType: "out", quantity: String(qty), notes: `via AI: kurangi stok` });
+    });
+    return `✅ Stok ${item.name} berkurang ${qty} ${item.unit}. Cek "cari stok ${name}" buat liat sisa.`;
+  }
+
+  // ── KOREKSI HILANG: "koreksi hilang air 200" ──
+  if (/koreksi\s+hilang\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i.test(lower)) {
+    const match = lower.match(/koreksi\s+hilang\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i);
+    if (!match) return "Format: koreksi hilang [nama] [jumlah]. Contoh: koreksi hilang air 200";
+    const name = match[1].trim();
+    const qty = parseFloat(match[2]);
+    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, userBranchId)));
+    const found = items.filter((i) => i.name.toLowerCase().includes(name));
+    if (found.length === 0) return `Ga nemu "${name}". Cek "lihat stok" dulu.`;
+    if (found.length > 1) return `Ada ${found.length} mirip:\n${found.map((i) => `• ${i.name}`).join("\n")}\n\nSpesifikin.`;
+    const item = found[0];
+    await db.transaction(async (tx) => {
+      await adjustInventory(tx, userBranchId, "ingredient", item.id, -qty);
+      await tx.insert(stockAdjustmentsTable).values({ branchId: userBranchId, itemType: "ingredient", itemId: item.id, adjustmentType: "loss", quantity: String(-qty), notes: `via AI: koreksi hilang` });
+    });
+    return `✅ Stok ${item.name} dikoreksi hilang ${qty} ${item.unit}.`;
+  }
+
+  // ── KOREKSI STOK JADI: "koreksi stok air jadi 1000" ──
+  if (/koreksi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i.test(lower)) {
+    const match = lower.match(/koreksi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
+    if (!match) return "Format: koreksi stok [nama] jadi [jumlah]. Contoh: koreksi stok air jadi 1000";
+    const name = match[1].trim();
+    const target = parseFloat(match[2]);
+    const all = await listInventoryForBranch(userBranchId);
+    const found = all.filter((i) => i.name.toLowerCase().includes(name));
+    if (found.length === 0) return `Ga nemu "${name}". Cek "lihat stok" dulu.`;
+    if (found.length > 1) return `Ada ${found.length} mirip:\n${found.map((i) => `• ${i.name}`).join("\n")}`;
+    const item = found[0];
+    const delta = target - item.currentStock;
+    const adjType = delta >= 0 ? "in" : "loss";
+    await db.transaction(async (tx) => {
+      await adjustInventory(tx, userBranchId, item.itemType, item.itemId, delta);
+      await tx.insert(stockAdjustmentsTable).values({ branchId: userBranchId, itemType: item.itemType, itemId: item.itemId, adjustmentType: adjType, quantity: String(Math.abs(delta)), notes: `via AI: koreksi stok jadi ${target}` });
+    });
+    return `✅ Stok ${item.name} dikoreksi jadi ${target} ${item.unit} (${delta >= 0 ? "+" : ""}${delta}).`;
+  }
+
+  // ── UBAH HARGA PRODUK: "ubah harga Nasi Goreng jadi 25000" ──
+  if (/ubah\s+harga\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i.test(lower)) {
+    const match = lower.match(/ubah\s+harga\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
+    if (!match) return "Format: ubah harga [nama produk] jadi [harga]. Contoh: ubah harga Nasi Goreng jadi 25000";
+    const name = match[1].trim();
+    const price = match[2];
+    const items = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
+    const found = items.filter((p) => p.name.toLowerCase().includes(name));
+    if (found.length === 0) return `Ga nemu produk "${name}". Coba "lihat menu" dulu.`;
+    if (found.length > 1) return `Ada ${found.length} produk mirip:\n${found.map((p) => `• ${p.name} — Rp ${parseFloat(p.price).toLocaleString("id-ID")}`).join("\n")}\n\nSpesifikin.`;
+    const prod = found[0];
+    await db.update(productsTable).set({ price }).where(eq(productsTable.id, prod.id));
+    return `✅ Harga ${prod.name} diubah: Rp ${parseFloat(prod.price).toLocaleString("id-ID")} → Rp ${parseInt(price).toLocaleString("id-ID")}.`;
+  }
+
+  // ── HAPUS PRODUK: "hapus Nasi Goreng" / "nonaktifkan Es Teh" ──
+  if (/hapus\s+(\w+(?:\s+\w+)*)|nonaktifkan\s+(\w+(?:\s+\w+)*)/i.test(lower)) {
+    const match = lower.match(/(?:hapus|nonaktifkan)\s+(\w+(?:\s+\w+)*)/i);
+    if (!match) return "Format: hapus [nama produk]. Contoh: hapus Nasi Goreng";
+    const name = match[1].trim();
+    const items = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
+    const found = items.filter((p) => p.name.toLowerCase().includes(name));
+    if (found.length === 0) return `Ga nemu produk "${name}" yg aktif. Coba "lihat menu" dulu.`;
+    if (found.length > 1) return `Ada ${found.length} produk mirip:\n${found.map((p) => `• ${p.name}`).join("\n")}\n\nSpesifikin.`;
+    await db.update(productsTable).set({ isActive: false }).where(eq(productsTable.id, found[0].id));
+    return `✅ ${found[0].name} udah dinonaktifkan. Ga muncul lagi di menu. Bisa diaktifin lagi di halaman Produk.`;
   }
 
   // Cari stok spesifik: "cari stok gula", "stok tepung", "berapa stok minyak"
