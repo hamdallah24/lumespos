@@ -91,13 +91,22 @@ TIM DEV (pilih yg paling relevan ke pesan user):
 - AMAN — Security Spec: Auth (Passport.js), Google OAuth, CSRF (csrf-csrf), CORS, rate limiting, session (connect-pg-simple)
 - LAJU — Performance Eng: Bundle size, lazy loading (React.lazy), code splitting, caching, Lighthouse. Bundler: Vite/Rollup
 - CANT — UI/UX Designer: Mobile-first 360px, touch target 48px, glassmorphism (#1565FF), dark mode, accessibility (WCAG)
-
 FORMAT WAJIB (selalu pakai format ini):
+
 [BERPIKIR]:
 [Analisis singkat — kenapa pilih specialist ini, apa yg perlu dicek. Maks 200 karakter.]
 
 [NAMA] — [Role]:
-[Jawaban kamu. Maks 1500 karakter.]
+[JAWABAN PASTI & KONKRET. Jangan cuma "coba cek ini" — beri SOLUSI LENGKAP dengan langkah, kode, dan file path. Maks 1500 karakter.]
+
+⚠️ JIKA USER MINTA GENERATE KODE (generate/bikin/buat kode/file/komponen):
+1. Analisis dulu + proposal lengkap
+2. Sebutkan: file yg akan dibuat, fungsinya, teknologi yg dipakai
+3. AKHIRI dengan kalimat: "Lanjutkan generate kode? Balas: SETUJU / TIDAK SETUJU"
+4. JANGAN langsung generate kode — tunggu user klik SETUJU
+
+⚠️ JIKA USER BALAS "SETUJU":
+Langsung eksekusi generate kode. Output: "USER MENYETUJUI — LANJUTKAN GENERATE KODE\n[deskripsi teknis]"
 
 TAMBAHAN untuk COBA & AMAN:
 Jika perlu liat kode, sebut path file spesifik dengan format: \`path/file:linenum\`
@@ -482,7 +491,7 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
 // ─────────────────────────────────────────────────────────────
 router.post("/ai/chat", requireRole("owner"), async (req, res) => {
   try {
-    const { message, mode } = req.body as { message?: string; mode?: string };
+    const { message, mode, generateNow } = req.body as { message?: string; mode?: string; generateNow?: boolean };
     if (!message || typeof message !== "string" || !message.trim()) {
       res.status(400).json({ error: "Message is required" });
       return;
@@ -512,7 +521,31 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
       // ── CTO ──
       case "cto": {
+        // User clicked SETUJU → lanjut generate kode lewat n8n
+        if (generateNow && N8N_CODE_GEN_WEBHOOK_URL) {
+          const resp = await fetch(N8N_CODE_GEN_WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: clean, userId: uid, userName: user.name }),
+          });
+          const data = await resp.json().catch(() => ({}));
+          const reply = (data as any).reply || (data as any).output || "Code Generator sedang sibuk. Coba lagi nanti ya bos.";
+          res.json({ reply });
+          remember(uid, m, clean, reply);
+          return;
+        }
+
         const lower = clean.toLowerCase();
+
+        // Approval flow — user ketik SETUJU/TIDAK SETUJU manual
+        if (/^setuju/i.test(lower)) {
+          res.json({ reply: "Balas dengan klik tombol SETUJU di bawah proposal ya bos. Kalau ga ada tombolnya, ketik ulang perintah generate kode-nya." });
+          return;
+        }
+        if (/^tidak\s*setuju/i.test(lower) || /^batal/i.test(lower)) {
+          res.json({ reply: "Baik bos, generate kode dibatalkan. Ada hal lain yg bisa dibantu?" });
+          return;
+        }
 
         // Baca file GitHub
         if (/baca\s+(file\s+)?\S+\.[a-z]+/i.test(lower) || /lihat\s+(file\s+)?\S+/i.test(lower)) {
@@ -614,7 +647,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           reader.releaseLock();
         }
 
-        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.write(`data: ${JSON.stringify({ done: true, finalText: fullText })}\n\n`);
         res.end();
         if (fullText) remember(uid, m, clean, fullText);
         return;

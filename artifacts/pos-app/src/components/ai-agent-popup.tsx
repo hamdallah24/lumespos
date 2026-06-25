@@ -8,6 +8,7 @@ type Mode = "bisnis" | "chat" | "cto" | "vps";
 type Message = {
   role: "user" | "assistant";
   text: string;
+  showApproval?: boolean;
 };
 
 const MODE_TABS: { key: Mode; label: string; icon: React.ElementType }[] = [
@@ -124,6 +125,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const lastMsgRef = React.useRef("");
 
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -133,12 +135,14 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
     const msg = (text || input).trim();
     if (!msg) return;
     setInput("");
+    lastMsgRef.current = msg;
     setMessages((prev) => [...prev, { role: "user", text: msg }]);
     setLoading(true);
 
     // CTO mode → streaming
     if (mode === "cto") {
       setMessages((prev) => [...prev, { role: "assistant", text: "" }]);
+      let finalText = "";
       try {
         const resp = await fetch("/api/ai/chat", {
           method: "POST",
@@ -164,7 +168,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
             if (!line.startsWith("data: ")) continue;
             try {
               const data = JSON.parse(line.slice(6));
-              if (data.done) break;
+              if (data.done) { finalText = data.finalText || data.text || ""; break; }
               if (data.text) {
                 setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: data.text }; return copy; });
               }
@@ -174,6 +178,9 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
       } catch {
         setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, terjadi kesalahan." }]; });
       }
+      // Detect approval needed (contains SETUJU and TIDAK SETUJU) and original was code gen request
+      const needsApproval = /generate|bikin|buat|tulis\s*(?:kode|code|file|komponen|component|route|endpoint|halaman|page)/i.test(lastMsgRef.current) && /SETUJU/i.test(finalText) && /TIDAK\s*SETUJU/i.test(finalText);
+      setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { ...copy[copy.length - 1], showApproval: needsApproval }; return copy; });
       setLoading(false);
       return;
     }
@@ -203,6 +210,28 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const handleApprove = async () => {
+    setLoading(true);
+    const msg = lastMsgRef.current;
+    setMessages((prev) => [...prev, { role: "user", text: "✅ SETUJU — generate kode..." }]);
+    try {
+      const resp = await apiFetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: msg, mode: "cto", generateNow: true }),
+      });
+      const data = await resp.json();
+      setMessages((prev) => [...prev, { role: "assistant", text: data.reply || "Gagal generate kode." }]);
+    } catch {
+      setMessages((prev) => [...prev, { role: "assistant", text: "Maaf, gagal generate kode." }]);
+    }
+    setLoading(false);
+  };
+
+  const handleReject = () => {
+    setMessages((prev) => [...prev, { role: "user", text: "❌ TIDAK SETUJU" }, { role: "assistant", text: "Baik bos, generate kode dibatalkan. Ada hal lain yg bisa dibantu?" }]);
   };
 
   const switchMode = (m: Mode) => {
@@ -311,13 +340,29 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                       {msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
                     </div>
                     <div
-                      className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed relative group ${
+                      className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed relative group overflow-hidden ${
                         msg.role === "user"
                           ? "bg-[#1565FF] text-white rounded-tr-md"
                           : "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 rounded-tl-md pb-8"
                       }`}
                     >
-                      {msg.text}
+                      {msg.role === "assistant" ? (
+                        <div>
+                          {(msg.text || "").split("\n\n").map((block, j) => {
+                            const isThinking = block.startsWith("[BERPIKIR]:");
+                            const isName = /^\[\w+\] —/.test(block);
+                            if (isThinking) {
+                              return <div key={j} className="italic text-[11px] text-slate-400 dark:text-slate-500 py-1 px-2 bg-slate-200/50 dark:bg-white/[0.04] rounded-lg mb-2 border-l-2 border-[#1565FF]/20">{block}</div>;
+                            }
+                            if (isName) {
+                              return <div key={j} className="pt-1 pb-1"><span className="font-bold text-[#1565FF]">{block.split(":")[0]}</span><span className="text-slate-400 dark:text-slate-500">:</span><br /><span className="whitespace-pre-wrap">{block.slice(block.indexOf(":") + 1).trim()}</span></div>;
+                            }
+                            return <div key={j} className="whitespace-pre-wrap">{block}</div>;
+                          })}
+                        </div>
+                      ) : (
+                        msg.text
+                      )}
                       {msg.role === "assistant" && (
                         <button
                           onClick={() => handleCopy(msg.text, i)}
@@ -325,6 +370,16 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                         >
                           {copiedIndex === i ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
                         </button>
+                      )}
+                      {msg.role === "assistant" && msg.showApproval && (
+                        <div className="flex gap-2 mt-3 pt-2 border-t border-[#1565FF]/10">
+                          <button onClick={handleApprove} className="flex-1 py-2 px-3 rounded-xl bg-green-500 text-white text-xs font-semibold hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center gap-1">
+                            ✅ SETUJU — Generate Kode
+                          </button>
+                          <button onClick={handleReject} className="flex-1 py-2 px-3 rounded-xl bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-500/20 active:scale-95 transition-all">
+                            ❌ TIDAK SETUJU
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
