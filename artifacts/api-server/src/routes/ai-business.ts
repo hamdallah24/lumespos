@@ -30,6 +30,11 @@ type OnboardItem = { variantId: number; variantName: string; price: string; reci
 type Onboard = { productId: number; productName: string; items: OnboardItem[]; currentIdx: number; branchId: number; pendingRecipes: { name: string; qty: number }[] };
 const onboarding = new Map<number, Onboard>();
 
+// ── STOCK WIZARD STATE ──
+type StockWizItem = { itemId: number; name: string; qty: number; unit: string; price?: number };
+type StockWiz = { items: StockWizItem[]; currentIdx: number; branchId: number };
+const stockWiz = new Map<number, StockWiz>();
+
 export async function handleBusiness(msg: string, branchId: number): Promise<string> {
   // Anti-typo: normalize common misspellings
   let normalized = msg.toLowerCase().trim();
@@ -292,10 +297,99 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     return `📋 Sedang mengisi varian **${cur.variantName}** (${ob.currentIdx + 1}/${ob.items.length})\nResep pending: ${ob.pendingRecipes.length > 0 ? ob.pendingRecipes.map(r => `${r.name}: ${r.qty}`).join(", ") : "(belum diisi)"}\n\nKetik resep atau **simpan** | **skip** | **batal**`;
   }
 
-  // User cancelled — also clean up onboarding
+  // ── STOCK WIZARD HANDLERS ──
+  const sw = stockWiz.get(uid);
+  if (sw) {
+    const cur = sw.items[sw.currentIdx];
+
+    // 1. User masukkan harga: angka
+    const priceMatch = lower.match(/^(\d+)$/);
+    if (priceMatch) {
+      const price = parseFloat(priceMatch[1]);
+      cur.price = price;
+      // Execute immediately for this item
+      await db.transaction(async (tx) => {
+        await adjustInventory(tx, userBranchId, "ingredient", cur.itemId, cur.qty);
+        await applyMovingAverage(tx, userBranchId, cur.itemId, cur.qty, price);
+        await tx.insert(stockAdjustmentsTable).values({
+          branchId: userBranchId, itemType: "ingredient", itemId: cur.itemId,
+          adjustmentType: "in", quantity: String(cur.qty),
+          purchasePriceTotal: String(price),
+          notes: `via AI Wizard: tambah stok (harga Rp ${price.toLocaleString("id-ID")})`,
+        });
+      });
+      const newHPP = price / cur.qty;
+      const next = sw.currentIdx + 1;
+      stockWiz.set(uid, { ...sw, currentIdx: next });
+      if (next >= sw.items.length) {
+        const summary = sw.items.map(it => {
+          const info = it.price ? `Rp ${it.price.toLocaleString("id-ID")} (HPP: Rp ${(it.price / it.qty).toFixed(2)}/${it.unit})` : "(dilewati)";
+          return `• ${it.name}: +${it.qty} ${it.unit} — ${info}`;
+        }).join("\n");
+        return `🎉 SEMUA STOK BERHASIL DITAMBAH!\n\n📦 Ringkasan:\n${summary}\n\nSemua sudah di-commit ke database. ✅`;
+      }
+      const nextItem = sw.items[next];
+      return `✅ ${cur.name}: +${cur.qty} ${cur.unit}, harga Rp ${price.toLocaleString("id-ID")}\nHPP baru: Rp ${newHPP.toFixed(2)} / ${cur.unit}\n\n⬅️ ${next + 1}/${sw.items.length} — Lanjut **${nextItem.name}** (+${nextItem.qty} ${nextItem.unit})\n\n💰 Harga beli total? Balas dengan angka, atau: **ya** | **skip** | **batal**`;
+    }
+
+    // 2. User: "ya" — commit without price update
+    if (/^ya\b/i.test(lower)) {
+      await db.transaction(async (tx) => {
+        await adjustInventory(tx, userBranchId, "ingredient", cur.itemId, cur.qty);
+        await tx.insert(stockAdjustmentsTable).values({
+          branchId: userBranchId, itemType: "ingredient", itemId: cur.itemId,
+          adjustmentType: "in", quantity: String(cur.qty),
+          notes: `via AI Wizard: tambah stok (tanpa HPP)`,
+        });
+      });
+      const next = sw.currentIdx + 1;
+      stockWiz.set(uid, { ...sw, currentIdx: next });
+      if (next >= sw.items.length) {
+        const summary = sw.items.map(it =>
+          `• ${it.name}: +${it.qty} ${it.unit} — (tanpa HPP update)`
+        ).join("\n");
+        return `🎉 SEMUA STOK BERHASIL DITAMBAH!\n\n📦 Ringkasan:\n${summary}\n\nSemua sudah di-commit. ✅`;
+      }
+      const nextItem = sw.items[next];
+      return `✅ ${cur.name}: +${cur.qty} ${cur.unit} (tanpa HPP update)\n\n⬅️ ${next + 1}/${sw.items.length} — Lanjut **${nextItem.name}** (+${nextItem.qty} ${nextItem.unit})`;
+    }
+
+    // 3. User: "skip" — lewati item
+    if (/^skip\b/i.test(lower)) {
+      const next = sw.currentIdx + 1;
+      stockWiz.set(uid, { ...sw, currentIdx: next });
+      if (next >= sw.items.length) {
+        const summary = sw.items.map(it => {
+          const info = it.price ? `Rp ${it.price.toLocaleString("id-ID")}` : "(dilewati)";
+          return `• ${it.name}: ${info}`;
+        }).join("\n");
+        return `🎉 SEMUA STOK SELESAI DIPROSES!\n\n📦 Ringkasan:\n${summary}\n\nItem yg dilewati tidak ditambah ke stok. ✅`;
+      }
+      const nextItem = sw.items[next];
+      return `⏭️ ${cur.name} dilewati.\n\n⬅️ ${next + 1}/${sw.items.length} — Lanjut **${nextItem.name}** (+${nextItem.qty} ${nextItem.unit})`;
+    }
+
+    // 4. User: "edit [nama]" — balik ke item spesifik
+    const editMatch = lower.match(/^edit\s+(\w+(?:\s+\w+)*)/i);
+    if (editMatch) {
+      const target = editMatch[1].trim();
+      const idx = sw.items.findIndex(it => it.name.toLowerCase().includes(target));
+      if (idx < 0) return `Ga nemu "${target}". Item: ${sw.items.map(it => it.name).join(", ")}`;
+      stockWiz.set(uid, { ...sw, currentIdx: idx });
+      const t = sw.items[idx];
+      return `⬅️ Mengedit **${t.name}** (+${t.qty} ${t.unit})\nMasukkan harga total atau **ya** / **skip**.`;
+    }
+
+    // 5. Default — show current status
+    return `📦 ${cur.name}: +${cur.qty} ${cur.unit} (${sw.currentIdx + 1}/${sw.items.length})\n💰 Masukkan harga beli total, atau: **ya** | **skip** | **batal**`;
+  }
+
+  // User cancelled — also clean up onboarding + stock wizard
   if (/^(?:tidak|batal|n|cancel|ga|gak)\b/i.test(lower)) {
     pendingStockIn.delete(uid);
     pendingProduction.delete(uid);
+    // Cleanup stock wizard
+    if (sw) { stockWiz.delete(uid); return "🔄 Tambah stok batch dibatalkan."; }
     // Cleanup onboarding — delete product + all variants
     if (ob) {
       for (const item of ob.items) {
@@ -339,6 +433,38 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     pendingStockIn.set(uid, { itemId: item.id, name: item.name, qty, unit: finalUnit, branchId: userBranchId });
     const stockLine = qty > 0 && item.costPricePerUnit ? `\n• HPP saat ini: Rp ${parseFloat(item.costPricePerUnit).toLocaleString("id-ID")} / ${finalUnit}` : "";
     return `⚠️ Konfirmasi tambah stok:\n• ${item.name}: +${qty} ${finalUnit}${stockLine}\n\n💰 **Beli total berapa?** Balas dengan angka (total harga beli), atau:\n- Balas **ya** kalau gratis / ga perlu update HPP\n- Balas **batal** buat batalkan`;
+  }
+
+  // ── TAMBAH STOK WIZARD (multi-item: "tambah stok: kopi 1000, susu 2000") ──
+  if (/tambah\s+stok\s*:\s*(.+)/i.test(lower) || /tambah\s+stok\s+(\d+\s+item)/i.test(lower)) {
+    let varStr = "";
+    const batchMatch = lower.match(/tambah\s+stok\s*:\s*(.+)/i);
+    if (batchMatch) varStr = batchMatch[1].trim();
+
+    // Parse pairs: "kopi 1000, susu 2000, gula aren 500"
+    const pairs = varStr.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+    const stockItems: StockWizItem[] = [];
+    const allIngs = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, userBranchId)));
+
+    for (const pair of pairs) {
+      const pm = pair.match(/^(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i);
+      if (!pm) return `Format item salah: "${pair}". Harus: "nama qty unit" (contoh: kopi 1000 gr, susu 2000 ml)`;
+      const name = pm[1].trim();
+      const qty = parseFloat(pm[2]);
+      const unit = pm[3] || "";
+      const found = allIngs.filter((i) => i.name.toLowerCase().includes(name));
+      if (found.length === 0) return `Ga nemu bahan "${name}" di cabang ${userBranchId}. Coba "lihat stok" dulu.`;
+      if (found.length > 1) return `"${name}" ambigu (${found.length} item). Spesifikin.`;
+      stockItems.push({ itemId: found[0].id, name: found[0].name, qty, unit: unit || found[0].unit });
+    }
+
+    if (stockItems.length === 0) return "Ga ada item valid. Format: tambah stok: kopi 1000, susu 2000, gula aren 500";
+
+    stockWiz.set(uid, { items: stockItems, currentIdx: 0, branchId: userBranchId });
+    const first = stockItems[0];
+    const list = stockItems.map(it => `• ${it.name}: +${it.qty} ${it.unit}`).join("\n");
+
+    return `✅ Siap tambah stok ${stockItems.length} item!\n\n📦 Daftar:\n${list}\n\n⬅️ 1/${stockItems.length} — **${first.name}**: +${first.qty} ${first.unit}\n💰 Masukkan harga beli total, atau: **ya** | **skip** | **batal**`;
   }
 
   // ── KURANGI STOK ──

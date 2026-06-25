@@ -130,7 +130,8 @@ PERINTAH YANG SISTEM BISA EKSEKUSI INSTAN:
 "cari stok [nama]" / "stok [nama]" — cari bahan spesifik
 "lihat stok" / "cek stok" / "inventori" — semua inventori
 "lihat menu" / "menu apa aja" — semua produk aktif
-"tambah stok [nama] [qty] [unit]" — stock in (GAK LANGSUNG: sistem minta harga beli dulu utk HPP)
+"tambah stok [nama] [qty] [unit]" — stock in single (minta harga beli utk HPP)
+"tambah stok: [nama] [qty], [nama] [qty], ..." — STOCK WIZARD: multi-item, minta harga per item, HPP auto
 "kurangi stok [nama] [qty]" — stock out
 "koreksi stok [nama] jadi [qty]" — adjust to target
 "koreksi hilang [nama] [qty]" — record loss
