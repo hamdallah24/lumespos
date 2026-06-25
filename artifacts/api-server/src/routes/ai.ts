@@ -193,8 +193,10 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         const pending = pendingActions.get(uid);
         if (/^\d+$/.test(clean.trim()) && pending?.action === "add_stock") {
           pendingActions.delete(uid);
-          await executeOperation("add_stock", { ...pending.params, price: parseFloat(clean.trim()) }, defaultBranchId);
-          const reply = await callDeepSeek(`${COO_SYSTEM}\n\n[EXECUTED] tambah stok ${pending.params.name} +${pending.params.qty} Rp ${parseFloat(clean.trim()).toLocaleString("id-ID")}. Konfirmasi singkat.`, clean, uid, "bisnis");
+          const price = parseFloat(clean.trim());
+          const result = await executeOperation("add_stock", { ...pending.params, price }, defaultBranchId);
+          if (result !== "ok") { res.json({ reply: `❌ Gagal: ${result}` }); return; }
+          const reply = await callDeepSeek(`${COO_SYSTEM}\n\n[EXECUTED] tambah stok ${pending.params.name} +${pending.params.qty} Rp ${price.toLocaleString("id-ID")}. Konfirmasi singkat.`, clean, uid, "bisnis");
           res.json({ reply: reply || `✅ ${pending.params.name} +${pending.params.qty} berhasil, bos.` });
           return;
         }
@@ -227,9 +229,12 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           return;
         }
 
-        // 4. Pending add_stock (needs price confirmation from COO)
+        // 4. Pending add_stock + multi_add_stock (needs COO interaction)
         if (analysis.intent === "add_stock" && analysis.params) {
           pendingActions.set(uid, { action: "add_stock", params: analysis.params });
+        }
+        if (analysis.intent === "multi_add_stock") {
+          pendingActions.set(uid, { action: "multi_add_stock", params: {} });
         }
 
         // 5. COO response
