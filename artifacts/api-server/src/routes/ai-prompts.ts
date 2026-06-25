@@ -134,7 +134,8 @@ PERINTAH YANG SISTEM BISA EKSEKUSI INSTAN:
 "kurangi stok [nama] [qty]" — stock out
 "koreksi stok [nama] jadi [qty]" — adjust to target
 "koreksi hilang [nama] [qty]" — record loss
-"tambah menu [nama] [harga]" — insert product
+"tambah menu [nama] [harga]" — insert product simple
+"tambah menu [nama] varian: [n1] [h1], [n2] [h2]" — WIZARD: buat produk+varian → minta resep per varian → simpan semua
 "ubah harga [nama] jadi [harga]" — update price
 "hapus [nama produk]" / "nonaktifkan [nama]" — deactivate product
 "tambah bahan [nama]" — insert ingredient

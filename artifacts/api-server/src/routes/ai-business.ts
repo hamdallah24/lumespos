@@ -25,6 +25,11 @@ async function getCurrentStockLocal(tx: any, branchId: number, itemId: number): 
 const pendingStockIn = new Map<number, { itemId: number; name: string; qty: number; unit: string; branchId: number }>();
 const pendingProduction = new Map<number, { itemId: number; name: string; qty: number; branchId: number; components: { type: string; id: number; name: string; qty: number }[] }>();
 
+// ── MENU WIZARD STATE ──
+type OnboardItem = { variantId: number; variantName: string; price: string; recipes: { name: string; qty: number }[] };
+type Onboard = { productId: number; productName: string; items: OnboardItem[]; currentIdx: number; branchId: number; pendingRecipes: { name: string; qty: number }[] };
+const onboarding = new Map<number, Onboard>();
+
 export async function handleBusiness(msg: string, branchId: number): Promise<string> {
   // Anti-typo: normalize common misspellings
   let normalized = msg.toLowerCase().trim();
@@ -174,10 +179,132 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     return "Mau lanjutin apa ya bos? Ga ada perintah yg pending.";
   }
 
-  // User cancelled
+  // ── MENU WIZARD HANDLERS ──
+  const ob = onboarding.get(uid);
+  if (ob && ob.currentIdx >= 0) {
+    const current = ob.items[ob.currentIdx];
+    const variantName = current.variantName;
+
+    // 1. User kirim resep: "kopi 0.1, susu 0.2, gula aren 0.05"
+    if (/,/.test(lower) || /^\w+\s+[\d.]+/.test(lower)) {
+      const pairs = lower.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+      ob.pendingRecipes = [];
+      for (const pair of pairs) {
+        const pm = pair.match(/^(\w+(?:\s+\w+)*?)\s+([\d.]+)/);
+        if (pm) ob.pendingRecipes.push({ name: pm[1].trim(), qty: parseFloat(pm[2]) });
+      }
+      if (ob.pendingRecipes.length === 0) return "Format salah. Contoh: kopi 0.1, susu 0.2, gula aren 0.05";
+      const list = ob.pendingRecipes.map(r => `• ${r.name}: ${r.qty}`).join("\n");
+      return `📋 Resep ${variantName} (belum disimpan):\n${list}\n\nKetik **simpan** untuk menyimpan, **edit** untuk ubah, atau **skip** untuk lewati.`;
+    }
+
+    // 2. User: "simpan" — confirm + ask to advance
+    if (/^simpan\b/i.test(lower)) {
+      if (ob.pendingRecipes.length === 0) return "Belum ada resep yg diisi. Ketik bahan: nama qty, nama qty";
+      current.recipes = [...ob.pendingRecipes];
+      ob.pendingRecipes = [];
+      const next = ob.currentIdx + 1;
+      if (next >= ob.items.length) {
+        // ALL DONE — show ringkasan akhir
+        const summary = ob.items.map(it => {
+          const rec = it.recipes.length > 0 ? it.recipes.map(r => `${r.name}: ${r.qty}`).join(", ") : "(kosong)";
+          return `• ${it.variantName} — Rp ${parseInt(it.price).toLocaleString("id-ID")} — resep: ${rec}`;
+        }).join("\n");
+        return [
+          `🎉 SEMUA VARIAN SELESAI!`,
+          ``,
+          `📋 Ringkasan akhir:`,
+          summary,
+          ``,
+          `Ketik **simpan semua** untuk commit ke database, atau **edit [nama varian]** untuk koreksi.`,
+        ].join("\n");
+      }
+      const nextVar = ob.items[next];
+      onboarding.set(uid, { ...ob, currentIdx: next, pendingRecipes: [] });
+      return `✅ Resep ${variantName} tersimpan!\n\n⬅️ ${next + 1}/${ob.items.length} — Lanjut varian **${nextVar.variantName}** (Rp ${parseInt(nextVar.price).toLocaleString("id-ID")})\n\nIsi resep: 'nama_bahan qty, nama_bahan qty'\natau: **skip** | **ulang [nama]** | **batal**`;
+    }
+
+    // 3. User: "simpan semua" — final commit (insert all recipes to DB)
+    if (/^simpan\s*semua\b/i.test(lower)) {
+      let savedCount = 0;
+      for (const item of ob.items) {
+        for (const r of item.recipes) {
+          const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, userBranchId));
+          const ing = ings.find((i) => i.name.toLowerCase().includes(r.name.toLowerCase()));
+          if (ing) {
+            await db.insert(recipesTable).values({ parentType: "product_variant", parentId: item.variantId, componentType: "ingredient", componentId: ing.id, quantity: String(r.qty) });
+            savedCount++;
+          }
+        }
+      }
+      onboarding.delete(uid);
+      return `✅ Menu **${ob.productName}** berhasil disimpan!\n• ${ob.items.length} varian\n• ${savedCount} bahan resep di-commit\n\nProduk siap dijual! 🚀`;
+    }
+
+    // 4. User: "edit [nama varian]" — jump back to specific variant
+    const editMatch = lower.match(/^edit\s+(\w+(?:\s+\w+)*)/i);
+    if (editMatch) {
+      const targetName = editMatch[1].trim();
+      const targetIdx = ob.items.findIndex(it => it.variantName.toLowerCase().includes(targetName));
+      if (targetIdx < 0) return `Ga nemu varian "${targetName}". Varian tersedia: ${ob.items.map(it => it.variantName).join(", ")}`;
+      onboarding.set(uid, { ...ob, currentIdx: targetIdx, pendingRecipes: [...ob.items[targetIdx].recipes] });
+      const t = ob.items[targetIdx];
+      const existing = t.recipes.length > 0 ? `Resep saat ini: ${t.recipes.map(r => `${r.name}: ${r.qty}`).join(", ")}` : "Belum ada resep.";
+      return `⬅️ Mengedit varian **${t.variantName}** (Rp ${parseInt(t.price).toLocaleString("id-ID")})\n${existing}\n\nIsi resep baru atau ketik **simpan** / **skip**.`;
+    }
+
+    // 5. User: "skip" — skip current variant
+    if (/^skip\b/i.test(lower)) {
+      ob.pendingRecipes = [];
+      const next = ob.currentIdx + 1;
+      if (next >= ob.items.length) {
+        const summary = ob.items.map(it => {
+          const rec = it.recipes.length > 0 ? it.recipes.map(r => `${r.name}: ${r.qty}`).join(", ") : "(kosong)";
+          return `• ${it.variantName} — Rp ${parseInt(it.price).toLocaleString("id-ID")} — resep: ${rec}`;
+        }).join("\n");
+        return [`⏭️ ${variantName} dilewati.\n`, `📋 Ringkasan akhir:`, summary, ``, `Ketik **simpan semua** untuk commit, atau **edit [nama]** untuk koreksi.`].join("\n");
+      }
+      const nextVar = ob.items[next];
+      onboarding.set(uid, { ...ob, currentIdx: next, pendingRecipes: [] });
+      return `⏭️ ${variantName} dilewati.\n\n⬅️ ${next + 1}/${ob.items.length} — Lanjut varian **${nextVar.variantName}** (Rp ${parseInt(nextVar.price).toLocaleString("id-ID")})`;
+    }
+
+    // 6. User: "ulang [nama varian]"
+    const ulang = lower.match(/^ulang\s+(\w+(?:\s+\w+)*)/i);
+    if (ulang) {
+      const targetName = ulang[1].trim();
+      const targetIdx = ob.items.findIndex(it => it.variantName.toLowerCase().includes(targetName));
+      if (targetIdx < 0) return `Ga nemu varian "${targetName}".`;
+      onboarding.set(uid, { ...ob, currentIdx: targetIdx, pendingRecipes: [] });
+      return `⬅️ Kembali ke varian **${ob.items[targetIdx].variantName}**. Isi resep lagi.`;
+    }
+
+    // 7. User: "hapus [bahan]" — remove one ingredient from pending
+    const hapusMatch = lower.match(/^hapus\s+(\w+(?:\s+\w+)*)/i);
+    if (hapusMatch && ob.pendingRecipes.length > 0) {
+      const target = hapusMatch[1].trim();
+      ob.pendingRecipes = ob.pendingRecipes.filter(r => !r.name.toLowerCase().includes(target));
+      return `🗑️ "${target}" dihapus dari resep pending.\n\n${ob.pendingRecipes.length > 0 ? `Tersisa: ${ob.pendingRecipes.map(r => `${r.name}: ${r.qty}`).join(", ")}` : "Resep kosong. Isi lagi atau ketik skip."}`;
+    }
+
+    // 8. Default — show current status
+    const cur = ob.items[ob.currentIdx];
+    return `📋 Sedang mengisi varian **${cur.variantName}** (${ob.currentIdx + 1}/${ob.items.length})\nResep pending: ${ob.pendingRecipes.length > 0 ? ob.pendingRecipes.map(r => `${r.name}: ${r.qty}`).join(", ") : "(belum diisi)"}\n\nKetik resep atau **simpan** | **skip** | **batal**`;
+  }
+
+  // User cancelled — also clean up onboarding
   if (/^(?:tidak|batal|n|cancel|ga|gak)\b/i.test(lower)) {
     pendingStockIn.delete(uid);
     pendingProduction.delete(uid);
+    // Cleanup onboarding — delete product + all variants
+    if (ob) {
+      for (const item of ob.items) {
+        await db.delete(productVariantsTable).where(eq(productVariantsTable.id, item.variantId)).catch(() => {});
+      }
+      await db.delete(productsTable).where(eq(productsTable.id, ob.productId)).catch(() => {});
+      onboarding.delete(uid);
+      return `🔄 Menu ${ob.productName} dan semua variannya dihapus. Proses dibatalkan.`;
+    }
     return "Ok, dibatalkan bos. Ada yg lain?";
   }
 
@@ -349,14 +476,13 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     return `Udah! ${nameMatch[1].trim()} seharga Rp ${parseInt(nameMatch[2]).toLocaleString("id-ID")} berhasil ditambah di cabang ${userBranchId}.`;
   }
 
-  // ── TAMBAH MENU + VARIAN (one command: "tambah menu kopi susu varian: kecil 7000, sedang 9000, besar 15000") ──
-  if (/tambah\s+(?:menu|produk)\s+(\w+(?:\s+\w+)*?)\s+varian\s*:?\s*(.+)/i.test(lower)) {
-    const match = lower.match(/tambah\s+(?:menu|produk)\s+(\w+(?:\s+\w+)*?)\s+varian\s*:?\s*(.+)/i);
-    if (!match) return "Format: tambah menu [nama] varian: [nama] [harga], [nama] [harga], ...\nContoh: tambah menu kopi susu varian: kecil 7000, sedang 9000, besar 15000";
+  // ── TAMBAH MENU WIZARD (multi-step: product → resep per varian → commit) ──
+  if (/tambah\s+(?:menu|produk)\s+(\w+(?:\s+\w+)*?)\s+(?:varian|dengan\s+(?:\d+\s+)?varian)\s*:?\s*(.+)/i.test(lower)) {
+    const match = lower.match(/tambah\s+(?:menu|produk)\s+(\w+(?:\s+\w+)*?)\s+(?:varian|dengan\s+(?:\d+\s+)?varian)\s*:?\s*(.+)/i);
+    if (!match) return "Format: tambah menu [nama] varian: [nama] [harga], [nama] [harga]\nContoh: tambah menu kopi susu varian: kecil 7000, sedang 9000, besar 15000";
     const prodName = match[1].trim();
     const varStr = match[2].trim();
 
-    // Parse variant string: "kecil 7000, sedang 9000, besar 15000"
     const varPairs = varStr.split(/[,;]/).map(s => s.trim()).filter(Boolean);
     const variants: { name: string; price: string }[] = [];
     for (const pair of varPairs) {
@@ -365,14 +491,18 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     }
     if (variants.length === 0) return "Format varian salah. Contoh: varian: kecil 7000, sedang 9000, besar 15000";
 
-    // Insert product + variants
     const basePrice = variants[0].price;
     const [prod] = await db.insert(productsTable).values({ branchId: userBranchId, name: prodName, price: basePrice }).returning({ id: productsTable.id });
+    const items: OnboardItem[] = [];
     for (const v of variants) {
-      await db.insert(productVariantsTable).values({ productId: prod.id, name: v.name, price: v.price });
+      const [row] = await db.insert(productVariantsTable).values({ productId: prod.id, name: v.name, price: v.price }).returning({ id: productVariantsTable.id });
+      items.push({ variantId: row.id, variantName: v.name, price: v.price, recipes: [] });
     }
-    const list = variants.map(v => `• ${v.name}: Rp ${parseInt(v.price).toLocaleString("id-ID")}`).join("\n");
-    return `✅ ${prodName} berhasil ditambah dengan ${variants.length} varian:\n${list}\n\nCOGS akan otomatis dihitung saat penjualan jika resep sudah diisi.\nTambah resep: "tambah resep ${prodName} varian [nama varian] butuh [bahan] [qty]"`;
+
+    onboarding.set(uid, { productId: prod.id, productName: prodName, items, currentIdx: 0, branchId: userBranchId, pendingRecipes: [] });
+
+    const list = items.map((it, i) => `• ${it.variantName}: Rp ${parseInt(it.price).toLocaleString("id-ID")}`).join("\n");
+    return `✅ **${prodName}** berhasil dibuat dengan ${items.length} varian!\n${list}\n\n⬅️ 1/${items.length} — Mulai isi resep varian **${items[0].variantName}**\n\nFormat: 'nama_bahan qty, nama_bahan qty'\nKetik **skip** untuk lewati, **batal** untuk batalkan semua.`;
   }
 
   // ── CATAT PENGELUARAN ──
