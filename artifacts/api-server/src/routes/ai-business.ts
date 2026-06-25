@@ -379,25 +379,6 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
     if (parent && ing) return { intent: "add_recipe", params: { parentType: "type", parentId: parent.id, parentName: parent.name, ingredientId: ing.id, ingredientName: ing.name, quantity: recipeMatch[3] } };
   }
 
-  // ── MULTI-STOCK: "tambah stok: kopi 1000, susu 2000" ──
-  const multiMatch = lower.match(/tambah\s+stok\s*:\s*(.+)/i);
-  if (multiMatch) {
-    const pairs = multiMatch[1].split(/[,;]/).map(s => s.trim()).filter(Boolean);
-    const items: any[] = [];
-    const allIngs = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, branchId)));
-    for (const pair of pairs) {
-      const pm = pair.match(/(.+?)\s+(\d+)/);
-      if (pm) {
-        const name = pm[1].trim();
-        const qty = parseFloat(pm[2]);
-        const found = allIngs.find((i) => i.name.toLowerCase().includes(name));
-        if (found) items.push({ itemId: found.id, name: found.name, qty, unit: found.unit, hpp: parseFloat(found.costPricePerUnit || "0") });
-        else items.push({ name, qty, notFound: true });
-      }
-    }
-    if (items.length > 0) return { intent: "multi_add_stock", context: { branchId, items, total: items.length } };
-  }
-
   // ── ANALYSIS / GENERAL ──
   return { intent: "general_analysis" };
 }
