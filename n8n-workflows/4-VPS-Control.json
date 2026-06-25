@@ -160,7 +160,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ $json.stdout || $json.result || JSON.stringify($json) }}"
+        "responseBody": "={{ JSON.stringify({ result: $json.stdout || $json.result || 'No output' }) }}"
       },
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1,

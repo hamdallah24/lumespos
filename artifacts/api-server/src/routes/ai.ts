@@ -10,6 +10,12 @@ const N8N_CTO_WEBHOOK_URL = process.env.N8N_CTO_WEBHOOK_URL || "";
 const N8N_VPS_WEBHOOK_URL = process.env.N8N_VPS_WEBHOOK_URL || "";
 const N8N_CHAT_WEBHOOK_URL = process.env.N8N_CHAT_WEBHOOK_URL || "";
 
+function extractReply(data: Record<string, unknown>): string {
+  const raw = (data.reply || data.output || data.result) as string | undefined;
+  if (!raw || raw === "{}") return "";
+  return raw;
+}
+
 async function handleBusiness(msg: string, branchId: number): Promise<string> {
   const lower = msg.toLowerCase().trim();
   const bid = branchId;
@@ -93,12 +99,14 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
   return "";
 }
 
-function callWebhook(url: string, body: Record<string, unknown>): Promise<Response> {
-  return fetch(url, {
+async function callWebhook(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+  const data = await resp.json().catch(() => ({}));
+  return data as Record<string, unknown>;
 }
 
 router.post("/ai/chat", requireRole("owner"), async (req, res) => {
@@ -117,27 +125,24 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     switch (m) {
       case "cto": {
         if (!N8N_CTO_WEBHOOK_URL) break;
-        const resp = await callWebhook(N8N_CTO_WEBHOOK_URL, { message: clean, branchId: defaultBranchId, userId: user.id, role: user.role, userName: user.name });
-        const data = await resp.json().catch(() => ({}));
-        const reply = (data as Record<string, unknown>).reply || (data as Record<string, unknown>).output || JSON.stringify(data);
+        const data = await callWebhook(N8N_CTO_WEBHOOK_URL, { message: clean, branchId: defaultBranchId, userId: user.id, role: user.role, userName: user.name });
+        const reply = extractReply(data) || "Maaf, CTO Agent sedang sibuk. Coba lagi nanti ya, bos.";
         res.json({ reply });
         return;
       }
 
       case "vps": {
         if (!N8N_VPS_WEBHOOK_URL) break;
-        const resp = await callWebhook(N8N_VPS_WEBHOOK_URL, { message: clean, chat_id: "7218843690" });
-        const data = await resp.json().catch(() => ({}));
-        const reply = (data as Record<string, unknown>).reply || (data as Record<string, unknown>).result || JSON.stringify(data);
+        const data = await callWebhook(N8N_VPS_WEBHOOK_URL, { message: clean, chat_id: "7218843690" });
+        const reply = extractReply(data) || "Maaf, VPS Control sedang sibuk. Coba lagi nanti ya, bos.";
         res.json({ reply });
         return;
       }
 
       case "chat": {
         if (!N8N_CHAT_WEBHOOK_URL) break;
-        const resp = await callWebhook(N8N_CHAT_WEBHOOK_URL, { message: clean, userName: user.name });
-        const data = await resp.json().catch(() => ({}));
-        const reply = (data as Record<string, unknown>).reply || (data as Record<string, unknown>).output || JSON.stringify(data);
+        const data = await callWebhook(N8N_CHAT_WEBHOOK_URL, { message: clean, userName: user.name });
+        const reply = extractReply(data) || "Maaf, Chat Agent sedang sibuk. Coba lagi nanti ya, bos.";
         res.json({ reply });
         return;
       }
@@ -150,9 +155,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           return;
         }
         if (N8N_CHAT_WEBHOOK_URL) {
-          const resp = await callWebhook(N8N_CHAT_WEBHOOK_URL, { message: clean, userName: user.name, mode: "bisnis_fallback" });
-          const data = await resp.json().catch(() => ({}));
-          const reply = (data as Record<string, unknown>).reply || (data as Record<string, unknown>).output || JSON.stringify(data);
+          const data = await callWebhook(N8N_CHAT_WEBHOOK_URL, { message: clean, userName: user.name });
+          const reply = extractReply(data) || "Maaf, saya belum bisa bantu itu. Coba tanya yang lain ya, bos.";
           res.json({ reply });
           return;
         }

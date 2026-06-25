@@ -57,7 +57,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ $json.output || $json.message || JSON.stringify($json) }}"
+        "responseBody": "={{ JSON.stringify({ reply: $json.output || $json.message || 'Tidak ada jawaban' }) }}"
       },
       "id": "b2a1c3d5-e7f9-4a6b-8c0d-2e4f6a8b0c1e",
       "name": "Respond to Webhook",
