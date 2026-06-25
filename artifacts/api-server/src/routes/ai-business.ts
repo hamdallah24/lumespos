@@ -311,7 +311,7 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
   }
 
   // ── STOCK ADJUST INTENT (add/reduce/correct/loss) ──
-  const stockMatch = lower.match(/tambah\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)/i);
+  const stockMatch = lower.match(/tambah\s+(?!produk|menu)(?:stok\s+)?(.+?)\s+(\d+)(?:\s*(?:ml|l|kg|g|pcs|liter|gram|ons|gr))?/i);
   if (stockMatch) {
     const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, branchId)));
     const found = items.find((i) => i.name.toLowerCase().includes(stockMatch[1].trim()));
@@ -349,7 +349,7 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
   if (expenseMatch) return { intent: "add_expense", params: { amount: parseFloat(expenseMatch[1]) } };
 
   // ── PRICE CHANGE ──
-  const priceMatch = lower.match(/ubah\s+harga\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
+  const priceMatch = lower.match(/ubah\s+harga\s+(.+?)\s+jadi\s+(\d+)/i);
   if (priceMatch) {
     const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
     const found = prods.find((p) => p.name.toLowerCase().includes(priceMatch[1].trim()));
@@ -357,11 +357,11 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
   }
 
   // ── ADD PRODUCT ──
-  const prodMatch = lower.match(/tambah\s+(?:produk|menu)\s+(\w+(?:\s+\w+)*?)\s+(\d{3,})/i);
+  const prodMatch = lower.match(/tambah\s+(?:produk|menu)\s+(.+?)\s+(\d{3,})/i);
   if (prodMatch) return { intent: "add_product", params: { name: prodMatch[1].trim(), price: parseInt(prodMatch[2]) } };
 
   // ── DEACTIVATE ──
-  const delMatch = lower.match(/(?:hapus|nonaktifkan)\s+(\w+(?:\s+\w+)*)/i);
+  const delMatch = lower.match(/(?:hapus|nonaktifkan)\s+(.+)/i);
   if (delMatch) {
     const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
     const found = prods.find((p) => p.name.toLowerCase().includes(delMatch[1].trim()));
