@@ -188,7 +188,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       case "bisnis":
       default: {
         const analysis = await analyzeIntent(clean, defaultBranchId);
-        console.log(`[COO] analyzeIntent: intent=${analysis.intent} params=${JSON.stringify(analysis.params || "none").slice(0, 200)}`);
+        console.error(`[COO] analyzeIntent: intent=${analysis.intent} params=${JSON.stringify(analysis.params || "none").slice(0, 200)}`);
 
         // If user types a number AND there's a pending add_stock → auto-execute
         const pending = pendingActions.get(uid);
@@ -223,10 +223,10 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           "deactivate_product", "add_expense", "add_recipe", "remove_recipe", "produce"];
         if (autoActions.includes(analysis.intent) && analysis.params) {
           const result = await executeOperation(analysis.intent, analysis.params, defaultBranchId);
-          console.log(`[COO] Auto-execute ${analysis.intent}: ${result}. Params: ${JSON.stringify(analysis.params).slice(0, 200)}`);
+          console.error(`[COO] Auto-execute ${analysis.intent}: ${result}. Params: ${JSON.stringify(analysis.params).slice(0, 200)}`);
           if (result === "ok") {
             const ctxStr = analysis.context ? JSON.stringify(analysis.context).slice(0, 2000) : "";
-            const reply = await callDeepSeek(`${COO_SYSTEM}\n\n[OPERASI DIATAS SUDAH DIEKSEKUSI - ${analysis.intent}]\n${ctxStr}\n\nBeri konfirmasi singkat ke user.`, clean, uid, "bisnis");
+            res.json({ reply: `[EXEC ✅] Operasi ${analysis.intent} berhasil, bos. ${JSON.stringify(analysis.params).slice(0, 300)}` });
             res.json({ reply: reply || `✅ Operasi ${analysis.intent} berhasil, bos.` });
             remember(uid, "bisnis", clean, reply || "ok");
             return;
