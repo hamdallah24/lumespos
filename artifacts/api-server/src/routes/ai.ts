@@ -9,7 +9,7 @@ const router = Router();
 
 const N8N_CODE_GEN_WEBHOOK_URL = process.env.N8N_CODE_GEN_WEBHOOK_URL || "";
 const GITHUB_PAT = process.env.GITHUB_PAT || "";
-const GITHUB_REPO = "hamdallah24/pos-app";
+const GITHUB_REPO = "hamdallah24/lumespos";
 const GITHUB_RAW = "https://api.github.com/repos";
 const GH_HEADERS = { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github.v3.raw" };
 const SSH_HOST = process.env.SSH_HOST || "";
@@ -163,8 +163,13 @@ Singkat, padat, maks 500 karakter. Bahasa Indonesia. JANGAN bilang "aku belum bi
 // ─────────────────────────────────────────────────────────────
 async function fetchGitHubFile(path: string, branch = "main"): Promise<string> {
   if (!GITHUB_PAT) return "";
-  const resp = await fetch(`${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`, { headers: GH_HEADERS });
-  return resp.ok ? resp.text() : "";
+  const url = `${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`;
+  const resp = await fetch(url, { headers: GH_HEADERS });
+  if (!resp.ok) {
+    console.error(`[ai] GitHub file fetch failed: ${resp.status} ${url}`);
+    return "";
+  }
+  return resp.text();
 }
 
 async function fetchGitHubDir(path: string, branch = "main"): Promise<string> {
