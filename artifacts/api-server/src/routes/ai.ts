@@ -188,7 +188,52 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       case "bisnis":
       default: {
         const analysis = await analyzeIntent(clean, defaultBranchId);
-        res.json({ reply: `[DEBUG] intent=${analysis.intent} params=${JSON.stringify(analysis.params || {}).slice(0, 300)}` });
+
+        // 1. Pending number confirm (add_stock price)
+        const pending = pendingActions.get(uid);
+        if (/^\d+$/.test(clean.trim()) && pending?.action === "add_stock") {
+          pendingActions.delete(uid);
+          await executeOperation("add_stock", { ...pending.params, price: parseFloat(clean.trim()) }, defaultBranchId);
+          const reply = await callDeepSeek(`${COO_SYSTEM}\n\n[EXECUTED] tambah stok ${pending.params.name} +${pending.params.qty} Rp ${parseFloat(clean.trim()).toLocaleString("id-ID")}. Konfirmasi singkat.`, clean, uid, "bisnis");
+          res.json({ reply: reply || `✅ ${pending.params.name} +${pending.params.qty} berhasil, bos.` });
+          return;
+        }
+
+        // 2. Pending confirm/cancel
+        if (/^(?:ya|y|yes|ok|oke|setuju|lanjut|gas)\b/i.test(clean.trim()) && pending) {
+          pendingActions.delete(uid);
+          await executeOperation(pending.action, pending.params, defaultBranchId);
+          res.json({ reply: `✅ Operasi ${pending.action} berhasil dieksekusi, bos.` });
+          return;
+        }
+        if (/^(?:tidak|batal|n|no|cancel|ga|gak)\b/i.test(clean.trim()) && pending) {
+          pendingActions.delete(uid);
+          res.json({ reply: "Ok, dibatalkan bos. Ada yg lain?" });
+          return;
+        }
+
+        // 3. Auto-execute (no confirmation needed)
+        const autoActions = ["reduce_stock", "correct_stock", "loss_correction", "add_ingredient",
+          "add_product", "add_product_with_variants", "update_price", "update_variant_price",
+          "deactivate_product", "add_expense", "add_recipe", "remove_recipe", "produce"];
+        if (autoActions.includes(analysis.intent) && analysis.params) {
+          await executeOperation(analysis.intent, analysis.params, defaultBranchId);
+          const reply = await callDeepSeek(`${COO_SYSTEM}\n\n[EXECUTED - ${analysis.intent}] Konfirmasi singkat.`, clean, uid, "bisnis");
+          res.json({ reply: reply || `✅ Operasi ${analysis.intent} berhasil, bos.` });
+          return;
+        }
+
+        // 4. Pending add_stock (needs price confirmation from COO)
+        if (analysis.intent === "add_stock" && analysis.params) {
+          pendingActions.set(uid, { action: "add_stock", params: analysis.params });
+        }
+
+        // 5. COO response
+        const ctxStr = analysis.context ? JSON.stringify(analysis.context).slice(0, 2500) : "";
+        const paramsStr = analysis.params ? JSON.stringify(analysis.params).slice(0, 1500) : "";
+        const prompt = `${COO_SYSTEM}\n\n[DATA - ${analysis.intent}]:\n${ctxStr}\n${paramsStr ? `\n[PARAMS]:\n${paramsStr}` : ""}`;
+        const reply = await callDeepSeek(prompt, clean, uid, "bisnis");
+        res.json({ reply: reply || "COO sedang sibuk. Coba lagi, bos." });
         return;
       }
     }
