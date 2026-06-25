@@ -555,9 +555,68 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           return;
         }
 
-        // Dynamic Specialist → BANG orchestrator + DeepSeek
-        const bangReply = await callDeepSeek(BANG_ORCHESTRATOR, clean, uid, m, 1500);
-        res.json({ reply: bangReply || "BANG sedang sibuk, coba lagi ya bos." });
+        // Dynamic Specialist → BANG orchestrator + DeepSeek (STREAMING)
+        const key = process.env.DEEPSEEK_API_KEY;
+        const base = process.env.DEEPSEEK_BASE_URL;
+        const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+        if (!key || !base) { res.json({ reply: "BANG sedang sibuk (API key belum diset)." }); return; }
+
+        const history = getHistory(uid, m);
+        const messages: any[] = [{ role: "system", content: BANG_ORCHESTRATOR.slice(0, 4000) }];
+        for (const h of history) messages.push(h);
+        messages.push({ role: "user", content: clean.slice(0, 2000) });
+
+        const dsResp = await fetch(`${base}/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify({ model, messages, max_tokens: 1500, temperature: 0.7, stream: true }),
+        });
+        if (!dsResp.ok) {
+          const errText = await dsResp.text().catch(() => "");
+          console.error(`[ai] BANG stream HTTP ${dsResp.status}: ${errText.slice(0, 300)}`);
+          res.json({ reply: "BANG sedang sibuk, coba lagi ya bos." });
+          return;
+        }
+
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.flushHeaders();
+
+        const reader = dsResp.body!.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let fullText = "";
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const payload = line.slice(6);
+              if (payload === "[DONE]") continue;
+              try {
+                const chunk = JSON.parse(payload);
+                const content = chunk.choices?.[0]?.delta?.content;
+                if (content) {
+                  fullText += content;
+                  res.write(`data: ${JSON.stringify({ text: fullText })}\n\n`);
+                }
+              } catch { /* skip malformed chunks */ }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+
+        res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+        res.end();
+        if (fullText) remember(uid, m, clean, fullText);
         return;
       }
 

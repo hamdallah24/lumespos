@@ -1,7 +1,7 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Bot, User, Briefcase, MessageSquare, Code, Server, Copy, Check } from "lucide-react";
-import { apiFetch } from "@/lib/csrf";
+import { apiFetch, getCsrfToken } from "@/lib/csrf";
 
 type Mode = "bisnis" | "chat" | "cto" | "vps";
 
@@ -135,6 +135,48 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
     setInput("");
     setMessages((prev) => [...prev, { role: "user", text: msg }]);
     setLoading(true);
+
+    // CTO mode → streaming
+    if (mode === "cto") {
+      setMessages((prev) => [...prev, { role: "assistant", text: "" }]);
+      try {
+        const resp = await fetch("/api/ai/chat", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() || "" },
+          body: JSON.stringify({ message: msg, mode }),
+        });
+        if (!resp.ok) {
+          setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "BANG sedang sibuk." }]; });
+          setLoading(false);
+          return;
+        }
+        const reader = resp.body!.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.done) break;
+              if (data.text) {
+                setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: data.text }; return copy; });
+              }
+            } catch { /* skip */ }
+          }
+        }
+      } catch {
+        setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, terjadi kesalahan." }]; });
+      }
+      setLoading(false);
+      return;
+    }
 
     try {
       const res = await apiFetch("/api/ai/chat", {
