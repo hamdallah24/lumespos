@@ -20,9 +20,16 @@ const MODE_TABS: { key: Mode; label: string; icon: React.ElementType }[] = [
 const MODE_SHORTCUTS: Record<Mode, { label: string; text: string }[]> = {
   bisnis: [
     { label: "Cek stok menipis", text: "cek stok yg menipis" },
+    { label: "Lihat stok semua", text: "lihat stok" },
+    { label: "Tambah stok", text: "tambah stok air 19000 ml" },
+    { label: "Kurangi stok", text: "kurangi stok air 500" },
+    { label: "Koreksi stok", text: "koreksi stok air jadi 1000" },
     { label: "Lihat menu", text: "lihat menu apa aja" },
+    { label: "Ubah harga", text: "ubah harga Nasi Goreng jadi 25000" },
     { label: "Catat pengeluaran", text: "catat pengeluaran 50000" },
-    { label: "Laporan keuangan", text: "lihat laporan keuangan" },
+    { label: "Laporan hari ini", text: "laporan hari ini" },
+    { label: "Laporan 7 hari", text: "laporan 7 hari" },
+    { label: "Laporan bulan ini", text: "laporan bulan ini" },
   ],
   chat: [
     { label: "Kasih ide menu", text: "ide menu minuman yg lagi ngetren" },
