@@ -198,7 +198,7 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
   const branchMatch = lower.match(/(?:cabang|branch)\s*(?:id\s*)?(\d+)/i);
   const userBranchId = branchMatch ? parseInt(branchMatch[1]) : bid;
 
-  if (/stok (menipis|habis|sedikit|kritis|tipis|abis)|bahan (habis|menipis|sedikit)|low.?stock/i.test(lower)) {
+  if (/(?:stok|bahan).*(menipis|habis|sedikit|kritis|tipis|abis)|low.?stock/i.test(lower)) {
     const all = await listInventoryForBranch(userBranchId);
     const threshold = LOW_STOCK_DEFAULT;
     const low = all.filter((item) => {
@@ -316,9 +316,9 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
   }
 
   // Cari stok spesifik: "cari stok gula", "stok tepung", "berapa stok minyak"
-  if (/cari\s+(?:stok\s+)?(\w+)|stok\s+(\w+)|berapa\s+(?:stok\s+)?(\w+)/i.test(lower)) {
-    const nameMatch = lower.match(/(?:cari\s+)?(?:stok\s+)?(\w{3,})/i);
-    const searchName = nameMatch?.[1] || "";
+  if (/cari\s+(\w{3,})|stok\s+(?!yg\b|menipis|habis|sedikit|kritis|tipis|abis|semua|masuk|in\b|tambah)(\w{3,})/i.test(lower)) {
+    const nameMatch = lower.match(/cari\s+(\w{3,})|stok\s+(\w{3,})/i);
+    const searchName = (nameMatch?.[1] || nameMatch?.[2] || "").trim();
     if (searchName.length >= 3) {
       const all = await listInventoryForBranch(userBranchId);
       const found = all.filter((i) => i.name.toLowerCase().includes(searchName));
