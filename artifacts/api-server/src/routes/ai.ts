@@ -263,8 +263,61 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
   }
   if (/laporan|pendapatan|keuntungan|omzet|profit|revenue/i.test(lower)) {
     const now = new Date();
-    const start = new Date(now); start.setDate(start.getDate() - 30); start.setHours(0, 0, 0, 0);
-    const end = new Date(now); end.setHours(23, 59, 59, 999);
+    let start = new Date(now); start.setDate(start.getDate() - 30);
+    let end = new Date(now);
+    let label = "30 hari terakhir";
+
+    // Range: "dari 12 september 2026 sampai 20 oktober 2026"
+    const rangeMatch = lower.match(/dari\s+(\d{1,2})\s+(januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+(\d{4})\s+(?:sampai|s\.d|hingga)\s+(\d{1,2})\s+(januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+(\d{4})/i);
+    if (rangeMatch) {
+      const months: Record<string, number> = { januari:0,februari:1,maret:2,april:3,mei:4,juni:5,juli:6,agustus:7,september:8,oktober:9,november:10,desember:11 };
+      start = new Date(+rangeMatch[3], months[rangeMatch[2]], +rangeMatch[1], 0, 0, 0, 0);
+      end = new Date(+rangeMatch[6], months[rangeMatch[5]], +rangeMatch[4], 23, 59, 59, 999);
+      label = `${rangeMatch[1]} ${rangeMatch[2]} ${rangeMatch[3]} — ${rangeMatch[4]} ${rangeMatch[5]} ${rangeMatch[6]}`;
+    }
+
+    // "hari ini" / "(untuk)?hari ini" / "today"
+    else if (/hari\s*ini|today/i.test(lower)) {
+      start = new Date(now); start.setHours(0, 0, 0, 0);
+      end = new Date(now); end.setHours(23, 59, 59, 999);
+      label = "hari ini";
+    }
+
+    // "kemarin" / "yesterday"
+    else if (/kemarin|yesterday/i.test(lower)) {
+      start = new Date(now); start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
+      end = new Date(now); end.setDate(end.getDate() - 1); end.setHours(23, 59, 59, 999);
+      label = "kemarin";
+    }
+
+    // "7 hari" / "seminggu" / "minggu ini"
+    else if (/7\s*hari|seminggu/i.test(lower)) {
+      start = new Date(now); start.setDate(start.getDate() - 7); start.setHours(0, 0, 0, 0);
+      label = "7 hari terakhir";
+    }
+
+    // "14 hari" / "2 minggu"
+    else if (/14\s*hari|2\s*minggu/i.test(lower)) {
+      start = new Date(now); start.setDate(start.getDate() - 14); start.setHours(0, 0, 0, 0);
+      label = "14 hari terakhir";
+    }
+
+    // "bulan ini" / "this month"
+    else if (/bulan\s*ini|this\s*month/i.test(lower)) {
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      label = "bulan ini";
+    }
+
+    // "bulan lalu" / "last month"
+    else if (/bulan\s*lalu|last\s*month/i.test(lower)) {
+      start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      label = "bulan lalu";
+    }
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
     const [stats] = await db.select({
       grossRevenue: sum(ordersTable.total),
       totalCogs: sum(ordersTable.totalCogs),
@@ -274,7 +327,7 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
     const cogs = parseFloat(stats?.totalCogs ?? "0");
     const expense = parseFloat(exp?.total ?? "0");
     const profit = rev - cogs - expense;
-    return `📊 Laporan 30 hari terakhir — cabang ${userBranchId}:\n• Pendapatan: Rp ${rev.toLocaleString("id-ID")}\n• Bahan baku: Rp ${cogs.toLocaleString("id-ID")}\n• Pengeluaran: Rp ${expense.toLocaleString("id-ID")}\n• Laba bersih: Rp ${profit.toLocaleString("id-ID")}`;
+    return `📊 Laporan ${label} — cabang ${userBranchId}:\n• Pendapatan: Rp ${rev.toLocaleString("id-ID")}\n• Bahan baku: Rp ${cogs.toLocaleString("id-ID")}\n• Pengeluaran: Rp ${expense.toLocaleString("id-ID")}\n• Laba bersih: Rp ${profit.toLocaleString("id-ID")}`;
   }
   if (/produksi|bikin (setengah jadi|adonan)/i.test(lower)) {
     if (!branchMatch) return "Produksi di cabang mana, bos?";
