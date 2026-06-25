@@ -188,6 +188,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       case "bisnis":
       default: {
         const analysis = await analyzeIntent(clean, defaultBranchId);
+        console.log(`[COO] analyzeIntent: intent=${analysis.intent} params=${JSON.stringify(analysis.params || "none").slice(0, 200)}`);
 
         // If user types a number AND there's a pending add_stock → auto-execute
         const pending = pendingActions.get(uid);
