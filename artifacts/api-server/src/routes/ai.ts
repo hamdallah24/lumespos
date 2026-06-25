@@ -526,7 +526,13 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           const resp = await fetch(N8N_CODE_GEN_WEBHOOK_URL, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: clean, userId: uid, userName: user.name }),
+            body: JSON.stringify({
+              user_message: clean,
+              repo_owner: "hamdallah24",
+              repo_name: "lumespos",
+              branch: "Staging",
+              chat_id: String(uid),
+            }),
           });
           const data = await resp.json().catch(() => ({}));
           const reply = (data as any).reply || (data as any).output || "Code Generator sedang sibuk. Coba lagi nanti ya bos.";
@@ -568,23 +574,6 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           const listing = await fetchGitHubDir(dir || "artifacts");
           if (listing) { res.json({ reply: `📁 ${dir || "artifacts"}:\n${listing}` }); return; }
           res.json({ reply: "Direktori tidak ditemukan atau GITHUB_PAT belum diset." });
-          return;
-        }
-
-        // Code Generator → arahkan ke n8n
-        if (/(?:generate|bikin|buat|tulis)\s*(?:kode|code|file|komponen|component|route|endpoint|halaman|page)/i.test(lower)) {
-          if (N8N_CODE_GEN_WEBHOOK_URL) {
-            const resp = await fetch(N8N_CODE_GEN_WEBHOOK_URL, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ message: clean, userId: user.id, userName: user.name }),
-            });
-            const data = await resp.json().catch(() => ({}));
-            const reply = (data as any).reply || (data as any).output || "Code Generator sedang sibuk.";
-            res.json({ reply });
-            return;
-          }
-          res.json({ reply: "Code Generator belum dikonfigurasi (N8N_CODE_GEN_WEBHOOK_URL kosong)." });
           return;
         }
 
