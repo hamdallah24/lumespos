@@ -18,20 +18,47 @@ const MODE_TABS: { key: Mode; label: string; icon: React.ElementType }[] = [
   { key: "vps", label: "VPS", icon: Server },
 ];
 
+const BISNIS_GROUPS = [
+  {
+    key: "stok", label: "📦 Stok",
+    items: [
+      { label: "Tambah Stok", text: "tambah stok: " },
+      { label: "Kurangi", text: "kurangi stok " },
+      { label: "Koreksi Jumlah", text: "koreksi stok  jadi " },
+      { label: "Koreksi Hilang", text: "koreksi hilang  " },
+      { label: "Lihat Semua", text: "lihat stok" },
+      { label: "Cek Menipis", text: "cek stok menipis" },
+    ]
+  },
+  {
+    key: "menu", label: "📋 Menu",
+    items: [
+      { label: "Tambah + Varian", text: "tambah menu  varian: " },
+      { label: "Lihat Menu", text: "lihat menu" },
+      { label: "Ubah Harga", text: "ubah harga  jadi " },
+      { label: "Hapus", text: "hapus " },
+    ]
+  },
+  {
+    key: "keuangan", label: "💰 Keuangan",
+    items: [
+      { label: "Catat Pengeluaran", text: "catat pengeluaran " },
+      { label: "Laporan Hari Ini", text: "laporan hari ini" },
+      { label: "Laporan 7 Hari", text: "laporan 7 hari" },
+      { label: "Laporan Bulan Ini", text: "laporan bulan ini" },
+    ]
+  },
+  {
+    key: "produksi", label: "🏭 Produksi",
+    items: [
+      { label: "Mulai Produksi", text: "produksi " },
+      { label: "Lihat Resep", text: "lihat resep " },
+    ]
+  },
+];
+
 const MODE_SHORTCUTS: Record<Mode, { label: string; text: string }[]> = {
-  bisnis: [
-    { label: "Cek stok menipis", text: "cek stok yg menipis" },
-    { label: "Lihat stok semua", text: "lihat stok" },
-    { label: "Tambah stok", text: "tambah stok air 19000 ml" },
-    { label: "Kurangi stok", text: "kurangi stok air 500" },
-    { label: "Koreksi stok", text: "koreksi stok air jadi 1000" },
-    { label: "Lihat menu", text: "lihat menu apa aja" },
-    { label: "Ubah harga", text: "ubah harga Nasi Goreng jadi 25000" },
-    { label: "Catat pengeluaran", text: "catat pengeluaran 50000" },
-    { label: "Laporan hari ini", text: "laporan hari ini" },
-    { label: "Laporan 7 hari", text: "laporan 7 hari" },
-    { label: "Laporan bulan ini", text: "laporan bulan ini" },
-  ],
+  bisnis: [],
   chat: [
     { label: "Kasih ide menu", text: "ide menu minuman yg lagi ngetren" },
     { label: "Tips bisnis", text: "gimana cara naikin omzet?" },
@@ -123,6 +150,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
+  const [openGroup, setOpenGroup] = React.useState<string | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const lastMsgRef = React.useRef("");
@@ -311,17 +339,50 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                   <SiriWave />
                   <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">{MODE_DESC[mode]}</p>
 
-                  <div className="flex flex-wrap justify-center gap-2 mt-5 px-2">
-                    {MODE_SHORTCUTS[mode].map((s, i) => (
-                      <button
-                        key={i}
-                        onClick={() => { setInput(s.text); inputRef.current?.focus(); }}
-                        className="px-3.5 py-2 text-xs font-medium rounded-xl border border-[#1565FF]/15 bg-[#1565FF]/5 hover:bg-[#1565FF]/10 active:scale-95 transition-all text-slate-600 dark:text-slate-300 whitespace-nowrap"
-                      >
-                        {s.label}
-                      </button>
-                    ))}
-                  </div>
+                  {mode === "bisnis" ? (
+                    <div className="w-full">
+                      <div className="flex flex-wrap justify-center gap-2 mb-3">
+                        {BISNIS_GROUPS.map((group) => (
+                          <button
+                            key={group.key}
+                            onClick={() => setOpenGroup(openGroup === group.key ? null : group.key)}
+                            className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-all active:scale-95 whitespace-nowrap ${
+                              openGroup === group.key
+                                ? "bg-[#1565FF] text-white shadow-sm"
+                                : "bg-[#1565FF]/10 text-[#1565FF] hover:bg-[#1565FF]/20"
+                            }`}
+                          >
+                            {group.label}
+                          </button>
+                        ))}
+                      </div>
+                      {BISNIS_GROUPS.filter(g => g.key === openGroup).map((group) => (
+                        <div key={group.key} className="flex flex-wrap justify-center gap-1.5 px-1 pb-1">
+                          {group.items.map((item, j) => (
+                            <button
+                              key={j}
+                              onClick={() => { setInput(item.text); inputRef.current?.focus(); setOpenGroup(null); }}
+                              className="px-3 py-1.5 text-[11px] font-medium rounded-lg border border-[#1565FF]/15 bg-white dark:bg-white/[0.05] hover:bg-[#1565FF]/5 active:scale-95 transition-all text-slate-600 dark:text-slate-300 whitespace-nowrap"
+                            >
+                              {item.label}
+                            </button>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap justify-center gap-2">
+                      {MODE_SHORTCUTS[mode].map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => { setInput(s.text); inputRef.current?.focus(); }}
+                          className="px-3.5 py-2 text-xs font-medium rounded-xl border border-[#1565FF]/15 bg-[#1565FF]/5 hover:bg-[#1565FF]/10 active:scale-95 transition-all text-slate-600 dark:text-slate-300 whitespace-nowrap"
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
