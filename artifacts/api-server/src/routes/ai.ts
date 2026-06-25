@@ -23,22 +23,32 @@ async function callDeepSeek(system: string, user: string): Promise<string> {
   const key = process.env.DEEPSEEK_API_KEY;
   const base = process.env.DEEPSEEK_BASE_URL;
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
-  if (!key || !base) return "";
-  const resp = await fetch(`${base}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: system.slice(0, 4000) },
-        { role: "user", content: user.slice(0, 2000) },
-      ],
-      max_tokens: 800,
-      temperature: 0.7,
-    }),
-  });
-  const json = await resp.json().catch(() => ({}));
-  return (json as any).choices?.[0]?.message?.content?.trim() || "";
+  if (!key || !base) { console.error("[ai] DEEPSEEK_API_KEY or DEEPSEEK_BASE_URL not set"); return ""; }
+  try {
+    const resp = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: system.slice(0, 4000) },
+          { role: "user", content: user.slice(0, 2000) },
+        ],
+        max_tokens: 800,
+        temperature: 0.7,
+      }),
+    });
+    if (!resp.ok) {
+      const err = await resp.text().catch(() => "");
+      console.error(`[ai] DeepSeek HTTP ${resp.status}: ${err.slice(0, 200)}`);
+      return "";
+    }
+    const json = await resp.json();
+    return (json as any).choices?.[0]?.message?.content?.trim() || "";
+  } catch (err) {
+    console.error("[ai] callDeepSeek fetch error:", err);
+    return "";
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -373,6 +383,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       }
     }
   } catch (err) {
+    console.error("[ai] Route error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
