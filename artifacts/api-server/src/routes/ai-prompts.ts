@@ -138,6 +138,13 @@ PERINTAH YANG SISTEM BISA EKSEKUSI INSTAN:
 "ubah harga [nama] jadi [harga]" — update price
 "hapus [nama produk]" / "nonaktifkan [nama]" — deactivate product
 "tambah bahan [nama]" — insert ingredient
+"lihat varian [produk]" / "varian [produk]" — list variants
+"tambah varian [produk] [nama] [harga]" — insert variant
+"ubah varian [produk] [varian] jadi [harga]" — update variant price
+"hapus varian [produk] [varian]" — delete variant
+"lihat resep [produk]" / "resep [produk]" — list BOM
+"tambah resep [produk] butuh [bahan] [qty]" — insert recipe row
+"hapus resep [produk] [bahan]" — delete recipe row
 "catat pengeluaran [jumlah]" — insert expense
 "laporan [hari ini/7 hari/14 hari/bulan ini/bulan lalu]" — financial report
 "laporan dari [tgl] sampai [tgl]" — custom range

@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // AI BUSINESS HANDLER — Query DB langsung untuk operasi bisnis
 // ─────────────────────────────────────────────────────────────
-import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable, stockAdjustmentsTable } from "@workspace/db";
+import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable, stockAdjustmentsTable, productVariantsTable, recipesTable } from "@workspace/db";
 import { eq, and, gte, lte, sum } from "drizzle-orm";
 import { listInventoryForBranch, LOW_STOCK_DEFAULT, adjustInventory } from "../services/inventory";
 
@@ -265,6 +265,163 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     if (items.length === 0) return `Belum ada setengah jadi di cabang ${userBranchId}.`;
     const list = items.map((i) => `• ${i.id}. ${i.name} (${i.unit})`).join("\n");
     return `Yang mau diproduksi apa, bos? Ini daftar setengah jadinya:\n${list}\n\nContoh: "produksi adonan pisang 3kg"`;
+  }
+
+  // ── LIHAT VARIAN ──
+  if (/lihat\s+varian|varian\s+(?:dari\s+)?(\w+)|daftar\s+varian/i.test(lower)) {
+    const nameMatch = lower.match(/(?:lihat\s+varian|varian)\s+(?:dari\s+)?(\w+(?:\s+\w+)*)/i);
+    const searchName = nameMatch?.[1]?.trim() || "";
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
+    const product = searchName ? prods.find((p) => p.name.toLowerCase().includes(searchName)) : null;
+    if (!product) return searchName ? `Ga nemu produk "${searchName}". Coba "lihat menu" dulu.` : "Produk mana yg mau dilihat variannya? Contoh: lihat varian Nasi Goreng";
+    const variants = await db.select().from(productVariantsTable).where(eq(productVariantsTable.productId, product.id));
+    if (variants.length === 0) return `${product.name} belum punya varian, bos.`;
+    return `📋 Varian ${product.name}:\n${variants.map((v) => `• ${v.name} — Rp ${parseFloat(v.price).toLocaleString("id-ID")}`).join("\n")}`;
+  }
+
+  // ── TAMBAH VARIAN ──
+  if (/tambah\s+varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i.test(lower)) {
+    const match = lower.match(/tambah\s+varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i);
+    if (!match) return "Format: tambah varian [produk] [nama varian] [harga]. Contoh: tambah varian Nasi Goreng Large 18000";
+    const prodName = match[1].trim();
+    const varName = match[2].trim();
+    const price = match[3];
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
+    const product = prods.find((p) => p.name.toLowerCase().includes(prodName));
+    if (!product) return `Ga nemu produk "${prodName}". Coba "lihat menu" dulu.`;
+    await db.insert(productVariantsTable).values({ productId: product.id, name: varName, price });
+    return `✅ Varian "${varName}" seharga Rp ${parseInt(price).toLocaleString("id-ID")} berhasil ditambah ke ${product.name}.`;
+  }
+
+  // ── UBAH HARGA VARIAN ──
+  if (/ubah\s+(?:harga\s+)?varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i.test(lower)) {
+    const match = lower.match(/ubah\s+(?:harga\s+)?varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
+    if (!match) return "Format: ubah varian [produk] [nama varian] jadi [harga]. Contoh: ubah varian Nasi Goreng Large jadi 20000";
+    const prodName = match[1].trim();
+    const varName = match[2].trim();
+    const price = match[3];
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
+    const product = prods.find((p) => p.name.toLowerCase().includes(prodName));
+    if (!product) return `Ga nemu produk "${prodName}".`;
+    const variants = await db.select().from(productVariantsTable).where(eq(productVariantsTable.productId, product.id));
+    const variant = variants.find((v) => v.name.toLowerCase().includes(varName));
+    if (!variant) return `Ga nemu varian "${varName}" di ${product.name}. Coba "lihat varian ${prodName}".`;
+    await db.update(productVariantsTable).set({ price }).where(eq(productVariantsTable.id, variant.id));
+    return `✅ Varian ${variant.name} di ${product.name}: Rp ${parseFloat(variant.price).toLocaleString("id-ID")} → Rp ${parseInt(price).toLocaleString("id-ID")}.`;
+  }
+
+  // ── HAPUS VARIAN ──
+  if (/hapus\s+varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*)/i.test(lower)) {
+    const match = lower.match(/hapus\s+varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*)/i);
+    if (!match) return "Format: hapus varian [produk] [varian]. Contoh: hapus varian Nasi Goreng Large";
+    const prodName = match[1].trim();
+    const varName = match[2].trim();
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
+    const product = prods.find((p) => p.name.toLowerCase().includes(prodName));
+    if (!product) return `Ga nemu produk "${prodName}".`;
+    const variants = await db.select().from(productVariantsTable).where(eq(productVariantsTable.productId, product.id));
+    const variant = variants.find((v) => v.name.toLowerCase().includes(varName));
+    if (!variant) return `Ga nemu varian "${varName}" di ${product.name}.`;
+    await db.delete(productVariantsTable).where(eq(productVariantsTable.id, variant.id));
+    return `✅ Varian "${variant.name}" dihapus dari ${product.name}.`;
+  }
+
+  // ── LIHAT RESEP ──
+  if (/lihat\s+resep|resep\s+(\w+)|bom\s+(\w+)/i.test(lower)) {
+    const nameMatch = lower.match(/(?:lihat\s+resep|resep|bom)\s+(\w+(?:\s+\w+)*)/i);
+    const searchName = nameMatch?.[1]?.trim() || "";
+    if (!searchName) return "Resep produk atau setengah jadi apa yg mau dilihat? Contoh: lihat resep Nasi Goreng";
+
+    // Search in products and semi_finished
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
+    const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
+
+    const product = prods.find((p) => p.name.toLowerCase().includes(searchName));
+    const semi = semis.find((s) => s.name.toLowerCase().includes(searchName));
+
+    if (!product && !semi) return `Ga nemu "${searchName}" di produk atau setengah jadi.`;
+    const target = product || semi!;
+    const parentType = product ? "product" : "semi_finished";
+
+    const recipes = await db.select().from(recipesTable).where(and(eq(recipesTable.parentType, parentType), eq(recipesTable.parentId, target.id)));
+    if (recipes.length === 0) return `${target.name} belum punya resep/BOM, bos.`;
+
+    const lines: string[] = [];
+    for (const r of recipes) {
+      if (r.componentType === "ingredient") {
+        const [ing] = await db.select().from(ingredientsTable).where(eq(ingredientsTable.id, r.componentId));
+        lines.push(`• ${ing?.name || r.componentId}: ${r.quantity}`);
+      } else {
+        const [sf] = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.id, r.componentId));
+        lines.push(`• ${sf?.name || r.componentId} (setengah jadi): ${r.quantity}`);
+      }
+    }
+    return `📋 Resep ${target.name}:\n${lines.join("\n")}`;
+  }
+
+  // ── TAMBAH RESEP ──
+  if (/tambah\s+resep\s+(\w+(?:\s+\w+)*?)\s+butuh\s+(\w+(?:\s+\w+)*?)\s+([\d.]+)/i.test(lower)) {
+    const match = lower.match(/tambah\s+resep\s+(\w+(?:\s+\w+)*?)\s+butuh\s+(\w+(?:\s+\w+)*?)\s+([\d.]+)/i);
+    if (!match) return "Format: tambah resep [produk] butuh [bahan] [qty]. Contoh: tambah resep Nasi Goreng butuh Beras 0.5";
+    const parentName = match[1].trim();
+    const compName = match[2].trim();
+    const qty = match[3];
+
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
+    const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
+    const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, userBranchId));
+
+    const product = prods.find((p) => p.name.toLowerCase().includes(parentName));
+    const semi = semis.find((s) => s.name.toLowerCase().includes(parentName));
+    if (!product && !semi) return `Ga nemu "${parentName}" di produk atau setengah jadi.`;
+    const parent = product || semi!;
+    const parentType = product ? "product" : "semi_finished";
+
+    let componentType = "";
+    let componentId = 0;
+    const ing = ings.find((i) => i.name.toLowerCase().includes(compName));
+    const sf = semis.find((s) => s.name.toLowerCase().includes(compName));
+    if (ing) { componentType = "ingredient"; componentId = ing.id; }
+    else if (sf) { componentType = "semi_finished"; componentId = sf.id; }
+    else return `Ga nemu bahan "${compName}". Coba "lihat bahan" dulu.`;
+
+    await db.insert(recipesTable).values({ parentType, parentId: parent.id, componentType, componentId, quantity: qty });
+    const compLabel = ing?.name || sf?.name || compName;
+    return `✅ Resep ${parent.name} ditambah: ${compLabel} x${qty}.`;
+  }
+
+  // ── HAPUS RESEP ──
+  if (/hapus\s+resep\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*)/i.test(lower)) {
+    const match = lower.match(/hapus\s+resep\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*)/i);
+    if (!match) return "Format: hapus resep [produk] [bahan]. Contoh: hapus resep Nasi Goreng Beras";
+    const parentName = match[1].trim();
+    const compName = match[2].trim();
+
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
+    const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
+    const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, userBranchId));
+
+    const product = prods.find((p) => p.name.toLowerCase().includes(parentName));
+    const semi = semis.find((s) => s.name.toLowerCase().includes(parentName));
+    if (!product && !semi) return `Ga nemu "${parentName}".`;
+    const parent = product || semi!;
+    const parentType = product ? "product" : "semi_finished";
+
+    const recipes = await db.select().from(recipesTable).where(and(eq(recipesTable.parentType, parentType), eq(recipesTable.parentId, parent.id)));
+    let foundId = 0;
+    let foundName = "";
+    for (const r of recipes) {
+      if (r.componentType === "ingredient") {
+        const [ing] = await db.select().from(ingredientsTable).where(eq(ingredientsTable.id, r.componentId));
+        if (ing?.name.toLowerCase().includes(compName)) { foundId = r.id; foundName = ing.name; break; }
+      } else {
+        const [sf] = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.id, r.componentId));
+        if (sf?.name.toLowerCase().includes(compName)) { foundId = r.id; foundName = sf.name; break; }
+      }
+    }
+    if (!foundId) return `Ga nemu "${compName}" di resep ${parent.name}.`;
+    await db.delete(recipesTable).where(eq(recipesTable.id, foundId));
+    return `✅ ${foundName} dihapus dari resep ${parent.name}.`;
   }
 
   return "";
