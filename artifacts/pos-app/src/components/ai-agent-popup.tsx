@@ -1,11 +1,55 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Bot, User } from "lucide-react";
+import { X, Send, Bot, User, Briefcase, MessageSquare, Code, Server } from "lucide-react";
 import { apiFetch } from "@/lib/csrf";
+
+type Mode = "bisnis" | "chat" | "cto" | "vps";
 
 type Message = {
   role: "user" | "assistant";
   text: string;
+};
+
+const MODE_TABS: { key: Mode; label: string; icon: React.ElementType }[] = [
+  { key: "bisnis", label: "Bisnis", icon: Briefcase },
+  { key: "chat", label: "Chat", icon: MessageSquare },
+  { key: "cto", label: "CTO", icon: Code },
+  { key: "vps", label: "VPS", icon: Server },
+];
+
+const MODE_SHORTCUTS: Record<Mode, { label: string; text: string }[]> = {
+  bisnis: [
+    { label: "Cek stok menipis", text: "cek stok yg menipis" },
+    { label: "Lihat menu", text: "lihat menu apa aja" },
+    { label: "Catat pengeluaran", text: "catat pengeluaran 50000" },
+    { label: "Laporan keuangan", text: "lihat laporan keuangan" },
+  ],
+  chat: [
+    { label: "Kasih ide menu", text: "ide menu minuman yg lagi ngetren" },
+    { label: "Tips bisnis", text: "gimana cara naikin omzet?" },
+    { label: "Resep", text: "resep minuman simples buat jualan" },
+    { label: "Ngobrol aja", text: "lagi apa nih?" },
+  ],
+  cto: [
+    { label: "Tambah fitur", text: "tambah fitur laporan excel" },
+    { label: "Analisis kode", text: "analisis struktur folder frontend" },
+    { label: "Baca file", text: "baca package.json" },
+    { label: "Optimasi", text: "gimana cara ningkatin performa?" },
+  ],
+  vps: [
+    { label: "Deploy", text: "deploy terbaru" },
+    { label: "Status", text: "status server" },
+    { label: "Restart", text: "restart api" },
+    { label: "Logs", text: "logs terbaru" },
+    { label: "Health", text: "health check" },
+  ],
+};
+
+const MODE_DESC: Record<Mode, string> = {
+  bisnis: "Tanya stok, menu, laporan, pengeluaran",
+  chat: "Ngobrol santai, brainstorming, resep",
+  cto: "Fitur baru, baca file, analisis kode",
+  vps: "Deploy, status, restart, logs server",
 };
 
 function SiriWave() {
@@ -66,22 +110,12 @@ function LoadingDots() {
 }
 
 export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [mode, setMode] = React.useState<Mode>("bisnis");
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const shortcuts = [
-    { label: "Cek stok menipis", text: "cek stok yg menipis" },
-    { label: "Lihat menu", text: "lihat menu apa aja" },
-    { label: "Catat pengeluaran", text: "catat pengeluaran 50000" },
-    { label: "Produksi", text: "produksi" },
-    { label: "Laporan keuangan", text: "lihat laporan keuangan" },
-    { label: "Tambah fitur", text: "tambah fitur laporan excel" },
-    { label: "Deploy", text: "deploy terbaru" },
-    { label: "Strategi bisnis", text: "gimana cara naikin omzet?" },
-  ];
 
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -98,7 +132,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
       const res = await apiFetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ message: msg, mode }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -119,6 +153,11 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
       e.preventDefault();
       sendMessage();
     }
+  };
+
+  const switchMode = (m: Mode) => {
+    setMode(m);
+    setMessages([]);
   };
 
   return (
@@ -145,7 +184,12 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1565FF] to-[#0A4CD0] flex items-center justify-center text-white font-bold text-xs shadow-md">
                   AI
                 </div>
-                <span className="font-semibold text-sm text-slate-800 dark:text-white">AI Agent</span>
+                <div>
+                  <span className="font-semibold text-sm text-slate-800 dark:text-white">
+                    AI {MODE_TABS.find((t) => t.key === mode)?.label}
+                  </span>
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">{MODE_DESC[mode]}</p>
+                </div>
               </div>
               <button
                 onClick={onClose}
@@ -155,16 +199,35 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 min-h-0">
+            <div className="flex gap-1 px-4 pt-3 pb-1 overflow-x-auto">
+              {MODE_TABS.map((tab) => {
+                const active = mode === tab.key;
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => switchMode(tab.key)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all active:scale-95 ${
+                      active
+                        ? "bg-[#1565FF] text-white shadow-sm"
+                        : "text-slate-500 dark:text-slate-400 hover:bg-[#1565FF]/5"
+                    }`}
+                  >
+                    <Icon size={13} />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 min-h-0">
               {messages.length === 0 && !loading && (
-                <div className="flex flex-col items-center justify-center py-4 text-center">
+                <div className="flex flex-col items-center justify-center py-2 text-center">
                   <SiriWave />
-                  <p className="mt-3 text-sm text-slate-500 dark:text-slate-400 font-medium">
-                    Tanya apa saja tentang bisnis Anda
-                  </p>
+                  <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">{MODE_DESC[mode]}</p>
 
                   <div className="flex flex-wrap justify-center gap-2 mt-5 px-2">
-                    {shortcuts.map((s, i) => (
+                    {MODE_SHORTCUTS[mode].map((s, i) => (
                       <button
                         key={i}
                         onClick={() => { setInput(s.text); inputRef.current?.focus(); }}
@@ -227,7 +290,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Tanya AI Agent..."
+                  placeholder={`Tanya AI ${MODE_TABS.find((t) => t.key === mode)?.label}...`}
                   className="flex-1 bg-transparent text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none min-w-0"
                 />
                 <button
