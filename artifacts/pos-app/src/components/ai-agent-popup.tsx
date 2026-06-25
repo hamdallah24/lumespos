@@ -22,7 +22,7 @@ const BISNIS_GROUPS = [
   {
     key: "stok", label: "📦 Stok",
     items: [
-      { label: "Tambah Stok", text: "tambah stok: " },
+      { label: "Tambah Stok", text: "tambah stok  " },
       { label: "Kurangi", text: "kurangi stok " },
       { label: "Koreksi Jumlah", text: "koreksi stok  jadi " },
       { label: "Koreksi Hilang", text: "koreksi hilang  " },
