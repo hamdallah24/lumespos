@@ -581,7 +581,6 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
   if (/tambah (bahan|ingredient|bahan baku)/i.test(lower)) {
     const nameMatch = lower.match(/tambah (?:bahan|ingredient|bahan baku)\s+(\w+(?:\s+\w+)*?)(?:\s+\d+|\s*$)/i);
     if (!nameMatch) return "Mau tambah bahan apa? Sebutkan nama bahannya.";
-    if (!branchMatch) return "Mau di cabang mana, bos? 1 (Cilengkrang 1), 2 (Cilengkrang 2), dst.";
     await db.insert(ingredientsTable).values({ branchId: userBranchId, name: nameMatch[1].trim(), unit: "ml" });
     return `Udah, bos! Bahan "${nameMatch[1].trim()}" berhasil ditambah di cabang ${userBranchId}. Jangan lupa atur stok masuknya ya.`;
   }
@@ -597,7 +596,6 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
   if (/tambah (produk|menu)/i.test(lower)) {
     const nameMatch = lower.match(/tambah (?:produk|menu)\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i);
     if (!nameMatch) return "Mau tambah produk apa? Sebutkan nama + harganya. Contoh: tambah menu pisang coklat 15000";
-    if (!branchMatch) return "Mau di cabang mana, bos? 1 (Cilengkrang 1), 2 (Cilengkrang 2), dst.";
     await db.insert(productsTable).values({ branchId: userBranchId, name: nameMatch[1].trim(), price: nameMatch[2] });
     return `Udah! ${nameMatch[1].trim()} seharga Rp ${parseInt(nameMatch[2]).toLocaleString("id-ID")} berhasil ditambah di cabang ${userBranchId}.`;
   }
@@ -635,10 +633,10 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
   if (/catat (pengeluaran|biaya|belanja)/i.test(lower)) {
     const amountMatch = lower.match(/(\d+)/);
     if (!amountMatch) return "Mau catat pengeluaran berapa? Kasih nominalnya.";
-    if (!branchMatch) return "Pengeluaran di cabang mana, bos?";
     const amountNum = parseInt(amountMatch[1]);
-    await db.insert(expensesTable).values({ branchId: userBranchId, description: lower.replace(/catat (pengeluaran|biaya|belanja)\s*/i, "").trim() || "Pengeluaran", amount: String(amountNum) });
-    return `Udah dicatat, bos! Pengeluaran Rp ${amountNum.toLocaleString("id-ID")} di cabang ${userBranchId}.`;
+    const desc = lower.replace(/catat (pengeluaran|biaya|belanja)\s*/i, "").replace(/\d+/g, "").trim() || "Pengeluaran";
+    await db.insert(expensesTable).values({ branchId: userBranchId, description: desc, amount: String(amountNum) });
+    return `Udah dicatat, bos! Pengeluaran "${desc}" Rp ${amountNum.toLocaleString("id-ID")} di cabang ${userBranchId}.`;
   }
 
   // ── LAPORAN ──
@@ -723,7 +721,6 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     }
 
     // Just "produksi" → list available items
-    if (!branchMatch) return "Produksi di cabang mana, bos?";
     const items = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
     if (items.length === 0) return `Belum ada setengah jadi di cabang ${userBranchId}.`;
     const list = items.map((i) => `• ${i.id}. ${i.name} (${i.unit})`).join("\n");
