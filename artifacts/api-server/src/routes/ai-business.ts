@@ -34,13 +34,14 @@ export async function executeOperation(action: string, params: Record<string, an
   switch (action) {
 
     case "add_stock": {
-      const { itemId, qty, price } = params;
+      const { itemId, itemType, qty, price } = params;
       if (!itemId || !qty) return "Parameter tidak lengkap.";
+      const it = itemType || "ingredient";
       await db.transaction(async (tx) => {
-        await adjustInventory(tx, bid, "ingredient", itemId, qty);
+        await adjustInventory(tx, bid, it, itemId, qty);
         if (price && price > 0) await applyMovingAverage(tx, bid, itemId, qty, price);
         await tx.insert(stockAdjustmentsTable).values({
-          branchId: bid, itemType: "ingredient", itemId,
+          branchId: bid, itemType: it, itemId,
           adjustmentType: "in", quantity: String(qty),
           purchasePriceTotal: price > 0 ? String(price) : null,
           notes: price > 0 ? `via COO: tambah stok (Rp ${price.toLocaleString("id-ID")})` : `via COO: tambah stok`,
@@ -50,12 +51,13 @@ export async function executeOperation(action: string, params: Record<string, an
     }
 
     case "reduce_stock": {
-      const { itemId, qty } = params;
+      const { itemId, itemType, qty } = params;
       if (!itemId || !qty) return "Parameter tidak lengkap.";
+      const it = itemType || "ingredient";
       await db.transaction(async (tx) => {
-        await adjustInventory(tx, bid, "ingredient", itemId, -qty);
+        await adjustInventory(tx, bid, it, itemId, -qty);
         await tx.insert(stockAdjustmentsTable).values({
-          branchId: bid, itemType: "ingredient", itemId, adjustmentType: "out",
+          branchId: bid, itemType: it, itemId, adjustmentType: "out",
           quantity: String(qty), notes: `via COO: kurangi stok`,
         });
       });
@@ -65,15 +67,16 @@ export async function executeOperation(action: string, params: Record<string, an
     case "correct_stock": {
       const { itemId, itemType, target } = params;
       if (!itemId || target === undefined) return "Parameter tidak lengkap.";
+      const it = itemType || "ingredient";
       const all = await listInventoryForBranch(bid);
-      const found = all.find((i) => i.itemId === itemId && i.itemType === (itemType || "ingredient"));
+      const found = all.find((i) => i.itemId === itemId && i.itemType === it);
       if (!found) return "Item tidak ditemukan.";
       const delta = target - found.currentStock;
       const adjType = delta >= 0 ? "in" : "loss";
       await db.transaction(async (tx) => {
-        await adjustInventory(tx, bid, found.itemType, itemId, delta);
+        await adjustInventory(tx, bid, it, itemId, delta);
         await tx.insert(stockAdjustmentsTable).values({
-          branchId: bid, itemType: found.itemType, itemId, adjustmentType: adjType,
+          branchId: bid, itemType: it, itemId, adjustmentType: adjType,
           quantity: String(Math.abs(delta)), notes: `via COO: koreksi stok jadi ${target}`,
         });
       });
@@ -81,12 +84,13 @@ export async function executeOperation(action: string, params: Record<string, an
     }
 
     case "loss_correction": {
-      const { itemId, qty } = params;
+      const { itemId, itemType, qty } = params;
       if (!itemId || !qty) return "Parameter tidak lengkap.";
+      const it = itemType || "ingredient";
       await db.transaction(async (tx) => {
-        await adjustInventory(tx, bid, "ingredient", itemId, -qty);
+        await adjustInventory(tx, bid, it, itemId, -qty);
         await tx.insert(stockAdjustmentsTable).values({
-          branchId: bid, itemType: "ingredient", itemId, adjustmentType: "loss",
+          branchId: bid, itemType: it, itemId, adjustmentType: "loss",
           quantity: String(-qty), notes: `via COO: koreksi hilang`,
         });
       });
@@ -311,24 +315,33 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
   }
 
   // ── STOCK ADJUST INTENT (add/reduce/correct/loss) ──
+  // Unified search: ingredients + semi_finished
+  const searchAll = async (branchId: number, name: string) => {
+    const [ings, semis] = await Promise.all([
+      db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, branchId)),
+      db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branchId)),
+    ]);
+    const all = [...ings.map(i => ({ ...i, itemType: "ingredient" as const, itemId: i.id, unit: i.unit, costPricePerUnit: i.costPricePerUnit })),
+      ...semis.map(s => ({ ...s, itemType: "semi_finished" as const, itemId: s.id, unit: s.unit, costPricePerUnit: s.costPricePerUnit }))];
+    return all.find(i => i.name.toLowerCase().includes(name));
+  };
+
   const stockMatch = lower.match(/tambah\s+(?!produk|menu)(?:stok\s+)?(.+?)\s+(\d+)(?:\s*(?:ml|l|kg|g|pcs|liter|gram|ons|gr))?(?:\s+(\d+))?/i);
   if (stockMatch) {
-    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, branchId)));
-    const found = items.find((i) => i.name.toLowerCase().includes(stockMatch[1].trim()));
+    const found = await searchAll(branchId, stockMatch[1].trim());
     if (found) {
       const stock = await db.select({ s: currentInventoryTable.currentStock }).from(currentInventoryTable)
-        .where(and(eq(currentInventoryTable.itemType, "ingredient"), eq(currentInventoryTable.itemId, found.id), eq(currentInventoryTable.branchId, branchId)));
+        .where(and(eq(currentInventoryTable.itemType, found.itemType), eq(currentInventoryTable.itemId, found.itemId), eq(currentInventoryTable.branchId, branchId)));
       const currentStock = parseFloat(stock[0]?.s || "0");
       const price = stockMatch[3] ? parseFloat(stockMatch[3]) : undefined;
-      return { intent: "add_stock", params: { itemId: found.id, name: found.name, qty: parseFloat(stockMatch[2]), unit: found.unit, currentStock, hpp: parseFloat(found.costPricePerUnit || "0"), price } };
+      return { intent: "add_stock", params: { itemId: found.itemId, itemType: found.itemType, name: found.name, qty: parseFloat(stockMatch[2]), unit: found.unit || "unit", currentStock, hpp: parseFloat(found.costPricePerUnit || "0"), price } };
     }
   }
 
   const reduceMatch = lower.match(/kurangi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)/i);
   if (reduceMatch) {
-    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, branchId)));
-    const found = items.find((i) => i.name.toLowerCase().includes(reduceMatch[1].trim()));
-    if (found) return { intent: "reduce_stock", params: { itemId: found.id, name: found.name, qty: parseFloat(reduceMatch[2]), unit: found.unit } };
+    const found = await searchAll(branchId, reduceMatch[1].trim());
+    if (found) return { intent: "reduce_stock", params: { itemId: found.itemId, itemType: found.itemType, name: found.name, qty: parseFloat(reduceMatch[2]), unit: found.unit || "unit" } };
   }
 
   const correctMatch = lower.match(/koreksi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
@@ -340,9 +353,8 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
 
   const lossMatch = lower.match(/koreksi\s+hilang\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i);
   if (lossMatch) {
-    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, branchId)));
-    const found = items.find((i) => i.name.toLowerCase().includes(lossMatch[1].trim()));
-    if (found) return { intent: "loss_correction", params: { itemId: found.id, name: found.name, qty: parseFloat(lossMatch[2]), unit: found.unit } };
+    const found = await searchAll(branchId, lossMatch[1].trim());
+    if (found) return { intent: "loss_correction", params: { itemId: found.itemId, itemType: found.itemType, name: found.name, qty: parseFloat(lossMatch[2]), unit: found.unit || "unit" } };
   }
 
   // ── ADD EXPENSE ──
@@ -372,12 +384,16 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
   // ── ADD RECIPE ──
   const recipeMatch = lower.match(/tambah\s+resep\s+(\w+(?:\s+\w+)*?)\s+butuh\s+(\w+(?:\s+\w+)*?)\s+([\d.]+)/i);
   if (recipeMatch) {
-    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
+    const { parent, parentType } = await findRecipeParent(recipeMatch[1].trim(), branchId);
+    if (!parent) return { intent: "add_recipe", params: null };
+    const compName = recipeMatch[2].trim();
     const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branchId));
     const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, branchId));
-    const parent = prods.find((p) => p.name.toLowerCase().includes(recipeMatch[1].trim())) || semis.find((s) => s.name.toLowerCase().includes(recipeMatch[1].trim()));
-    const ing = ings.find((i) => i.name.toLowerCase().includes(recipeMatch[2].trim()));
-    if (parent && ing) return { intent: "add_recipe", params: { parentType: "type", parentId: parent.id, parentName: parent.name, ingredientId: ing.id, ingredientName: ing.name, quantity: recipeMatch[3] } };
+    const ing = ings.find((i) => i.name.toLowerCase().includes(compName));
+    const semi = semis.find((s) => s.name.toLowerCase().includes(compName));
+    if (ing) return { intent: "add_recipe", params: { parentType, parentId: parent.id, parentName: parent.name, ingredientId: ing.id, ingredientName: ing.name, quantity: recipeMatch[3] } };
+    if (semi) return { intent: "add_recipe", params: { parentType, parentId: parent.id, parentName: parent.name, ingredientId: semi.id, ingredientName: semi.name, componentType: "semi_finished", quantity: recipeMatch[3] } };
+    return { intent: "add_recipe", params: null };
   }
 
   // ── MULTI-STOCK: "tambah stok: kopi 1000, susu 2000" ──
