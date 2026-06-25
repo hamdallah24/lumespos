@@ -222,6 +222,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           "deactivate_product", "add_expense", "add_recipe", "remove_recipe", "produce"];
         if (autoActions.includes(analysis.intent) && analysis.params) {
           const result = await executeOperation(analysis.intent, analysis.params, defaultBranchId);
+          console.log(`[COO] Auto-execute ${analysis.intent}: ${result}. Params: ${JSON.stringify(analysis.params).slice(0, 200)}`);
           if (result === "ok") {
             const ctxStr = analysis.context ? JSON.stringify(analysis.context).slice(0, 2000) : "";
             const reply = await callDeepSeek(`${COO_SYSTEM}\n\n[OPERASI DIATAS SUDAH DIEKSEKUSI - ${analysis.intent}]\n${ctxStr}\n\nBeri konfirmasi singkat ke user.`, clean, uid, "bisnis");

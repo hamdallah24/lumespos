@@ -143,6 +143,7 @@ export async function executeOperation(action: string, params: Record<string, an
       const { description, amount } = params;
       if (!amount) return "Nominal pengeluaran tidak boleh kosong.";
       await db.insert(expensesTable).values({ branchId: bid, description: description || "Pengeluaran", amount: String(amount) });
+      console.log(`[COO] Expense recorded: ${description || "Pengeluaran"} Rp ${amount} (branch ${bid})`);
       return "ok";
     }
 
