@@ -4,7 +4,7 @@
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
 import { callDeepSeek, fetchGitHubFile, fetchGitHubDir, sshExec, getHistory, remember, clearMemory } from "./ai-helpers";
-import { handleBusiness } from "./ai-business";
+import { analyzeIntent, executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
 
@@ -184,10 +184,12 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       // ── BISNIS ──
       case "bisnis":
       default: {
-        const biz = await handleBusiness(clean, defaultBranchId);
-        if (biz) { res.json({ reply: biz }); return; }
-        const fallback = await callDeepSeek(COO_SYSTEM, clean, uid, "bisnis");
-        res.json({ reply: fallback || "Maaf, saya belum bisa bantu itu. Coba tanya yang lain ya, bos." });
+        const analysis = await analyzeIntent(clean, defaultBranchId);
+        const ctxStr = analysis.context ? JSON.stringify(analysis.context).slice(0, 3000) : "";
+        const paramsStr = analysis.params ? JSON.stringify(analysis.params).slice(0, 1500) : "";
+        const prompt = `${COO_SYSTEM}\n\n[DATA REALTIME - ${analysis.intent}]:\n${ctxStr}\n${paramsStr ? `\n[ACTION PARAMS]:\n${paramsStr}` : ""}`;
+        const reply = await callDeepSeek(prompt, clean, uid, "bisnis");
+        res.json({ reply: reply || "COO sedang sibuk. Coba lagi, bos." });
         return;
       }
     }

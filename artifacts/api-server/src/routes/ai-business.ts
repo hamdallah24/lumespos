@@ -1,18 +1,19 @@
 // ─────────────────────────────────────────────────────────────
-// AI BUSINESS HANDLER — Query DB langsung untuk operasi bisnis
+// AI BUSINESS — analyzeIntent + execute operations
+// All conversation flows handled by COO DeepSeek
 // ─────────────────────────────────────────────────────────────
-import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable, stockAdjustmentsTable, productVariantsTable, recipesTable, currentInventoryTable } from "@workspace/db";
-import { eq, and, gte, lte, sum } from "drizzle-orm";
+import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable, orderItemsTable, stockAdjustmentsTable, productVariantsTable, recipesTable, currentInventoryTable } from "@workspace/db";
+import { eq, and, gte, lte, sum, desc, sql } from "drizzle-orm";
 import { listInventoryForBranch, LOW_STOCK_DEFAULT, adjustInventory, applyMovingAverage, getRecipeRows, getInventoryStock } from "../services/inventory";
 
-// ── PRODUCTION HELPERS (replikasi dari semiFinished.ts) ──
+// ── PRODUCTION HELPERS ──
 async function getComponentCost(tx: any, componentType: string, componentId: number): Promise<number> {
   if (componentType === "semi_finished") {
-    const [sf] = await tx.select({ costPricePerUnit: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, componentId));
-    return sf ? parseFloat(sf.costPricePerUnit) : 0;
+    const [sf] = await tx.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, componentId));
+    return sf ? parseFloat(sf.c) : 0;
   }
-  const [ing] = await tx.select({ costPricePerUnit: ingredientsTable.costPricePerUnit }).from(ingredientsTable).where(eq(ingredientsTable.id, componentId));
-  return ing ? parseFloat(ing.costPricePerUnit) : 0;
+  const [ing] = await tx.select({ c: ingredientsTable.costPricePerUnit }).from(ingredientsTable).where(eq(ingredientsTable.id, componentId));
+  return ing ? parseFloat(ing.c) : 0;
 }
 
 async function getCurrentStockLocal(tx: any, branchId: number, itemId: number): Promise<number> {
@@ -21,978 +22,362 @@ async function getCurrentStockLocal(tx: any, branchId: number, itemId: number): 
   return stock ? parseFloat(stock.s) : 0;
 }
 
-// ── PENDING STATE for guardline confirmation ──
-const pendingStockIn = new Map<number, { itemId: number; name: string; qty: number; unit: string; branchId: number }>();
-const pendingProduction = new Map<number, { itemId: number; name: string; qty: number; branchId: number; components: { type: string; id: number; name: string; qty: number }[] }>();
+// ─────────────────────────────────────────────────────────────
+// 1. EXECUTE OPERATIONS (called from COO when intent detected)
+// ─────────────────────────────────────────────────────────────
 
-// ── MENU WIZARD STATE ──
-type OnboardItem = { variantId: number; variantName: string; price: string; recipes: { name: string; qty: number }[] };
-type Onboard = { productId: number; productName: string; items: OnboardItem[]; currentIdx: number; branchId: number; pendingRecipes: { name: string; qty: number }[] };
-const onboarding = new Map<number, Onboard>();
+export type OpResult = string; // friendly response
 
-// ── STOCK WIZARD STATE ──
-type StockWizItem = { itemId: number; name: string; qty: number; unit: string; price?: number };
-type StockWiz = { items: StockWizItem[]; currentIdx: number; branchId: number };
-const stockWiz = new Map<number, StockWiz>();
-
-// ── EXPENSE WIZARD STATE ──
-type ExpWizItem = { description: string; amount: number; done: boolean };
-type ExpWiz = { items: ExpWizItem[]; currentIdx: number; branchId: number };
-const expWiz = new Map<number, ExpWiz>();
-
-export async function handleBusiness(msg: string, branchId: number): Promise<string> {
-  // Anti-typo: normalize common misspellings
-  let normalized = msg.toLowerCase().trim();
-  const fixes: [RegExp, string][] = [
-    [/setok/gi, "stok"], [/stik/gi, "stok"], [/stol/gi, "stok"],
-    [/meniis/gi, "menipis"], [/mnipis/gi, "menipis"], [/menepis/gi, "menipis"],
-    [/laoran/gi, "laporan"], [/lapran/gi, "laporan"], [/laporn/gi, "laporan"],
-    [/hps/gi, "hapus"], [/hpus/gi, "hapus"],
-    [/tmabah/gi, "tambah"], [/tmbah/gi, "tambah"], [/tamabah/gi, "tambah"],
-    [/kurangi/gi, "kurangi"], [/kuraing/gi, "kurangi"], [/krangi/gi, "kurangi"],
-    [/koreks/gi, "koreksi"], [/korek/gi, "koreksi"], [/kreksi/gi, "koreksi"],
-    [/pngeluaran/gi, "pengeluaran"], [/pengeluran/gi, "pengeluaran"],
-    [/harg/gi, "harga"], [/hrga/gi, "harga"],
-    [/produks/gi, "produksi"], [/produsi/gi, "produksi"],
-    [/nonaktip/gi, "nonaktifkan"],
-    [/lnjot/gi, "lanjutkan"],
-    [/klrif/gi, "klarifikasi"],
-    [/brapa/gi, "berapa"],
-    [/menu/gi, "menu"],
-    [/inventori/gi, "inventori"], [/invntry/gi, "inventori"],
-  ];
-  for (const [re, replacement] of fixes) {
-    normalized = normalized.replace(re, replacement);
-  }
-
-  const lower = normalized;
+export async function executeOperation(action: string, params: Record<string, any>, branchId: number): Promise<OpResult> {
   const bid = branchId;
-  const branchMatch = lower.match(/(?:cabang|branch)\s*(?:id\s*)?(\d+)/i);
-  const userBranchId = branchMatch ? parseInt(branchMatch[1]) : bid;
-  const uid = userBranchId; // use branch as user context for pending maps
 
-  // ── GUARDLINE CONFIRMATION HANDLER ──
-  // User replied "ya/setuju/lanjut/jalanin" OR just a number (harga beli)
-  const isConfirm = /^(?:ya|y|yes|setuju|lanjutkan|lanjut|ok|oke|jalan|gas)\b/i.test(lower);
-  const isNumber = /^\d+$/.test(lower);
-  const pendingSI = pendingStockIn.get(uid);
-  const pendingPR = pendingProduction.get(uid);
+  switch (action) {
 
-  if (isNumber && pendingSI) {
-    // Pure number reply → treat as purchase price
-    pendingStockIn.delete(uid);
-    const purchaseTotal = parseFloat(lower);
-    await db.transaction(async (tx) => {
-      await adjustInventory(tx, userBranchId, "ingredient", pendingSI.itemId, pendingSI.qty);
-      await applyMovingAverage(tx, userBranchId, pendingSI.itemId, pendingSI.qty, purchaseTotal);
-      await tx.insert(stockAdjustmentsTable).values({
-        branchId: userBranchId, itemType: "ingredient", itemId: pendingSI.itemId,
-        adjustmentType: "in", quantity: String(pendingSI.qty),
-        purchasePriceTotal: String(purchaseTotal),
-        notes: `via AI: tambah stok (harga total Rp ${purchaseTotal.toLocaleString("id-ID")})`,
-      });
-    });
-    const newHPP = purchaseTotal / pendingSI.qty;
-    return `✅ Stok ${pendingSI.name} bertambah ${pendingSI.qty} ${pendingSI.unit}.\nPembelian total: Rp ${purchaseTotal.toLocaleString("id-ID")}\nHPP baru: Rp ${newHPP.toFixed(2)} / ${pendingSI.unit}`;
-  }
-
-  if (isConfirm && pendingSI) {
-    pendingStockIn.delete(uid);
-    const totalPrice = lower.match(/(\d+)/)?.[1];
-    const purchaseTotal = totalPrice ? parseFloat(totalPrice) : 0;
-    await db.transaction(async (tx) => {
-      await adjustInventory(tx, userBranchId, "ingredient", pendingSI.itemId, pendingSI.qty);
-      if (purchaseTotal > 0) {
-        await applyMovingAverage(tx, userBranchId, pendingSI.itemId, pendingSI.qty, purchaseTotal);
-      }
-      await tx.insert(stockAdjustmentsTable).values({
-        branchId: userBranchId, itemType: "ingredient", itemId: pendingSI.itemId,
-        adjustmentType: "in", quantity: String(pendingSI.qty),
-        purchasePriceTotal: purchaseTotal > 0 ? String(purchaseTotal) : null,
-        notes: "via AI: tambah stok" + (purchaseTotal > 0 ? ` (harga total Rp ${purchaseTotal.toLocaleString("id-ID")})` : " (tanpa HPP)"),
-      });
-    });
-    const priceInfo = purchaseTotal > 0
-      ? `Pembelian total: Rp ${purchaseTotal.toLocaleString("id-ID")}. HPP baru: Rp ${(purchaseTotal / pendingSI.qty).toFixed(2)} / ${pendingSI.unit}`
-      : "Tanpa harga pembelian (HPP tidak diperbarui).";
-    return `✅ Stok ${pendingSI.name} bertambah ${pendingSI.qty} ${pendingSI.unit}. ${priceInfo}`;
-  }
-
-  if (isConfirm && pendingPR) {
-    pendingProduction.delete(uid);
-    const producedWeight = pendingPR.qty;
-    const costDetails: string[] = [];
-    let totalCost = 0;
-
-    await db.transaction(async (tx) => {
-      // 1. Validasi stok komponen (replikasi semiFinished.ts guard rail)
-      for (const comp of pendingPR.components) {
-        const componentType = comp.type === "ingredient" ? "ingredient" as const : "semi_finished" as const;
-        const currentStock = await getInventoryStock(tx, userBranchId, componentType, comp.id);
-        if (currentStock < comp.qty) {
-          throw new Error(`Stok "${comp.name}" tidak mencukupi! Dibutuhkan ${comp.qty}, tapi sisa stok hanya ${currentStock}.`);
-        }
-      }
-
-      // 2. Hitung total biaya & kurangi stok (replikasi semiFinished.ts L237-245)
-      for (const comp of pendingPR.components) {
-        const componentType = comp.type === "ingredient" ? "ingredient" as const : "semi_finished" as const;
-        const componentCost = await getComponentCost(tx, comp.type, comp.id);
-        totalCost += componentCost * comp.qty;
-        await adjustInventory(tx, userBranchId, componentType, comp.id, -comp.qty);
-        costDetails.push(`• ${comp.name}: ${comp.qty} × Rp ${componentCost.toFixed(2)} = Rp ${(componentCost * comp.qty).toFixed(2)}`);
-      }
-
-      // 3. Hitung HPP baru berdasarkan producedWeight (replikasi semiFinished.ts L248-264)
-      const newHpp = totalCost / producedWeight;
-      const oldStock = await getCurrentStockLocal(tx, userBranchId, pendingPR.itemId);
-      const [sf] = await tx.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, pendingPR.itemId));
-      const oldHpp = parseFloat(sf?.c || "0");
-      const oldTotalValue = oldHpp * oldStock;
-      const newTotalValue = newHpp * producedWeight;
-      const avgHpp = (oldTotalValue + newTotalValue) / (oldStock + producedWeight);
-
-      await tx.update(semiFinishedTable).set({ costPricePerUnit: String(avgHpp) }).where(eq(semiFinishedTable.id, pendingPR.itemId));
-
-      // 4. Tambah stok hasil produksi
-      await adjustInventory(tx, userBranchId, "semi_finished", pendingPR.itemId, producedWeight);
-
-      // 5. Simpan HPP di variabel closure untuk response
-      (pendingPR as any)._newHpp = newHpp;
-      (pendingPR as any)._avgHpp = avgHpp;
-      (pendingPR as any)._oldStock = oldStock;
-    });
-
-    const sf = await db.select({ u: semiFinishedTable.unit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, pendingPR.itemId)).then(r => r[0]);
-    const unit = sf?.u || "unit";
-    const batchHpp = (pendingPR as any)._newHpp as number;
-    const avgHpp = (pendingPR as any)._avgHpp as number;
-    const oldStock = (pendingPR as any)._oldStock as number;
-    const used = pendingPR.components.map((c) => `• ${c.name}: -${c.qty}`).join("\n");
-
-    return [
-      `✅ Produksi ${producedWeight} ${unit} ${pendingPR.name} selesai!`,
-      ``,
-      `📦 Bahan terpakai:`,
-      used,
-      ``,
-      `💰 Detail HPP:`,
-      ...costDetails,
-      ``,
-      `Total biaya batch: Rp ${totalCost.toFixed(2)}`,
-      `HPP batch ini: Rp ${batchHpp.toFixed(4)} / ${unit}`,
-      `HPP rata-rata (${oldStock.toFixed(0)} → ${(oldStock + producedWeight).toFixed(0)} ${unit}): Rp ${avgHpp.toFixed(4)} / ${unit}`,
-    ].join("\n");
-  }
-
-  if (isConfirm) {
-    return "Mau lanjutin apa ya bos? Ga ada perintah yg pending.";
-  }
-
-  // ── MENU WIZARD HANDLERS ──
-  const ob = onboarding.get(uid);
-  if (ob && ob.currentIdx >= 0) {
-    const current = ob.items[ob.currentIdx];
-    const variantName = current.variantName;
-
-    // 1. User kirim resep: "kopi 0.1, susu 0.2, gula aren 0.05"
-    if (/,/.test(lower) || /^\w+\s+[\d.]+/.test(lower)) {
-      const pairs = lower.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-      ob.pendingRecipes = [];
-      for (const pair of pairs) {
-        const pm = pair.match(/^(\w+(?:\s+\w+)*?)\s+([\d.]+)/);
-        if (pm) ob.pendingRecipes.push({ name: pm[1].trim(), qty: parseFloat(pm[2]) });
-      }
-      if (ob.pendingRecipes.length === 0) return "Format salah. Contoh: kopi 0.1, susu 0.2, gula aren 0.05";
-      const list = ob.pendingRecipes.map(r => `• ${r.name}: ${r.qty}`).join("\n");
-      return `📋 Resep ${variantName} (belum disimpan):\n${list}\n\nKetik **simpan** untuk menyimpan, **edit** untuk ubah, atau **skip** untuk lewati.`;
-    }
-
-    // 2. User: "simpan" — confirm + ask to advance
-    if (/^simpan\b/i.test(lower)) {
-      if (ob.pendingRecipes.length === 0) return "Belum ada resep yg diisi. Ketik bahan: nama qty, nama qty";
-      current.recipes = [...ob.pendingRecipes];
-      ob.pendingRecipes = [];
-      const next = ob.currentIdx + 1;
-      if (next >= ob.items.length) {
-        // ALL DONE — show ringkasan akhir
-        const summary = ob.items.map(it => {
-          const rec = it.recipes.length > 0 ? it.recipes.map(r => `${r.name}: ${r.qty}`).join(", ") : "(kosong)";
-          return `• ${it.variantName} — Rp ${parseInt(it.price).toLocaleString("id-ID")} — resep: ${rec}`;
-        }).join("\n");
-        return [
-          `🎉 SEMUA VARIAN SELESAI!`,
-          ``,
-          `📋 Ringkasan akhir:`,
-          summary,
-          ``,
-          `Ketik **simpan semua** untuk commit ke database, atau **edit [nama varian]** untuk koreksi.`,
-        ].join("\n");
-      }
-      const nextVar = ob.items[next];
-      onboarding.set(uid, { ...ob, currentIdx: next, pendingRecipes: [] });
-      return `✅ Resep ${variantName} tersimpan!\n\n⬅️ ${next + 1}/${ob.items.length} — Lanjut varian **${nextVar.variantName}** (Rp ${parseInt(nextVar.price).toLocaleString("id-ID")})\n\nIsi resep: 'nama_bahan qty, nama_bahan qty'\natau: **skip** | **ulang [nama]** | **batal**`;
-    }
-
-    // 3. User: "simpan semua" — final commit (insert all recipes to DB)
-    if (/^simpan\s*semua\b/i.test(lower)) {
-      let savedCount = 0;
-      for (const item of ob.items) {
-        for (const r of item.recipes) {
-          const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, userBranchId));
-          const ing = ings.find((i) => i.name.toLowerCase().includes(r.name.toLowerCase()));
-          if (ing) {
-            await db.insert(recipesTable).values({ parentType: "product_variant", parentId: item.variantId, componentType: "ingredient", componentId: ing.id, quantity: String(r.qty) });
-            savedCount++;
-          }
-        }
-      }
-      onboarding.delete(uid);
-      return `✅ Menu **${ob.productName}** berhasil disimpan!\n• ${ob.items.length} varian\n• ${savedCount} bahan resep di-commit\n\nProduk siap dijual! 🚀`;
-    }
-
-    // 4. User: "edit [nama varian]" — jump back to specific variant
-    const editMatch = lower.match(/^edit\s+(\w+(?:\s+\w+)*)/i);
-    if (editMatch) {
-      const targetName = editMatch[1].trim();
-      const targetIdx = ob.items.findIndex(it => it.variantName.toLowerCase().includes(targetName));
-      if (targetIdx < 0) return `Ga nemu varian "${targetName}". Varian tersedia: ${ob.items.map(it => it.variantName).join(", ")}`;
-      onboarding.set(uid, { ...ob, currentIdx: targetIdx, pendingRecipes: [...ob.items[targetIdx].recipes] });
-      const t = ob.items[targetIdx];
-      const existing = t.recipes.length > 0 ? `Resep saat ini: ${t.recipes.map(r => `${r.name}: ${r.qty}`).join(", ")}` : "Belum ada resep.";
-      return `⬅️ Mengedit varian **${t.variantName}** (Rp ${parseInt(t.price).toLocaleString("id-ID")})\n${existing}\n\nIsi resep baru atau ketik **simpan** / **skip**.`;
-    }
-
-    // 5. User: "skip" — skip current variant
-    if (/^skip\b/i.test(lower)) {
-      ob.pendingRecipes = [];
-      const next = ob.currentIdx + 1;
-      if (next >= ob.items.length) {
-        const summary = ob.items.map(it => {
-          const rec = it.recipes.length > 0 ? it.recipes.map(r => `${r.name}: ${r.qty}`).join(", ") : "(kosong)";
-          return `• ${it.variantName} — Rp ${parseInt(it.price).toLocaleString("id-ID")} — resep: ${rec}`;
-        }).join("\n");
-        return [`⏭️ ${variantName} dilewati.\n`, `📋 Ringkasan akhir:`, summary, ``, `Ketik **simpan semua** untuk commit, atau **edit [nama]** untuk koreksi.`].join("\n");
-      }
-      const nextVar = ob.items[next];
-      onboarding.set(uid, { ...ob, currentIdx: next, pendingRecipes: [] });
-      return `⏭️ ${variantName} dilewati.\n\n⬅️ ${next + 1}/${ob.items.length} — Lanjut varian **${nextVar.variantName}** (Rp ${parseInt(nextVar.price).toLocaleString("id-ID")})`;
-    }
-
-    // 6. User: "ulang [nama varian]"
-    const ulang = lower.match(/^ulang\s+(\w+(?:\s+\w+)*)/i);
-    if (ulang) {
-      const targetName = ulang[1].trim();
-      const targetIdx = ob.items.findIndex(it => it.variantName.toLowerCase().includes(targetName));
-      if (targetIdx < 0) return `Ga nemu varian "${targetName}".`;
-      onboarding.set(uid, { ...ob, currentIdx: targetIdx, pendingRecipes: [] });
-      return `⬅️ Kembali ke varian **${ob.items[targetIdx].variantName}**. Isi resep lagi.`;
-    }
-
-    // 7. User: "hapus [bahan]" — remove one ingredient from pending
-    const hapusMatch = lower.match(/^hapus\s+(\w+(?:\s+\w+)*)/i);
-    if (hapusMatch && ob.pendingRecipes.length > 0) {
-      const target = hapusMatch[1].trim();
-      ob.pendingRecipes = ob.pendingRecipes.filter(r => !r.name.toLowerCase().includes(target));
-      return `🗑️ "${target}" dihapus dari resep pending.\n\n${ob.pendingRecipes.length > 0 ? `Tersisa: ${ob.pendingRecipes.map(r => `${r.name}: ${r.qty}`).join(", ")}` : "Resep kosong. Isi lagi atau ketik skip."}`;
-    }
-
-    // 8. Default — show current status
-    const cur = ob.items[ob.currentIdx];
-    return `📋 Sedang mengisi varian **${cur.variantName}** (${ob.currentIdx + 1}/${ob.items.length})\nResep pending: ${ob.pendingRecipes.length > 0 ? ob.pendingRecipes.map(r => `${r.name}: ${r.qty}`).join(", ") : "(belum diisi)"}\n\nKetik resep atau **simpan** | **skip** | **batal**`;
-  }
-
-  // ── STOCK WIZARD HANDLERS ──
-  const sw = stockWiz.get(uid);
-  if (sw) {
-    const cur = sw.items[sw.currentIdx];
-
-    // 1. User masukkan harga: angka
-    const priceMatch = lower.match(/^(\d+)$/);
-    if (priceMatch) {
-      const price = parseFloat(priceMatch[1]);
-      cur.price = price;
-      // Execute immediately for this item
+    case "add_stock": {
+      const { itemId, qty, price } = params;
+      if (!itemId || !qty) return "Parameter tidak lengkap.";
       await db.transaction(async (tx) => {
-        await adjustInventory(tx, userBranchId, "ingredient", cur.itemId, cur.qty);
-        await applyMovingAverage(tx, userBranchId, cur.itemId, cur.qty, price);
+        await adjustInventory(tx, bid, "ingredient", itemId, qty);
+        if (price && price > 0) await applyMovingAverage(tx, bid, itemId, qty, price);
         await tx.insert(stockAdjustmentsTable).values({
-          branchId: userBranchId, itemType: "ingredient", itemId: cur.itemId,
-          adjustmentType: "in", quantity: String(cur.qty),
-          purchasePriceTotal: String(price),
-          notes: `via AI Wizard: tambah stok (harga Rp ${price.toLocaleString("id-ID")})`,
+          branchId: bid, itemType: "ingredient", itemId,
+          adjustmentType: "in", quantity: String(qty),
+          purchasePriceTotal: price > 0 ? String(price) : null,
+          notes: price > 0 ? `via COO: tambah stok (Rp ${price.toLocaleString("id-ID")})` : `via COO: tambah stok`,
         });
       });
-      const newHPP = price / cur.qty;
-      const next = sw.currentIdx + 1;
-      stockWiz.set(uid, { ...sw, currentIdx: next });
-      if (next >= sw.items.length) {
-        const summary = sw.items.map(it => {
-          const info = it.price ? `Rp ${it.price.toLocaleString("id-ID")} (HPP: Rp ${(it.price / it.qty).toFixed(2)}/${it.unit})` : "(dilewati)";
-          return `• ${it.name}: +${it.qty} ${it.unit} — ${info}`;
-        }).join("\n");
-        return `🎉 SEMUA STOK BERHASIL DITAMBAH!\n\n📦 Ringkasan:\n${summary}\n\nSemua sudah di-commit ke database. ✅`;
-      }
-      const nextItem = sw.items[next];
-      return `✅ ${cur.name}: +${cur.qty} ${cur.unit}, harga Rp ${price.toLocaleString("id-ID")}\nHPP baru: Rp ${newHPP.toFixed(2)} / ${cur.unit}\n\n⬅️ ${next + 1}/${sw.items.length} — Lanjut **${nextItem.name}** (+${nextItem.qty} ${nextItem.unit})\n\n💰 Harga beli total? Balas dengan angka, atau: **ya** | **skip** | **batal**`;
+      return "ok";
     }
 
-    // 2. User: "ya" — commit without price update
-    if (/^ya\b/i.test(lower)) {
+    case "reduce_stock": {
+      const { itemId, qty } = params;
+      if (!itemId || !qty) return "Parameter tidak lengkap.";
       await db.transaction(async (tx) => {
-        await adjustInventory(tx, userBranchId, "ingredient", cur.itemId, cur.qty);
+        await adjustInventory(tx, bid, "ingredient", itemId, -qty);
         await tx.insert(stockAdjustmentsTable).values({
-          branchId: userBranchId, itemType: "ingredient", itemId: cur.itemId,
-          adjustmentType: "in", quantity: String(cur.qty),
-          notes: `via AI Wizard: tambah stok (tanpa HPP)`,
+          branchId: bid, itemType: "ingredient", itemId, adjustmentType: "out",
+          quantity: String(qty), notes: `via COO: kurangi stok`,
         });
       });
-      const next = sw.currentIdx + 1;
-      stockWiz.set(uid, { ...sw, currentIdx: next });
-      if (next >= sw.items.length) {
-        const summary = sw.items.map(it =>
-          `• ${it.name}: +${it.qty} ${it.unit} — (tanpa HPP update)`
-        ).join("\n");
-        return `🎉 SEMUA STOK BERHASIL DITAMBAH!\n\n📦 Ringkasan:\n${summary}\n\nSemua sudah di-commit. ✅`;
+      return "ok";
+    }
+
+    case "correct_stock": {
+      const { itemId, itemType, target } = params;
+      if (!itemId || target === undefined) return "Parameter tidak lengkap.";
+      const all = await listInventoryForBranch(bid);
+      const found = all.find((i) => i.itemId === itemId && i.itemType === (itemType || "ingredient"));
+      if (!found) return "Item tidak ditemukan.";
+      const delta = target - found.currentStock;
+      const adjType = delta >= 0 ? "in" : "loss";
+      await db.transaction(async (tx) => {
+        await adjustInventory(tx, bid, found.itemType, itemId, delta);
+        await tx.insert(stockAdjustmentsTable).values({
+          branchId: bid, itemType: found.itemType, itemId, adjustmentType: adjType,
+          quantity: String(Math.abs(delta)), notes: `via COO: koreksi stok jadi ${target}`,
+        });
+      });
+      return "ok";
+    }
+
+    case "loss_correction": {
+      const { itemId, qty } = params;
+      if (!itemId || !qty) return "Parameter tidak lengkap.";
+      await db.transaction(async (tx) => {
+        await adjustInventory(tx, bid, "ingredient", itemId, -qty);
+        await tx.insert(stockAdjustmentsTable).values({
+          branchId: bid, itemType: "ingredient", itemId, adjustmentType: "loss",
+          quantity: String(-qty), notes: `via COO: koreksi hilang`,
+        });
+      });
+      return "ok";
+    }
+
+    case "add_ingredient": {
+      const { name, unit } = params;
+      if (!name) return "Nama bahan tidak boleh kosong.";
+      await db.insert(ingredientsTable).values({ branchId: bid, name, unit: unit || "ml" });
+      return "ok";
+    }
+
+    case "add_product": {
+      const { name, price } = params;
+      if (!name || !price) return "Parameter tidak lengkap.";
+      await db.insert(productsTable).values({ branchId: bid, name, price: String(price) });
+      return "ok";
+    }
+
+    case "add_product_with_variants": {
+      const { name, variants } = params;
+      if (!name || !variants?.length) return "Parameter tidak lengkap.";
+      const basePrice = String(variants[0].price || 0);
+      const [prod] = await db.insert(productsTable).values({ branchId: bid, name, price: basePrice }).returning({ id: productsTable.id });
+      for (const v of variants) {
+        await db.insert(productVariantsTable).values({ productId: prod.id, name: v.name, price: String(v.price) });
       }
-      const nextItem = sw.items[next];
-      return `✅ ${cur.name}: +${cur.qty} ${cur.unit} (tanpa HPP update)\n\n⬅️ ${next + 1}/${sw.items.length} — Lanjut **${nextItem.name}** (+${nextItem.qty} ${nextItem.unit})`;
+      return "ok";
     }
 
-    // 3. User: "skip" — lewati item
-    if (/^skip\b/i.test(lower)) {
-      const next = sw.currentIdx + 1;
-      stockWiz.set(uid, { ...sw, currentIdx: next });
-      if (next >= sw.items.length) {
-        const summary = sw.items.map(it => {
-          const info = it.price ? `Rp ${it.price.toLocaleString("id-ID")}` : "(dilewati)";
-          return `• ${it.name}: ${info}`;
-        }).join("\n");
-        return `🎉 SEMUA STOK SELESAI DIPROSES!\n\n📦 Ringkasan:\n${summary}\n\nItem yg dilewati tidak ditambah ke stok. ✅`;
-      }
-      const nextItem = sw.items[next];
-      return `⏭️ ${cur.name} dilewati.\n\n⬅️ ${next + 1}/${sw.items.length} — Lanjut **${nextItem.name}** (+${nextItem.qty} ${nextItem.unit})`;
+    case "update_price": {
+      const { productId, price } = params;
+      if (!productId || !price) return "Parameter tidak lengkap.";
+      await db.update(productsTable).set({ price: String(price) }).where(eq(productsTable.id, productId));
+      return "ok";
     }
 
-    // 4. User: "edit [nama]" — balik ke item spesifik
-    const editMatch = lower.match(/^edit\s+(\w+(?:\s+\w+)*)/i);
-    if (editMatch) {
-      const target = editMatch[1].trim();
-      const idx = sw.items.findIndex(it => it.name.toLowerCase().includes(target));
-      if (idx < 0) return `Ga nemu "${target}". Item: ${sw.items.map(it => it.name).join(", ")}`;
-      stockWiz.set(uid, { ...sw, currentIdx: idx });
-      const t = sw.items[idx];
-      return `⬅️ Mengedit **${t.name}** (+${t.qty} ${t.unit})\nMasukkan harga total atau **ya** / **skip**.`;
+    case "update_variant_price": {
+      const { variantId, price } = params;
+      if (!variantId || !price) return "Parameter tidak lengkap.";
+      await db.update(productVariantsTable).set({ price: String(price) }).where(eq(productVariantsTable.id, variantId));
+      return "ok";
     }
 
-    // 5. Default — show current status
-    return `📦 ${cur.name}: +${cur.qty} ${cur.unit} (${sw.currentIdx + 1}/${sw.items.length})\n💰 Masukkan harga beli total, atau: **ya** | **skip** | **batal**`;
+    case "deactivate_product": {
+      const { productId } = params;
+      if (!productId) return "Parameter tidak lengkap.";
+      await db.update(productsTable).set({ isActive: false }).where(eq(productsTable.id, productId));
+      return "ok";
+    }
+
+    case "add_expense": {
+      const { description, amount } = params;
+      if (!amount) return "Nominal pengeluaran tidak boleh kosong.";
+      await db.insert(expensesTable).values({ branchId: bid, description: description || "Pengeluaran", amount: String(amount) });
+      return "ok";
+    }
+
+    case "add_recipe": {
+      const { parentType, parentId, ingredientId, quantity } = params;
+      if (!parentType || !parentId || !ingredientId || !quantity) return "Parameter tidak lengkap.";
+      await db.insert(recipesTable).values({
+        parentType, parentId, componentType: "ingredient", componentId: ingredientId, quantity: String(quantity),
+      });
+      return "ok";
+    }
+
+    case "remove_recipe": {
+      const { recipeId } = params;
+      if (!recipeId) return "Parameter tidak lengkap.";
+      await db.delete(recipesTable).where(eq(recipesTable.id, recipeId));
+      return "ok";
+    }
+
+    case "produce": {
+      const { itemId, producedWeight } = params;
+      if (!itemId || !producedWeight) return "Parameter tidak lengkap.";
+      let totalCost = 0;
+      await db.transaction(async (tx) => {
+        const recipe = await getRecipeRows(tx, "semi_finished", itemId);
+        if (recipe.length === 0) throw new Error("Resep belum diisi.");
+        for (const r of recipe) {
+          const c = await getComponentCost(tx, r.componentType, r.componentId);
+          totalCost += c * r.quantity;
+          await adjustInventory(tx, bid, r.componentType, r.componentId, -r.quantity);
+        }
+        const hpp = totalCost / producedWeight;
+        const oldStock = await getCurrentStockLocal(tx, bid, itemId);
+        const [sf] = await tx.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, itemId));
+        const oldHpp = parseFloat(sf?.c || "0");
+        const avg = (oldStock * oldHpp + totalCost) / (oldStock + producedWeight);
+        await adjustInventory(tx, bid, "semi_finished", itemId, producedWeight);
+        await tx.update(semiFinishedTable).set({ costPricePerUnit: String(avg) }).where(eq(semiFinishedTable.id, itemId));
+      });
+      return "ok";
+    }
+
+    default:
+      return "Unknown action: " + action;
   }
+}
 
-  // ── EXPENSE WIZARD HANDLERS ──
-  const ew = expWiz.get(uid);
-  if (ew) {
-    const cur = ew.items[ew.currentIdx];
+// ─────────────────────────────────────────────────────────────
+// 2. ANALYZE INTENT — detect what user wants + build DB context
+// ─────────────────────────────────────────────────────────────
 
-    // 1. User: "ya" → commit current + advance
-    if (/^ya\b/i.test(lower)) {
-      await db.insert(expensesTable).values({ branchId: userBranchId, description: cur.description, amount: String(cur.amount) });
-      cur.done = true;
-      const next = ew.currentIdx + 1;
-      expWiz.set(uid, { ...ew, currentIdx: next });
-      if (next >= ew.items.length) {
-        const summary = ew.items.map(it => `• ${it.description}: Rp ${it.amount.toLocaleString("id-ID")} — ${it.done ? "✅ Tercatat" : "⏭️ Dilewati"}`).join("\n");
-        const total = ew.items.filter(it => it.done).reduce((s, it) => s + it.amount, 0);
-        return `🎉 SEMUA PENGELUARAN DIPROSES!\n\n📊 Ringkasan:\n${summary}\n\nTotal tercatat: Rp ${total.toLocaleString("id-ID")}\nSemua sudah di-commit ke database. ✅`;
-      }
-      const nextItem = ew.items[next];
-      return `✅ "${cur.description}" Rp ${cur.amount.toLocaleString("id-ID")} tercatat!\n\n⬅️ ${next + 1}/${ew.items.length} — **${nextItem.description}**: Rp ${nextItem.amount.toLocaleString("id-ID")}\n\nKonfirmasi? **ya** | **skip** | **batal**`;
-    }
+export type Analysis = {
+  intent: string;
+  params?: Record<string, any>;
+  context?: Record<string, any>;
+};
 
-    // 2. User: "skip" → lewati + advance
-    if (/^skip\b/i.test(lower)) {
-      const next = ew.currentIdx + 1;
-      expWiz.set(uid, { ...ew, currentIdx: next });
-      if (next >= ew.items.length) {
-        const summary = ew.items.map(it => `• ${it.description}: Rp ${it.amount.toLocaleString("id-ID")} — ${it.done ? "✅ Tercatat" : "⏭️ Dilewati"}`).join("\n");
-        return `🎉 SEMUA PENGELUARAN DIPROSES!\n\n📊 Ringkasan:\n${summary}`;
-      }
-      const nextItem = ew.items[next];
-      return `⏭️ "${cur.description}" dilewati.\n\n⬅️ ${next + 1}/${ew.items.length} — **${nextItem.description}**: Rp ${nextItem.amount.toLocaleString("id-ID")}`;
-    }
+export async function analyzeIntent(msg: string, branchId: number): Promise<Analysis> {
+  const lower = msg.toLowerCase().trim();
 
-    // 3. User: "edit [nama]" → balik ke item
-    const editMatch = lower.match(/^edit\s+(\w+(?:\s+\w+)*)/i);
-    if (editMatch) {
-      const target = editMatch[1].trim();
-      const idx = ew.items.findIndex(it => it.description.toLowerCase().includes(target));
-      if (idx < 0) return `Ga nemu "${target}". Item: ${ew.items.map(it => it.description).join(", ")}`;
-      expWiz.set(uid, { ...ew, currentIdx: idx });
-      return `⬅️ Mengedit **${ew.items[idx].description}**: Rp ${ew.items[idx].amount.toLocaleString("id-ID")}\nKonfirmasi? **ya** | **skip** | **batal**`;
-    }
-
-    // 4. Default — show current
-    return `💸 Pengeluaran ${ew.currentIdx + 1}/${ew.items.length}: **${cur.description}** — Rp ${cur.amount.toLocaleString("id-ID")}\n\nKonfirmasi catat? **ya** | **skip** | **batal**`;
-  }
-
-  // User cancelled — also clean up onboarding + stock wizard + expense wizard
-  if (/^(?:tidak|batal|n|cancel|ga|gak)\b/i.test(lower)) {
-    pendingStockIn.delete(uid);
-    pendingProduction.delete(uid);
-    // Cleanup expense wizard
-    if (ew) { expWiz.delete(uid); return "🔄 Catat pengeluaran batch dibatalkan."; }
-    // Cleanup stock wizard
-    if (sw) { stockWiz.delete(uid); return "🔄 Tambah stok batch dibatalkan."; }
-    // Cleanup onboarding — delete product + all variants
-    if (ob) {
-      for (const item of ob.items) {
-        await db.delete(productVariantsTable).where(eq(productVariantsTable.id, item.variantId)).catch(() => {});
-      }
-      await db.delete(productsTable).where(eq(productsTable.id, ob.productId)).catch(() => {});
-      onboarding.delete(uid);
-      return `🔄 Menu ${ob.productName} dan semua variannya dihapus. Proses dibatalkan.`;
-    }
-    return "Ok, dibatalkan bos. Ada yg lain?";
-  }
-
-  // ── CEK STOK MENIPIS ──
+  // ── LOW STOCK ──
   if (/(?:stok|bahan).*(menipis|habis|sedikit|kritis|tipis|abis)|low.?stock/i.test(lower)) {
-    const all = await listInventoryForBranch(userBranchId);
-    const threshold = LOW_STOCK_DEFAULT;
-    const low = all.filter((item) => {
-      const limit = item.itemType === "ingredient" && item.minimalStock && item.minimalStock > 0 ? item.minimalStock : threshold;
-      return item.currentStock < limit;
+    const all = await listInventoryForBranch(branchId);
+    const low = all.filter((i) => {
+      const limit = i.itemType === "ingredient" && i.minimalStock && i.minimalStock > 0 ? i.minimalStock : LOW_STOCK_DEFAULT;
+      return i.currentStock < limit;
     });
-    if (low.length === 0) return "Stok aman semua, bos. Ga ada yang menipis.";
-    const lines = low.slice(0, 10).map((i) => `• ${i.name}: ${i.currentStock} ${i.unit} (min: ${i.minimalStock || threshold} ${i.unit})`);
-    return `Stok menipis di cabang ${userBranchId}:\n${lines.join("\n")}` + (low.length > 10 ? `\n...dan ${low.length - 10} lainnya` : "");
+    return { intent: "check_low_stock", context: { branchId, lowItems: low.slice(0, 15), total: all.length } };
   }
 
-  // ── TAMBAH STOK (GUARDLINE: minta harga beli) ──
-  if (/tambah\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i.test(lower)) {
-    const match = lower.match(/tambah\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i);
-    if (!match) return "Format: tambah stok [nama] [jumlah] [unit]. Contoh: tambah stok air 19000 ml";
-    const name = match[1].trim();
-    const qty = parseFloat(match[2]);
-    const unit = match[3] || "";
-    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, userBranchId)));
-    const found = items.filter((i) => i.name.toLowerCase().includes(name));
-    if (found.length === 0) return `Ga nemu bahan "${name}" di cabang ${userBranchId}. Coba "lihat stok" dulu buat liat daftar.`;
-    if (found.length > 1) return `Ditemukan ${found.length} bahan mirip "${name}":\n${found.map((i) => `• ${i.name} (${i.unit})`).join("\n")}\n\nSebutkan nama yg lebih spesifik.`;
-    const item = found[0];
-    const finalUnit = unit || item.unit;
-    if (unit) await db.update(ingredientsTable).set({ unit }).where(eq(ingredientsTable.id, item.id)).catch(() => {});
-    // Guardline: store pending, ask for purchase price
-    pendingStockIn.set(uid, { itemId: item.id, name: item.name, qty, unit: finalUnit, branchId: userBranchId });
-    const stockLine = qty > 0 && item.costPricePerUnit ? `\n• HPP saat ini: Rp ${parseFloat(item.costPricePerUnit).toLocaleString("id-ID")} / ${finalUnit}` : "";
-    return `⚠️ Konfirmasi tambah stok:\n• ${item.name}: +${qty} ${finalUnit}${stockLine}\n\n💰 **Beli total berapa?** Balas dengan angka (total harga beli), atau:\n- Balas **ya** kalau gratis / ga perlu update HPP\n- Balas **batal** buat batalkan`;
-  }
-
-  // ── TAMBAH STOK WIZARD (multi-item: "tambah stok: kopi 1000, susu 2000") ──
-  if (/tambah\s+stok\s*:\s*(.+)/i.test(lower) || /tambah\s+stok\s+(\d+\s+item)/i.test(lower)) {
-    let varStr = "";
-    const batchMatch = lower.match(/tambah\s+stok\s*:\s*(.+)/i);
-    if (batchMatch) varStr = batchMatch[1].trim();
-
-    // Parse pairs: "kopi 1000, susu 2000, gula aren 500"
-    const pairs = varStr.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-    const stockItems: StockWizItem[] = [];
-    const allIngs = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, userBranchId)));
-
-    for (const pair of pairs) {
-      const pm = pair.match(/^(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i);
-      if (!pm) return `Format item salah: "${pair}". Harus: "nama qty unit" (contoh: kopi 1000 gr, susu 2000 ml)`;
-      const name = pm[1].trim();
-      const qty = parseFloat(pm[2]);
-      const unit = pm[3] || "";
-      const found = allIngs.filter((i) => i.name.toLowerCase().includes(name));
-      if (found.length === 0) return `Ga nemu bahan "${name}" di cabang ${userBranchId}. Coba "lihat stok" dulu.`;
-      if (found.length > 1) return `"${name}" ambigu (${found.length} item). Spesifikin.`;
-      stockItems.push({ itemId: found[0].id, name: found[0].name, qty, unit: unit || found[0].unit });
-    }
-
-    if (stockItems.length === 0) return "Ga ada item valid. Format: tambah stok: kopi 1000, susu 2000, gula aren 500";
-
-    stockWiz.set(uid, { items: stockItems, currentIdx: 0, branchId: userBranchId });
-    const first = stockItems[0];
-    const list = stockItems.map(it => `• ${it.name}: +${it.qty} ${it.unit}`).join("\n");
-
-    return `✅ Siap tambah stok ${stockItems.length} item!\n\n📦 Daftar:\n${list}\n\n⬅️ 1/${stockItems.length} — **${first.name}**: +${first.qty} ${first.unit}\n💰 Masukkan harga beli total, atau: **ya** | **skip** | **batal**`;
-  }
-
-  // ── KURANGI STOK ──
-  if (/kurangi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)/i.test(lower)) {
-    const match = lower.match(/kurangi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)/i);
-    if (!match) return "Format: kurangi stok [nama] [jumlah]. Contoh: kurangi stok air 500";
-    const name = match[1].trim();
-    const qty = parseFloat(match[2]);
-    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, userBranchId)));
-    const found = items.filter((i) => i.name.toLowerCase().includes(name));
-    if (found.length === 0) return `Ga nemu "${name}" di cabang ${userBranchId}, bos.`;
-    if (found.length > 1) return `Ada ${found.length} bahan mirip:\n${found.map((i) => `• ${i.name}`).join("\n")}\n\nSpesifikin.`;
-    const item = found[0];
-    await db.transaction(async (tx) => {
-      await adjustInventory(tx, userBranchId, "ingredient", item.id, -qty);
-      await tx.insert(stockAdjustmentsTable).values({ branchId: userBranchId, itemType: "ingredient", itemId: item.id, adjustmentType: "out", quantity: String(qty), notes: `via AI: kurangi stok` });
-    });
-    return `✅ Stok ${item.name} berkurang ${qty} ${item.unit}. Cek "cari stok ${name}" buat liat sisa.`;
-  }
-
-  // ── KOREKSI HILANG ──
-  if (/koreksi\s+hilang\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i.test(lower)) {
-    const match = lower.match(/koreksi\s+hilang\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i);
-    if (!match) return "Format: koreksi hilang [nama] [jumlah]. Contoh: koreksi hilang air 200";
-    const name = match[1].trim();
-    const qty = parseFloat(match[2]);
-    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, userBranchId)));
-    const found = items.filter((i) => i.name.toLowerCase().includes(name));
-    if (found.length === 0) return `Ga nemu "${name}". Cek "lihat stok" dulu.`;
-    if (found.length > 1) return `Ada ${found.length} mirip:\n${found.map((i) => `• ${i.name}`).join("\n")}\n\nSpesifikin.`;
-    const item = found[0];
-    await db.transaction(async (tx) => {
-      await adjustInventory(tx, userBranchId, "ingredient", item.id, -qty);
-      await tx.insert(stockAdjustmentsTable).values({ branchId: userBranchId, itemType: "ingredient", itemId: item.id, adjustmentType: "loss", quantity: String(-qty), notes: `via AI: koreksi hilang` });
-    });
-    return `✅ Stok ${item.name} dikoreksi hilang ${qty} ${item.unit}.`;
-  }
-
-  // ── KOREKSI STOK JADI ──
-  if (/koreksi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i.test(lower)) {
-    const match = lower.match(/koreksi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
-    if (!match) return "Format: koreksi stok [nama] jadi [jumlah]. Contoh: koreksi stok air jadi 1000";
-    const name = match[1].trim();
-    const target = parseFloat(match[2]);
-    const all = await listInventoryForBranch(userBranchId);
-    const found = all.filter((i) => i.name.toLowerCase().includes(name));
-    if (found.length === 0) return `Ga nemu "${name}". Cek "lihat stok" dulu.`;
-    if (found.length > 1) return `Ada ${found.length} mirip:\n${found.map((i) => `• ${i.name}`).join("\n")}`;
-    const item = found[0];
-    const delta = target - item.currentStock;
-    const adjType = delta >= 0 ? "in" : "loss";
-    await db.transaction(async (tx) => {
-      await adjustInventory(tx, userBranchId, item.itemType, item.itemId, delta);
-      await tx.insert(stockAdjustmentsTable).values({ branchId: userBranchId, itemType: item.itemType, itemId: item.itemId, adjustmentType: adjType, quantity: String(Math.abs(delta)), notes: `via AI: koreksi stok jadi ${target}` });
-    });
-    return `✅ Stok ${item.name} dikoreksi jadi ${target} ${item.unit} (${delta >= 0 ? "+" : ""}${delta}).`;
-  }
-
-  // ── UBAH HARGA ──
-  if (/ubah\s+harga\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i.test(lower)) {
-    const match = lower.match(/ubah\s+harga\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
-    if (!match) return "Format: ubah harga [nama produk] jadi [harga]. Contoh: ubah harga Nasi Goreng jadi 25000";
-    const name = match[1].trim();
-    const price = match[2];
-    const items = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
-    const found = items.filter((p) => p.name.toLowerCase().includes(name));
-    if (found.length === 0) return `Ga nemu produk "${name}". Coba "lihat menu" dulu.`;
-    if (found.length > 1) return `Ada ${found.length} produk mirip:\n${found.map((p) => `• ${p.name} — Rp ${parseFloat(p.price).toLocaleString("id-ID")}`).join("\n")}\n\nSpesifikin.`;
-    const prod = found[0];
-    await db.update(productsTable).set({ price }).where(eq(productsTable.id, prod.id));
-    return `✅ Harga ${prod.name} diubah: Rp ${parseFloat(prod.price).toLocaleString("id-ID")} → Rp ${parseInt(price).toLocaleString("id-ID")}.`;
-  }
-
-  // ── HAPUS PRODUK ──
-  if (/hapus\s+(\w+(?:\s+\w+)*)|nonaktifkan\s+(\w+(?:\s+\w+)*)/i.test(lower)) {
-    const match = lower.match(/(?:hapus|nonaktifkan)\s+(\w+(?:\s+\w+)*)/i);
-    if (!match) return "Format: hapus [nama produk]. Contoh: hapus Nasi Goreng";
-    const name = match[1].trim();
-    const items = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
-    const found = items.filter((p) => p.name.toLowerCase().includes(name));
-    if (found.length === 0) return `Ga nemu produk "${name}" yg aktif. Coba "lihat menu" dulu.`;
-    if (found.length > 1) return `Ada ${found.length} produk mirip:\n${found.map((p) => `• ${p.name}`).join("\n")}\n\nSpesifikin.`;
-    await db.update(productsTable).set({ isActive: false }).where(eq(productsTable.id, found[0].id));
-    return `✅ ${found[0].name} udah dinonaktifkan. Ga muncul lagi di menu. Bisa diaktifin lagi di halaman Produk.`;
-  }
-
-  // ── CARI STOK SPESIFIK ──
-  if (/cari\s+(\w{3,})|stok\s+(?!yg\b|menipis|habis|sedikit|kritis|tipis|abis|semua|masuk|in\b|tambah)(\w{3,})/i.test(lower)) {
-    const nameMatch = lower.match(/cari\s+(\w{3,})|stok\s+(\w{3,})/i);
-    const searchName = (nameMatch?.[1] || nameMatch?.[2] || "").trim();
-    if (searchName.length >= 3) {
-      const all = await listInventoryForBranch(userBranchId);
-      const found = all.filter((i) => i.name.toLowerCase().includes(searchName));
-      if (found.length === 0) return `Ga nemu "${searchName}" di inventori cabang ${userBranchId}, bos.`;
-      return `Stok di cabang ${userBranchId}:\n${found.map((i) => `• ${i.name}: ${i.currentStock} ${i.unit}`).join("\n")}`;
-    }
-  }
-
-  // ── LIHAT SEMUA STOK ──
+  // ── LIST / SEARCH STOCK ──
   if (/lihat\s+stok|cek\s+stok|inventori|semua\s+(stok|bahan)/i.test(lower)) {
-    const all = await listInventoryForBranch(userBranchId);
-    if (all.length === 0) return `Inventori cabang ${userBranchId} kosong, bos.`;
-    return `📦 Inventori cabang ${userBranchId}:\n${all.map((i) => `• ${i.name}: ${i.currentStock} ${i.unit} (${i.itemType})`).join("\n")}`;
+    const all = await listInventoryForBranch(branchId);
+    return { intent: "list_inventory", context: { branchId, items: all, total: all.length } };
   }
 
-  // ── LIHAT BAHAN ──
-  if (/lihat (bahan|ingredient|bahan baku)|daftar (bahan|ingredient)/i.test(lower)) {
-    const items = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, userBranchId));
-    if (items.length === 0) return `Belum ada bahan baku di cabang ${userBranchId}.`;
-    return `Bahan baku cabang ${userBranchId}:\n${items.map((i) => `• ${i.name} (${i.unit})`).join("\n")}`;
-  }
-
-  // ── TAMBAH BAHAN BARU ──
-  if (/tambah (bahan|ingredient|bahan baku)/i.test(lower)) {
-    const nameMatch = lower.match(/tambah (?:bahan|ingredient|bahan baku)\s+(\w+(?:\s+\w+)*?)(?:\s+\d+|\s*$)/i);
-    if (!nameMatch) return "Mau tambah bahan apa? Sebutkan nama bahannya.";
-    await db.insert(ingredientsTable).values({ branchId: userBranchId, name: nameMatch[1].trim(), unit: "ml" });
-    return `Udah, bos! Bahan "${nameMatch[1].trim()}" berhasil ditambah di cabang ${userBranchId}. Jangan lupa atur stok masuknya ya.`;
-  }
-
-  // ── LIHAT MENU ──
-  if (/lihat (produk|menu)/i.test(lower)) {
-    const items = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
-    if (items.length === 0) return `Belum ada produk di cabang ${userBranchId}.`;
-    return `Menu cabang ${userBranchId}:\n${items.map((p) => `• ${p.name} — Rp ${parseFloat(p.price).toLocaleString("id-ID")}`).join("\n")}`;
-  }
-
-  // ── TAMBAH PRODUK ──
-  if (/tambah (produk|menu)/i.test(lower)) {
-    const nameMatch = lower.match(/tambah (?:produk|menu)\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i);
-    if (!nameMatch) return "Mau tambah produk apa? Sebutkan nama + harganya. Contoh: tambah menu pisang coklat 15000";
-    await db.insert(productsTable).values({ branchId: userBranchId, name: nameMatch[1].trim(), price: nameMatch[2] });
-    return `Udah! ${nameMatch[1].trim()} seharga Rp ${parseInt(nameMatch[2]).toLocaleString("id-ID")} berhasil ditambah di cabang ${userBranchId}.`;
-  }
-
-  // ── TAMBAH MENU WIZARD (multi-step: product → resep per varian → commit) ──
-  if (/tambah\s+(?:menu|produk)\s+(\w+(?:\s+\w+)*?)\s+(?:varian|dengan\s+(?:\d+\s+)?varian)\s*:?\s*(.+)/i.test(lower)) {
-    const match = lower.match(/tambah\s+(?:menu|produk)\s+(\w+(?:\s+\w+)*?)\s+(?:varian|dengan\s+(?:\d+\s+)?varian)\s*:?\s*(.+)/i);
-    if (!match) return "Format: tambah menu [nama] varian: [nama] [harga], [nama] [harga]\nContoh: tambah menu kopi susu varian: kecil 7000, sedang 9000, besar 15000";
-    const prodName = match[1].trim();
-    const varStr = match[2].trim();
-
-    const varPairs = varStr.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-    const variants: { name: string; price: string }[] = [];
-    for (const pair of varPairs) {
-      const vm = pair.match(/(\w+(?:\s+\w+)*?)\s+(\d+)/);
-      if (vm) variants.push({ name: vm[1].trim(), price: vm[2] });
+  if (/cari\s+(\w{3,})|stok\s+(\w{3,})/i.test(lower)) {
+    const nameMatch = lower.match(/cari\s+(\w{3,})|stok\s+(\w{3,})/i);
+    const search = (nameMatch?.[1] || nameMatch?.[2] || "").trim();
+    if (search.length >= 3) {
+      const all = await listInventoryForBranch(branchId);
+      const found = all.filter((i) => i.name.toLowerCase().includes(search));
+      return { intent: "search_stock", context: { branchId, search, items: found } };
     }
-    if (variants.length === 0) return "Format varian salah. Contoh: varian: kecil 7000, sedang 9000, besar 15000";
-
-    const basePrice = variants[0].price;
-    const [prod] = await db.insert(productsTable).values({ branchId: userBranchId, name: prodName, price: basePrice }).returning({ id: productsTable.id });
-    const items: OnboardItem[] = [];
-    for (const v of variants) {
-      const [row] = await db.insert(productVariantsTable).values({ productId: prod.id, name: v.name, price: v.price }).returning({ id: productVariantsTable.id });
-      items.push({ variantId: row.id, variantName: v.name, price: v.price, recipes: [] });
-    }
-
-    onboarding.set(uid, { productId: prod.id, productName: prodName, items, currentIdx: 0, branchId: userBranchId, pendingRecipes: [] });
-
-    const list = items.map((it, i) => `• ${it.variantName}: Rp ${parseInt(it.price).toLocaleString("id-ID")}`).join("\n");
-    return `✅ **${prodName}** berhasil dibuat dengan ${items.length} varian!\n${list}\n\n⬅️ 1/${items.length} — Mulai isi resep varian **${items[0].variantName}**\n\nFormat: 'nama_bahan qty, nama_bahan qty'\nKetik **skip** untuk lewati, **batal** untuk batalkan semua.`;
   }
 
-  // ── CATAT PENGELUARAN ──
-  if (/catat (pengeluaran|biaya|belanja)/i.test(lower)) {
-    const amountMatch = lower.match(/(\d+)/);
-    if (!amountMatch) return "Mau catat pengeluaran berapa? Kasih nominalnya.";
-    const amountNum = parseInt(amountMatch[1]);
-    const desc = lower.replace(/catat (pengeluaran|biaya|belanja)\s*/i, "").replace(/\d+/g, "").trim() || "Pengeluaran";
-    await db.insert(expensesTable).values({ branchId: userBranchId, description: desc, amount: String(amountNum) });
-    return `Udah dicatat, bos! Pengeluaran "${desc}" Rp ${amountNum.toLocaleString("id-ID")} di cabang ${userBranchId}.`;
-  }
-
-  // ── CATAT PENGELUARAN WIZARD (multi: "catat pengeluaran: beli kopi 50000, bayar listrik 200000") ──
-  if (/catat\s+pengeluaran\s*:\s*(.+)/i.test(lower)) {
-    const varStr = lower.match(/catat\s+pengeluaran\s*:\s*(.+)/i)![1].trim();
-    const pairs = varStr.split(/[,;]/).map(s => s.trim()).filter(Boolean);
-    const items: ExpWizItem[] = [];
-    for (const pair of pairs) {
-      // "beli kopi 50000" → desc="beli kopi", amount=50000
-      const pm = pair.match(/^(.+?)\s+(\d+)$/);
-      if (!pm) return `Format item salah: "${pair}". Harus: "deskripsi nominal" (contoh: beli kopi 50000, bayar listrik 200000)`;
-      items.push({ description: pm[1].trim(), amount: parseInt(pm[2]), done: false });
-    }
-    if (items.length === 0) return "Ga ada item valid.";
-    expWiz.set(uid, { items, currentIdx: 0, branchId: userBranchId });
-    const list = items.map(it => `• ${it.description}: Rp ${it.amount.toLocaleString("id-ID")}`).join("\n");
-    return `✅ Siap catat ${items.length} pengeluaran!\n\n📊 Daftar:\n${list}\n\n⬅️ 1/${items.length} — **${items[0].description}**: Rp ${items[0].amount.toLocaleString("id-ID")}\n\nKonfirmasi catat? **ya** | **skip** | **batal**`;
+  // ── LIST MENU ──
+  if (/lihat\s+(produk|menu)/i.test(lower)) {
+    const products = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
+    return { intent: "list_products", context: { branchId, items: products } };
   }
 
   // ── LAPORAN ──
   if (/laporan|pendapatan|keuntungan|omzet|profit|revenue/i.test(lower)) {
     const now = new Date();
-    let start = new Date(now); start.setDate(start.getDate() - 30);
-    let end = new Date(now);
+    let start = new Date(now); start.setDate(start.getDate() - 30); start.setHours(0, 0, 0, 0);
+    let end = new Date(now); end.setHours(23, 59, 59, 999);
     let label = "30 hari terakhir";
 
     const rangeMatch = lower.match(/dari\s+(\d{1,2})\s+(januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+(\d{4})\s+(?:sampai|s\.d|hingga)\s+(\d{1,2})\s+(januari|februari|maret|april|mei|juni|juli|agustus|september|oktober|november|desember)\s+(\d{4})/i);
     if (rangeMatch) {
-      const months: Record<string, number> = { januari:0,februari:1,maret:2,april:3,mei:4,juni:5,juli:6,agustus:7,september:8,oktober:9,november:10,desember:11 };
+      const months: Record<string, number> = { januari: 0, februari: 1, maret: 2, april: 3, mei: 4, juni: 5, juli: 6, agustus: 7, september: 8, oktober: 9, november: 10, desember: 11 };
       start = new Date(+rangeMatch[3], months[rangeMatch[2]], +rangeMatch[1], 0, 0, 0, 0);
       end = new Date(+rangeMatch[6], months[rangeMatch[5]], +rangeMatch[4], 23, 59, 59, 999);
       label = `${rangeMatch[1]} ${rangeMatch[2]} ${rangeMatch[3]} — ${rangeMatch[4]} ${rangeMatch[5]} ${rangeMatch[6]}`;
-    } else if (/hari\s*ini|today/i.test(lower)) {
-      start = new Date(now); start.setHours(0, 0, 0, 0);
-      end = new Date(now); end.setHours(23, 59, 59, 999); label = "hari ini";
-    } else if (/kemarin|yesterday/i.test(lower)) {
-      start = new Date(now); start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0);
-      end = new Date(now); end.setDate(end.getDate() - 1); end.setHours(23, 59, 59, 999); label = "kemarin";
-    } else if (/7\s*hari|seminggu/i.test(lower)) {
-      start = new Date(now); start.setDate(start.getDate() - 7); start.setHours(0, 0, 0, 0); label = "7 hari terakhir";
-    } else if (/14\s*hari|2\s*minggu/i.test(lower)) {
-      start = new Date(now); start.setDate(start.getDate() - 14); start.setHours(0, 0, 0, 0); label = "14 hari terakhir";
-    } else if (/bulan\s*ini|this\s*month/i.test(lower)) {
-      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0); label = "bulan ini";
-    } else if (/bulan\s*lalu|last\s*month/i.test(lower)) {
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
-      end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999); label = "bulan lalu";
-    }
+    } else if (/hari\s*ini|today/i.test(lower)) { start = new Date(now); start.setHours(0, 0, 0, 0); end = new Date(now); end.setHours(23, 59, 59, 999); label = "hari ini"; }
+    else if (/kemarin|yesterday/i.test(lower)) { start = new Date(now); start.setDate(start.getDate() - 1); start.setHours(0, 0, 0, 0); end = new Date(now); end.setDate(end.getDate() - 1); end.setHours(23, 59, 59, 999); label = "kemarin"; }
+    else if (/7\s*hari|seminggu/i.test(lower)) { start = new Date(now); start.setDate(start.getDate() - 7); start.setHours(0, 0, 0, 0); label = "7 hari terakhir"; }
+    else if (/14\s*hari|2\s*minggu/i.test(lower)) { start = new Date(now); start.setDate(start.getDate() - 14); start.setHours(0, 0, 0, 0); label = "14 hari terakhir"; }
+    else if (/bulan\s*ini/i.test(lower)) { start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0); label = "bulan ini"; }
+    else if (/bulan\s*lalu/i.test(lower)) { start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0); end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999); label = "bulan lalu"; }
 
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
 
     const [stats] = await db.select({
-      grossRevenue: sum(ordersTable.total), totalCogs: sum(ordersTable.totalCogs),
-    }).from(ordersTable).where(and(gte(ordersTable.createdAt, start), lte(ordersTable.createdAt, end), eq(ordersTable.branchId, userBranchId)));
-    const [exp] = await db.select({ total: sum(expensesTable.amount) }).from(expensesTable).where(and(gte(expensesTable.createdAt, start), lte(expensesTable.createdAt, end), eq(expensesTable.branchId, userBranchId)));
-    const rev = parseFloat(stats?.grossRevenue ?? "0");
-    const cogs = parseFloat(stats?.totalCogs ?? "0");
+      revenue: sum(ordersTable.total), cogs: sum(ordersTable.totalCogs), count: sql<number>`count(${ordersTable.id})`,
+    }).from(ordersTable).where(and(gte(ordersTable.createdAt, start), lte(ordersTable.createdAt, end), eq(ordersTable.branchId, branchId)));
+    const [exp] = await db.select({ total: sum(expensesTable.amount) }).from(expensesTable).where(and(gte(expensesTable.createdAt, start), lte(expensesTable.createdAt, end), eq(expensesTable.branchId, branchId)));
+    const rev = parseFloat(stats?.revenue ?? "0");
+    const cogs = parseFloat(stats?.cogs ?? "0");
     const expense = parseFloat(exp?.total ?? "0");
-    const profit = rev - cogs - expense;
-    return `📊 Laporan ${label} — cabang ${userBranchId}:\n• Pendapatan: Rp ${rev.toLocaleString("id-ID")}\n• Bahan baku: Rp ${cogs.toLocaleString("id-ID")}\n• Pengeluaran: Rp ${expense.toLocaleString("id-ID")}\n• Laba bersih: Rp ${profit.toLocaleString("id-ID")}`;
+
+    const topProducts = await db.select({
+      name: productsTable.name, total: sum(ordersTable.total), count: sql<number>`count(${ordersTable.id})`,
+    }).from(orderItemsTable)
+      .innerJoin(productsTable, eq(orderItemsTable.productId, productsTable.id))
+      .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+      .where(and(gte(ordersTable.createdAt, start), lte(ordersTable.createdAt, end), eq(ordersTable.branchId, branchId)))
+      .groupBy(productsTable.name).orderBy(desc(sql`sum(${ordersTable.total})`)).limit(5);
+
+    return { intent: "financial_report", context: { branchId, label, revenue: rev, cogs, expense, profit: rev - cogs - expense, orderCount: stats?.count ?? 0, topProducts } };
   }
 
-  // ── PRODUKSI (GUARDLINE: cek resep dulu) ──
-  if (/produksi\s+(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?|bikin\s+(setengah jadi|adonan)/i.test(lower)) {
-    // "produksi matcha 1000 gr" or "produksi matcha 1000"
-    const prodMatch = lower.match(/produksi\s+(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i);
-    if (prodMatch) {
-      const prodName = prodMatch[1].trim();
-      const qty = parseFloat(prodMatch[2]);
-      const items = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
-      const found = items.filter((i) => i.name.toLowerCase().includes(prodName));
-      if (found.length === 0) return `Ga nemu setengah jadi "${prodName}" di cabang ${userBranchId}. Coba ketik "produksi" buat liat daftar.`;
-      if (found.length > 1) return `Ada ${found.length} mirip:\n${found.map((i) => `• ${i.name}`).join("\n")}\n\nSpesifikin.`;
-      const item = found[0];
-
-      // Check recipe
-      const recipeRows = await db.transaction(async (tx) => getRecipeRows(tx, "semi_finished", item.id));
-      if (recipeRows.length === 0) return `⚠️ ${item.name} belum punya resep/BOM!\n\nBuat dulu: "tambah resep ${item.name} butuh [bahan] [qty]"`;
-
-      // Build component summary
-      const comps: { type: string; id: number; name: string; qty: number }[] = [];
-      const ingItems = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, userBranchId));
-      const sfItems = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
-      for (const r of recipeRows) {
-        const ing = ingItems.find((i) => i.id === r.componentId);
-        const sf = sfItems.find((s) => s.id === r.componentId);
-        comps.push({
-          type: r.componentType, id: r.componentId,
-          name: ing?.name || sf?.name || String(r.componentId),
-          qty: r.quantity,
-        });
-      }
-
-      // Guardline: store pending
-      pendingProduction.set(uid, { itemId: item.id, name: item.name, qty, branchId: userBranchId, components: comps });
-      const compList = comps.map((c) => `• ${c.name}: ${c.qty}`).join("\n");
-      return `⚠️ Konfirmasi produksi:\n• ${item.name}: ${qty} ${item.unit}\n\nBahan yg akan terpakai:\n${compList}\n\nBalas **ya** untuk lanjut, atau **batal** buat batalkan.`;
-    }
-
-    // Just "produksi" → list available items
-    const items = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
-    if (items.length === 0) return `Belum ada setengah jadi di cabang ${userBranchId}.`;
-    const list = items.map((i) => `• ${i.id}. ${i.name} (${i.unit})`).join("\n");
-    return `Yang mau diproduksi apa, bos? Ini daftar setengah jadinya:\n${list}\n\nContoh: "produksi adonan pisang 3 kg"`;
+  // ── LIST INGREDIENTS ──
+  if (/lihat\s+(bahan|ingredient|daftar\s+bahan)/i.test(lower)) {
+    const items = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, branchId));
+    return { intent: "list_ingredients", context: { branchId, items } };
   }
 
-  // ── LIHAT VARIAN ──
-  if (/lihat\s+varian|varian\s+(?:dari\s+)?(\w+)|daftar\s+varian/i.test(lower)) {
-    const nameMatch = lower.match(/(?:lihat\s+varian|varian)\s+(?:dari\s+)?(\w+(?:\s+\w+)*)/i);
-    const searchName = nameMatch?.[1]?.trim() || "";
-    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
-    const product = searchName ? prods.find((p) => p.name.toLowerCase().includes(searchName)) : null;
-    if (!product) return searchName ? `Ga nemu produk "${searchName}". Coba "lihat menu" dulu.` : "Produk mana yg mau dilihat variannya? Contoh: lihat varian Nasi Goreng";
-    const variants = await db.select().from(productVariantsTable).where(eq(productVariantsTable.productId, product.id));
-    if (variants.length === 0) return `${product.name} belum punya varian, bos.`;
-    return `📋 Varian ${product.name}:\n${variants.map((v) => `• ${v.name} — Rp ${parseFloat(v.price).toLocaleString("id-ID")}`).join("\n")}`;
+  // ── PRODUCTION ──
+  if (/produksi|bikin\s+setengah\s+jadi/i.test(lower)) {
+    const items = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branchId));
+    return { intent: "list_semi_finished", context: { branchId, items } };
   }
 
-  // ── TAMBAH VARIAN ──
-  if (/tambah\s+varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i.test(lower)) {
-    const match = lower.match(/tambah\s+varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i);
-    if (!match) return "Format: tambah varian [produk] [nama varian] [harga]. Contoh: tambah varian Nasi Goreng Large 18000";
-    const prodName = match[1].trim();
-    const varName = match[2].trim();
-    const price = match[3];
-    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
-    const product = prods.find((p) => p.name.toLowerCase().includes(prodName));
-    if (!product) return `Ga nemu produk "${prodName}". Coba "lihat menu" dulu.`;
-    await db.insert(productVariantsTable).values({ productId: product.id, name: varName, price });
-    return `✅ Varian "${varName}" seharga Rp ${parseInt(price).toLocaleString("id-ID")} berhasil ditambah ke ${product.name}.`;
+  // ── LIST RECIPES ──
+  if (/lihat\s+resep|daftar\s+resep/i.test(lower)) {
+    const products = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
+    const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branchId));
+    return { intent: "list_recipes", context: { branchId, products, semiFinished: semis } };
   }
 
-  // ── UBAH HARGA VARIAN ──
-  if (/ubah\s+(?:harga\s+)?varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i.test(lower)) {
-    const match = lower.match(/ubah\s+(?:harga\s+)?varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
-    if (!match) return "Format: ubah varian [produk] [nama varian] jadi [harga]. Contoh: ubah varian Nasi Goreng Large jadi 20000";
-    const prodName = match[1].trim();
-    const varName = match[2].trim();
-    const price = match[3];
-    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
-    const product = prods.find((p) => p.name.toLowerCase().includes(prodName));
-    if (!product) return `Ga nemu produk "${prodName}".`;
-    const variants = await db.select().from(productVariantsTable).where(eq(productVariantsTable.productId, product.id));
-    const variant = variants.find((v) => v.name.toLowerCase().includes(varName));
-    if (!variant) return `Ga nemu varian "${varName}" di ${product.name}. Coba "lihat varian ${prodName}".`;
-    await db.update(productVariantsTable).set({ price }).where(eq(productVariantsTable.id, variant.id));
-    return `✅ Varian ${variant.name} di ${product.name}: Rp ${parseFloat(variant.price).toLocaleString("id-ID")} → Rp ${parseInt(price).toLocaleString("id-ID")}.`;
+  // ── LIST VARIANTS ──
+  if (/lihat\s+varian/i.test(lower)) {
+    const products = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
+    return { intent: "list_variants", context: { branchId, products } };
   }
 
-  // ── HAPUS VARIAN ──
-  if (/hapus\s+varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*)/i.test(lower)) {
-    const match = lower.match(/hapus\s+varian\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*)/i);
-    if (!match) return "Format: hapus varian [produk] [varian]. Contoh: hapus varian Nasi Goreng Large";
-    const prodName = match[1].trim();
-    const varName = match[2].trim();
-    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
-    const product = prods.find((p) => p.name.toLowerCase().includes(prodName));
-    if (!product) return `Ga nemu produk "${prodName}".`;
-    const variants = await db.select().from(productVariantsTable).where(eq(productVariantsTable.productId, product.id));
-    const variant = variants.find((v) => v.name.toLowerCase().includes(varName));
-    if (!variant) return `Ga nemu varian "${varName}" di ${product.name}.`;
-    await db.delete(productVariantsTable).where(eq(productVariantsTable.id, variant.id));
-    return `✅ Varian "${variant.name}" dihapus dari ${product.name}.`;
+  // ── SHIFT ANALYSIS ──
+  if (/analisis\s+shift|shift\s+analysis/i.test(lower)) {
+    const [latest] = await db.select().from(sql`shift_audits`).where(and(sql`branch_id = ${branchId}`, sql`actual_stock_json IS NOT NULL`)).orderBy(desc(sql`created_at`)).limit(1) as any[];
+    if (latest) return { intent: "shift_analysis", context: { shiftId: latest.id, branchId, status: latest.status } };
+    return { intent: "shift_analysis", context: { shiftId: null, note: "No shift data found." } };
   }
 
-// ── HELPER: find recipe parent across product, variant, semi_finished ──
-async function findRecipeParent(name: string, branchId: number): Promise<{ parent: { id: number; name: string } | null; parentType: string }> {
-  const lower = name.toLowerCase();
-  const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
-  const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branchId));
-
-  // Check product → variant combination: "Kopi Susu Kecil"
-  for (const p of prods) {
-    if (lower.includes(p.name.toLowerCase())) {
-      const variants = await db.select().from(productVariantsTable).where(eq(productVariantsTable.productId, p.id));
-      for (const v of variants) {
-        if (lower.includes(v.name.toLowerCase())) {
-          return { parent: { id: v.id, name: `${p.name} (${v.name})` }, parentType: "product_variant" };
-        }
-      }
-      return { parent: { id: p.id, name: p.name }, parentType: "product" };
+  // ── STOCK ADJUST INTENT (add/reduce/correct/loss) ──
+  const stockMatch = lower.match(/tambah\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)/i);
+  if (stockMatch) {
+    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, branchId)));
+    const found = items.find((i) => i.name.toLowerCase().includes(stockMatch[1].trim()));
+    if (found) {
+      const stock = await db.select({ s: currentInventoryTable.currentStock }).from(currentInventoryTable)
+        .where(and(eq(currentInventoryTable.itemType, "ingredient"), eq(currentInventoryTable.itemId, found.id), eq(currentInventoryTable.branchId, branchId)));
+      const currentStock = parseFloat(stock[0]?.s || "0");
+      return { intent: "add_stock", params: { itemId: found.id, name: found.name, qty: parseFloat(stockMatch[2]), unit: found.unit, currentStock, hpp: parseFloat(found.costPricePerUnit || "0") } };
     }
   }
 
-  // Check semi_finished
-  const semi = semis.find((s) => s.name.toLowerCase().includes(lower));
-  if (semi) return { parent: { id: semi.id, name: semi.name }, parentType: "semi_finished" };
-
-  return { parent: null, parentType: "" };
-}
-
-  // ── LIHAT RESEP (supports product, semi_finished, product_variant) ──
-  if (/lihat\s+resep|resep\s+(\w+)|bom\s+(\w+)/i.test(lower)) {
-    const nameMatch = lower.match(/(?:lihat\s+resep|resep|bom)\s+(\w+(?:\s+\w+)*)/i);
-    const searchName = nameMatch?.[1]?.trim() || "";
-    if (!searchName) return "Resep produk, varian, atau setengah jadi apa yg mau dilihat? Contoh: lihat resep Nasi Goreng";
-
-    const { parent, parentType } = await findRecipeParent(searchName, userBranchId);
-    if (!parent) return `Ga nemu "${searchName}" di produk, varian, atau setengah jadi.`;
-
-    const recipes = await db.select().from(recipesTable).where(and(eq(recipesTable.parentType, parentType), eq(recipesTable.parentId, parent.id)));
-    if (recipes.length === 0) return `${parent.name} belum punya resep/BOM, bos.`;
-
-    const lines: string[] = [];
-    for (const r of recipes) {
-      if (r.componentType === "ingredient") {
-        const [ing] = await db.select().from(ingredientsTable).where(eq(ingredientsTable.id, r.componentId));
-        lines.push(`• ${ing?.name || r.componentId}: ${r.quantity}`);
-      } else {
-        const [sf] = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.id, r.componentId));
-        lines.push(`• ${sf?.name || r.componentId} (setengah jadi): ${r.quantity}`);
-      }
-    }
-    return `📋 Resep ${parent.name}:\n${lines.join("\n")}`;
+  const reduceMatch = lower.match(/kurangi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)/i);
+  if (reduceMatch) {
+    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, branchId)));
+    const found = items.find((i) => i.name.toLowerCase().includes(reduceMatch[1].trim()));
+    if (found) return { intent: "reduce_stock", params: { itemId: found.id, name: found.name, qty: parseFloat(reduceMatch[2]), unit: found.unit } };
   }
 
-  // ── TAMBAH RESEP (supports product_variant: "tambah resep Kopi Susu varian Kecil butuh Kopi 0.1") ──
-  if (/tambah\s+resep\s+(\w+(?:\s+\w+)*?)\s+(?:varian\s+)?(\w+(?:\s+\w+)*?)\s+butuh\s+(\w+(?:\s+\w+)*?)\s+([\d.]+)/i.test(lower)) {
-    // "tambah resep Kopi Susu [varian] Kecil butuh Kopi 0.1"
-    const match = lower.match(/tambah\s+resep\s+(\w+(?:\s+\w+)*?)\s+(?:varian\s+)?(\w+(?:\s+\w+)*?)\s+butuh\s+(\w+(?:\s+\w+)*?)\s+([\d.]+)/i);
-    if (!match) return "Format: tambah resep [produk] [varian?] butuh [bahan] [qty]. Contoh: tambah resep Nasi Goreng butuh Beras 0.5";
-    const parentName = match[1].trim();
-    const variantName = match[2].trim();
-    const compName = match[3].trim();
-    const qty = match[4];
-    const branch = userBranchId;
-
-    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branch), eq(productsTable.isActive, true)));
-    const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branch));
-    const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, branch));
-
-    // Try product → variant
-    const product = prods.find((p) => p.name.toLowerCase().includes(parentName));
-    if (product && variantName) {
-      const variant = await db.select().from(productVariantsTable).where(eq(productVariantsTable.productId, product.id));
-      const foundVariant = variant.find((v) => v.name.toLowerCase().includes(variantName));
-      if (foundVariant) {
-        const vName = foundVariant.name;
-        // Check if componentName is a keyword like "varian" — skip if so
-        if (/varian/i.test(compName)) return "Format: tambah resep [produk] varian [nama varian] butuh [bahan] [qty]";
-        let componentType = "";
-        let componentId = 0;
-        const ing = ings.find((i) => i.name.toLowerCase().includes(compName));
-        const sf = semis.find((s) => s.name.toLowerCase().includes(compName));
-        if (ing) { componentType = "ingredient"; componentId = ing.id; }
-        else if (sf) { componentType = "semi_finished"; componentId = sf.id; }
-        else return `Ga nemu bahan "${compName}". Coba "lihat bahan" dulu.`;
-        await db.insert(recipesTable).values({ parentType: "product_variant", parentId: foundVariant.id, componentType, componentId, quantity: qty });
-        const compLabel = ing?.name || sf?.name || compName;
-        return `✅ Resep ${product.name} varian ${vName} ditambah: ${compLabel} × ${qty}.`;
-      }
-    }
-
-    // Fallback: treat as simple "tambah resep X butuh Y Q"
-    // Check if variantName is not actually a variant but part of the parent name
-    const { parent, parentType } = await findRecipeParent(`${parentName} ${variantName}`.trim(), branch);
-    if (parent) {
-      let componentType = "";
-      let componentId = 0;
-      const ing = ings.find((i) => i.name.toLowerCase().includes(compName));
-      const sf = semis.find((s) => s.name.toLowerCase().includes(compName));
-      if (ing) { componentType = "ingredient"; componentId = ing.id; }
-      else if (sf) { componentType = "semi_finished"; componentId = sf.id; }
-      else return `Ga nemu bahan "${compName}". Coba "lihat bahan" dulu.`;
-      await db.insert(recipesTable).values({ parentType, parentId: parent.id, componentType, componentId, quantity: qty });
-      const compLabel = ing?.name || sf?.name || compName;
-      return `✅ Resep ${parent.name} ditambah: ${compLabel} × ${qty}.`;
-    }
-
-    return `Ga nemu "${parentName}" di produk, varian, atau setengah jadi.`;
+  const correctMatch = lower.match(/koreksi\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
+  if (correctMatch) {
+    const all = await listInventoryForBranch(branchId);
+    const found = all.find((i) => i.name.toLowerCase().includes(correctMatch[1].trim()));
+    if (found) return { intent: "correct_stock", params: { itemId: found.itemId, itemType: found.itemType, name: found.name, target: parseFloat(correctMatch[2]), currentStock: found.currentStock, unit: found.unit } };
   }
 
-  // ── HAPUS RESEP (supports product_variant) ──
-  if (/hapus\s+resep\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*)/i.test(lower)) {
-    const match = lower.match(/hapus\s+resep\s+(\w+(?:\s+\w+)*?)\s+(\w+(?:\s+\w+)*)/i);
-    if (!match) return "Format: hapus resep [produk] [bahan]. Contoh: hapus resep Nasi Goreng Kecap";
-    const parentName = match[1].trim();
-    const compName = match[2].trim();
-    const branch = userBranchId;
-
-    const { parent, parentType } = await findRecipeParent(parentName, branch);
-    if (!parent) return `Ga nemu "${parentName}" di produk, varian, atau setengah jadi.`;
-
-    const recipes = await db.select().from(recipesTable).where(and(eq(recipesTable.parentType, parentType), eq(recipesTable.parentId, parent.id)));
-    const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, branch));
-    const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branch));
-
-    let foundId = 0;
-    let foundName = "";
-    for (const r of recipes) {
-      if (r.componentType === "ingredient") {
-        const [ing] = await db.select().from(ingredientsTable).where(eq(ingredientsTable.id, r.componentId));
-        if (ing?.name.toLowerCase().includes(compName)) { foundId = r.id; foundName = ing.name; break; }
-      } else {
-        const [sf] = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.id, r.componentId));
-        if (sf?.name.toLowerCase().includes(compName)) { foundId = r.id; foundName = sf.name; break; }
-      }
-    }
-    if (!foundId) return `Ga nemu "${compName}" di resep ${parent.name}.`;
-    await db.delete(recipesTable).where(eq(recipesTable.id, foundId));
-    return `✅ ${foundName} dihapus dari resep ${parent.name}.`;
+  const lossMatch = lower.match(/koreksi\s+hilang\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i);
+  if (lossMatch) {
+    const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, branchId)));
+    const found = items.find((i) => i.name.toLowerCase().includes(lossMatch[1].trim()));
+    if (found) return { intent: "loss_correction", params: { itemId: found.id, name: found.name, qty: parseFloat(lossMatch[2]), unit: found.unit } };
   }
 
-  return "";
+  // ── ADD EXPENSE ──
+  const expenseMatch = lower.match(/catat\s+(?:pengeluaran|biaya|belanja)\s+(\d+)/i);
+  if (expenseMatch) return { intent: "add_expense", params: { amount: parseFloat(expenseMatch[1]) } };
+
+  // ── PRICE CHANGE ──
+  const priceMatch = lower.match(/ubah\s+harga\s+(\w+(?:\s+\w+)*?)\s+jadi\s+(\d+)/i);
+  if (priceMatch) {
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
+    const found = prods.find((p) => p.name.toLowerCase().includes(priceMatch[1].trim()));
+    if (found) return { intent: "update_price", params: { productId: found.id, name: found.name, oldPrice: found.price, newPrice: priceMatch[2] } };
+  }
+
+  // ── ADD PRODUCT ──
+  const prodMatch = lower.match(/tambah\s+(?:produk|menu)\s+(\w+(?:\s+\w+)*?)\s+(\d{3,})/i);
+  if (prodMatch) return { intent: "add_product", params: { name: prodMatch[1].trim(), price: parseInt(prodMatch[2]) } };
+
+  // ── DEACTIVATE ──
+  const delMatch = lower.match(/(?:hapus|nonaktifkan)\s+(\w+(?:\s+\w+)*)/i);
+  if (delMatch) {
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
+    const found = prods.find((p) => p.name.toLowerCase().includes(delMatch[1].trim()));
+    if (found) return { intent: "deactivate_product", params: { productId: found.id, name: found.name } };
+  }
+
+  // ── ADD RECIPE ──
+  const recipeMatch = lower.match(/tambah\s+resep\s+(\w+(?:\s+\w+)*?)\s+butuh\s+(\w+(?:\s+\w+)*?)\s+([\d.]+)/i);
+  if (recipeMatch) {
+    const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true)));
+    const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branchId));
+    const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, branchId));
+    const parent = prods.find((p) => p.name.toLowerCase().includes(recipeMatch[1].trim())) || semis.find((s) => s.name.toLowerCase().includes(recipeMatch[1].trim()));
+    const ing = ings.find((i) => i.name.toLowerCase().includes(recipeMatch[2].trim()));
+    if (parent && ing) return { intent: "add_recipe", params: { parentType: "type", parentId: parent.id, parentName: parent.name, ingredientId: ing.id, ingredientName: ing.name, quantity: recipeMatch[3] } };
+  }
+
+  // ── ANALYSIS / GENERAL ──
+  return { intent: "general_analysis" };
 }

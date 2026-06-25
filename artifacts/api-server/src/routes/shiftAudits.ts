@@ -1,8 +1,8 @@
 import { Router } from "express";
-import { db, shiftAuditsTable, usersTable, currentInventoryTable } from "@workspace/db";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { db, shiftAuditsTable, usersTable, currentInventoryTable, stockAdjustmentsTable, ordersTable, orderItemsTable, productsTable, productVariantsTable, recipesTable } from "@workspace/db";
+import { and, desc, eq, sql, gte, lte } from "drizzle-orm";
 import { canAccessBranch, requireAuth, requireBranchAccess, requireRole } from "../middlewares/requireAuth";
-import { listInventoryForBranch, listInventoryForShift, type Executor, type ItemType } from "../services/inventory";
+import { listInventoryForBranch, listInventoryForShift, adjustInventory, type Executor, type ItemType } from "../services/inventory";
 
 const router = Router();
 
@@ -227,8 +227,41 @@ router.post("/shift/end", requireAuth, async (req, res) => {
       .where(eq(shiftAuditsTable.id, shiftId))
       .returning();
 
+    // ── AUTO-CORRECTION: koreksi inventory dari selisih expected vs actual ──
+    let correction: { corrected: number; details: { item: string; diff: number; type: string }[] } | null = null;
+    if (expectedStock && Array.isArray(actualStock) && actualStock.length > 0) {
+      const details: { item: string; diff: number; type: string }[] = [];
+      let corrected = 0;
+      try {
+        await db.transaction(async (tx: any) => {
+          for (const item of expectedStock) {
+            const actual = (actualStock as any[]).find((a: any) => a.name === item.name);
+            if (!actual) continue;
+            const diff = actual.quantity - item.quantity;
+            if (Math.abs(diff) < 0.01) continue;
+            await adjustInventory(tx, shift.branchId, item.itemType, item.itemId, diff);
+            await tx.insert(stockAdjustmentsTable).values({
+              branchId: shift.branchId, itemType: item.itemType, itemId: item.itemId,
+              adjustmentType: diff < 0 ? "loss" : "in",
+              quantity: String(Math.abs(diff)),
+              notes: `Auto-koreksi dari tutup shift #${shiftId}`,
+            });
+            details.push({ item: item.name, diff: Number(diff.toFixed(2)), type: diff < 0 ? "loss" : "in" });
+            corrected++;
+          }
+        });
+      } catch (e) { console.error("Auto-correction error:", e); }
+      if (corrected > 0) {
+        correction = { corrected, details };
+        await db.update(shiftAuditsTable)
+          .set({ status: "corrected" })
+          .where(eq(shiftAuditsTable.id, shiftId));
+      }
+    }
+
     return res.json({
       success: true,
+      ...(correction ? { autoCorrection: correction } : {}),
       shift: {
         id: updatedShift.id,
         expectedBalance,
@@ -491,6 +524,100 @@ router.patch("/shift-audits/:id/verify", requireRole("owner", "manager"), async 
     createdAt: updated.createdAt,
     maxDiscrepancyPct: 0,
   });
+});
+
+// ── FRAUD ANALYSIS ENDPOINT ──
+router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [audit] = await db.select().from(shiftAuditsTable).where(eq(shiftAuditsTable.id, id));
+    if (!audit) { res.status(404).json({ error: "Not found" }); return; }
+
+    const expected = (audit.expectedStockJson as any[] | null) ?? [];
+    const actual = (audit.actualStockJson as any[] | null) ?? [];
+    if (!expected.length || !actual.length) { res.json({ shiftId: id, note: "No stock data" }); return; }
+
+    // Get orders during shift (joining items)
+    const orders = await db.select({
+      id: ordersTable.id, productId: orderItemsTable.productId, variantId: orderItemsTable.productVariantId, quantity: orderItemsTable.quantity,
+    }).from(orderItemsTable).innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+      .where(and(
+      gte(ordersTable.createdAt, audit.shiftStart!), lte(ordersTable.createdAt, audit.shiftEnd || new Date()),
+      eq(ordersTable.branchId, audit.branchId!),
+    ));
+
+    const anomalies: any[] = [];
+    const ingredientMap = new Map<string, { sold: number; expected: number; items: { variant: string; sold: number; recipe: number; expected: number }[] }>();
+
+    for (const o of orders) {
+      if (!o.variantId) continue;
+      const recipes = await db.select().from(recipesTable).where(and(eq(recipesTable.parentType, "product_variant"), eq(recipesTable.parentId, o.variantId!)));
+      for (const r of recipes) {
+        if (r.componentType !== "ingredient") continue;
+        const [ing] = await db.select().from(sql`ingredients`).where(sql`id = ${r.componentId}`) as any[];
+        if (!ing) continue;
+        const key = ing.name || `ing_${r.componentId}`;
+        const exp = parseFloat(r.quantity) * o.quantity!;
+        const existing = ingredientMap.get(key);
+        if (existing) {
+          existing.sold += o.quantity!;
+          existing.expected += exp;
+          existing.items.push({ variant: `var_${o.variantId}`, sold: o.quantity!, recipe: parseFloat(r.quantity), expected: exp });
+        } else {
+          ingredientMap.set(key, { sold: o.quantity!, expected: exp, items: [{ variant: `var_${o.variantId}`, sold: o.quantity!, recipe: parseFloat(r.quantity), expected: exp }] });
+        }
+      }
+    }
+
+    for (const [ingName, data] of ingredientMap) {
+      const expItem = expected.find((e: any) => e.name === ingName);
+      const actItem = actual.find((a: any) => a.name === ingName);
+      if (!expItem || !actItem) continue;
+      const actualLoss = expItem.quantity - actItem.quantity;
+      const excess = actualLoss - data.expected;
+      if (Math.abs(excess) < 0.01) continue;
+      const pct = data.expected > 0 ? (excess / data.expected) * 100 : 0;
+      const flag = Math.abs(pct) > 20 ? "HIGH" : Math.abs(pct) > 10 ? "MEDIUM" : "LOW";
+      const hpp = expItem.hpp || expItem.costPricePerUnit || 0;
+      const minRecipe = Math.min(...data.items.map(i => i.recipe));
+      const potentialCups = minRecipe > 0 ? Math.round(excess / minRecipe) : 0;
+      const minPrice = 7000; // TODO: get actual min variant price
+      const materialLoss = Math.abs(excess) * hpp;
+      const potentialRevenue = potentialCups * minPrice;
+
+      anomalies.push({
+        ingredient: ingName, hpp: hpp || 0,
+        totalExpected: data.expected.toFixed(2),
+        totalActualLoss: actualLoss.toFixed(2),
+        excessQty: excess.toFixed(2),
+        excessPct: Math.abs(pct).toFixed(1),
+        materialLoss: Math.round(materialLoss),
+        potentialCups,
+        potentialRevenue,
+        flag,
+        variants: data.items,
+        causes: pct > 15 ? ["Porsi berlebih", "Spill/tumpah", "Kecurangan takaran"] : ["Variasi normal", "Toleransi produksi"],
+      });
+    }
+
+    const totalMaterial = anomalies.reduce((s: number, a: any) => s + a.materialLoss, 0);
+    const totalRevenue = anomalies.reduce((s: number, a: any) => s + a.potentialRevenue, 0);
+
+    res.json({
+      shiftId: id, branchId: audit.branchId, period: `${audit.shiftStart} — ${audit.shiftEnd}`,
+      totalCups: orders.reduce((s: number, o: any) => s + (o.quantity || 0), 0),
+      anomalies,
+      summary: {
+        totalAnomalies: anomalies.length,
+        totalMaterialLoss: totalMaterial,
+        totalPotentialRevenue: totalRevenue,
+        recommendation: anomalies.length > 0 ? "Audit SOP takaran. Cek barista & training." : "Semua dalam batas normal.",
+      },
+    });
+  } catch (e) {
+    console.error("GET /shift-audits/:id/analysis error:", e);
+    res.status(500).json({ error: "Internal server error" });
+  }
 });
 
 export default router;
