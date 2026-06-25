@@ -17,26 +17,48 @@ const SSH_USER = process.env.SSH_USER || "";
 const SSH_PASS = process.env.SSH_PASSWORD || "";
 
 // ─────────────────────────────────────────────────────────────
+// 0. CONVERSATION MEMORY (in-memory, per user per mode)
+// ─────────────────────────────────────────────────────────────
+type ChatMsg = { role: "user" | "assistant"; content: string };
+const memory = new Map<string, ChatMsg[]>();
+const MAX_MEMORY = 10;
+
+function memoryKey(userId: number, mode: string) { return `${userId}_${mode}`; }
+
+function getHistory(userId: number, mode: string): ChatMsg[] {
+  return memory.get(memoryKey(userId, mode)) || [];
+}
+
+function remember(userId: number, mode: string, userMsg: string, assistantReply: string) {
+  const key = memoryKey(userId, mode);
+  const msgs = memory.get(key) || [];
+  msgs.push({ role: "user", content: userMsg.slice(0, 1000) }, { role: "assistant", content: assistantReply.slice(0, 2000) });
+  if (msgs.length > MAX_MEMORY * 2) msgs.splice(0, 2);
+  memory.set(key, msgs);
+}
+
+function clearMemory(userId: number, mode: string) {
+  memory.delete(memoryKey(userId, mode));
+}
+
+// ─────────────────────────────────────────────────────────────
 // 1. DEEPSEEK / SUMOPOD HELPER
 // ─────────────────────────────────────────────────────────────
-async function callDeepSeek(system: string, user: string, maxTokens = 800): Promise<string> {
+async function callDeepSeek(system: string, user: string, userId: number, mode: string, maxTokens = 800): Promise<string> {
   const key = process.env.DEEPSEEK_API_KEY;
   const base = process.env.DEEPSEEK_BASE_URL;
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
   if (!key || !base) { console.error("[ai] DEEPSEEK_API_KEY or DEEPSEEK_BASE_URL not set"); return ""; }
   try {
+    const history = getHistory(userId, mode);
+    const messages: any[] = [{ role: "system", content: system.slice(0, 4000) }];
+    for (const h of history) messages.push(h);
+    messages.push({ role: "user", content: user.slice(0, 2000) });
+
     const resp = await fetch(`${base}/chat/completions`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: "system", content: system.slice(0, 4000) },
-          { role: "user", content: user.slice(0, 2000) },
-        ],
-        max_tokens: maxTokens,
-        temperature: 0.7,
-      }),
+      body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.7 }),
     });
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
@@ -46,6 +68,7 @@ async function callDeepSeek(system: string, user: string, maxTokens = 800): Prom
     const json = await resp.json();
     const content = (json as any).choices?.[0]?.message?.content?.trim() || "";
     if (!content) console.error(`[ai] DeepSeek empty response. finish_reason=${(json as any).choices?.[0]?.finish_reason}`);
+    else remember(userId, mode, user, content);
     return content;
   } catch (err) {
     console.error("[ai] callDeepSeek fetch error:", err);
@@ -466,12 +489,20 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     const clean = message.trim();
     const defaultBranchId = user.branchId || 1;
     const m = mode || "bisnis";
+    const uid = user.id;
+
+    // Clear memory jika user minta reset
+    if (/reset|hapus\s*riwayat|mulai\s*baru|clear/i.test(clean.toLowerCase())) {
+      clearMemory(uid, m);
+      res.json({ reply: "✅ Riwayat percakapan sudah di-reset. Silakan tanya lagi." });
+      return;
+    }
 
     switch (m) {
 
       // ── CHAT ──
       case "chat": {
-        const reply = await callDeepSeek(CHAT_SYSTEM, clean);
+        const reply = await callDeepSeek(CHAT_SYSTEM, clean, uid, m);
         res.json({ reply: reply || "Chat Agent sedang sibuk, coba lagi ya bos." });
         return;
       }
@@ -522,7 +553,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
 
         // Dynamic Specialist → BANG orchestrator + DeepSeek
-        const bangReply = await callDeepSeek(BANG_ORCHESTRATOR, clean, 1200);
+        const bangReply = await callDeepSeek(BANG_ORCHESTRATOR, clean, uid, m, 1200);
         res.json({ reply: bangReply || "BANG sedang sibuk, coba lagi ya bos." });
         return;
       }
@@ -562,7 +593,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       default: {
         const biz = await handleBusiness(clean, defaultBranchId);
         if (biz) { res.json({ reply: biz }); return; }
-        const fallback = await callDeepSeek(BISNIS_SYSTEM, clean);
+        const fallback = await callDeepSeek(BISNIS_SYSTEM, clean, uid, "bisnis");
         res.json({ reply: fallback || "Maaf, saya belum bisa bantu itu. Coba tanya yang lain ya, bos." });
         return;
       }
