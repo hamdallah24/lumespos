@@ -130,7 +130,7 @@ PERINTAH YANG SISTEM BISA EKSEKUSI INSTAN:
 "cari stok [nama]" / "stok [nama]" — cari bahan spesifik
 "lihat stok" / "cek stok" / "inventori" — semua inventori
 "lihat menu" / "menu apa aja" — semua produk aktif
-"tambah stok [nama] [qty] [unit]" — stock in
+"tambah stok [nama] [qty] [unit]" — stock in (GAK LANGSUNG: sistem minta harga beli dulu utk HPP)
 "kurangi stok [nama] [qty]" — stock out
 "koreksi stok [nama] jadi [qty]" — adjust to target
 "koreksi hilang [nama] [qty]" — record loss
@@ -148,7 +148,7 @@ PERINTAH YANG SISTEM BISA EKSEKUSI INSTAN:
 "catat pengeluaran [jumlah]" — insert expense
 "laporan [hari ini/7 hari/14 hari/bulan ini/bulan lalu]" — financial report
 "laporan dari [tgl] sampai [tgl]" — custom range
-"produksi" — daftar setengah jadi
+"produksi" — daftar setengah jadi (kalau ada nama+jumlah: "produksi [nama] [qty]" → guardline cek resep dulu, baru konfirmasi)
 
 ANTI-TYPO: User typo itu WAJAR. Kamu PAHAM maksudnya:
 "ck stok menipis" = "cek stok menipis"

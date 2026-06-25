@@ -3,7 +3,11 @@
 // ─────────────────────────────────────────────────────────────
 import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable, stockAdjustmentsTable, productVariantsTable, recipesTable } from "@workspace/db";
 import { eq, and, gte, lte, sum } from "drizzle-orm";
-import { listInventoryForBranch, LOW_STOCK_DEFAULT, adjustInventory } from "../services/inventory";
+import { listInventoryForBranch, LOW_STOCK_DEFAULT, adjustInventory, applyMovingAverage, getRecipeRows } from "../services/inventory";
+
+// ── PENDING STATE for guardline confirmation ──
+const pendingStockIn = new Map<number, { itemId: number; name: string; qty: number; unit: string; branchId: number }>();
+const pendingProduction = new Map<number, { itemId: number; name: string; qty: number; branchId: number; components: { type: string; id: number; name: string; qty: number }[] }>();
 
 export async function handleBusiness(msg: string, branchId: number): Promise<string> {
   // Anti-typo: normalize common misspellings
@@ -34,6 +38,77 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
   const bid = branchId;
   const branchMatch = lower.match(/(?:cabang|branch)\s*(?:id\s*)?(\d+)/i);
   const userBranchId = branchMatch ? parseInt(branchMatch[1]) : bid;
+  const uid = userBranchId; // use branch as user context for pending maps
+
+  // ── GUARDLINE CONFIRMATION HANDLER ──
+  // User replied "ya/setuju/lanjut/jalanin" OR just a number (harga beli)
+  const isConfirm = /^(?:ya|y|yes|setuju|lanjutkan|lanjut|ok|oke|jalan|gas)\b/i.test(lower);
+  const isNumber = /^\d+$/.test(lower);
+  const pendingSI = pendingStockIn.get(uid);
+  const pendingPR = pendingProduction.get(uid);
+
+  if (isNumber && pendingSI) {
+    // Pure number reply → treat as purchase price
+    pendingStockIn.delete(uid);
+    const purchaseTotal = parseFloat(lower);
+    await db.transaction(async (tx) => {
+      await adjustInventory(tx, userBranchId, "ingredient", pendingSI.itemId, pendingSI.qty);
+      await applyMovingAverage(tx, userBranchId, pendingSI.itemId, pendingSI.qty, purchaseTotal);
+      await tx.insert(stockAdjustmentsTable).values({
+        branchId: userBranchId, itemType: "ingredient", itemId: pendingSI.itemId,
+        adjustmentType: "in", quantity: String(pendingSI.qty),
+        purchasePriceTotal: String(purchaseTotal),
+        notes: `via AI: tambah stok (harga total Rp ${purchaseTotal.toLocaleString("id-ID")})`,
+      });
+    });
+    const newHPP = purchaseTotal / pendingSI.qty;
+    return `✅ Stok ${pendingSI.name} bertambah ${pendingSI.qty} ${pendingSI.unit}.\nPembelian total: Rp ${purchaseTotal.toLocaleString("id-ID")}\nHPP baru: Rp ${newHPP.toFixed(2)} / ${pendingSI.unit}`;
+  }
+
+  if (isConfirm && pendingSI) {
+    pendingStockIn.delete(uid);
+    const totalPrice = lower.match(/(\d+)/)?.[1];
+    const purchaseTotal = totalPrice ? parseFloat(totalPrice) : 0;
+    await db.transaction(async (tx) => {
+      await adjustInventory(tx, userBranchId, "ingredient", pendingSI.itemId, pendingSI.qty);
+      if (purchaseTotal > 0) {
+        await applyMovingAverage(tx, userBranchId, pendingSI.itemId, pendingSI.qty, purchaseTotal);
+      }
+      await tx.insert(stockAdjustmentsTable).values({
+        branchId: userBranchId, itemType: "ingredient", itemId: pendingSI.itemId,
+        adjustmentType: "in", quantity: String(pendingSI.qty),
+        purchasePriceTotal: purchaseTotal > 0 ? String(purchaseTotal) : null,
+        notes: "via AI: tambah stok" + (purchaseTotal > 0 ? ` (harga total Rp ${purchaseTotal.toLocaleString("id-ID")})` : " (tanpa HPP)"),
+      });
+    });
+    const priceInfo = purchaseTotal > 0
+      ? `Pembelian total: Rp ${purchaseTotal.toLocaleString("id-ID")}. HPP baru: Rp ${(purchaseTotal / pendingSI.qty).toFixed(2)} / ${pendingSI.unit}`
+      : "Tanpa harga pembelian (HPP tidak diperbarui).";
+    return `✅ Stok ${pendingSI.name} bertambah ${pendingSI.qty} ${pendingSI.unit}. ${priceInfo}`;
+  }
+
+  if (isConfirm && pendingPR) {
+    pendingProduction.delete(uid);
+    await db.transaction(async (tx) => {
+      for (const comp of pendingPR.components) {
+        await adjustInventory(tx, userBranchId, comp.type === "ingredient" ? "ingredient" : "semi_finished", comp.id, -(comp.qty * pendingPR.qty));
+      }
+      await adjustInventory(tx, userBranchId, "semi_finished", pendingPR.itemId, pendingPR.qty);
+    });
+    const used = pendingPR.components.map((c) => `• ${c.name}: -${(c.qty * pendingPR.qty).toFixed(2)}`).join("\n");
+    return `✅ Produksi ${pendingPR.qty} ${pendingPR.name} selesai!\nBahan terpakai:\n${used}`;
+  }
+
+  if (isConfirm) {
+    return "Mau lanjutin apa ya bos? Ga ada perintah yg pending.";
+  }
+
+  // User cancelled
+  if (/^(?:tidak|batal|n|cancel|ga|gak)\b/i.test(lower)) {
+    pendingStockIn.delete(uid);
+    pendingProduction.delete(uid);
+    return "Ok, dibatalkan bos. Ada yg lain?";
+  }
 
   // ── CEK STOK MENIPIS ──
   if (/(?:stok|bahan).*(menipis|habis|sedikit|kritis|tipis|abis)|low.?stock/i.test(lower)) {
@@ -48,7 +123,7 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     return `Stok menipis di cabang ${userBranchId}:\n${lines.join("\n")}` + (low.length > 10 ? `\n...dan ${low.length - 10} lainnya` : "");
   }
 
-  // ── TAMBAH STOK ──
+  // ── TAMBAH STOK (GUARDLINE: minta harga beli) ──
   if (/tambah\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i.test(lower)) {
     const match = lower.match(/tambah\s+(?:stok\s+)?(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i);
     if (!match) return "Format: tambah stok [nama] [jumlah] [unit]. Contoh: tambah stok air 19000 ml";
@@ -62,11 +137,10 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     const item = found[0];
     const finalUnit = unit || item.unit;
     if (unit) await db.update(ingredientsTable).set({ unit }).where(eq(ingredientsTable.id, item.id)).catch(() => {});
-    await db.transaction(async (tx) => {
-      await adjustInventory(tx, userBranchId, "ingredient", item.id, qty);
-      await tx.insert(stockAdjustmentsTable).values({ branchId: userBranchId, itemType: "ingredient", itemId: item.id, adjustmentType: "in", quantity: String(qty), notes: `via AI: tambah stok` });
-    });
-    return `✅ Stok ${item.name} bertambah ${qty} ${finalUnit}. Cek "cari stok ${name}" buat liat total.`;
+    // Guardline: store pending, ask for purchase price
+    pendingStockIn.set(uid, { itemId: item.id, name: item.name, qty, unit: finalUnit, branchId: userBranchId });
+    const stockLine = qty > 0 && item.costPricePerUnit ? `\n• HPP saat ini: Rp ${parseFloat(item.costPricePerUnit).toLocaleString("id-ID")} / ${finalUnit}` : "";
+    return `⚠️ Konfirmasi tambah stok:\n• ${item.name}: +${qty} ${finalUnit}${stockLine}\n\n💰 **Beli total berapa?** Balas dengan angka (total harga beli), atau:\n- Balas **ya** kalau gratis / ga perlu update HPP\n- Balas **batal** buat batalkan`;
   }
 
   // ── KURANGI STOK ──
@@ -258,13 +332,49 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     return `📊 Laporan ${label} — cabang ${userBranchId}:\n• Pendapatan: Rp ${rev.toLocaleString("id-ID")}\n• Bahan baku: Rp ${cogs.toLocaleString("id-ID")}\n• Pengeluaran: Rp ${expense.toLocaleString("id-ID")}\n• Laba bersih: Rp ${profit.toLocaleString("id-ID")}`;
   }
 
-  // ── PRODUKSI ──
-  if (/produksi|bikin (setengah jadi|adonan)/i.test(lower)) {
+  // ── PRODUKSI (GUARDLINE: cek resep dulu) ──
+  if (/produksi\s+(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?|bikin\s+(setengah jadi|adonan)/i.test(lower)) {
+    // "produksi matcha 1000 gr" or "produksi matcha 1000"
+    const prodMatch = lower.match(/produksi\s+(\w+(?:\s+\w+)*?)\s+(\d+)(?:\s*(ml|l|kg|g|pcs|liter|gram|ons))?/i);
+    if (prodMatch) {
+      const prodName = prodMatch[1].trim();
+      const qty = parseFloat(prodMatch[2]);
+      const items = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
+      const found = items.filter((i) => i.name.toLowerCase().includes(prodName));
+      if (found.length === 0) return `Ga nemu setengah jadi "${prodName}" di cabang ${userBranchId}. Coba ketik "produksi" buat liat daftar.`;
+      if (found.length > 1) return `Ada ${found.length} mirip:\n${found.map((i) => `• ${i.name}`).join("\n")}\n\nSpesifikin.`;
+      const item = found[0];
+
+      // Check recipe
+      const recipeRows = await db.transaction(async (tx) => getRecipeRows(tx, "semi_finished", item.id));
+      if (recipeRows.length === 0) return `⚠️ ${item.name} belum punya resep/BOM!\n\nBuat dulu: "tambah resep ${item.name} butuh [bahan] [qty]"`;
+
+      // Build component summary
+      const comps: { type: string; id: number; name: string; qty: number }[] = [];
+      const ingItems = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, userBranchId));
+      const sfItems = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
+      for (const r of recipeRows) {
+        const ing = ingItems.find((i) => i.id === r.componentId);
+        const sf = sfItems.find((s) => s.id === r.componentId);
+        comps.push({
+          type: r.componentType, id: r.componentId,
+          name: ing?.name || sf?.name || String(r.componentId),
+          qty: r.quantity,
+        });
+      }
+
+      // Guardline: store pending
+      pendingProduction.set(uid, { itemId: item.id, name: item.name, qty, branchId: userBranchId, components: comps });
+      const compList = comps.map((c) => `• ${c.name}: ${(c.qty * qty).toFixed(2)} (${c.qty} × ${qty})`).join("\n");
+      return `⚠️ Konfirmasi produksi:\n• ${item.name}: ${qty} ${item.unit}\n\nBahan yg akan terpakai:\n${compList}\n\nBalas **ya** untuk lanjut, atau **batal** buat batalkan.`;
+    }
+
+    // Just "produksi" → list available items
     if (!branchMatch) return "Produksi di cabang mana, bos?";
     const items = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
     if (items.length === 0) return `Belum ada setengah jadi di cabang ${userBranchId}.`;
     const list = items.map((i) => `• ${i.id}. ${i.name} (${i.unit})`).join("\n");
-    return `Yang mau diproduksi apa, bos? Ini daftar setengah jadinya:\n${list}\n\nContoh: "produksi adonan pisang 3kg"`;
+    return `Yang mau diproduksi apa, bos? Ini daftar setengah jadinya:\n${list}\n\nContoh: "produksi adonan pisang 3 kg"`;
   }
 
   // ── LIHAT VARIAN ──
