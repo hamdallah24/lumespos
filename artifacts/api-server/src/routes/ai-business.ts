@@ -152,10 +152,10 @@ export async function executeOperation(action: string, params: Record<string, an
     }
 
     case "add_recipe": {
-      const { parentType, parentId, ingredientId, quantity } = params;
+      const { parentType, parentId, ingredientId, quantity, componentType } = params;
       if (!parentType || !parentId || !ingredientId || !quantity) return "Parameter tidak lengkap.";
       await db.insert(recipesTable).values({
-        parentType, parentId, componentType: "ingredient", componentId: ingredientId, quantity: String(quantity),
+        parentType, parentId, componentType: componentType || "ingredient", componentId: ingredientId, quantity: String(quantity),
       });
       return "ok";
     }
@@ -384,16 +384,23 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
   // ── ADD RECIPE ──
   const recipeMatch = lower.match(/tambah\s+resep\s+(\w+(?:\s+\w+)*?)\s+butuh\s+(\w+(?:\s+\w+)*?)\s+([\d.]+)/i);
   if (recipeMatch) {
-    const { parent, parentType } = await findRecipeParent(recipeMatch[1].trim(), branchId);
-    if (!parent) return { intent: "add_recipe", params: null };
+    const [prods, semis] = await Promise.all([
+      db.select().from(productsTable).where(and(eq(productsTable.branchId, branchId), eq(productsTable.isActive, true))),
+      db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branchId)),
+    ]);
+    const parentName = recipeMatch[1].trim();
+    const product = prods.find(p => p.name.toLowerCase().includes(parentName));
+    const semi = semis.find(s => s.name.toLowerCase().includes(parentName));
+    if (!product && !semi) return { intent: "add_recipe" };
+    const parent = product ? { id: product.id, name: product.name, type: "product" } : { id: semi!.id, name: semi!.name, type: "semi_finished" };
+
     const compName = recipeMatch[2].trim();
-    const semis = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, branchId));
     const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, branchId));
-    const ing = ings.find((i) => i.name.toLowerCase().includes(compName));
-    const semi = semis.find((s) => s.name.toLowerCase().includes(compName));
-    if (ing) return { intent: "add_recipe", params: { parentType, parentId: parent.id, parentName: parent.name, ingredientId: ing.id, ingredientName: ing.name, quantity: recipeMatch[3] } };
-    if (semi) return { intent: "add_recipe", params: { parentType, parentId: parent.id, parentName: parent.name, ingredientId: semi.id, ingredientName: semi.name, componentType: "semi_finished", quantity: recipeMatch[3] } };
-    return { intent: "add_recipe", params: null };
+    const ing = ings.find(i => i.name.toLowerCase().includes(compName));
+    const sComp = semis.find(s => s.name.toLowerCase().includes(compName));
+    if (ing) return { intent: "add_recipe", params: { parentType: parent.type, parentId: parent.id, parentName: parent.name, ingredientId: ing.id, ingredientName: ing.name, quantity: recipeMatch[3] } };
+    if (sComp) return { intent: "add_recipe", params: { parentType: parent.type, parentId: parent.id, parentName: parent.name, ingredientId: sComp.id, ingredientName: sComp.name, componentType: "semi_finished", quantity: recipeMatch[3] } };
+    return { intent: "add_recipe" };
   }
 
   // ── MULTI-STOCK: "tambah stok: kopi 1000, susu 2000" ──
