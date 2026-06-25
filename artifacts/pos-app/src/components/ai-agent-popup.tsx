@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Bot, User, Briefcase, MessageSquare, Code, Server } from "lucide-react";
+import { X, Send, Bot, User, Briefcase, MessageSquare, Code, Server, Copy, Check } from "lucide-react";
 import { apiFetch } from "@/lib/csrf";
 
 type Mode = "bisnis" | "chat" | "cto" | "vps";
@@ -121,6 +121,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
@@ -165,6 +166,12 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const switchMode = (m: Mode) => {
     setMode(m);
     setMessages([]);
+  };
+
+  const handleCopy = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 1500);
   };
 
   return (
@@ -262,13 +269,21 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                       {msg.role === "user" ? <User size={14} /> : <Bot size={14} />}
                     </div>
                     <div
-                      className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+                      className={`rounded-2xl px-4 py-2.5 text-sm leading-relaxed relative group ${
                         msg.role === "user"
                           ? "bg-[#1565FF] text-white rounded-tr-md"
-                          : "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 rounded-tl-md"
+                          : "bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300 rounded-tl-md pb-8"
                       }`}
                     >
                       {msg.text}
+                      {msg.role === "assistant" && (
+                        <button
+                          onClick={() => handleCopy(msg.text, i)}
+                          className="absolute right-2 bottom-1.5 w-6 h-6 rounded-lg hover:bg-[#1565FF]/10 flex items-center justify-center text-slate-400 hover:text-[#1565FF] transition-colors active:scale-90"
+                        >
+                          {copiedIndex === i ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

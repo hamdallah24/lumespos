@@ -93,6 +93,9 @@ TIM DEV (pilih yg paling relevan ke pesan user):
 - CANT — UI/UX Designer: Mobile-first 360px, touch target 48px, glassmorphism (#1565FF), dark mode, accessibility (WCAG)
 
 FORMAT WAJIB (selalu pakai format ini):
+[BERPIKIR]:
+[Analisis singkat — kenapa pilih specialist ini, apa yg perlu dicek. Maks 200 karakter.]
+
 [NAMA] — [Role]:
 [Jawaban kamu. Maks 1500 karakter.]
 
@@ -553,7 +556,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
 
         // Dynamic Specialist → BANG orchestrator + DeepSeek
-        const bangReply = await callDeepSeek(BANG_ORCHESTRATOR, clean, uid, m, 1200);
+        const bangReply = await callDeepSeek(BANG_ORCHESTRATOR, clean, uid, m, 1500);
         res.json({ reply: bangReply || "BANG sedang sibuk, coba lagi ya bos." });
         return;
       }
