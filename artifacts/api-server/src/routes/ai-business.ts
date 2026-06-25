@@ -35,6 +35,11 @@ type StockWizItem = { itemId: number; name: string; qty: number; unit: string; p
 type StockWiz = { items: StockWizItem[]; currentIdx: number; branchId: number };
 const stockWiz = new Map<number, StockWiz>();
 
+// ── EXPENSE WIZARD STATE ──
+type ExpWizItem = { description: string; amount: number; done: boolean };
+type ExpWiz = { items: ExpWizItem[]; currentIdx: number; branchId: number };
+const expWiz = new Map<number, ExpWiz>();
+
 export async function handleBusiness(msg: string, branchId: number): Promise<string> {
   // Anti-typo: normalize common misspellings
   let normalized = msg.toLowerCase().trim();
@@ -384,10 +389,58 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     return `📦 ${cur.name}: +${cur.qty} ${cur.unit} (${sw.currentIdx + 1}/${sw.items.length})\n💰 Masukkan harga beli total, atau: **ya** | **skip** | **batal**`;
   }
 
-  // User cancelled — also clean up onboarding + stock wizard
+  // ── EXPENSE WIZARD HANDLERS ──
+  const ew = expWiz.get(uid);
+  if (ew) {
+    const cur = ew.items[ew.currentIdx];
+
+    // 1. User: "ya" → commit current + advance
+    if (/^ya\b/i.test(lower)) {
+      await db.insert(expensesTable).values({ branchId: userBranchId, description: cur.description, amount: String(cur.amount) });
+      cur.done = true;
+      const next = ew.currentIdx + 1;
+      expWiz.set(uid, { ...ew, currentIdx: next });
+      if (next >= ew.items.length) {
+        const summary = ew.items.map(it => `• ${it.description}: Rp ${it.amount.toLocaleString("id-ID")} — ${it.done ? "✅ Tercatat" : "⏭️ Dilewati"}`).join("\n");
+        const total = ew.items.filter(it => it.done).reduce((s, it) => s + it.amount, 0);
+        return `🎉 SEMUA PENGELUARAN DIPROSES!\n\n📊 Ringkasan:\n${summary}\n\nTotal tercatat: Rp ${total.toLocaleString("id-ID")}\nSemua sudah di-commit ke database. ✅`;
+      }
+      const nextItem = ew.items[next];
+      return `✅ "${cur.description}" Rp ${cur.amount.toLocaleString("id-ID")} tercatat!\n\n⬅️ ${next + 1}/${ew.items.length} — **${nextItem.description}**: Rp ${nextItem.amount.toLocaleString("id-ID")}\n\nKonfirmasi? **ya** | **skip** | **batal**`;
+    }
+
+    // 2. User: "skip" → lewati + advance
+    if (/^skip\b/i.test(lower)) {
+      const next = ew.currentIdx + 1;
+      expWiz.set(uid, { ...ew, currentIdx: next });
+      if (next >= ew.items.length) {
+        const summary = ew.items.map(it => `• ${it.description}: Rp ${it.amount.toLocaleString("id-ID")} — ${it.done ? "✅ Tercatat" : "⏭️ Dilewati"}`).join("\n");
+        return `🎉 SEMUA PENGELUARAN DIPROSES!\n\n📊 Ringkasan:\n${summary}`;
+      }
+      const nextItem = ew.items[next];
+      return `⏭️ "${cur.description}" dilewati.\n\n⬅️ ${next + 1}/${ew.items.length} — **${nextItem.description}**: Rp ${nextItem.amount.toLocaleString("id-ID")}`;
+    }
+
+    // 3. User: "edit [nama]" → balik ke item
+    const editMatch = lower.match(/^edit\s+(\w+(?:\s+\w+)*)/i);
+    if (editMatch) {
+      const target = editMatch[1].trim();
+      const idx = ew.items.findIndex(it => it.description.toLowerCase().includes(target));
+      if (idx < 0) return `Ga nemu "${target}". Item: ${ew.items.map(it => it.description).join(", ")}`;
+      expWiz.set(uid, { ...ew, currentIdx: idx });
+      return `⬅️ Mengedit **${ew.items[idx].description}**: Rp ${ew.items[idx].amount.toLocaleString("id-ID")}\nKonfirmasi? **ya** | **skip** | **batal**`;
+    }
+
+    // 4. Default — show current
+    return `💸 Pengeluaran ${ew.currentIdx + 1}/${ew.items.length}: **${cur.description}** — Rp ${cur.amount.toLocaleString("id-ID")}\n\nKonfirmasi catat? **ya** | **skip** | **batal**`;
+  }
+
+  // User cancelled — also clean up onboarding + stock wizard + expense wizard
   if (/^(?:tidak|batal|n|cancel|ga|gak)\b/i.test(lower)) {
     pendingStockIn.delete(uid);
     pendingProduction.delete(uid);
+    // Cleanup expense wizard
+    if (ew) { expWiz.delete(uid); return "🔄 Catat pengeluaran batch dibatalkan."; }
     // Cleanup stock wizard
     if (sw) { stockWiz.delete(uid); return "🔄 Tambah stok batch dibatalkan."; }
     // Cleanup onboarding — delete product + all variants
@@ -637,6 +690,23 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
     const desc = lower.replace(/catat (pengeluaran|biaya|belanja)\s*/i, "").replace(/\d+/g, "").trim() || "Pengeluaran";
     await db.insert(expensesTable).values({ branchId: userBranchId, description: desc, amount: String(amountNum) });
     return `Udah dicatat, bos! Pengeluaran "${desc}" Rp ${amountNum.toLocaleString("id-ID")} di cabang ${userBranchId}.`;
+  }
+
+  // ── CATAT PENGELUARAN WIZARD (multi: "catat pengeluaran: beli kopi 50000, bayar listrik 200000") ──
+  if (/catat\s+pengeluaran\s*:\s*(.+)/i.test(lower)) {
+    const varStr = lower.match(/catat\s+pengeluaran\s*:\s*(.+)/i)![1].trim();
+    const pairs = varStr.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+    const items: ExpWizItem[] = [];
+    for (const pair of pairs) {
+      // "beli kopi 50000" → desc="beli kopi", amount=50000
+      const pm = pair.match(/^(.+?)\s+(\d+)$/);
+      if (!pm) return `Format item salah: "${pair}". Harus: "deskripsi nominal" (contoh: beli kopi 50000, bayar listrik 200000)`;
+      items.push({ description: pm[1].trim(), amount: parseInt(pm[2]), done: false });
+    }
+    if (items.length === 0) return "Ga ada item valid.";
+    expWiz.set(uid, { items, currentIdx: 0, branchId: userBranchId });
+    const list = items.map(it => `• ${it.description}: Rp ${it.amount.toLocaleString("id-ID")}`).join("\n");
+    return `✅ Siap catat ${items.length} pengeluaran!\n\n📊 Daftar:\n${list}\n\n⬅️ 1/${items.length} — **${items[0].description}**: Rp ${items[0].amount.toLocaleString("id-ID")}\n\nKonfirmasi catat? **ya** | **skip** | **batal**`;
   }
 
   // ── LAPORAN ──
