@@ -151,10 +151,10 @@ Jawab santai, hangat, bantu brainstorming ide bisnis, resep, tips marketing.
 Maks 500 karakter. Bahasa Indonesia. Jangan teknis kecuali diminta.
 Jika user butuh bantuan teknis, arahkan ke tab CTO.`;
 
-const BISNIS_SYSTEM = `Kamu asisten bisnis Lume's Everywhere. Bantu analisis data toko.
-Kamu bisa jawab soal: stok, menu, pengeluaran, laporan keuangan, produksi, resep.
-Jika ga bisa jawab, arahkan user untuk ke tab CTO (bantuan teknis) atau Chat (ngobrol santai).
-Singkat, padat, maks 500 karakter. Bahasa Indonesia.`;
+const BISNIS_SYSTEM = `Kamu asisten bisnis Lume's Everywhere — aplikasi POS kuliner.
+Jawab pertanyaan bisnis: analisis, saran, ide marketing, strategi harga, tren kuliner, efisiensi operasional.
+Jika user tanya data spesifik (stok, menu, laporan), arahkan: "Coba ketik 'cek stok menipis', 'lihat menu', atau 'laporan keuangan' ya bos."
+Singkat, padat, maks 500 karakter. Bahasa Indonesia. JANGAN bilang "aku belum bisa akses" — kamu BISA bantu analisis bisnis.`;
 
 // ─────────────────────────────────────────────────────────────
 // 5. GITHUB FILE HELPERS
@@ -209,6 +209,26 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
     const lines = low.slice(0, 10).map((i) => `• ${i.name}: ${i.currentStock} ${i.unit} (min: ${i.minimalStock || threshold} ${i.unit})`);
     return `Stok menipis di cabang ${userBranchId}:\n${lines.join("\n")}` + (low.length > 10 ? `\n...dan ${low.length - 10} lainnya` : "");
   }
+
+  // Cari stok spesifik: "cari stok gula", "stok tepung", "berapa stok minyak"
+  if (/cari\s+(?:stok\s+)?(\w+)|stok\s+(\w+)|berapa\s+(?:stok\s+)?(\w+)/i.test(lower)) {
+    const nameMatch = lower.match(/(?:cari\s+)?(?:stok\s+)?(\w{3,})/i);
+    const searchName = nameMatch?.[1] || "";
+    if (searchName.length >= 3) {
+      const all = await listInventoryForBranch(userBranchId);
+      const found = all.filter((i) => i.name.toLowerCase().includes(searchName));
+      if (found.length === 0) return `Ga nemu "${searchName}" di inventori cabang ${userBranchId}, bos.`;
+      return `Stok di cabang ${userBranchId}:\n${found.map((i) => `• ${i.name}: ${i.currentStock} ${i.unit}`).join("\n")}`;
+    }
+  }
+
+  // Lihat semua stok / cek stok
+  if (/lihat\s+stok|cek\s+stok|inventori|semua\s+(stok|bahan)/i.test(lower)) {
+    const all = await listInventoryForBranch(userBranchId);
+    if (all.length === 0) return `Inventori cabang ${userBranchId} kosong, bos.`;
+    return `📦 Inventori cabang ${userBranchId}:\n${all.map((i) => `• ${i.name}: ${i.currentStock} ${i.unit} (${i.itemType})`).join("\n")}`;
+  }
+
   if (/lihat (bahan|ingredient|bahan baku)|daftar (bahan|ingredient)/i.test(lower)) {
     const items = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, userBranchId));
     if (items.length === 0) return `Belum ada bahan baku di cabang ${userBranchId}.`;
