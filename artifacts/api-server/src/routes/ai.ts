@@ -19,7 +19,7 @@ const SSH_PASS = process.env.SSH_PASSWORD || "";
 // ─────────────────────────────────────────────────────────────
 // 1. DEEPSEEK / SUMOPOD HELPER
 // ─────────────────────────────────────────────────────────────
-async function callDeepSeek(system: string, user: string): Promise<string> {
+async function callDeepSeek(system: string, user: string, maxTokens = 800): Promise<string> {
   const key = process.env.DEEPSEEK_API_KEY;
   const base = process.env.DEEPSEEK_BASE_URL;
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
@@ -34,17 +34,19 @@ async function callDeepSeek(system: string, user: string): Promise<string> {
           { role: "system", content: system.slice(0, 4000) },
           { role: "user", content: user.slice(0, 2000) },
         ],
-        max_tokens: 800,
+        max_tokens: maxTokens,
         temperature: 0.7,
       }),
     });
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
-      console.error(`[ai] DeepSeek HTTP ${resp.status}: ${err.slice(0, 200)}`);
+      console.error(`[ai] DeepSeek HTTP ${resp.status}: ${err.slice(0, 300)}`);
       return "";
     }
     const json = await resp.json();
-    return (json as any).choices?.[0]?.message?.content?.trim() || "";
+    const content = (json as any).choices?.[0]?.message?.content?.trim() || "";
+    if (!content) console.error(`[ai] DeepSeek empty response. finish_reason=${(json as any).choices?.[0]?.finish_reason}`);
+    return content;
   } catch (err) {
     console.error("[ai] callDeepSeek fetch error:", err);
     return "";
@@ -515,7 +517,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
 
         // Dynamic Specialist → BANG orchestrator + DeepSeek
-        const bangReply = await callDeepSeek(BANG_ORCHESTRATOR, clean);
+        const bangReply = await callDeepSeek(BANG_ORCHESTRATOR, clean, 1200);
         res.json({ reply: bangReply || "BANG sedang sibuk, coba lagi ya bos." });
         return;
       }
