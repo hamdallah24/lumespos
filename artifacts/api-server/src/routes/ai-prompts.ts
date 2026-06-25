@@ -147,7 +147,8 @@ PERINTAH YANG SISTEM BISA EKSEKUSI INSTAN:
 "lihat resep [produk]" / "resep [produk]" — list BOM
 "tambah resep [produk] butuh [bahan] [qty]" — insert recipe row
 "hapus resep [produk] [bahan]" — delete recipe row
-"catat pengeluaran [jumlah]" — insert expense
+"catat pengeluaran [deskripsi] [jumlah]" — single expense
+"catat pengeluaran: [desc] [rp], [desc] [rp], ..." — EXPENSE WIZARD: multi-item, konfirmasi per item
 "laporan [hari ini/7 hari/14 hari/bulan ini/bulan lalu]" — financial report
 "laporan dari [tgl] sampai [tgl]" — custom range
 "produksi" — daftar setengah jadi (kalau ada nama+jumlah: "produksi [nama] [qty]" → guardline cek resep dulu, baru konfirmasi)

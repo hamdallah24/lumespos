@@ -42,7 +42,7 @@ const BISNIS_GROUPS = [
   {
     key: "keuangan", label: "💰 Keuangan",
     items: [
-      { label: "Catat Pengeluaran", text: "catat pengeluaran " },
+      { label: "Catat Pengeluaran", text: "catat pengeluaran: " },
       { label: "Laporan Hari Ini", text: "laporan hari ini" },
       { label: "Laporan 7 Hari", text: "laporan 7 hari" },
       { label: "Laporan Bulan Ini", text: "laporan bulan ini" },
