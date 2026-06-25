@@ -83,6 +83,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
   const secondaryNav = [
     { href: "/orders", label: "Riwayat", icon: Receipt, show: true },
     { href: "/shift", label: "Tutup Shift", icon: ClipboardList, show: true },
+    { href: "/pengeluaran", label: "Pengeluaran", icon: Wallet, show: canManage },
     { href: "/inventory", label: "Stok & Bahan", icon: Boxes, show: canManage },
     { href: "/audits", label: "Audit Shift", icon: ClipboardCheck, show: canManage },
     { href: "/branches", label: "Cabang", icon: Store, show: isOwner },
