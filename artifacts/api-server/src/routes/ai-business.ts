@@ -6,7 +6,31 @@ import { eq, and, gte, lte, sum } from "drizzle-orm";
 import { listInventoryForBranch, LOW_STOCK_DEFAULT, adjustInventory } from "../services/inventory";
 
 export async function handleBusiness(msg: string, branchId: number): Promise<string> {
-  const lower = msg.toLowerCase().trim();
+  // Anti-typo: normalize common misspellings
+  let normalized = msg.toLowerCase().trim();
+  const fixes: [RegExp, string][] = [
+    [/setok/gi, "stok"], [/stik/gi, "stok"], [/stol/gi, "stok"],
+    [/meniis/gi, "menipis"], [/mnipis/gi, "menipis"], [/menepis/gi, "menipis"],
+    [/laoran/gi, "laporan"], [/lapran/gi, "laporan"], [/laporn/gi, "laporan"],
+    [/hps/gi, "hapus"], [/hpus/gi, "hapus"],
+    [/tmabah/gi, "tambah"], [/tmbah/gi, "tambah"], [/tamabah/gi, "tambah"],
+    [/kurangi/gi, "kurangi"], [/kuraing/gi, "kurangi"], [/krangi/gi, "kurangi"],
+    [/koreks/gi, "koreksi"], [/korek/gi, "koreksi"], [/kreksi/gi, "koreksi"],
+    [/pngeluaran/gi, "pengeluaran"], [/pengeluran/gi, "pengeluaran"],
+    [/harg/gi, "harga"], [/hrga/gi, "harga"],
+    [/produks/gi, "produksi"], [/produsi/gi, "produksi"],
+    [/nonaktip/gi, "nonaktifkan"],
+    [/lnjot/gi, "lanjutkan"],
+    [/klrif/gi, "klarifikasi"],
+    [/brapa/gi, "berapa"],
+    [/menu/gi, "menu"],
+    [/inventori/gi, "inventori"], [/invntry/gi, "inventori"],
+  ];
+  for (const [re, replacement] of fixes) {
+    normalized = normalized.replace(re, replacement);
+  }
+
+  const lower = normalized;
   const bid = branchId;
   const branchMatch = lower.match(/(?:cabang|branch)\s*(?:id\s*)?(\d+)/i);
   const userBranchId = branchMatch ? parseInt(branchMatch[1]) : bid;

@@ -5,7 +5,7 @@ import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
 import { callDeepSeek, fetchGitHubFile, fetchGitHubDir, sshExec, getHistory, remember, clearMemory } from "./ai-helpers";
 import { handleBusiness } from "./ai-business";
-import { BANG_ORCHESTRATOR, CHAT_SYSTEM, BISNIS_SYSTEM } from "./ai-prompts";
+import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
 
 const router = Router();
@@ -186,7 +186,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       default: {
         const biz = await handleBusiness(clean, defaultBranchId);
         if (biz) { res.json({ reply: biz }); return; }
-        const fallback = await callDeepSeek(BISNIS_SYSTEM, clean, uid, "bisnis");
+        const fallback = await callDeepSeek(COO_SYSTEM, clean, uid, "bisnis");
         res.json({ reply: fallback || "Maaf, saya belum bisa bantu itu. Coba tanya yang lain ya, bos." });
         return;
       }
