@@ -3,23 +3,188 @@ import { requireRole } from "../middlewares/requireAuth";
 import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable } from "@workspace/db";
 import { eq, and, gte, lte, sum } from "drizzle-orm";
 import { listInventoryForBranch, LOW_STOCK_DEFAULT } from "../services/inventory";
+import { exec } from "child_process";
 
 const router = Router();
 
-const N8N_CTO_WEBHOOK_URL = process.env.N8N_CTO_WEBHOOK_URL || "";
-const N8N_VPS_WEBHOOK_URL = process.env.N8N_VPS_WEBHOOK_URL || "";
-const N8N_CHAT_WEBHOOK_URL = process.env.N8N_CHAT_WEBHOOK_URL || "";
+const N8N_CODE_GEN_WEBHOOK_URL = process.env.N8N_CODE_GEN_WEBHOOK_URL || "";
+const GITHUB_PAT = process.env.GITHUB_PAT || "";
+const GITHUB_REPO = "hamdallah24/pos-app";
+const GITHUB_RAW = "https://api.github.com/repos";
+const GH_HEADERS = { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github.v3.raw" };
+const SSH_HOST = process.env.SSH_HOST || "";
+const SSH_USER = process.env.SSH_USER || "";
+const SSH_PASS = process.env.SSH_PASSWORD || "";
 
-function extractReply(data: Record<string, unknown>): string {
-  const raw = (data.reply || data.output || data.result) as string | undefined;
-  if (!raw || raw === "{}") return "";
-  return raw;
+// ─────────────────────────────────────────────────────────────
+// 1. DEEPSEEK / SUMOPOD HELPER
+// ─────────────────────────────────────────────────────────────
+async function callDeepSeek(system: string, user: string): Promise<string> {
+  const key = process.env.DEEPSEEK_API_KEY;
+  const base = process.env.DEEPSEEK_BASE_URL;
+  const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+  if (!key || !base) return "";
+  const resp = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: system.slice(0, 4000) },
+        { role: "user", content: user.slice(0, 2000) },
+      ],
+      max_tokens: 800,
+      temperature: 0.7,
+    }),
+  });
+  const json = await resp.json().catch(() => ({}));
+  return (json as any).choices?.[0]?.message?.content?.trim() || "";
 }
 
+// ─────────────────────────────────────────────────────────────
+// 2. BANG — CTO ORCHESTRATOR PROMPT
+// ─────────────────────────────────────────────────────────────
+const BANG_ORCHESTRATOR = `KAMU: BANG — CTO Orchestrator Lume's Everywhere.
+Tugas: PILIH 1 specialist → JAWAB sebagai specialist itu.
+
+TIM DEV (pilih yg paling relevan ke pesan user):
+- APIK — Backend Dev: Node.js, Express, TypeScript, Drizzle ORM, PostgreSQL, REST API, middleware, routes. Path: artifacts/api-server/src/
+- KITA — Frontend Dev: React 18, Vite, Tailwind CSS, Framer Motion, Lucide Icons, TypeScript. Path: artifacts/pos-app/src/
+- BASU — Database Spec: PostgreSQL (Neon.tech), Drizzle schema, migration, index, query optimization. Path: lib/db/src/schema/
+- OPIK — DevOps Eng: PM2, Nginx, Ubuntu 22.04, SSL, VPS Alibaba (43.157.227.205), GitHub CI/CD
+- COBA — QA Engineer: Testing, debugging, error analysis, edge cases, regression. Semua stack.
+- AMAN — Security Spec: Auth (Passport.js), Google OAuth, CSRF (csrf-csrf), CORS, rate limiting, session (connect-pg-simple)
+- LAJU — Performance Eng: Bundle size, lazy loading (React.lazy), code splitting, caching, Lighthouse. Bundler: Vite/Rollup
+- CANT — UI/UX Designer: Mobile-first 360px, touch target 48px, glassmorphism (#1565FF), dark mode, accessibility (WCAG)
+
+FORMAT WAJIB (selalu pakai format ini):
+[NAMA] — [Role]:
+[Jawaban kamu. Maks 1500 karakter.]
+
+TAMBAHAN untuk COBA & AMAN:
+Jika perlu liat kode, sebut path file spesifik dengan format: \`path/file:linenum\`
+
+ATURAN:
+1. HANYA jawab sebagai 1 specialist
+2. JANGAN jawab sebagai BANG (kecuali user tanya arsitektur/struktur/refactor/design pattern)
+3. Jika user tanya soal arsitektur/sistem → jawab sebagai BANG langsung
+4. JANGAN panggil >1 specialist tanpa konfirmasi user
+5. Singkat, konkret, beri contoh kode jika relevan
+6. Bahasa Indonesia, profesional, maks 1500 karakter
+
+STACK UMUM:
+Repo: hamdallah24/lumespos (pnpm monorepo)
+Branch: main (production), Staging (development)
+Auth: Google OAuth + invite code SIGNUP_CODE
+Table: users, branches, products, orders, expenses, ingredients, semi_finished, recipes, inventory, shift_audits, user_branches`;
+
+// ─────────────────────────────────────────────────────────────
+// 3. SPECIALIST PROMPT SHORTS (appended by orchestrator selection)
+// ─────────────────────────────────────────────────────────────
+const SPECIALIST_NOTE: Record<string, string> = {
+  backend: `[KONTEKS TAMBAHAN UNTUK APIK]
+Stack: Node.js Express TS + Drizzle ORM + PostgreSQL Neon.tech. Path: artifacts/api-server/src/
+Routes: auth, products, orders, expenses, inventory, semiFinished, dashboard, users, shiftAudits, storage
+Middleware: requireAuth.ts, requireRole, requireBranchAccess
+Response selalu: res.json({ reply: "..." }), bukan res.send()
+SEBUT path file yg relevan.`,
+  frontend: `[KONTEKS TAMBAHAN UNTUK KITA]
+Stack: React 18 + Vite + Tailwind CSS + Framer Motion + Lucide Icons. Path: artifacts/pos-app/src/
+Mobile 360px, touch target >=48px, primary #1565FF, dark mode: dark: prefix
+Design: rounded-2xl (16px), glass: backdrop-blur-xl border-[#1565FF]/10
+SEBUT path file yg relevan.`,
+  database: `[KONTEKS TAMBAHAN UNTUK BASU]
+Stack: PostgreSQL Neon.tech + Drizzle ORM. Path: lib/db/src/schema/
+Tables: branches, categories, expenses, products, product_variants, orders, order_items, users, ingredients, semi_finished, recipes, current_inventory, stock_adjustments, shift_audits, user_branches
+SEBUT table name, field name, dan usulkan index.`,
+  devops: `[KONTEKS TAMBAHAN UNTUK OPIK]
+VPS: Ubuntu 22.04 Alibaba Cloud, IP 43.157.227.205, Domain: 43.157.227.205.nip.io
+PM2: pos-api (fork mode), Nginx: reverse proxy ke localhost:3000, path: /etc/nginx/sites-available/pos
+Build: pnpm --filter ./artifacts/api-server run build, Restart: pm2 restart pos-api
+Proyek root: ~/lumespos/, API dist: artifacts/api-server/dist/index.mjs`,
+  qa: `[KONTEKS TAMBAHAN UNTUK COBA]
+Stack: full Lume's (Express + React + PostgreSQL). Semua path valid.
+Tugas: diagnosa bug/error/crash. SEBUT file path + nomor baris yg dicurigai.
+Test scenarios: auth (login/signup/Google), CSRF, cart, payment (Tunai/QRIS/Online), shift (start/end + stok + foto), inventory, dashboard.
+File kunci: artifacts/api-server/src/routes/, artifacts/pos-app/src/components/`,
+  security: `[KONTEKS TAMBAHAN UNTUK AMAN]
+Auth: Passport.js Google OAuth 2.0 + email/password + SIGNUP_CODE invite.
+CSRF: csrf-csrf, cookie pos-csrf, sameSite=lax, skip /api/auth/* dan /auth/*
+Session: express-session + connect-pg-simple, httpOnly, sameSite=lax, secure (production)
+CORS: CORS_ORIGINS env, Helmet CSP: app.ts
+Rate limit: express-rate-limit 600/15min, trust proxy enabled
+File upload: multer local dir /uploads
+SEBUT path file + nomor baris yg relevan.`,
+  architect: `[KONTEKS TAMBAHAN UNTUK BANG]
+BANG — Software Architect. Full stack Lume's monorepo.
+Struktur: artifacts/api-server/ (Express), artifacts/pos-app/ (React), lib/db/ (Drizzle schema), lib/api-client-react/ (shared types)
+Key files: artifacts/api-server/src/app.ts (config), artifacts/api-server/src/routes/ (semua route),
+artifacts/pos-app/src/App.tsx (router), artifacts/pos-app/src/components/layout.tsx (layout)
+HANYA analisis arsitektur, struktur folder, design pattern, scalable solution.`,
+  performance: `[KONTEKS TAMBAHAN UNTUK LAJU]
+Bundle: Vite + Rollup, chunks >500KB. Entry: artifacts/pos-app/src/main.tsx
+Caching: Nginx immutable untuk assets, no-store untuk index.html, __BUILD_ID__ cache busting
+Lazy: React.lazy + Suspense, dynamic import(). Image: loading="lazy"
+Target: mobile 4G, FCP <2s, LCP <2.5s, TBT <200ms, CLS <0.1`,
+  ux: `[KONTEKS TAMBAHAN UNTUK CANT]
+Design system: Mobile 360px, touch target 48px, primary #1565FF, dark: #071426, bg: #F8FBFC
+Radius: rounded-2xl (16px), Glass: backdrop-blur-xl border-[#1565FF]/10, shadow-lg shadow-[#1565FF]/5
+Komponen: card-responsive (clamp), FAB 64px, bottom nav 72px, header 72px
+Accessibility: WCAG AA, aria-label, role, keyboard nav, focus-visible ring`,
+};
+
+// ─────────────────────────────────────────────────────────────
+// 4. CHAT & BISNIS SYSTEM PROMPTS
+// ─────────────────────────────────────────────────────────────
+const CHAT_SYSTEM = `Kamu asisten ramah Lume's Everywhere — aplikasi POS kuliner.
+Jawab santai, hangat, bantu brainstorming ide bisnis, resep, tips marketing.
+Maks 500 karakter. Bahasa Indonesia. Jangan teknis kecuali diminta.
+Jika user butuh bantuan teknis, arahkan ke tab CTO.`;
+
+const BISNIS_SYSTEM = `Kamu asisten bisnis Lume's Everywhere. Bantu analisis data toko.
+Kamu bisa jawab soal: stok, menu, pengeluaran, laporan keuangan, produksi, resep.
+Jika ga bisa jawab, arahkan user untuk ke tab CTO (bantuan teknis) atau Chat (ngobrol santai).
+Singkat, padat, maks 500 karakter. Bahasa Indonesia.`;
+
+// ─────────────────────────────────────────────────────────────
+// 5. GITHUB FILE HELPERS
+// ─────────────────────────────────────────────────────────────
+async function fetchGitHubFile(path: string, branch = "main"): Promise<string> {
+  if (!GITHUB_PAT) return "";
+  const resp = await fetch(`${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`, { headers: GH_HEADERS });
+  return resp.ok ? resp.text() : "";
+}
+
+async function fetchGitHubDir(path: string, branch = "main"): Promise<string> {
+  if (!GITHUB_PAT) return "";
+  const resp = await fetch(`${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`, {
+    headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github.v3+json" },
+  });
+  if (!resp.ok) return "";
+  const items = await resp.json().catch(() => []);
+  if (!Array.isArray(items)) return "";
+  return items.map((i: any) => `${i.type === "dir" ? "📁" : "📄"} ${i.name}`).join("\n");
+}
+
+// ─────────────────────────────────────────────────────────────
+// 6. SSH HELPER
+// ─────────────────────────────────────────────────────────────
+function sshExec(cmd: string): Promise<string> {
+  return new Promise((resolve) => {
+    if (!SSH_HOST || !SSH_USER || !SSH_PASS) { resolve(""); return; }
+    const sshCmd = `sshpass -p '${SSH_PASS}' ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "${cmd}"`;
+    exec(sshCmd, { timeout: 15000 }, (err, stdout, stderr) => {
+      resolve(err ? (stderr || err.message) : (stdout || "no output"));
+    });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 7. BUSINESS HANDLER
+// ─────────────────────────────────────────────────────────────
 async function handleBusiness(msg: string, branchId: number): Promise<string> {
   const lower = msg.toLowerCase().trim();
   const bid = branchId;
-
   const branchMatch = lower.match(/(?:cabang|branch)\s*(?:id\s*)?(\d+)/i);
   const userBranchId = branchMatch ? parseInt(branchMatch[1]) : bid;
 
@@ -34,35 +199,30 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
     const lines = low.slice(0, 10).map((i) => `• ${i.name}: ${i.currentStock} ${i.unit} (min: ${i.minimalStock || threshold} ${i.unit})`);
     return `Stok menipis di cabang ${userBranchId}:\n${lines.join("\n")}` + (low.length > 10 ? `\n...dan ${low.length - 10} lainnya` : "");
   }
-
   if (/lihat (bahan|ingredient|bahan baku)|daftar (bahan|ingredient)/i.test(lower)) {
     const items = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, userBranchId));
     if (items.length === 0) return `Belum ada bahan baku di cabang ${userBranchId}.`;
     return `Bahan baku cabang ${userBranchId}:\n${items.map((i) => `• ${i.name} (${i.unit})`).join("\n")}`;
   }
-
   if (/tambah (bahan|ingredient|bahan baku)/i.test(lower)) {
     const nameMatch = lower.match(/tambah (?:bahan|ingredient|bahan baku)\s+(\w+(?:\s+\w+)*?)(?:\s+\d+|\s*$)/i);
     if (!nameMatch) return "Mau tambah bahan apa? Sebutkan nama bahannya.";
-    if (!branchMatch) return `Mau di cabang mana, bos? 1 (Cilengkrang 1), 2 (Cilengkrang 2), dst.`;
+    if (!branchMatch) return "Mau di cabang mana, bos? 1 (Cilengkrang 1), 2 (Cilengkrang 2), dst.";
     await db.insert(ingredientsTable).values({ branchId: userBranchId, name: nameMatch[1].trim(), unit: "ml" });
     return `Udah, bos! Bahan "${nameMatch[1].trim()}" berhasil ditambah di cabang ${userBranchId}. Jangan lupa atur stok masuknya ya.`;
   }
-
   if (/lihat (produk|menu)/i.test(lower)) {
     const items = await db.select().from(productsTable).where(and(eq(productsTable.branchId, userBranchId), eq(productsTable.isActive, true)));
     if (items.length === 0) return `Belum ada produk di cabang ${userBranchId}.`;
     return `Menu cabang ${userBranchId}:\n${items.map((p) => `• ${p.name} — Rp ${parseFloat(p.price).toLocaleString("id-ID")}`).join("\n")}`;
   }
-
   if (/tambah (produk|menu)/i.test(lower)) {
     const nameMatch = lower.match(/tambah (?:produk|menu)\s+(\w+(?:\s+\w+)*?)\s+(\d+)/i);
     if (!nameMatch) return "Mau tambah produk apa? Sebutkan nama + harganya. Contoh: tambah menu pisang coklat 15000";
-    if (!branchMatch) return `Mau di cabang mana, bos? 1 (Cilengkrang 1), 2 (Cilengkrang 2), dst.`;
+    if (!branchMatch) return "Mau di cabang mana, bos? 1 (Cilengkrang 1), 2 (Cilengkrang 2), dst.";
     await db.insert(productsTable).values({ branchId: userBranchId, name: nameMatch[1].trim(), price: nameMatch[2] });
     return `Udah! ${nameMatch[1].trim()} seharga Rp ${parseInt(nameMatch[2]).toLocaleString("id-ID")} berhasil ditambah di cabang ${userBranchId}.`;
   }
-
   if (/catat (pengeluaran|biaya|belanja)/i.test(lower)) {
     const amountMatch = lower.match(/(\d+)/);
     if (!amountMatch) return "Mau catat pengeluaran berapa? Kasih nominalnya.";
@@ -71,8 +231,7 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
     await db.insert(expensesTable).values({ branchId: userBranchId, description: lower.replace(/catat (pengeluaran|biaya|belanja)\s*/i, "").trim() || "Pengeluaran", amount: String(amountNum) });
     return `Udah dicatat, bos! Pengeluaran Rp ${amountNum.toLocaleString("id-ID")} di cabang ${userBranchId}.`;
   }
-
-  if (/laporan (keuangan|finansial)|laporan|pendapatan|keuntungan|omzet|profit|revenue/i.test(lower)) {
+  if (/laporan|pendapatan|keuntungan|omzet|profit|revenue/i.test(lower)) {
     const now = new Date();
     const start = new Date(now); start.setDate(start.getDate() - 30); start.setHours(0, 0, 0, 0);
     const end = new Date(now); end.setHours(23, 59, 59, 999);
@@ -87,28 +246,19 @@ async function handleBusiness(msg: string, branchId: number): Promise<string> {
     const profit = rev - cogs - expense;
     return `📊 Laporan 30 hari terakhir — cabang ${userBranchId}:\n• Pendapatan: Rp ${rev.toLocaleString("id-ID")}\n• Bahan baku: Rp ${cogs.toLocaleString("id-ID")}\n• Pengeluaran: Rp ${expense.toLocaleString("id-ID")}\n• Laba bersih: Rp ${profit.toLocaleString("id-ID")}`;
   }
-
   if (/produksi|bikin (setengah jadi|adonan)/i.test(lower)) {
-    if (!branchMatch) return `Produksi di cabang mana, bos?`;
+    if (!branchMatch) return "Produksi di cabang mana, bos?";
     const items = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, userBranchId));
     if (items.length === 0) return `Belum ada setengah jadi di cabang ${userBranchId}.`;
     const list = items.map((i) => `• ${i.id}. ${i.name} (${i.unit})`).join("\n");
     return `Yang mau diproduksi apa, bos? Ini daftar setengah jadinya:\n${list}\n\nContoh: "produksi adonan pisang 3kg"`;
   }
-
   return "";
 }
 
-async function callWebhook(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const data = await resp.json().catch(() => ({}));
-  return data as Record<string, unknown>;
-}
-
+// ─────────────────────────────────────────────────────────────
+// 8. ROUTER
+// ─────────────────────────────────────────────────────────────
 router.post("/ai/chat", requireRole("owner"), async (req, res) => {
   try {
     const { message, mode } = req.body as { message?: string; mode?: string };
@@ -123,49 +273,105 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     const m = mode || "bisnis";
 
     switch (m) {
-      case "cto": {
-        if (!N8N_CTO_WEBHOOK_URL) break;
-        const data = await callWebhook(N8N_CTO_WEBHOOK_URL, { message: clean, branchId: defaultBranchId, userId: user.id, role: user.role, userName: user.name });
-        const reply = extractReply(data) || "Maaf, CTO Agent sedang sibuk. Coba lagi nanti ya, bos.";
-        res.json({ reply });
-        return;
-      }
 
-      case "vps": {
-        if (!N8N_VPS_WEBHOOK_URL) break;
-        const data = await callWebhook(N8N_VPS_WEBHOOK_URL, { message: clean, chat_id: "7218843690" });
-        const reply = extractReply(data) || "Maaf, VPS Control sedang sibuk. Coba lagi nanti ya, bos.";
-        res.json({ reply });
-        return;
-      }
-
+      // ── CHAT ──
       case "chat": {
-        if (!N8N_CHAT_WEBHOOK_URL) break;
-        const data = await callWebhook(N8N_CHAT_WEBHOOK_URL, { message: clean, userName: user.name });
-        const reply = extractReply(data) || "Maaf, Chat Agent sedang sibuk. Coba lagi nanti ya, bos.";
-        res.json({ reply });
+        const reply = await callDeepSeek(CHAT_SYSTEM, clean);
+        res.json({ reply: reply || "Chat Agent sedang sibuk, coba lagi ya bos." });
         return;
       }
 
+      // ── CTO ──
+      case "cto": {
+        const lower = clean.toLowerCase();
+
+        // Baca file GitHub
+        if (/baca\s+(file\s+)?\S+\.[a-z]+/i.test(lower) || /lihat\s+(file\s+)?\S+/i.test(lower)) {
+          const fileMatch = lower.match(/(?:baca|lihat|read)\s+(?:file\s+)?(\S+\.\w+)/i);
+          if (fileMatch) {
+            const content = await fetchGitHubFile(fileMatch[1]);
+            if (content) {
+              res.json({ reply: `📄 ${fileMatch[1]}:\n\`\`\`\n${content.slice(0, 3000)}\n\`\`\`` + (content.length > 3000 ? `\n\n...dipotong (${content.length} karakter total)` : "") });
+              return;
+            }
+            res.json({ reply: `File "${fileMatch[1]}" tidak ditemukan atau GITHUB_PAT belum diset.` });
+            return;
+          }
+        }
+
+        // List direktori GitHub
+        if (/list\s+(?:direktori|directory|folder|struktur)/i.test(lower)) {
+          const dirMatch = lower.match(/(?:list\s+(?:direktori|directory|folder|struktur)\s+)?(\S+)/i);
+          const dir = dirMatch ? dirMatch[1].replace(/(list|direktori|directory|folder|struktur)/i, "").trim() : "";
+          const listing = await fetchGitHubDir(dir || "artifacts");
+          if (listing) { res.json({ reply: `📁 ${dir || "artifacts"}:\n${listing}` }); return; }
+          res.json({ reply: "Direktori tidak ditemukan atau GITHUB_PAT belum diset." });
+          return;
+        }
+
+        // Code Generator → arahkan ke n8n
+        if (/(?:generate|bikin|buat|tulis)\s*(?:kode|code|file|komponen|component|route|endpoint|halaman|page)/i.test(lower)) {
+          if (N8N_CODE_GEN_WEBHOOK_URL) {
+            const resp = await fetch(N8N_CODE_GEN_WEBHOOK_URL, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ message: clean, userId: user.id, userName: user.name }),
+            });
+            const data = await resp.json().catch(() => ({}));
+            const reply = (data as any).reply || (data as any).output || "Code Generator sedang sibuk.";
+            res.json({ reply });
+            return;
+          }
+          res.json({ reply: "Code Generator belum dikonfigurasi (N8N_CODE_GEN_WEBHOOK_URL kosong)." });
+          return;
+        }
+
+        // Dynamic Specialist → BANG orchestrator + DeepSeek
+        const bangReply = await callDeepSeek(BANG_ORCHESTRATOR, clean);
+        res.json({ reply: bangReply || "BANG sedang sibuk, coba lagi ya bos." });
+        return;
+      }
+
+      // ── VPS ──
+      case "vps": {
+        const lower = clean.toLowerCase();
+        let cmd = "";
+
+        if (/deploy|git pull/i.test(lower)) {
+          res.json({ reply: "Deploy jangan lewat sini ya bos. SSH manual aja:\n```\ngit pull && pnpm build && pm2 restart\n```" });
+          return;
+        }
+        if (/restart/i.test(lower)) {
+          res.json({ reply: "Restart jangan lewat sini ya bos. SSH manual:\n```\npm2 restart pos-api\n```" });
+          return;
+        }
+        if (/status|keadaan|info/i.test(lower)) cmd = "pm2 status && echo '---' && free -m && echo '---' && uptime";
+        else if (/logs|log/i.test(lower)) cmd = "pm2 logs pos-api --lines 30 --nostream";
+        else if (/health|sehat|alive/i.test(lower)) cmd = "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health && echo ' (200=OK)'";
+        else if (/ram|memori|memory/i.test(lower)) cmd = "free -m";
+        else if (/disk|hardisk|storage/i.test(lower)) cmd = "df -h /";
+        else if (/uptime/i.test(lower)) cmd = "uptime";
+
+        if (cmd) {
+          const result = await sshExec(cmd);
+          if (!result) { res.json({ reply: "Gagal SSH ke VPS. Cek SSH_HOST, SSH_USER, SSH_PASSWORD di .env." }); return; }
+          res.json({ reply: `\`\`\`\n${result.slice(0, 3000)}\n\`\`\`` });
+          return;
+        }
+        res.json({ reply: "Command VPS ga dikenal. Coba: status, logs, health, ram, disk, uptime.\nDeploy & restart harus SSH manual ya bos." });
+        return;
+      }
+
+      // ── BISNIS ──
       case "bisnis":
       default: {
-        const businessReply = await handleBusiness(clean, defaultBranchId);
-        if (businessReply) {
-          res.json({ reply: businessReply });
-          return;
-        }
-        if (N8N_CHAT_WEBHOOK_URL) {
-          const data = await callWebhook(N8N_CHAT_WEBHOOK_URL, { message: clean, userName: user.name });
-          const reply = extractReply(data) || "Maaf, saya belum bisa bantu itu. Coba tanya yang lain ya, bos.";
-          res.json({ reply });
-          return;
-        }
-        res.json({ reply: "Maaf, saya belum bisa bantu itu. Coba tanya yang lain ya, bos." });
+        const biz = await handleBusiness(clean, defaultBranchId);
+        if (biz) { res.json({ reply: biz }); return; }
+        const fallback = await callDeepSeek(BISNIS_SYSTEM, clean);
+        res.json({ reply: fallback || "Maaf, saya belum bisa bantu itu. Coba tanya yang lain ya, bos." });
         return;
       }
     }
-
-    res.json({ reply: "Mode tidak tersedia atau webhook belum dikonfigurasi." });
   } catch (err) {
     res.status(500).json({ error: "Internal server error" });
   }
