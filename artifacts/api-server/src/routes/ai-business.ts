@@ -1,9 +1,25 @@
 // ─────────────────────────────────────────────────────────────
 // AI BUSINESS HANDLER — Query DB langsung untuk operasi bisnis
 // ─────────────────────────────────────────────────────────────
-import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable, stockAdjustmentsTable, productVariantsTable, recipesTable } from "@workspace/db";
+import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable, stockAdjustmentsTable, productVariantsTable, recipesTable, currentInventoryTable } from "@workspace/db";
 import { eq, and, gte, lte, sum } from "drizzle-orm";
-import { listInventoryForBranch, LOW_STOCK_DEFAULT, adjustInventory, applyMovingAverage, getRecipeRows } from "../services/inventory";
+import { listInventoryForBranch, LOW_STOCK_DEFAULT, adjustInventory, applyMovingAverage, getRecipeRows, getInventoryStock } from "../services/inventory";
+
+// ── PRODUCTION HELPERS (replikasi dari semiFinished.ts) ──
+async function getComponentCost(tx: any, componentType: string, componentId: number): Promise<number> {
+  if (componentType === "semi_finished") {
+    const [sf] = await tx.select({ costPricePerUnit: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, componentId));
+    return sf ? parseFloat(sf.costPricePerUnit) : 0;
+  }
+  const [ing] = await tx.select({ costPricePerUnit: ingredientsTable.costPricePerUnit }).from(ingredientsTable).where(eq(ingredientsTable.id, componentId));
+  return ing ? parseFloat(ing.costPricePerUnit) : 0;
+}
+
+async function getCurrentStockLocal(tx: any, branchId: number, itemId: number): Promise<number> {
+  const [stock] = await tx.select({ s: currentInventoryTable.currentStock }).from(currentInventoryTable)
+    .where(and(eq(currentInventoryTable.itemType, "semi_finished"), eq(currentInventoryTable.itemId, itemId), eq(currentInventoryTable.branchId, branchId)));
+  return stock ? parseFloat(stock.s) : 0;
+}
 
 // ── PENDING STATE for guardline confirmation ──
 const pendingStockIn = new Map<number, { itemId: number; name: string; qty: number; unit: string; branchId: number }>();
@@ -89,14 +105,69 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
 
   if (isConfirm && pendingPR) {
     pendingProduction.delete(uid);
+    const producedWeight = pendingPR.qty;
+    const costDetails: string[] = [];
+    let totalCost = 0;
+
     await db.transaction(async (tx) => {
+      // 1. Validasi stok komponen (replikasi semiFinished.ts guard rail)
       for (const comp of pendingPR.components) {
-        await adjustInventory(tx, userBranchId, comp.type === "ingredient" ? "ingredient" : "semi_finished", comp.id, -(comp.qty * pendingPR.qty));
+        const componentType = comp.type === "ingredient" ? "ingredient" as const : "semi_finished" as const;
+        const currentStock = await getInventoryStock(tx, userBranchId, componentType, comp.id);
+        if (currentStock < comp.qty) {
+          throw new Error(`Stok "${comp.name}" tidak mencukupi! Dibutuhkan ${comp.qty}, tapi sisa stok hanya ${currentStock}.`);
+        }
       }
-      await adjustInventory(tx, userBranchId, "semi_finished", pendingPR.itemId, pendingPR.qty);
+
+      // 2. Hitung total biaya & kurangi stok (replikasi semiFinished.ts L237-245)
+      for (const comp of pendingPR.components) {
+        const componentType = comp.type === "ingredient" ? "ingredient" as const : "semi_finished" as const;
+        const componentCost = await getComponentCost(tx, comp.type, comp.id);
+        totalCost += componentCost * comp.qty;
+        await adjustInventory(tx, userBranchId, componentType, comp.id, -comp.qty);
+        costDetails.push(`• ${comp.name}: ${comp.qty} × Rp ${componentCost.toFixed(2)} = Rp ${(componentCost * comp.qty).toFixed(2)}`);
+      }
+
+      // 3. Hitung HPP baru berdasarkan producedWeight (replikasi semiFinished.ts L248-264)
+      const newHpp = totalCost / producedWeight;
+      const oldStock = await getCurrentStockLocal(tx, userBranchId, pendingPR.itemId);
+      const [sf] = await tx.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, pendingPR.itemId));
+      const oldHpp = parseFloat(sf?.c || "0");
+      const oldTotalValue = oldHpp * oldStock;
+      const newTotalValue = newHpp * producedWeight;
+      const avgHpp = (oldTotalValue + newTotalValue) / (oldStock + producedWeight);
+
+      await tx.update(semiFinishedTable).set({ costPricePerUnit: String(avgHpp) }).where(eq(semiFinishedTable.id, pendingPR.itemId));
+
+      // 4. Tambah stok hasil produksi
+      await adjustInventory(tx, userBranchId, "semi_finished", pendingPR.itemId, producedWeight);
+
+      // 5. Simpan HPP di variabel closure untuk response
+      (pendingPR as any)._newHpp = newHpp;
+      (pendingPR as any)._avgHpp = avgHpp;
+      (pendingPR as any)._oldStock = oldStock;
     });
-    const used = pendingPR.components.map((c) => `• ${c.name}: -${(c.qty * pendingPR.qty).toFixed(2)}`).join("\n");
-    return `✅ Produksi ${pendingPR.qty} ${pendingPR.name} selesai!\nBahan terpakai:\n${used}`;
+
+    const sf = await db.select({ u: semiFinishedTable.unit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, pendingPR.itemId)).then(r => r[0]);
+    const unit = sf?.u || "unit";
+    const batchHpp = (pendingPR as any)._newHpp as number;
+    const avgHpp = (pendingPR as any)._avgHpp as number;
+    const oldStock = (pendingPR as any)._oldStock as number;
+    const used = pendingPR.components.map((c) => `• ${c.name}: -${c.qty}`).join("\n");
+
+    return [
+      `✅ Produksi ${producedWeight} ${unit} ${pendingPR.name} selesai!`,
+      ``,
+      `📦 Bahan terpakai:`,
+      used,
+      ``,
+      `💰 Detail HPP:`,
+      ...costDetails,
+      ``,
+      `Total biaya batch: Rp ${totalCost.toFixed(2)}`,
+      `HPP batch ini: Rp ${batchHpp.toFixed(4)} / ${unit}`,
+      `HPP rata-rata (${oldStock.toFixed(0)} → ${(oldStock + producedWeight).toFixed(0)} ${unit}): Rp ${avgHpp.toFixed(4)} / ${unit}`,
+    ].join("\n");
   }
 
   if (isConfirm) {
@@ -365,7 +436,7 @@ export async function handleBusiness(msg: string, branchId: number): Promise<str
 
       // Guardline: store pending
       pendingProduction.set(uid, { itemId: item.id, name: item.name, qty, branchId: userBranchId, components: comps });
-      const compList = comps.map((c) => `• ${c.name}: ${(c.qty * qty).toFixed(2)} (${c.qty} × ${qty})`).join("\n");
+      const compList = comps.map((c) => `• ${c.name}: ${c.qty}`).join("\n");
       return `⚠️ Konfirmasi produksi:\n• ${item.name}: ${qty} ${item.unit}\n\nBahan yg akan terpakai:\n${compList}\n\nBalas **ya** untuk lanjut, atau **batal** buat batalkan.`;
     }
 
