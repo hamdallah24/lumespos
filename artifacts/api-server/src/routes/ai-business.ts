@@ -311,7 +311,7 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
   }
 
   // ── STOCK ADJUST INTENT (add/reduce/correct/loss) ──
-  const stockMatch = lower.match(/tambah\s+(?!produk|menu)(?:stok\s+)?(.+?)\s+(\d+)(?:\s*(?:ml|l|kg|g|pcs|liter|gram|ons|gr))?(?:\s+(\d+))?/i);
+  const stockMatch = lower.match(/tambah\s+(?!produk|menu)(?:stok\s+)?(.+?)\s+(\d+)(?:\s*(?:ml|l|kg|g|pcs|liter|gram|ons|gr))?/i);
   if (stockMatch) {
     const items = await db.select().from(ingredientsTable).where(and(eq(ingredientsTable.branchId, branchId)));
     const found = items.find((i) => i.name.toLowerCase().includes(stockMatch[1].trim()));
@@ -319,8 +319,7 @@ export async function analyzeIntent(msg: string, branchId: number): Promise<Anal
       const stock = await db.select({ s: currentInventoryTable.currentStock }).from(currentInventoryTable)
         .where(and(eq(currentInventoryTable.itemType, "ingredient"), eq(currentInventoryTable.itemId, found.id), eq(currentInventoryTable.branchId, branchId)));
       const currentStock = parseFloat(stock[0]?.s || "0");
-      const price = stockMatch[3] ? parseFloat(stockMatch[3]) : undefined;
-      return { intent: "add_stock", params: { itemId: found.id, name: found.name, qty: parseFloat(stockMatch[2]), unit: found.unit, currentStock, hpp: parseFloat(found.costPricePerUnit || "0"), price } };
+      return { intent: "add_stock", params: { itemId: found.id, name: found.name, qty: parseFloat(stockMatch[2]), unit: found.unit, currentStock, hpp: parseFloat(found.costPricePerUnit || "0") } };
     }
   }
 
