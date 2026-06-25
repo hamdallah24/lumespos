@@ -188,59 +188,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       case "bisnis":
       default: {
         const analysis = await analyzeIntent(clean, defaultBranchId);
-        console.error(`[COO] analyzeIntent: intent=${analysis.intent} params=${JSON.stringify(analysis.params || "none").slice(0, 200)}`);
-
-        // If user types a number AND there's a pending add_stock → auto-execute
-        const pending = pendingActions.get(uid);
-        if (/^\d+$/.test(clean.trim()) && pending?.action === "add_stock") {
-          pendingActions.delete(uid);
-          const result = await executeOperation("add_stock", { ...pending.params, price: parseFloat(clean.trim()) }, defaultBranchId);
-          if (result === "ok") {
-            const reply = await callDeepSeek(`Kamu COO. Operasi baru saja DIEKSEKUSI: tambah stok ${pending.params.name} +${pending.params.qty}, harga Rp ${parseFloat(clean.trim()).toLocaleString("id-ID")}. Beri konfirmasi singkat.`, clean, uid, "bisnis");
-            res.json({ reply: reply || `✅ ${pending.params.name} +${pending.params.qty} berhasil, bos.` });
-            return;
-          }
-        }
-
-        // If user says "ya/ok" or "batal" and there's a pending → execute or cancel
-        if (/^(?:ya|y|yes|ok|oke|setuju|lanjut|gas)\b/i.test(clean.trim()) && pending) {
-          pendingActions.delete(uid);
-          const result = await executeOperation(pending.action, pending.params, defaultBranchId);
-          if (result === "ok") {
-            res.json({ reply: `✅ Operasi ${pending.action} berhasil dieksekusi, bos.` });
-            return;
-          }
-        }
-        if (/^(?:tidak|batal|n|no|cancel|ga|gak)\b/i.test(clean.trim()) && pending) {
-          pendingActions.delete(uid);
-          res.json({ reply: "Ok, dibatalkan bos. Ada yg lain?" });
-          return;
-        }
-
-        // Auto-execute actions that have complete params (no confirmation needed)
-        const autoActions = ["reduce_stock", "correct_stock", "loss_correction", "add_ingredient",
-          "add_product", "add_product_with_variants", "update_price", "update_variant_price",
-          "deactivate_product", "add_expense", "add_recipe", "remove_recipe", "produce"];
-        if (autoActions.includes(analysis.intent) && analysis.params) {
-          const result = await executeOperation(analysis.intent, analysis.params, defaultBranchId);
-          console.error(`[COO] Auto-execute ${analysis.intent}: ${result}. Params: ${JSON.stringify(analysis.params).slice(0, 200)}`);
-          if (result === "ok") {
-            res.json({ reply: `[EXEC ✅] Operasi ${analysis.intent} berhasil, bos. ${JSON.stringify(analysis.params).slice(0, 200)}` });
-            remember(uid, "bisnis", clean, `[EXEC] ${analysis.intent} ok`);
-            return;
-          }
-        }
-
-        // For add_stock: store pending, COO asks for price
-        if (analysis.intent === "add_stock" && analysis.params && !analysis.params.price) {
-          pendingActions.set(uid, { action: "add_stock", params: analysis.params });
-        }
-
-        const ctxStr = analysis.context ? JSON.stringify(analysis.context).slice(0, 3000) : "";
-        const paramsStr = analysis.params ? JSON.stringify(analysis.params).slice(0, 1500) : "";
-        const prompt = `${COO_SYSTEM}\n\n[DATA REALTIME - ${analysis.intent}]:\n${ctxStr}\n${paramsStr ? `\n[ACTION PARAMS]:\n${paramsStr}` : ""}`;
-        const reply = await callDeepSeek(prompt, clean, uid, "bisnis");
-        res.json({ reply: reply || "COO sedang sibuk. Coba lagi, bos." });
+        res.json({ reply: `[DEBUG] intent=${analysis.intent} params=${JSON.stringify(analysis.params || {}).slice(0, 300)}` });
         return;
       }
     }
