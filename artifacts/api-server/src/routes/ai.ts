@@ -189,19 +189,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       default: {
         const analysis = await analyzeIntent(clean, defaultBranchId);
 
-        // 1. Pending number confirm (add_stock price)
+        // 1. Pending confirm/cancel (ya/batal for multi_add_stock etc)
         const pending = pendingActions.get(uid);
-        if (/^\d+$/.test(clean.trim()) && pending?.action === "add_stock") {
-          pendingActions.delete(uid);
-          const price = parseFloat(clean.trim());
-          const result = await executeOperation("add_stock", { ...pending.params, price }, defaultBranchId);
-          if (result !== "ok") { res.json({ reply: `❌ Gagal: ${result}` }); return; }
-          const reply = await callDeepSeek(`${COO_SYSTEM}\n\n[EXECUTED] tambah stok ${pending.params.name} +${pending.params.qty} Rp ${price.toLocaleString("id-ID")}. Konfirmasi singkat.`, clean, uid, "bisnis");
-          res.json({ reply: reply || `✅ ${pending.params.name} +${pending.params.qty} berhasil, bos.` });
-          return;
-        }
-
-        // 2. Pending confirm/cancel
         if (/^(?:ya|y|yes|ok|oke|setuju|lanjut|gas)\b/i.test(clean.trim()) && pending) {
           pendingActions.delete(uid);
           await executeOperation(pending.action, pending.params, defaultBranchId);
@@ -214,8 +203,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           return;
         }
 
-        // 3. Auto-execute (no confirmation needed)
-        const autoActions = ["reduce_stock", "correct_stock", "loss_correction", "add_ingredient",
+        // 2. Auto-execute (no confirmation needed)
+        const autoActions = ["add_stock", "reduce_stock", "correct_stock", "loss_correction", "add_ingredient",
           "add_product", "add_product_with_variants", "update_price", "update_variant_price",
           "deactivate_product", "add_expense", "add_recipe", "remove_recipe", "produce"];
         if (autoActions.includes(analysis.intent) && analysis.params) {
@@ -229,10 +218,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           return;
         }
 
-        // 4. Pending add_stock + multi_add_stock (needs COO interaction)
-        if (analysis.intent === "add_stock" && analysis.params) {
-          pendingActions.set(uid, { action: "add_stock", params: analysis.params });
-        }
+        // 3. Multi-item (stored as pending for COO wizard interaction)
         if (analysis.intent === "multi_add_stock") {
           pendingActions.set(uid, { action: "multi_add_stock", params: {} });
         }
