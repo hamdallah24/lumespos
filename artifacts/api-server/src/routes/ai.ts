@@ -154,8 +154,66 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           return;
         }
 
+        // Auto-fetch relevant files for BANG + specialists
+        let bangContext = clean;
+        // Only auto-fetch if not already handled by explicit "baca" command
+        if (!/baca\s+|lihat\s+|read\s+/i.test(clean)) {
+          const fetchedPairs: string[] = [];
+          // Detect file mentions (.tsx, .ts, .json)
+          const fileRefs = clean.match(/(\w+\.[a-z]{2,4})/gi);
+          if (fileRefs) {
+            for (const ref of fileRefs.slice(0, 3)) {
+              const possiblePaths = [
+                `artifacts/pos-app/src/components/${ref}`,
+                `artifacts/pos-app/src/${ref}`,
+                `artifacts/api-server/src/routes/${ref}`,
+                `artifacts/api-server/src/${ref}`,
+                `artifacts/api-server/src/middlewares/${ref}`,
+                ref,
+              ];
+              for (const p of possiblePaths) {
+                const result = await fetchGitHubFile(p, "main");
+                if (result.content) {
+                  fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2500)}\n\`\`\``);
+                  break; // found this file, try next ref
+                }
+              }
+            }
+          }
+          // If no file refs, try keyword-based routing
+          if (fetchedPairs.length === 0) {
+            const keywordFiles: [string, string][] = [];
+            const kw = clean.toLowerCase();
+            if (/upload|storage|multer|file|photo/i.test(kw)) {
+              keywordFiles.push(["artifacts/api-server/src/routes/storage.ts", "storage"]);
+            }
+            if (/produk|product|menu|harga/i.test(kw)) {
+              keywordFiles.push(["artifacts/api-server/src/routes/products.ts", "products"]);
+            }
+            if (/tutup\s*shift|shift|audit/i.test(kw)) {
+              keywordFiles.push(["artifacts/api-server/src/routes/shiftAudits.ts", "shiftAudits"]);
+            }
+            if (/login|auth|session|csrf/i.test(kw)) {
+              keywordFiles.push(["artifacts/api-server/src/routes/auth.ts", "auth"]);
+              keywordFiles.push(["artifacts/api-server/src/middlewares/requireAuth.ts", "middleware"]);
+            }
+            if (/css|tailwind|style|design|ui/i.test(kw)) {
+              keywordFiles.push(["artifacts/pos-app/src/index.css", "css"]);
+            }
+            for (const [p] of keywordFiles.slice(0, 5)) {
+              const result = await fetchGitHubFile(p, "main");
+              if (result.content) {
+                fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2500)}\n\`\`\``);
+              }
+            }
+          }
+          if (fetchedPairs.length > 0) {
+            bangContext = clean + "\n" + fetchedPairs.join("");
+          }
+        }
+
         // Dynamic Specialist → BANG streaming
-        await streamBANGResponse(res, uid, clean);
+        await streamBANGResponse(res, uid, bangContext);
         return;
       }
 
