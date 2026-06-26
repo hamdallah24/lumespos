@@ -22,35 +22,18 @@ const GH_JSON_HEADERS = {
 // ─────────────────────────────────────────────────────────────
 // 1. CODEGEN SYSTEM PROMPT
 // ─────────────────────────────────────────────────────────────
-const CODEGEN_PROMPT = `Kamu adalah Code Generator untuk Lume's Everywhere — POS app monorepo (pnpm workspace).
-Stack: React 18 + Vite + Tailwind + Framer Motion + Lucide (frontend), Express + Drizzle ORM + PostgreSQL Neon.tech (backend).
-Repo: hamdallah24/lumespos, branch: Staging.
+const CODEGEN_PROMPT = `Kamu Code Generator Lume's POS (React+Express+Drizzle+PostgreSQL). Repo: hamdallah24/lumespos, branch: Staging.
+OUTPUT WAJIB — JSON SEARCH-AND-REPLACE (no markdown, no backticks):
+{"files":[{"path":"artifacts/pos-app/src/components/Foo.tsx","edits":[{"search":"teks persis","replace":"teks baru"}],"commit_message":"feat: deskripsi"}]}
 
-TUGASMU: TULIS perubahan kode dalam format SEARCH-AND-REPLACE.
-JANGAN tulis ulang seluruh file — cuma bagian yg berubah.
+ATURAN:
+1. "search" HARUS teks PERSIS dari file asli karakter-per-karakter (termasuk indentasi).
+2. "search" cukup unik (cuma match 1x), min 3 baris konteks.
+3. "replace" indentasi konsisten, bracket seimbang, import disertakan.
+4. File BARU: search="" dan replace=seluruh isi file.
+5. Maks 1500 karakter per edit.
 
-FORMAT OUTPUT WAJIB (JSON only, no markdown, no backticks):
-{
-  "files": [
-    {
-      "path": "artifacts/pos-app/src/components/NamaFile.tsx",
-      "edits": [{ "search": "teks persis di file", "replace": "teks pengganti" }],
-      "commit_message": "feat: deskripsi singkat perubahan"
-    }
-  ]
-}
-
-ATURAN KETAT:
-1. Field "search" HARUS teks PERSIS (karakter-per-karakter, termasuk indentasi) dari file asli.
-2. "search" harus CUKUP UNIK dan cukup PANJANG (min 3 baris konteks) — cuma boleh match 1x.
-3. "replace" adalah teks pengganti LENGKAP dengan indentasi konsisten.
-4. JANGAN ubah bagian yg tidak relevan.
-5. Syntax wajib valid: bracket/brace/paren seimbang, import baru disertakan.
-6. Jika buat file BARU (belum ada), gunakan search="" dan replace berisi SELURUH isi file baru.
-7. Maks 1500 karakter per edit.
-
-PENTING: Selalu COBA generate kode. Sistem punya validator + retry otomatis (max 3x) — jadi jangan takut salah.
-HANYA gunakan "needs_more_context": true jika isi file benar-benar kosong atau REQUEST tidak menyebut perubahan spesifik apapun.`;
+KAMU LIHAT ISI BEBERAPA FILE di system prompt ini. PILIH file yg paling pas untuk diedit. Selalu COBA generate — sistem retry 3x dengan validator. JANGAN pakai "needs_more_context" kecuali benar-benar tidak ada satu pun file yg relevan.`;
 
 // ─────────────────────────────────────────────────────────────
 // 2. VALIDATOR (Pure JS — ported from n8n Self-Healing Layer 2)
@@ -240,7 +223,7 @@ async function commitFile(path: string, content: string, sha: string | null, mes
 // ─────────────────────────────────────────────────────────────
 // 4. MAIN PIPELINE
 // ─────────────────────────────────────────────────────────────
-export async function generateAndCommit(userMessage: string, userId: number, onProgress?: (evt: ProgressEvent) => void): Promise<string> {
+export async function generateAndCommit(userMessage: string, userId: number, onProgress?: (evt: ProgressEvent) => void, prefetchedFiles?: Record<string, string>): Promise<string> {
   const log = (step: string, detail: string) => onProgress?.({ step, detail });
 
   if (!GITHUB_PAT) {
@@ -256,8 +239,11 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
   // Try to extract file path from message
   const pathMatch = lower.match(/(?:di\s+)?(?:file\s+)?(?:path\s+)?(artifacts\/\S+\.[a-z]+)/i);
   if (pathMatch) targetPath = pathMatch[1];
-  else {
-    // Heuristic: if message mentions "komponen" or "component" → frontend
+  else if (prefetchedFiles) {
+    // Use first prefetched file as target
+    targetPath = Object.keys(prefetchedFiles)[0] || "";
+  } else {
+    // Heuristic fallback
     if (/komponen|component|components|halaman|page/i.test(lower)) targetPath = "artifacts/pos-app/src/components/";
     else if (/route|routes|endpoint|api/i.test(lower)) targetPath = "artifacts/api-server/src/routes/";
     else if (/schema|table|migration/i.test(lower)) targetPath = "lib/db/src/schema/";
@@ -269,13 +255,15 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
   let relatedContext = "";
   if (targetPath && !targetPath.endsWith("/")) {
     log("search", targetPath ? `Membaca ${targetPath.split("/").pop() || targetPath}...` : "Mencari file...");
-    let f = await fetchGitHubFile(targetPath, BRANCH);
-    if (!f.content) {
-      // Fallback: Staging mungkin belum sync → baca dari main
-      f = await fetchGitHubFile(targetPath, "main");
+    if (prefetchedFiles?.[targetPath]) {
+      fileContent = prefetchedFiles[targetPath];
+      fileSha = ""; // prefetched dari main, sha tidak relevan
+    } else {
+      let f = await fetchGitHubFile(targetPath, BRANCH);
+      if (!f.content) f = await fetchGitHubFile(targetPath, "main");
+      fileContent = f.content;
+      fileSha = f.sha;
     }
-    fileContent = f.content;
-    fileSha = f.sha;
 
     // ── PHASE 1.5: Find related files ──
     // Get directory of target file and list siblings
@@ -330,13 +318,27 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
   log("generate", "✍️ AI sedang menulis kode...");
 
   // File content masuk system prompt (max 4000), bukan user message (max 2000)
-  const fileContext = fileContent
-    ? `\n\nISI FILE (${targetPath}):\n\`\`\`\n${fileContent.slice(0, 1800)}\n\`\`\`${relatedContext.slice(0, 300)}`
-    : (relatedContext ? `\n\n${relatedContext.slice(0, 500)}` : "");
+  let fileContext = "";
+  if (fileContent) {
+    fileContext += `\n\nFILE UTAMA (${targetPath}):\n\`\`\`\n${fileContent.slice(0, 1200)}\n\`\`\``;
+  }
+  if (prefetchedFiles) {
+    let count = 0;
+    for (const [p, content] of Object.entries(prefetchedFiles)) {
+      if (p !== targetPath && content && count < 2) {
+        fileContext += `\n\nFILE LAIN (${p}):\n\`\`\`\n${content.slice(0, 600)}\n\`\`\``;
+        count++;
+      }
+    }
+  }
+  if (relatedContext) {
+    fileContext += `\n\n${relatedContext.slice(0, 200)}`;
+  }
   const fullSystem = CODEGEN_PROMPT + fileContext;
 
-  const userCtx = `REQUEST: ${userMessage.slice(0, 1000)}
+  const userCtx = `REQUEST: ${userMessage.slice(0, 800)}
 TARGET: ${targetPath || "(tentukan sendiri)"}
+${Object.keys(prefetchedFiles || {}).length > 0 ? `FILE LAIN TERSEDIA: ${Object.keys(prefetchedFiles!).filter(p => p !== targetPath).join(", ")}` : ""}
 BRANCH: ${BRANCH}${fileContent ? "" : "\n(BUAT FILE BARU — file belum ada di repo)"}`;
 
   let rawOutput = await callDeepSeek(fullSystem, userCtx, userId, "codegen", 2000);

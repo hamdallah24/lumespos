@@ -128,15 +128,24 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           sse("search", "🔍 Mencari file yg berkaitan di repo...");
           const searchQuery = lastAssistant ? clean + " " + lastAssistant.content.slice(0, 500) : clean;
           const searchedPaths = await searchRepoFiles(searchQuery);
+
+          // Fetch isi file top 3 — dikirim sbg konteks ke Code Generator
+          const prefetched: Record<string, string> = {};
           if (searchedPaths.length > 0) {
-            // Hanya cantumkan PATH (bukan isi file) — isi file di-fetch ulang di Phase 1
             codegenInput += "\n\nFILE TERKAIT:\n" + searchedPaths.slice(0, 5).join("\n");
-            sse("search", `📄 ${searchedPaths.length} file relevan ditemukan, lanjut generate...`);
+            for (const p of searchedPaths.slice(0, 3)) {
+              const result = await fetchGitHubFile(p, "main");
+              if (result.content && result.content.length > 10) {
+                prefetched[p] = result.content;
+              }
+            }
+            const n = Object.keys(prefetched).length;
+            sse("search", `📄 ${n} file relevan dibaca isinya, lanjut generate...`);
           }
 
           const reply = await generateAndCommit(codegenInput, uid, (evt) => {
             sse(evt.step, evt.detail);
-          });
+          }, prefetched);
 
           // Final response
           res.write(`data: ${JSON.stringify({ step: "final", detail: reply })}\n\n`);
