@@ -180,32 +180,68 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
               }
             }
           }
-          // If no file refs, try keyword-based routing
-          if (fetchedPairs.length === 0) {
-            const keywordFiles: [string, string][] = [];
-            const kw = clean.toLowerCase();
-            if (/upload|storage|multer|file|photo/i.test(kw)) {
-              keywordFiles.push(["artifacts/api-server/src/routes/storage.ts", "storage"]);
+          // Keyword-based routing (runs ALONGSIDE file refs, broadens context)
+          const keywordFiles: [string, string][] = [];
+          const kw = clean.toLowerCase();
+
+          // Upload/storage/multer issues
+          if (/upload|storage|multer|file|photo|foto|gambar|image/i.test(kw)) {
+            keywordFiles.push(["artifacts/api-server/src/routes/storage.ts", "storage"]);
+            keywordFiles.push(["artifacts/api-server/src/app.ts", "app_config"]);
+            if (/shift|tutup/i.test(kw)) keywordFiles.push(["artifacts/pos-app/src/components/CloseShiftDialog.tsx", "frontend_upload"]);
+          }
+
+          // Product/menu related
+          if (/produk|product|menu|harga|varian|recipe/i.test(kw)) {
+            keywordFiles.push(["artifacts/api-server/src/routes/products.ts", "products"]);
+            keywordFiles.push(["artifacts/pos-app/src/lib/csrf.ts", "csrf_upload"]);
+          }
+
+          // Shift/audit related
+          if (/tutup\s*shift|shift|audit|stocktaking/i.test(kw)) {
+            keywordFiles.push(["artifacts/api-server/src/routes/shiftAudits.ts", "shiftAudits"]);
+          }
+
+          // Auth/session/CSRF
+          if (/login|auth|session|csrf|oauth|google|password/i.test(kw)) {
+            keywordFiles.push(["artifacts/api-server/src/routes/auth.ts", "auth"]);
+            keywordFiles.push(["artifacts/api-server/src/middlewares/requireAuth.ts", "middleware"]);
+            keywordFiles.push(["artifacts/api-server/src/app.ts", "app_config"]);
+          }
+
+          // Frontend components
+          if (/component|components|ui|css|tailwind|style|design|button|modal|popup|dialog|layout/i.test(kw)) {
+            keywordFiles.push(["artifacts/pos-app/src/components/layout.tsx", "layout"]);
+            keywordFiles.push(["artifacts/pos-app/src/components/ai-agent-popup.tsx", "ai_popup"]);
+          }
+
+          // Orders/cart/payment
+          if (/order|cart|payment|checkout|transaksi|penjualan|tunai/i.test(kw)) {
+            keywordFiles.push(["artifacts/api-server/src/routes/orders.ts", "orders"]);
+          }
+
+          // Dashboard/report
+          if (/dashboard|laporan|report|chart|grafik/i.test(kw)) {
+            keywordFiles.push(["artifacts/api-server/src/routes/dashboard.ts", "dashboard"]);
+          }
+
+          // Inventory/stock
+          if (/inventori|stok|bahan|ingredient|stock/i.test(kw)) {
+            keywordFiles.push(["artifacts/api-server/src/routes/inventory.ts", "inventory"]);
+            keywordFiles.push(["artifacts/api-server/src/services/inventory.ts", "inv_svc"]);
+          }
+
+          // Fetch keyword-matched files (max 8)
+          const seen = new Set(fetchedPairs.map(f => f.substring(0, 100)));
+          for (const [p] of keywordFiles) {
+            if (fetchedPairs.length >= 8) break;
+            if (seen.has(p)) continue;
+            const result = await fetchGitHubFile(p, "main");
+            if (result.content) {
+              fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2500)}\n\`\`\``);
+              seen.add(p);
             }
-            if (/produk|product|menu|harga/i.test(kw)) {
-              keywordFiles.push(["artifacts/api-server/src/routes/products.ts", "products"]);
-            }
-            if (/tutup\s*shift|shift|audit/i.test(kw)) {
-              keywordFiles.push(["artifacts/api-server/src/routes/shiftAudits.ts", "shiftAudits"]);
-            }
-            if (/login|auth|session|csrf/i.test(kw)) {
-              keywordFiles.push(["artifacts/api-server/src/routes/auth.ts", "auth"]);
-              keywordFiles.push(["artifacts/api-server/src/middlewares/requireAuth.ts", "middleware"]);
-            }
-            if (/css|tailwind|style|design|ui/i.test(kw)) {
-              keywordFiles.push(["artifacts/pos-app/src/index.css", "css"]);
-            }
-            for (const [p] of keywordFiles.slice(0, 5)) {
-              const result = await fetchGitHubFile(p, "main");
-              if (result.content) {
-                fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2500)}\n\`\`\``);
-              }
-            }
+          }
           }
           if (fetchedPairs.length > 0) {
             bangContext = clean + "\n" + fetchedPairs.join("");
