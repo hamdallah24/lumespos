@@ -9,6 +9,7 @@ type Message = {
   role: "user" | "assistant";
   text: string;
   showApproval?: boolean;
+  showMerge?: boolean;
 };
 
 const MODE_TABS: { key: Mode; label: string; icon: React.ElementType }[] = [
@@ -291,7 +292,8 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
 
       setMessages((prev) => {
         const copy = [...prev];
-        copy[copy.length - 1] = { role: "assistant", text: finalReply || steps.join("\n") || "Selesai — cek hasil di GitHub." };
+        const finalText = finalReply || steps.join("\n") || "Selesai — cek hasil di GitHub.";
+        copy[copy.length - 1] = { role: "assistant", text: finalText, showMerge: /✅.*committed|sukses|berhasil/i.test(finalText) };
         return copy;
       });
     } catch (e: any) {
@@ -303,6 +305,40 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const handleReject = () => {
     setMessages((prev) => [...prev, { role: "user", text: "❌ TIDAK SETUJU" }, { role: "assistant", text: "Baik bos, generate kode dibatalkan. Ada hal lain yg bisa dibantu?" }]);
     approvalMsgRef.current = "";
+  };
+
+  const handleMerge = async () => {
+    setLoading(true);
+    setMessages((prev) => [...prev, { role: "user", text: "🔄 Merge & Deploy → Main" }, { role: "assistant", text: "" }]);
+    try {
+      const resp = await fetch("/api/ai/deploy-merge", {
+        method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() || "" },
+      });
+      if (!resp.ok) { setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Gagal merge." }]; }); setLoading(false); return; }
+
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buf = ""; let finalReply = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n"); buf = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.step === "final") finalReply = evt.detail;
+            else setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: evt.detail }; return copy; });
+          } catch { /* skip */ }
+        }
+      }
+      setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: finalReply }; return copy; });
+    } catch {
+      setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, gagal merge." }]; });
+    }
+    setLoading(false);
   };
 
   const switchMode = (m: Mode) => {
@@ -497,6 +533,13 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                           </button>
                           <button onClick={handleReject} className="flex-1 py-2 px-3 rounded-xl bg-red-100 dark:bg-red-500/10 text-red-600 dark:text-red-400 text-xs font-semibold hover:bg-red-200 dark:hover:bg-red-500/20 active:scale-95 transition-all">
                             ❌ TIDAK SETUJU
+                          </button>
+                        </div>
+                      )}
+                      {msg.role === "assistant" && msg.showMerge && (
+                        <div className="flex gap-2 mt-3 pt-2 border-t border-[#1565FF]/10">
+                          <button onClick={handleMerge} disabled={loading} className="flex-1 py-2 px-3 rounded-xl bg-[#1565FF] text-white text-xs font-semibold hover:bg-[#1565FF]/90 active:scale-95 transition-all flex items-center justify-center gap-1">
+                            🔄 Merge & Deploy → Main
                           </button>
                         </div>
                       )}

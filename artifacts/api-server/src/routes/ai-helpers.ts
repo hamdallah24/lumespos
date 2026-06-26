@@ -226,10 +226,47 @@ export function execLocalCommand(command: string): string {
   const allowed = ["git", "pnpm", "npm", "pm2", "node", "tsc", "npx", "ls", "cat", "echo", "uptime"];
   const cmdName = command.trim().split(/\s+/)[0];
   if (!allowed.includes(cmdName)) return `Error: Command "${cmdName}" tidak diizinkan. Allowed: ${allowed.join(", ")}`;
+  // Allow git subcommands: status, diff, checkout, merge, push, pull, fetch, branch, log
+  if (cmdName === "git") {
+    const subCmd = command.trim().split(/\s+/)[1] || "";
+    const allowedGit = ["status", "diff", "checkout", "merge", "push", "pull", "fetch", "branch", "log", "remote"];
+    if (subCmd && !allowedGit.includes(subCmd)) return `Error: Git subcommand "${subCmd}" tidak diizinkan. Allowed: ${allowedGit.join(", ")}`;
+  }
   try {
     const result = execSync(command, { timeout: 30000, cwd: PROJECT_ROOT }).toString().trim();
     return result || "(no output)";
   } catch (e: any) { return `Error: ${e.stderr?.toString() || e.message}`; }
+}
+
+// ── MERGE & DEPLOY (Staging → main, NO restart) ──
+export async function mergeDeploy(onStep?: (step: string, detail: string) => void): Promise<{ ok: boolean; summary: string }> {
+  const log = (s: string, d: string) => { onStep?.(s, d); console.log(`[merge] ${s}: ${d.slice(0, 100)}`); };
+  try {
+    log("sync", "Syncing Staging ← main...");
+    execSync("git fetch", { cwd: PROJECT_ROOT, timeout: 15000 });
+    execSync("git checkout Staging && git merge main --no-edit && git push origin Staging", { cwd: PROJECT_ROOT, timeout: 30000 });
+
+    log("merge", "Merging main ← Staging...");
+    execSync("git checkout main && git merge Staging --no-edit", { cwd: PROJECT_ROOT, timeout: 15000 });
+
+    // Get list of changed files
+    const diff = execSync("git diff HEAD~1 --name-only", { cwd: PROJECT_ROOT, timeout: 5000 }).toString().trim();
+
+    log("build_api", "Building API server...");
+    execSync("pnpm --filter ./artifacts/api-server run build 2>&1", { cwd: PROJECT_ROOT, timeout: 60000 });
+
+    log("build_ui", "Building frontend...");
+    execSync("pnpm --filter ./artifacts/pos-app run build 2>&1", { cwd: PROJECT_ROOT, timeout: 60000 });
+
+    execSync("git push origin main", { cwd: PROJECT_ROOT, timeout: 15000 });
+
+    log("done", "Build selesai. Silakan restart via VPS tab → 'restart api'");
+    return { ok: true, summary: `✅ Merge & build selesai.\nFiles changed: ${diff.slice(0, 500)}\n\nRestart: buka VPS tab → "restart api"` };
+  } catch (e: any) {
+    const errMsg = e.stderr?.toString() || e.message || String(e);
+    log("error", errMsg.slice(0, 200));
+    return { ok: false, summary: `❌ Gagal: ${errMsg.slice(0, 300)}` };
+  }
 }
 
 // ── TOOL CALLING (DeepSeek native, no Mastra) ──

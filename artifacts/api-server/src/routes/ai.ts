@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS } from "./ai-helpers";
+import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, mergeDeploy } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
@@ -296,14 +296,9 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
       // ── VPS (COO JSON translator like Bisnis) ──
       case "vps": {
-        // Safety: never allow deploy/restart via chat
         const lower = clean.toLowerCase();
         if (/deploy|git pull/i.test(lower)) {
           res.json({ reply: "Deploy jangan lewat sini ya bos. SSH manual aja:\n```\ngit pull && pnpm build && pm2 restart\n```" });
-          return;
-        }
-        if (/restart/i.test(lower)) {
-          res.json({ reply: "Restart jangan lewat sini ya bos. SSH manual:\n```\npm2 restart pos-api\n```" });
           return;
         }
 
@@ -326,6 +321,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
               else if (act.action === "ssh_ram") cmd = "free -m";
               else if (act.action === "ssh_disk") cmd = "df -h /";
               else if (act.action === "ssh_uptime") cmd = "uptime";
+              else if (act.action === "ssh_restart") cmd = "pm2 restart pos-api";
               if (cmd) {
                 const result = await sshExec(cmd);
                 if (result) act._sshResult = result;
@@ -415,6 +411,30 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     console.error("[ai] Route error:", err);
     res.status(500).json({ error: "Internal server error" });
   }
+});
+
+// ── MERGE & DEPLOY: Staging → main ──
+router.post("/ai/deploy-merge", requireRole("owner"), async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+  const sse = (step: string, detail: string) => res.write(`data: ${JSON.stringify({ step, detail })}\n\n`);
+
+  const result = await mergeDeploy((step, detail) => {
+    const labels: Record<string, string> = {
+      sync: "🔄 Syncing Staging ← main...",
+      merge: "🔀 Merging main ← Staging...",
+      build_api: "🔨 Building API server...",
+      build_ui: "🔨 Building frontend...",
+      done: detail,
+      error: `❌ ${detail}`,
+    };
+    sse(step, labels[step] || detail);
+  });
+
+  sse("final", result.summary);
+  res.end();
 });
 
 export default router;
