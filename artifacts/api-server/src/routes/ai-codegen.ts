@@ -49,7 +49,8 @@ ATURAN KETAT:
 6. Jika buat file BARU (belum ada), gunakan search="" dan replace berisi SELURUH isi file baru.
 7. Maks 1500 karakter per edit.
 
-Jika ga yakin atau butuh lebih banyak konteks, beri tahu di field "needs_more_context": true.`;
+PENTING: Selalu COBA generate kode. Sistem punya validator + retry otomatis (max 3x) — jadi jangan takut salah.
+HANYA gunakan "needs_more_context": true jika isi file benar-benar kosong atau REQUEST tidak menyebut perubahan spesifik apapun.`;
 
 // ─────────────────────────────────────────────────────────────
 // 2. VALIDATOR (Pure JS — ported from n8n Self-Healing Layer 2)
@@ -317,7 +318,7 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
     : (relatedContext ? `\n\n${relatedContext.slice(0, 500)}` : "");
   const fullSystem = CODEGEN_PROMPT + fileContext;
 
-  const userCtx = `REQUEST: ${userMessage.slice(0, 500)}
+  const userCtx = `REQUEST: ${userMessage.slice(0, 1000)}
 TARGET: ${targetPath || "(tentukan sendiri)"}
 BRANCH: ${BRANCH}${fileContent ? "" : "\n(BUAT FILE BARU — file belum ada di repo)"}`;
 
