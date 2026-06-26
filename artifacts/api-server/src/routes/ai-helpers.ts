@@ -110,7 +110,14 @@ export async function searchRepoFiles(query: string): Promise<string[]> {
     if (!resp.ok) return [];
     const json = await resp.json() as any;
     const paths: string[] = (json.tree || [])
-      .filter((t: any) => t.type === "blob" && /\.(tsx?|jsx?|json|css|md)$/.test(t.path))
+      .filter((t: any) => t.type === "blob"
+        && /\.(tsx?|jsx?|json|css|md)$/.test(t.path)
+        && !t.path.includes("node_modules/")
+        && !t.path.includes(".pnpm/")
+        && !t.path.includes("/dist/")
+        && !t.path.includes("-lock.json")
+        && !t.path.includes("@radix-ui")
+      )
       .map((t: any) => t.path);
     treeCache = { ts: Date.now(), paths };
   }
@@ -120,10 +127,17 @@ export async function searchRepoFiles(query: string): Promise<string[]> {
   const scored = treeCache.paths.map((path: string) => {
     const lower = path.toLowerCase();
     let score = 0;
+    // Bonus for source code paths
+    if (path.includes("src/") || path.includes("pages/") || path.includes("components/") || path.includes("routes/")) {
+      score += 5;
+    }
+    // Penalize non-source JSON
+    if (path.endsWith(".json") && !path.includes("src/") && !path.includes("package.json")) {
+      score -= 10;
+    }
     for (const kw of keywords) {
-      if (lower.includes(kw)) score += 3;              // exact substring match
+      if (lower.includes(kw)) score += 3;
       else if (kw.length >= 3) {
-        // Partial matching: check character overlap
         const chars = new Set(kw);
         const overlap = [...new Set(lower.split("/").pop() || "")].filter(c => chars.has(c)).length;
         score += (overlap / chars.size) * 1;
