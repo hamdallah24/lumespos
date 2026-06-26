@@ -202,9 +202,10 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
         // Auto-fetch relevant files for BANG + specialists
         let bangContext = clean;
+        const fetchedPairs: string[] = [];
+        const fetchedPaths: string[] = [];
         // Only auto-fetch if not already handled by explicit "baca" command
         if (!/baca\s+|lihat\s+|read\s+/i.test(clean)) {
-          const fetchedPairs: string[] = [];
           // Detect file mentions (.tsx, .ts, .json)
           const fileRefs = clean.match(/(\w+\.[a-z]{2,4})/gi);
           if (fileRefs) {
@@ -220,26 +221,33 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
               for (const p of possiblePaths) {
                 const result = await fetchGitHubFile(p, "main");
                 if (result.content) {
+                  fetchedPaths.push(p);
                   fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2500)}\n\`\`\``);
-                  break; // found this file, try next ref
+                  break;
                 }
               }
             }
           }
-          // Dynamic search: find relevant files from entire repo
+          // Dynamic search
           const relevantPaths = await searchRepoFiles(clean);
-          const seen = new Set(fetchedPairs.map(f => f.substring(0, 100)));
+          const seen = new Set(fetchedPaths);
           for (const p of relevantPaths) {
             if (fetchedPairs.length >= 8) break;
             if (seen.has(p)) continue;
             const result = await fetchGitHubFile(p, "main");
             if (result.content && result.content.length > 10) {
+              fetchedPaths.push(p);
               fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2000)}\n\`\`\``);
               seen.add(p);
             }
           }
-          if (fetchedPairs.length > 0) {
-            bangContext = clean + "\n" + fetchedPairs.join("");
+          // ── FILE MANIFEST ──
+          if (fetchedPaths.length > 0) {
+            const manifestLines = fetchedPaths.map((p, i) => {
+              const dir = p.split("/").slice(0, -1).pop() || "";
+              return `${i + 1}. ${p}   → ${dir}`;
+            }).join("\n");
+            bangContext = clean + `\n\n═══════════════════════════════════\n📋 FILE YANG TERSEDIA (sistem sudah membaca isinya):\n${manifestLines}\n═══════════════════════════════════\n` + fetchedPairs.join("");
           }
         }
 
