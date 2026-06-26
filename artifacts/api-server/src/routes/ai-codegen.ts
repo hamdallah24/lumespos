@@ -256,7 +256,11 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
   let relatedContext = "";
   if (targetPath && !targetPath.endsWith("/")) {
     log("search", targetPath ? `Membaca ${targetPath.split("/").pop() || targetPath}...` : "Mencari file...");
-    const f = await fetchGitHubFile(targetPath, BRANCH);
+    let f = await fetchGitHubFile(targetPath, BRANCH);
+    if (!f.content) {
+      // Fallback: Staging mungkin belum sync → baca dari main
+      f = await fetchGitHubFile(targetPath, "main");
+    }
     fileContent = f.content;
     fileSha = f.sha;
 
@@ -345,7 +349,14 @@ BRANCH: ${BRANCH}${fileContent ? "" : "\n(BUAT FILE BARU — file belum ada di r
     }
 
     if ((parsed as any).needs_more_context) {
-      log("error", "AI butuh informasi lebih detail. Coba sebutkan nama file & jelaskan perubahan yg diinginkan.");
+      if (attempt < 2) {
+        log("retry", "AI minta konteks lebih — dipaksa coba lagi...");
+        rawOutput = await callDeepSeek(fullSystem,
+          `${userCtx}\n\nKAMU BILANG "needs_more_context". JANGAN — COBA generate kode apapun. Gunakan informasi yg sudah ada. Validator akan cek nanti.`,
+          userId, "codegen", 2000);
+        continue;
+      }
+      log("error", "AI tetap tidak bisa generate — beri deskripsi lebih detail.");
       return "❌ Code Generator butuh lebih banyak konteks. Coba sebutkan file path spesifik atau jelaskan lebih detail.";
     }
 
