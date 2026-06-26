@@ -1,9 +1,12 @@
 // ─────────────────────────────────────────────────────────────
 // AI HELPERS — DeepSeek, memory, GitHub, SSH, Local Tools
 // ─────────────────────────────────────────────────────────────
-import { exec, execSync } from "child_process";
-import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { exec } from "child_process";
+import { existsSync } from "fs";
+import { readdir, stat, readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname, resolve } from "path";
+import { promisify } from "util";
+const execP = promisify(exec);
 import { db, conversationsTable, messagesTable } from "@workspace/db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
@@ -25,12 +28,14 @@ type ChatMsg = { role: "user" | "assistant"; content: string };
 const MAX_MEMORY = 10;
 
 async function getOrCreateConversation(userId: number, mode: string): Promise<number> {
-  const existing = await db.select().from(conversationsTable)
-    .where(and(eq(conversationsTable.userId, userId), eq(conversationsTable.mode, mode)))
-    .limit(1);
-  if (existing.length > 0) return existing[0].id;
-  const [conv] = await db.insert(conversationsTable).values({ userId, mode }).returning();
-  return conv.id;
+  // Atomic upsert — no race condition: INSERT if not exists, RETURN id either way
+  const result = await db.execute(
+    sql`INSERT INTO ai_conversations (user_id, mode, created_at, updated_at)
+        VALUES (${userId}, ${mode}, NOW(), NOW())
+        ON CONFLICT (user_id, mode) DO UPDATE SET updated_at = NOW()
+        RETURNING id`
+  );
+  return result.rows[0].id;
 }
 
 export async function getHistory(userId: number, mode: string): Promise<ChatMsg[]> {
@@ -99,11 +104,17 @@ export async function callDeepSeek(system: string, user: string, userId: number,
     for (const h of history) messages.push(h);
     messages.push({ role: "user", content: user.slice(0, 2000) });
 
-    const resp = await fetch(`${base}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.7 }),
-    });
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 30000);
+    let resp;
+    try {
+      resp = await fetch(`${base}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.7 }),
+        signal: controller.signal,
+      });
+    } finally { clearTimeout(tid); }
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
       console.error(`[ai] DeepSeek HTTP ${resp.status}: ${err.slice(0, 300)}`);
@@ -115,6 +126,7 @@ export async function callDeepSeek(system: string, user: string, userId: number,
     else await remember(userId, mode, user, content);
     return content;
   } catch (err) {
+    if ((err as any)?.name === "AbortError") { console.error("[ai] DeepSeek timeout"); return ""; }
     console.error("[ai] callDeepSeek fetch error:", err);
     return "";
   }
@@ -124,8 +136,12 @@ export async function callDeepSeek(system: string, user: string, userId: number,
 export async function fetchGitHubFile(path: string, branch = "main"): Promise<{ content: string; status: number; sha: string }> {
   if (!GITHUB_PAT) return { content: "", status: 0, sha: "" };
   const url = `${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`;
-  // Use JSON API to also get SHA
-  const resp = await fetch(url, { headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github+json" } });
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), 15000);
+  let resp;
+  try {
+    resp = await fetch(url, { headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github+json" }, signal: controller.signal });
+  } finally { clearTimeout(tid); }
   if (!resp.ok) {
     console.error(`[ai] GitHub fetch ${resp.status}: ${url}`);
     return { content: "", status: resp.status, sha: "" };
@@ -209,13 +225,12 @@ export function sshExec(cmd: string): Promise<string> {
 // ── IMPORT GRAPH (Dependency Resolution) ──
 const IMPORT_RE = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))?)\s+from\s+)?['"]([^'"]+)['"]/g;
 
-export function getDependencies(filePath: string): string {
-  // Try multiple resolutions: CWD-relative, then PROJECT_ROOT-relative
+export async function getDependencies(filePath: string): Promise<string> {
   let full = resolve(filePath);
   if (!existsSync(full)) full = resolve(join(PROJECT_ROOT, filePath));
   if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
   try {
-    const content = readFileSync(full, "utf-8");
+    const content = await readFile(full, "utf-8");
     const imports: string[] = [];
     let match: RegExpExecArray | null;
     IMPORT_RE.lastIndex = 0;
@@ -238,76 +253,81 @@ export function getDependencies(filePath: string): string {
 const SAFE_DIRS = [PROJECT_ROOT, join(PROJECT_ROOT, "artifacts"), join(PROJECT_ROOT, "lib")];
 function isPathSafe(p: string): boolean { return SAFE_DIRS.some(d => resolve(p).startsWith(d)); }
 
-export function listLocalDir(dirPath: string): string {
+export async function listLocalDir(dirPath: string): Promise<string> {
   const full = resolve(dirPath);
   if (!isPathSafe(full)) return `Error: Path ${dirPath} di luar project.`;
   if (!existsSync(full)) return `Error: Directory ${dirPath} tidak ditemukan.`;
   try {
-    const items = readdirSync(full, { withFileTypes: true });
-    return items.map(d => `${d.isDirectory() ? "📁" : "📄"} ${d.name}${d.isFile() ? ` (${statSync(join(full, d.name)).size} bytes)` : ""}`).join("\n");
+    const items = await readdir(full, { withFileTypes: true });
+    const result = await Promise.all(items.map(async d => {
+      if (d.isDirectory()) return `📁 ${d.name}`;
+      const s = await stat(join(full, d.name));
+      return `📄 ${d.name} (${s.size} bytes)`;
+    }));
+    return result.join("\n");
   } catch (e: any) { return `Error: ${e.message}`; }
 }
 
-export function readLocalFile(filePath: string, maxChars = 5000): string {
+export async function readLocalFile(filePath: string, maxChars = 5000): Promise<string> {
   const full = resolve(filePath);
   if (!isPathSafe(full)) return `Error: Path ${filePath} di luar project.`;
   if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
   try {
-    const content = readFileSync(full, "utf-8");
+    const content = await readFile(full, "utf-8");
     return content.length > maxChars ? content.slice(0, maxChars) + `\n\n... (truncated, ${content.length - maxChars} chars remaining)` : content;
   } catch (e: any) { return `Error: ${e.message}`; }
 }
 
-export function searchLocalContent(dirPath: string, pattern: string): string {
+export async function searchLocalContent(dirPath: string, pattern: string): Promise<string> {
   const full = resolve(dirPath);
   if (!isPathSafe(full)) return `Error: Path ${dirPath} di luar project.`;
   try {
     const cmd = process.platform === "win32"
       ? `findstr /s /i /n "${pattern}" "${full}\\*" 2>nul`
       : `grep -rn --include="*.ts" --include="*.tsx" --include="*.json" "${pattern}" "${full}" 2>/dev/null | head -30`;
-    const result = execSync(cmd, { timeout: 5000, cwd: PROJECT_ROOT }).toString().trim();
+    const { stdout } = await execP(cmd, { timeout: 5000, cwd: PROJECT_ROOT });
+    const result = stdout.trim();
     return result || `Tidak ditemukan "${pattern}" di ${dirPath}`;
   } catch { return `Tidak ditemukan "${pattern}" di ${dirPath}`; }
 }
 
-export function writeLocalFile(filePath: string, content: string): string {
+export async function writeLocalFile(filePath: string, content: string): Promise<string> {
   const full = resolve(filePath);
   if (!isPathSafe(full)) return `Error: Path ${filePath} di luar project.`;
   try {
-    mkdirSync(dirname(full), { recursive: true });
-    writeFileSync(full, content);
+    await mkdir(dirname(full), { recursive: true });
+    await writeFile(full, content);
     return `✅ File ${filePath} berhasil ditulis (${content.length} chars).`;
   } catch (e: any) { return `Error: ${e.message}`; }
 }
 
-export function editLocalFile(filePath: string, search: string, replace: string): string {
+export async function editLocalFile(filePath: string, search: string, replace: string): Promise<string> {
   const full = resolve(filePath);
   if (!isPathSafe(full)) return `Error: Path ${filePath} di luar project.`;
   if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
   try {
-    let content = readFileSync(full, "utf-8");
+    let content = await readFile(full, "utf-8");
     const count = content.split(search).length - 1;
     if (count === 0) return `Error: "search" tidak ditemukan di file.`;
     if (count > 1) return `Error: "search" muncul ${count}x (harus tepat 1x).`;
     content = content.replace(search, replace);
-    writeFileSync(full, content);
+    await writeFile(full, content);
     return `✅ File ${filePath} berhasil diedit (1 replacement).`;
   } catch (e: any) { return `Error: ${e.message}`; }
 }
 
-export function execLocalCommand(command: string): string {
+export async function execLocalCommand(command: string): Promise<string> {
   const allowed = ["git", "pnpm", "npm", "pm2", "node", "tsc", "npx", "ls", "cat", "echo", "uptime"];
   const cmdName = command.trim().split(/\s+/)[0];
   if (!allowed.includes(cmdName)) return `Error: Command "${cmdName}" tidak diizinkan. Allowed: ${allowed.join(", ")}`;
-  // Allow git subcommands: status, diff, checkout, merge, push, pull, fetch, branch, log
   if (cmdName === "git") {
     const subCmd = command.trim().split(/\s+/)[1] || "";
     const allowedGit = ["status", "diff", "checkout", "merge", "push", "pull", "fetch", "branch", "log", "remote"];
     if (subCmd && !allowedGit.includes(subCmd)) return `Error: Git subcommand "${subCmd}" tidak diizinkan. Allowed: ${allowedGit.join(", ")}`;
   }
   try {
-    const result = execSync(command, { timeout: 30000, cwd: PROJECT_ROOT }).toString().trim();
-    return result || "(no output)";
+    const { stdout, stderr } = await execP(command, { timeout: 30000, cwd: PROJECT_ROOT });
+    return (stdout || stderr || "(no output)").trim();
   } catch (e: any) { return `Error: ${e.stderr?.toString() || e.message}`; }
 }
 
@@ -360,7 +380,7 @@ export const EXPLORE_TOOLS: ToolDef[] = [
   { name: "getDependencies", description: "Read a file and return its internal dependency graph (import paths that start with ./ or ../). Useful to understand which files are connected.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file, e.g., artifacts/pos-app/src/pages/products.tsx" } }, required: ["path"] } },
 ];
 
-function executeToolCall(name: string, args: Record<string, any>): string {
+async function executeToolCall(name: string, args: Record<string, any>): Promise<string> {
   switch (name) {
     case "listDirectory": return listLocalDir(args.path || ".");
     case "readFile": return readLocalFile(args.path || "");
@@ -392,11 +412,17 @@ export async function callDeepSeekWithTools(
   }
 
   try {
-    const resp = await fetch(`${base}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify(body),
-    });
+    const controller1 = new AbortController();
+    const tid1 = setTimeout(() => controller1.abort(), 30000);
+    let resp;
+    try {
+      resp = await fetch(`${base}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify(body),
+        signal: controller1.signal,
+      });
+    } finally { clearTimeout(tid1); }
     if (!resp.ok) { console.error(`[ai] DeepSeek tools HTTP ${resp.status}: ${await resp.text().catch(() => "").then((t: any) => t.slice(0, 300))}`); return ""; }
 
     const json = await resp.json();
@@ -405,23 +431,28 @@ export async function callDeepSeekWithTools(
 
     // Tool calls?
     if (msg.tool_calls && msg.tool_calls.length > 0) {
-      // Execute all tools
-      const toolResults: any[] = [];
-      for (const tc of msg.tool_calls) {
+      // Execute all tools (parallel via Promise.all)
+      const toolResults: any[] = await Promise.all(msg.tool_calls.map(async (tc: any) => {
         const fn = tc.function;
         let args: Record<string, any> = {};
         try { args = JSON.parse(fn.arguments); } catch { args = {}; }
-        const result = executeToolCall(fn.name, args);
-        toolResults.push({ role: "tool", tool_call_id: tc.id, content: result.slice(0, 3000) });
-      }
+        const result = await executeToolCall(fn.name, args);
+        return { role: "tool", tool_call_id: tc.id, content: result.slice(0, 3000) };
+      }));
 
       // Feed tool results back to DeepSeek
       const followUp: any[] = [...messages, msg, ...toolResults];
-      const resp2 = await fetch(`${base}/chat/completions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model, messages: followUp, max_tokens: maxTokens, temperature: 0.7 }),
-      });
+      const controller2 = new AbortController();
+      const tid2 = setTimeout(() => controller2.abort(), 30000);
+      let resp2;
+      try {
+        resp2 = await fetch(`${base}/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify({ model, messages: followUp, max_tokens: maxTokens, temperature: 0.7 }),
+          signal: controller2.signal,
+        });
+      } finally { clearTimeout(tid2); }
       if (!resp2.ok) return msg.content || "";
       const json2 = await resp2.json();
       const finalContent = (json2 as any).choices?.[0]?.message?.content?.trim() || "";
@@ -434,6 +465,7 @@ export async function callDeepSeekWithTools(
     if (content) await remember(userId, mode, user, content);
     return content;
   } catch (err) {
+    if ((err as any)?.name === "AbortError") { console.error("[ai] callDeepSeekWithTools timeout"); return ""; }
     console.error("[ai] callDeepSeekWithTools error:", err);
     return "";
   }

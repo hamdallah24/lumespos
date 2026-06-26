@@ -13,7 +13,7 @@ import { eq, and } from "drizzle-orm";
 const router = Router();
 
 // ── CTO STREAMING HELPER ──
-async function streamBANGResponse(res: any, uid: number, clean: string) {
+async function streamBANGResponse(req: any, res: any, uid: number, clean: string) {
   const key = process.env.DEEPSEEK_API_KEY;
   const base = process.env.DEEPSEEK_BASE_URL;
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
@@ -24,11 +24,21 @@ async function streamBANGResponse(res: any, uid: number, clean: string) {
   for (const h of history) messages.push(h);
   messages.push({ role: "user", content: clean.slice(0, 2000) });
 
-  const dsResp = await fetch(`${base}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages, max_tokens: 3000, temperature: 0.7, stream: true }),
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  let dsResp;
+  try {
+    dsResp = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ model, messages, max_tokens: 3000, temperature: 0.7, stream: true }),
+      signal: controller.signal,
+    });
+  } catch {
+    clearTimeout(timeout);
+    res.json({ reply: "BANG sedang sibuk, coba lagi ya bos." });
+    return;
+  } finally { clearTimeout(timeout); }
   if (!dsResp.ok) {
     const errText = await dsResp.text().catch(() => "");
     console.error(`[ai] BANG stream HTTP ${dsResp.status}: ${errText.slice(0, 300)}`);
@@ -41,6 +51,10 @@ async function streamBANGResponse(res: any, uid: number, clean: string) {
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
+  // Cleanup on client disconnect
+  let aborted = false;
+  req.on("close", () => { aborted = true; controller.abort(); });
+
   const reader = dsResp.body!.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -49,7 +63,7 @@ async function streamBANGResponse(res: any, uid: number, clean: string) {
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
+      if (done || aborted) break;
       buffer += decoder.decode(value, { stream: true });
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
@@ -60,15 +74,17 @@ async function streamBANGResponse(res: any, uid: number, clean: string) {
         try {
           const chunk = JSON.parse(payload);
           const content = chunk.choices?.[0]?.delta?.content;
-          if (content) { fullText += content; res.write(`data: ${JSON.stringify({ text: fullText })}\n\n`); }
+          if (content && !aborted) { fullText += content; res.write(`data: ${JSON.stringify({ delta: content })}\n\n`); }
         } catch { /* skip malformed chunks */ }
       }
     }
   } finally { reader.releaseLock(); }
 
-  res.write(`data: ${JSON.stringify({ done: true, finalText: fullText })}\n\n`);
-  res.end();
-  if (fullText) await remember(uid, "cto", clean, fullText);
+  if (!aborted) {
+    res.write(`data: ${JSON.stringify({ done: true, finalText: fullText })}\n\n`);
+    res.end();
+    if (fullText) await remember(uid, "cto", clean, fullText);
+  }
 }
 
 // ── ROUTER ──
@@ -200,7 +216,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             ];
             let found = false;
             for (const p of possiblePaths) {
-              let content = readLocalFile(p, 5000);
+              const content = await readLocalFile(p, 5000);
               if (content && !content.startsWith("Error:")) {
                 res.json({ reply: `📄 ${p} (lokal):\n\`\`\`\n${content}\n\`\`\`` + (content.length >= 5000 ? `\n\n...dipotong` : "") });
                 found = true; break;
@@ -220,7 +236,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         if (/list\s+(?:direktori|directory|folder|struktur)/i.test(lower)) {
           const dirMatch = lower.match(/(?:list\s+(?:direktori|directory|folder|struktur)\s+)?(\S+)/i);
           const dir = dirMatch ? dirMatch[1].replace(/(list|direktori|directory|folder|struktur)/i, "").trim() : "";
-          const listing = listLocalDir(dir || ".");
+          const listing = await listLocalDir(dir || ".");
           if (listing && !listing.startsWith("Error:")) {
             res.json({ reply: `📁 ${dir || "."} (lokal):\n${listing}` }); return;
           }
@@ -271,9 +287,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             }
           }
           if (fetchedPaths.length > 0) {
+            const depResults = await Promise.all(fetchedPaths.map(async (p) => ({ p, deps: await getDependencies(p) })));
+            const depMap = new Map(depResults.map(r => [r.p, r.deps]));
             const manifestLines = fetchedPaths.map((p, i) => {
               const dir = p.split("/").slice(0, -1).pop() || "";
-              const deps = getDependencies(p);
+              const deps = depMap.get(p) || "";
               const depLine = deps && !deps.startsWith("Error:") && deps !== "(no internal imports)"
                 ? `\n     @deps:[${deps.split("\n").map(d => d.replace(/^\s+→\s*/, "").trim()).join(", ")}]`
                 : "";
@@ -294,7 +312,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
 
         // ── Main: streaming response (no tools, full format) ──
-        await streamBANGResponse(res, uid, bangContext);
+        await streamBANGResponse(req, res, uid, bangContext);
         return;
       }
 

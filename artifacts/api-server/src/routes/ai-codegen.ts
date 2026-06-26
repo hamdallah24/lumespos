@@ -260,7 +260,7 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
       fileSha = ""; // prefetched dari main, sha tidak relevan
     } else {
       // Try local filesystem first (VPS), fallback to GitHub
-      const localContent = readLocalFile(targetPath, 20000);
+      const localContent = await readLocalFile(targetPath, 20000);
       if (localContent && !localContent.startsWith("Error:")) {
         fileContent = localContent;
         fileSha = "";

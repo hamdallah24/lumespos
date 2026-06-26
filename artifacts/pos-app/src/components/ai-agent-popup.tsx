@@ -172,7 +172,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
     // CTO mode → streaming (with tool pre-fetch in backend)
     if (mode === "cto") {
       setMessages((prev) => [...prev, { role: "assistant", text: "" }]);
-      let finalText = "";
+      let accumulated = "";
       try {
         const resp = await fetch("/api/ai/chat", {
           method: "POST",
@@ -198,9 +198,10 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
             if (!line.startsWith("data: ")) continue;
             try {
               const data = JSON.parse(line.slice(6));
-              if (data.done) { finalText = data.finalText || data.text || ""; break; }
-              if (data.text) {
-                setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: data.text }; return copy; });
+              if (data.done) { accumulated = data.finalText || ""; break; }
+              if (data.delta) {
+                accumulated += data.delta;
+                setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: accumulated }; return copy; });
               }
             } catch { /* skip */ }
           }
@@ -208,7 +209,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
       } catch {
         setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, terjadi kesalahan." }]; });
       }
-      const needsApproval = /SETUJU/i.test(finalText) && /TIDAK\s*SETUJU/i.test(finalText);
+      const needsApproval = /SETUJU/i.test(accumulated) && /TIDAK\s*SETUJU/i.test(accumulated);
       if (needsApproval) approvalMsgRef.current = msg;
       setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { ...copy[copy.length - 1], showApproval: needsApproval }; return copy; });
       setLoading(false);
