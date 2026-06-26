@@ -239,14 +239,10 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
   const lower = userMessage.toLowerCase();
   let targetPath = "";
 
-  // Try to extract file path from message
-  const pathMatch = lower.match(/(?:di\s+)?(?:file\s+)?(?:path\s+)?(artifacts\/\S+\.[a-z]+)/i);
-  if (pathMatch) targetPath = pathMatch[1];
-  else if (prefetchedFiles && Object.keys(prefetchedFiles).length > 0) {
-    // Use first prefetched file as target
+  // Priority: prefetched (dari repo) > heuristic
+  if (prefetchedFiles && Object.keys(prefetchedFiles).length > 0) {
     targetPath = Object.keys(prefetchedFiles)[0] || "";
   } else {
-    // Heuristic fallback
     if (/komponen|component|components/i.test(lower)) targetPath = "artifacts/pos-app/src/components/";
     else if (/halaman|page/i.test(lower)) targetPath = "artifacts/pos-app/src/pages/";
     else if (/route|routes|endpoint|api/i.test(lower)) targetPath = "artifacts/api-server/src/routes/";
@@ -267,38 +263,6 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
       if (!f.content) f = await fetchGitHubFile(targetPath, "main");
       fileContent = f.content;
       fileSha = f.sha;
-
-      // Fuzzy fallback: file tidak ditemukan → cari file paling mirip di folder yg sama
-      if (!fileContent && targetPath.includes("/")) {
-        const dirPath2 = targetPath.split("/").slice(0, -1).join("/");
-        const targetName = targetPath.split("/").pop() || "";
-        try {
-          const dirList = await fetch(`${GITHUB_RAW}/${GITHUB_REPO}/contents/${dirPath2}?ref=main`, {
-            headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github+json" },
-          });
-          if (dirList.ok) {
-            const items = await dirList.json() as any[];
-            const files = items.filter(i => i.type === "file" && i.name.endsWith(".ts") || i.name.endsWith(".tsx"));
-            let best: { path: string; score: number } | null = null;
-            for (const file of files) {
-              // Simple similarity: count matching characters
-              const a = targetName.toLowerCase().replace(/[^a-z]/g, "");
-              const b = file.name.toLowerCase().replace(/[^a-z]/g, "");
-              const common = [...new Set(a)].filter(c => b.includes(c)).length;
-              const score = (common / Math.max(a.length, 1)) * 100;
-              if (score > 40 && (!best || score > best.score)) {
-                best = { path: file.path, score };
-              }
-            }
-            if (best) {
-              log("search", `File "${targetName}" tidak ditemukan → pakai "${best.path.split("/").pop()}" (${Math.round(best.score)}% mirip)`);
-              targetPath = best.path;
-              const fb = await fetchGitHubFile(targetPath, BRANCH);
-              fileContent = fb.content || (await fetchGitHubFile(targetPath, "main")).content;
-            }
-          }
-        } catch { /* skip fuzzy */ }
-      }
     }
 
     // ── PHASE 1.5: Find related files ──
