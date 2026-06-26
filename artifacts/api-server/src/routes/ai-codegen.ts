@@ -3,6 +3,13 @@
 // Ported from n8n Code Generator Stage 4 workflow. All Telegram nodes removed.
 // ─────────────────────────────────────────────────────────────
 import { callDeepSeek, fetchGitHubFile, remember, clearMemory, GITHUB_PAT, GITHUB_REPO } from "./ai-helpers";
+import { exec } from "child_process";
+import { writeFileSync, unlinkSync } from "fs";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
+
+const ROOT = "/home/ubuntu/lumespos";
 
 const BRANCH = "Staging";
 const GITHUB_API = "https://api.github.com/repos";
@@ -149,6 +156,32 @@ function validateEdits(files: GenFile[], fetchedContent: Record<string, string>)
 }
 
 // ─────────────────────────────────────────────────────────────
+// 3.5 TYPECHECK HELPER
+// ─────────────────────────────────────────────────────────────
+async function runTypeCheck(patched: Record<string, { content: string }>): Promise<string | null> {
+  const paths: string[] = [];
+  // Write all patched files to disk
+  for (const [p, { content }] of Object.entries(patched)) {
+    const fullPath = `${ROOT}/${p}`;
+    writeFileSync(fullPath, content);
+    paths.push(fullPath);
+  }
+  try {
+    const ws = paths.some(p => p.includes("artifacts/pos-app")) ? "pos-app" : "api-server";
+    await execAsync(`cd ${ROOT} && pnpm --filter ./artifacts/${ws} run typecheck 2>&1`, { timeout: 30000 });
+    return null; // PASS
+  } catch (e: any) {
+    const stderr = e.stderr || e.stdout || String(e);
+    // Revert written files
+    for (const p of paths) {
+      try { await execAsync(`cd ${ROOT} && git checkout -- ${p.replace(ROOT + "/", "")}`); } catch {}
+      try { unlinkSync(p); } catch {}
+    }
+    return stderr.includes("error TS") ? stderr.slice(0, 2000) : `TypeCheck error: ${stderr.slice(0, 1000)}`;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // 3. GITHUB COMMIT
 // ─────────────────────────────────────────────────────────────
 async function commitFile(path: string, content: string, sha: string | null, message: string): Promise<string | null> {
@@ -244,6 +277,22 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
     const { valid, errors, patched } = validateEdits(files, fetched);
 
     if (valid) {
+      // ── PHASE 3.5: TypeCheck before commit ──
+      const tscErr = await runTypeCheck(patched);
+      // Cleanup: revert local files (committed to GitHub, not local)
+      for (const p of Object.keys(patched)) {
+        try { await execAsync(`cd ${ROOT} && git checkout -- ${p}`); } catch {}
+      }
+      if (tscErr) {
+        if (attempt < 2) {
+          rawOutput = await callDeepSeek(CODEGEN_PROMPT,
+            `${userCtx}\n\nTypeCheck GAGAL:\n${tscErr.slice(0, 1500)}\n\nPerbaiki. Pastikan import benar, tipe valid, tidak ada properti yg tidak ada.`,
+            userId, "codegen", 2000);
+          continue;
+        }
+        return `❌ TypeCheck gagal setelah 3x percobaan:\n\n\`\`\`\n${tscErr.slice(0, 1000)}\n\`\`\``;
+      }
+
       // ── PHASE 4: Commit ──
       const results: string[] = [];
       for (const [path, p] of Object.entries(patched)) {
