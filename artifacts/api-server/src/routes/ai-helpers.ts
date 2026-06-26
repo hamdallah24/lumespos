@@ -1,7 +1,11 @@
 // ─────────────────────────────────────────────────────────────
-// AI HELPERS — DeepSeek, memory, GitHub, SSH
+// AI HELPERS — DeepSeek, memory, GitHub, SSH, Local Tools
 // ─────────────────────────────────────────────────────────────
-import { exec } from "child_process";
+import { exec, execSync } from "child_process";
+import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { join, dirname, relative, resolve } from "path";
+
+export const PROJECT_ROOT = resolve(process.cwd().includes("artifacts") ? "../.." : ".");
 
 export const GITHUB_PAT = process.env.GITHUB_PAT || "";
 export const GITHUB_REPO = "hamdallah24/lumespos";
@@ -154,4 +158,167 @@ export function sshExec(cmd: string): Promise<string> {
       resolve(err ? (stderr || err.message) : (stdout || "no output"));
     });
   });
+}
+
+// ── LOCAL TOOLS (Fase 1 — VPS filesystem) ──
+
+const SAFE_DIRS = [PROJECT_ROOT, join(PROJECT_ROOT, "artifacts"), join(PROJECT_ROOT, "lib")];
+function isPathSafe(p: string): boolean { return SAFE_DIRS.some(d => resolve(p).startsWith(d)); }
+
+export function listLocalDir(dirPath: string): string {
+  const full = resolve(dirPath);
+  if (!isPathSafe(full)) return `Error: Path ${dirPath} di luar project.`;
+  if (!existsSync(full)) return `Error: Directory ${dirPath} tidak ditemukan.`;
+  try {
+    const items = readdirSync(full, { withFileTypes: true });
+    return items.map(d => `${d.isDirectory() ? "📁" : "📄"} ${d.name}${d.isFile() ? ` (${statSync(join(full, d.name)).size} bytes)` : ""}`).join("\n");
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+export function readLocalFile(filePath: string, maxChars = 5000): string {
+  const full = resolve(filePath);
+  if (!isPathSafe(full)) return `Error: Path ${filePath} di luar project.`;
+  if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
+  try {
+    const content = readFileSync(full, "utf-8");
+    return content.length > maxChars ? content.slice(0, maxChars) + `\n\n... (truncated, ${content.length - maxChars} chars remaining)` : content;
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+export function searchLocalContent(dirPath: string, pattern: string): string {
+  const full = resolve(dirPath);
+  if (!isPathSafe(full)) return `Error: Path ${dirPath} di luar project.`;
+  try {
+    const cmd = process.platform === "win32"
+      ? `findstr /s /i /n "${pattern}" "${full}\\*" 2>nul`
+      : `grep -rn --include="*.ts" --include="*.tsx" --include="*.json" "${pattern}" "${full}" 2>/dev/null | head -30`;
+    const result = execSync(cmd, { timeout: 5000, cwd: PROJECT_ROOT }).toString().trim();
+    return result || `Tidak ditemukan "${pattern}" di ${dirPath}`;
+  } catch { return `Tidak ditemukan "${pattern}" di ${dirPath}`; }
+}
+
+export function writeLocalFile(filePath: string, content: string): string {
+  const full = resolve(filePath);
+  if (!isPathSafe(full)) return `Error: Path ${filePath} di luar project.`;
+  try {
+    mkdirSync(dirname(full), { recursive: true });
+    writeFileSync(full, content);
+    return `✅ File ${filePath} berhasil ditulis (${content.length} chars).`;
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+export function editLocalFile(filePath: string, search: string, replace: string): string {
+  const full = resolve(filePath);
+  if (!isPathSafe(full)) return `Error: Path ${filePath} di luar project.`;
+  if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
+  try {
+    let content = readFileSync(full, "utf-8");
+    const count = content.split(search).length - 1;
+    if (count === 0) return `Error: "search" tidak ditemukan di file.`;
+    if (count > 1) return `Error: "search" muncul ${count}x (harus tepat 1x).`;
+    content = content.replace(search, replace);
+    writeFileSync(full, content);
+    return `✅ File ${filePath} berhasil diedit (1 replacement).`;
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+export function execLocalCommand(command: string): string {
+  const allowed = ["git", "pnpm", "npm", "pm2", "node", "tsc", "npx", "ls", "cat", "echo", "uptime"];
+  const cmdName = command.trim().split(/\s+/)[0];
+  if (!allowed.includes(cmdName)) return `Error: Command "${cmdName}" tidak diizinkan. Allowed: ${allowed.join(", ")}`;
+  try {
+    const result = execSync(command, { timeout: 30000, cwd: PROJECT_ROOT }).toString().trim();
+    return result || "(no output)";
+  } catch (e: any) { return `Error: ${e.stderr?.toString() || e.message}`; }
+}
+
+// ── TOOL CALLING (DeepSeek native, no Mastra) ──
+
+export interface ToolDef { name: string; description: string; parameters: Record<string, any>; }
+
+export const LOCAL_TOOLS: ToolDef[] = [
+  { name: "listDirectory", description: "List files and folders in a directory path within the project.", parameters: { type: "object", properties: { path: { type: "string", description: "Absolute or relative path to directory, e.g., artifacts/pos-app/src/pages" } }, required: ["path"] } },
+  { name: "readFile", description: "Read content of a file within the project. Returns max 5000 chars.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file, e.g., artifacts/pos-app/src/pages/products.tsx" } }, required: ["path"] } },
+  { name: "searchContent", description: "Search for text pattern in project files using grep.", parameters: { type: "object", properties: { path: { type: "string", description: "Directory to search in" }, pattern: { type: "string", description: "Text pattern to search for" } }, required: ["path", "pattern"] } },
+  { name: "writeFile", description: "Create a new file or overwrite an existing file. Creates parent directories automatically.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to new file" }, content: { type: "string", description: "Full file content" } }, required: ["path", "content"] } },
+  { name: "editFile", description: "Edit an existing file by replacing a specific text block. Search text must be EXACT match (including whitespace) and unique in the file.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file to edit" }, search: { type: "string", description: "Exact text to find (must appear exactly once)" }, replace: { type: "string", description: "Replacement text" } }, required: ["path", "search", "replace"] } },
+  { name: "execCommand", description: "Execute a safe shell command. Allowed: git, pnpm, npm, pm2, node, tsc, npx, ls, cat, echo, uptime. Max 30s timeout.", parameters: { type: "object", properties: { command: { type: "string", description: "Command to run, e.g., git status, pnpm build, pm2 restart pos-api" } }, required: ["command"] } },
+];
+
+function executeToolCall(name: string, args: Record<string, any>): string {
+  switch (name) {
+    case "listDirectory": return listLocalDir(args.path || ".");
+    case "readFile": return readLocalFile(args.path || "");
+    case "searchContent": return searchLocalContent(args.path || ".", args.pattern || "");
+    case "writeFile": return writeLocalFile(args.path || "", args.content || "");
+    case "editFile": return editLocalFile(args.path || "", args.search || "", args.replace || "");
+    case "execCommand": return execLocalCommand(args.command || "");
+    default: return `Error: Unknown tool "${name}"`;
+  }
+}
+
+export async function callDeepSeekWithTools(
+  system: string, user: string, userId: number, mode: string, tools: ToolDef[], maxTokens = 2000
+): Promise<string> {
+  const key = process.env.DEEPSEEK_API_KEY;
+  const base = process.env.DEEPSEEK_BASE_URL;
+  const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+  if (!key || !base) { console.error("[ai] DeepSeek key/base not set"); return ""; }
+
+  const history = getHistory(userId, mode);
+  const messages: any[] = [{ role: "system", content: system.slice(0, 4000) }];
+  for (const h of history) messages.push(h);
+  messages.push({ role: "user", content: user.slice(0, 2000) });
+
+  const body: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
+  if (tools.length > 0) {
+    body.tools = tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
+  }
+
+  try {
+    const resp = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) { console.error(`[ai] DeepSeek tools HTTP ${resp.status}: ${await resp.text().catch(() => "").then((t: any) => t.slice(0, 300))}`); return ""; }
+
+    const json = await resp.json();
+    const msg = (json as any).choices?.[0]?.message;
+    if (!msg) return "";
+
+    // Tool calls?
+    if (msg.tool_calls && msg.tool_calls.length > 0) {
+      // Execute all tools
+      const toolResults: any[] = [];
+      for (const tc of msg.tool_calls) {
+        const fn = tc.function;
+        let args: Record<string, any> = {};
+        try { args = JSON.parse(fn.arguments); } catch { args = {}; }
+        const result = executeToolCall(fn.name, args);
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: result.slice(0, 3000) });
+      }
+
+      // Feed tool results back to DeepSeek
+      const followUp: any[] = [...messages, msg, ...toolResults];
+      const resp2 = await fetch(`${base}/chat/completions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ model, messages: followUp, max_tokens: maxTokens, temperature: 0.7 }),
+      });
+      if (!resp2.ok) return msg.content || "";
+      const json2 = await resp2.json();
+      const finalContent = (json2 as any).choices?.[0]?.message?.content?.trim() || "";
+      if (finalContent) remember(userId, mode, user, finalContent);
+      return finalContent || msg.content || "";
+    }
+
+    // No tool calls — normal text response
+    const content = msg.content?.trim() || "";
+    if (content) remember(userId, mode, user, content);
+    return content;
+  } catch (err) {
+    console.error("[ai] callDeepSeekWithTools error:", err);
+    return "";
+  }
 }

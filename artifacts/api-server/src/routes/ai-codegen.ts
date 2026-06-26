@@ -2,7 +2,7 @@
 // AI CODEGEN — Code Generator Pipeline (analyze → generate → validate → commit)
 // Ported from n8n Code Generator Stage 4 workflow. All Telegram nodes removed.
 // ─────────────────────────────────────────────────────────────
-import { callDeepSeek, fetchGitHubFile, remember, clearMemory, GITHUB_PAT, GITHUB_REPO, GITHUB_RAW } from "./ai-helpers";
+import { callDeepSeek, fetchGitHubFile, remember, clearMemory, GITHUB_PAT, GITHUB_REPO, GITHUB_RAW, PROJECT_ROOT, readLocalFile } from "./ai-helpers";
 import { exec } from "child_process";
 import { writeFileSync, unlinkSync, mkdirSync } from "fs";
 import { dirname } from "path";
@@ -259,10 +259,17 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
       fileContent = prefetchedFiles[targetPath];
       fileSha = ""; // prefetched dari main, sha tidak relevan
     } else {
-      let f = await fetchGitHubFile(targetPath, BRANCH);
-      if (!f.content) f = await fetchGitHubFile(targetPath, "main");
-      fileContent = f.content;
-      fileSha = f.sha;
+      // Try local filesystem first (VPS), fallback to GitHub
+      const localContent = readLocalFile(targetPath, 20000);
+      if (localContent && !localContent.startsWith("Error:")) {
+        fileContent = localContent;
+        fileSha = "";
+      } else {
+        let f = await fetchGitHubFile(targetPath, BRANCH);
+        if (!f.content) f = await fetchGitHubFile(targetPath, "main");
+        fileContent = f.content;
+        fileSha = f.sha;
+      }
     }
 
     // ── PHASE 1.5: Find related files ──

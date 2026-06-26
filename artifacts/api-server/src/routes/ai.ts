@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, fetchGitHubFile, fetchGitHubDir, sshExec, getHistory, remember, clearMemory, searchRepoFiles } from "./ai-helpers";
+import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, fetchGitHubDir, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
@@ -269,8 +269,15 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           }
         }
 
-        // Dynamic Specialist → BANG streaming
-        await streamBANGResponse(res, uid, bangContext);
+        // BANG with tools — explore repo, then respond
+        const toolResult = await callDeepSeekWithTools(
+          BANG_ORCHESTRATOR, bangContext, uid, "cto", LOCAL_TOOLS, 3000
+        );
+        const reply = toolResult || "BANG sedang sibuk, coba lagi ya bos.";
+
+        // Check for approval pattern
+        const needsApproval = /SETUJU/i.test(reply) && /TIDAK\s*SETUJU/i.test(reply);
+        res.json({ reply, needsApproval });
         return;
       }
 
