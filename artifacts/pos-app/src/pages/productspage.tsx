@@ -8,7 +8,7 @@ async function fetchProducts() {
 }
 
 export default function ProductsPage() {
-  const { data: products, isLoading, refetch } = useQuery({
+  const { data: products, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['products'],
     queryFn: fetchProducts,
     staleTime: 5 * 60 * 1000,
@@ -20,10 +20,11 @@ export default function ProductsPage() {
         <h1 className="text-2xl font-bold">Daftar Produk</h1>
         <button
           onClick={() => refetch()}
-          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          disabled={isFetching}
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
         >
-          <RefreshCw className="h-4 w-4" />
-          Refresh Stok
+          <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+          {isFetching ? 'Memperbarui...' : 'Refresh Stok'}
         </button>
       </div>
 
