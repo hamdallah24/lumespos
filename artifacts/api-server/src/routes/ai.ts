@@ -188,23 +188,30 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           return;
         }
 
-        // Baca file — local VPS first, GitHub fallback
+        // Baca file — local VPS first, GitHub fallback, multi-path search
         if (/baca\s+(file\s+)?\S+\.[a-z]+/i.test(lower) || /lihat\s+(file\s+)?\S+/i.test(lower)) {
           const fileMatch = lower.match(/(?:baca|lihat|read)\s+(?:file\s+)?(\S+\.\w+)/i);
           if (fileMatch) {
-            // Try local first
-            let content = readLocalFile(fileMatch[1], 5000);
-            if (content && !content.startsWith("Error:")) {
-              res.json({ reply: `📄 ${fileMatch[1]} (lokal):\n\`\`\`\n${content}\n\`\`\`` + (content.length >= 5000 ? `\n\n...dipotong` : "") });
-              return;
+            const rawPath = fileMatch[1];
+            const possiblePaths = [rawPath,
+              `artifacts/pos-app/src/components/${rawPath}`, `artifacts/pos-app/src/pages/${rawPath}`, `artifacts/pos-app/src/${rawPath}`,
+              `artifacts/api-server/src/routes/${rawPath}`, `artifacts/api-server/src/${rawPath}`, `artifacts/api-server/src/middlewares/${rawPath}`,
+              `artifacts/api-server/src/services/${rawPath}`, `lib/db/src/schema/${rawPath}`, `lib/db/src/${rawPath}`,
+            ];
+            let found = false;
+            for (const p of possiblePaths) {
+              let content = readLocalFile(p, 5000);
+              if (content && !content.startsWith("Error:")) {
+                res.json({ reply: `📄 ${p} (lokal):\n\`\`\`\n${content}\n\`\`\`` + (content.length >= 5000 ? `\n\n...dipotong` : "") });
+                found = true; break;
+              }
+              const result = await fetchGitHubFile(p, "main");
+              if (result.content) {
+                res.json({ reply: `📄 ${p} (GitHub):\n\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\`` + (result.content.length > 3000 ? `\n\n...dipotong` : "") });
+                found = true; break;
+              }
             }
-            // GitHub fallback
-            const result = await fetchGitHubFile(fileMatch[1], "main");
-            if (result.content) {
-              res.json({ reply: `📄 ${fileMatch[1]} (GitHub):\n\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\`` + (result.content.length > 3000 ? `\n\n...dipotong` : "") });
-              return;
-            }
-            res.json({ reply: `❌ File "${fileMatch[1]}" tidak ditemukan (lokal & GitHub).` });
+            if (!found) res.json({ reply: `❌ File "${rawPath}" tidak ditemukan di lokasi manapun. Coba pakai path lengkap (misal: artifacts/api-server/src/routes/ai.ts)` });
             return;
           }
         }
