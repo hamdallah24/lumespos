@@ -2,7 +2,7 @@
 // AI CODEGEN — Code Generator Pipeline (analyze → generate → validate → commit)
 // Ported from n8n Code Generator Stage 4 workflow. All Telegram nodes removed.
 // ─────────────────────────────────────────────────────────────
-import { callDeepSeek, fetchGitHubFile, remember, clearMemory, GITHUB_PAT, GITHUB_REPO } from "./ai-helpers";
+import { callDeepSeek, fetchGitHubFile, remember, clearMemory, GITHUB_PAT, GITHUB_REPO, GITHUB_RAW } from "./ai-helpers";
 import { exec } from "child_process";
 import { writeFileSync, unlinkSync } from "fs";
 import { promisify } from "util";
@@ -225,17 +225,66 @@ export async function generateAndCommit(userMessage: string, userId: number): Pr
   // Fetch existing file content
   let fileContent = "";
   let fileSha = "";
+  let relatedContext = "";
   if (targetPath && !targetPath.endsWith("/")) {
     const f = await fetchGitHubFile(targetPath, BRANCH);
     fileContent = f.content;
     fileSha = f.sha;
+
+    // ── PHASE 1.5: Find related files ──
+    // Get directory of target file and list siblings
+    const dirPath = targetPath.split("/").slice(0, -1).join("/");
+    try {
+      const dirList = await fetch(`${GITHUB_RAW}/${GITHUB_REPO}/contents/${dirPath}?ref=${BRANCH}`, {
+        headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github+json" },
+      });
+      if (dirList.ok) {
+        const items = await dirList.json() as any[];
+        // Fetch sibling files (max 5) for context
+        const siblings = items.filter(i => i.type === "file" && i.name !== targetPath.split("/").pop()).slice(0, 5);
+        const relatedParts: string[] = [];
+        for (const s of siblings) {
+          const rf = await fetchGitHubFile(s.path, BRANCH);
+          if (rf.content && rf.content.length < 5000) {
+            relatedParts.push(`--- FILE: ${s.path} ---\n${rf.content}\n--- END ---`);
+          }
+        }
+        if (relatedParts.length > 0) relatedContext = "\n\nFILE TERKAIT (mungkin perlu diupdate juga):\n" + relatedParts.join("\n\n");
+      }
+    } catch { /* skip if can't get siblings */ }
+
+    // Also extract imports from target and try to fetch them
+    const importMatches = fileContent.match(/import\s+.*from\s+['"](\.\/[^'"]+)['"]/g);
+    if (importMatches) {
+      const importedPaths = importMatches.map(m => {
+        const p = m.match(/from\s+['"](\.\/[^'"]+)['"]/)?.[1];
+        if (!p) return null;
+        // Resolve relative path
+        const parts = targetPath.split("/");
+        parts.pop();
+        for (const seg of (p + ".tsx").split("/")) {
+          if (seg === "..") parts.pop();
+          else if (seg !== ".") parts.push(seg);
+        }
+        return parts.join("/");
+      }).filter(Boolean) as string[];
+
+      const importedParts: string[] = [];
+      for (const ip of importedPaths.slice(0, 3)) {
+        const rf = await fetchGitHubFile(ip, BRANCH);
+        if (rf.content && rf.content.length < 5000) {
+          importedParts.push(`--- IMPORT: ${ip} ---\n${rf.content}\n--- END ---`);
+        }
+      }
+      if (importedParts.length > 0) relatedContext += "\n\nFILE DI-IMPORT (komponen yg dipakai):\n" + importedParts.join("\n\n");
+    }
   }
 
   // ── PHASE 2: Generate code (DeepSeek) ──
   const userCtx = `REQUEST: ${userMessage}
 BRANCH TARGET: ${BRANCH}
 TARGET PATH: ${targetPath || "(tentukan sendiri)"}
-${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`\`` : "FILE BELUM ADA — buat file baru."}`;
+${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`\`` : "FILE BELUM ADA — buat file baru."}${relatedContext}`;
 
   let rawOutput = await callDeepSeek(CODEGEN_PROMPT, userCtx, userId, "codegen", 2000);
 

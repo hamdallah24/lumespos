@@ -5,7 +5,7 @@ import { exec } from "child_process";
 
 export const GITHUB_PAT = process.env.GITHUB_PAT || "";
 export const GITHUB_REPO = "hamdallah24/lumespos";
-const GITHUB_RAW = "https://api.github.com/repos";
+export const GITHUB_RAW = "https://api.github.com/repos";
 const GH_HEADERS = { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github.v3.raw" };
 
 export const SSH_HOST = process.env.SSH_HOST || "";
