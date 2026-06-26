@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, fetchGitHubDir, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS } from "./ai-helpers";
+import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
@@ -188,33 +188,36 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           return;
         }
 
-        // Baca file GitHub
+        // Baca file — local VPS first, GitHub fallback
         if (/baca\s+(file\s+)?\S+\.[a-z]+/i.test(lower) || /lihat\s+(file\s+)?\S+/i.test(lower)) {
           const fileMatch = lower.match(/(?:baca|lihat|read)\s+(?:file\s+)?(\S+\.\w+)/i);
           if (fileMatch) {
-            const result = await fetchGitHubFile(fileMatch[1], "main");
-            if (result.content) {
-              res.json({ reply: `\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\`` + (result.content.length > 3000 ? `\n\n...dipotong` : "") });
+            // Try local first
+            let content = readLocalFile(fileMatch[1], 5000);
+            if (content && !content.startsWith("Error:")) {
+              res.json({ reply: `📄 ${fileMatch[1]} (lokal):\n\`\`\`\n${content}\n\`\`\`` + (content.length >= 5000 ? `\n\n...dipotong` : "") });
               return;
             }
-            if (result.status === 0) {
-              res.json({ reply: "❌ GitHub PAT belum di-set. Tambahkan GITHUB_PAT=ghp_... di .env lalu restart PM2." });
-            } else if (result.status === 404) {
-              res.json({ reply: `❌ File "${fileMatch[1]}" tidak ditemukan. Cek nama file & branch.` });
-            } else {
-              res.json({ reply: `❌ GitHub error ${result.status}. Cek token valid & koneksi internet VPS.` });
+            // GitHub fallback
+            const result = await fetchGitHubFile(fileMatch[1], "main");
+            if (result.content) {
+              res.json({ reply: `📄 ${fileMatch[1]} (GitHub):\n\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\`` + (result.content.length > 3000 ? `\n\n...dipotong` : "") });
+              return;
             }
+            res.json({ reply: `❌ File "${fileMatch[1]}" tidak ditemukan (lokal & GitHub).` });
             return;
           }
         }
 
-        // List direktori GitHub
+        // List direktori — local VPS first
         if (/list\s+(?:direktori|directory|folder|struktur)/i.test(lower)) {
           const dirMatch = lower.match(/(?:list\s+(?:direktori|directory|folder|struktur)\s+)?(\S+)/i);
           const dir = dirMatch ? dirMatch[1].replace(/(list|direktori|directory|folder|struktur)/i, "").trim() : "";
-          const listing = await fetchGitHubDir(dir || "artifacts");
-          if (listing) { res.json({ reply: `📁 ${dir || "artifacts"}:\n${listing}` }); return; }
-          res.json({ reply: "Direktori tidak ditemukan atau GITHUB_PAT belum diset." });
+          const listing = listLocalDir(dir || ".");
+          if (listing && !listing.startsWith("Error:")) {
+            res.json({ reply: `📁 ${dir || "."} (lokal):\n${listing}` }); return;
+          }
+          res.json({ reply: `❌ Direktori "${dir || "."}" tidak ditemukan.` });
           return;
         }
 
