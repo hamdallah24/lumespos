@@ -69,15 +69,15 @@ export async function callDeepSeek(system: string, user: string, userId: number,
 }
 
 // ── GITHUB ──
-export async function fetchGitHubFile(path: string, branch = "main"): Promise<string> {
-  if (!GITHUB_PAT) return "";
+export async function fetchGitHubFile(path: string, branch = "main"): Promise<{ content: string; status: number }> {
+  if (!GITHUB_PAT) return { content: "", status: 0 };
   const url = `${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`;
   const resp = await fetch(url, { headers: GH_HEADERS });
   if (!resp.ok) {
-    console.error(`[ai] GitHub file fetch failed: ${resp.status} ${url}`);
-    return "";
+    console.error(`[ai] GitHub fetch ${resp.status}: ${url}`);
+    return { content: "", status: resp.status };
   }
-  return resp.text();
+  return { content: await resp.text(), status: 200 };
 }
 
 export async function fetchGitHubDir(path: string, branch = "main"): Promise<string> {

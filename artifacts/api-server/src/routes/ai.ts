@@ -128,12 +128,18 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         if (/baca\s+(file\s+)?\S+\.[a-z]+/i.test(lower) || /lihat\s+(file\s+)?\S+/i.test(lower)) {
           const fileMatch = lower.match(/(?:baca|lihat|read)\s+(?:file\s+)?(\S+\.\w+)/i);
           if (fileMatch) {
-            const content = await fetchGitHubFile(fileMatch[1]);
-            if (content) {
-              res.json({ reply: `\`\`\`\n${content.slice(0, 3000)}\n\`\`\`` + (content.length > 3000 ? `\n\n...dipotong` : "") });
+            const result = await fetchGitHubFile(fileMatch[1], "main");
+            if (result.content) {
+              res.json({ reply: `\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\`` + (result.content.length > 3000 ? `\n\n...dipotong` : "") });
               return;
             }
-            res.json({ reply: `File "${fileMatch[1]}" tidak ditemukan atau GITHUB_PAT belum diset.` });
+            if (result.status === 0) {
+              res.json({ reply: "❌ GitHub PAT belum di-set. Tambahkan GITHUB_PAT=ghp_... di .env lalu restart PM2." });
+            } else if (result.status === 404) {
+              res.json({ reply: `❌ File "${fileMatch[1]}" tidak ditemukan. Cek nama file & branch.` });
+            } else {
+              res.json({ reply: `❌ GitHub error ${result.status}. Cek token valid & koneksi internet VPS.` });
+            }
             return;
           }
         }
@@ -153,11 +159,10 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         return;
       }
 
-      // ── VPS ──
+      // ── VPS (COO JSON translator like Bisnis) ──
       case "vps": {
+        // Safety: never allow deploy/restart via chat
         const lower = clean.toLowerCase();
-        let cmd = "";
-
         if (/deploy|git pull/i.test(lower)) {
           res.json({ reply: "Deploy jangan lewat sini ya bos. SSH manual aja:\n```\ngit pull && pnpm build && pm2 restart\n```" });
           return;
@@ -166,20 +171,41 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           res.json({ reply: "Restart jangan lewat sini ya bos. SSH manual:\n```\npm2 restart pos-api\n```" });
           return;
         }
-        if (/status|keadaan|info/i.test(lower)) cmd = "pm2 status && echo '---' && free -m && echo '---' && uptime";
-        else if (/logs|log/i.test(lower)) cmd = "pm2 logs pos-api --lines 30 --nostream";
-        else if (/health|sehat|alive/i.test(lower)) cmd = "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health && echo ' (200=OK)'";
-        else if (/ram|memori|memory/i.test(lower)) cmd = "free -m";
-        else if (/disk|hardisk|storage/i.test(lower)) cmd = "df -h /";
-        else if (/uptime/i.test(lower)) cmd = "uptime";
 
-        if (cmd) {
-          const result = await sshExec(cmd);
-          if (!result) { res.json({ reply: "Gagal SSH ke VPS. Cek SSH_HOST, SSH_USER, SSH_PASSWORD di .env." }); return; }
-          res.json({ reply: `\`\`\`\n${result.slice(0, 3000)}\n\`\`\`` });
-          return;
+        const prompt = `${COO_SYSTEM}\n\nOwner (VPS): ${clean}`;
+        const raw = await callDeepSeek(prompt, clean, uid, "vps", 400);
+        if (!raw) { res.json({ reply: "VPS agent sedang sibuk." }); return; }
+
+        let reply = raw;
+        const jsonMatch = raw.match(/^\{.+\}/);
+        if (jsonMatch) {
+          try {
+            const action = JSON.parse(jsonMatch[0]);
+            const actions = action.actions || (action.action ? [action] : []);
+            for (const act of actions) {
+              if (!act.action || !act.action.startsWith("ssh_")) continue;
+              let cmd = "";
+              if (act.action === "ssh_status") cmd = "pm2 status && echo '---' && free -m && echo '---' && uptime";
+              else if (act.action === "ssh_logs") cmd = "pm2 logs pos-api --lines 30 --nostream";
+              else if (act.action === "ssh_health") cmd = "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health && echo ' (200=OK)'";
+              else if (act.action === "ssh_ram") cmd = "free -m";
+              else if (act.action === "ssh_disk") cmd = "df -h /";
+              else if (act.action === "ssh_uptime") cmd = "uptime";
+              if (cmd) {
+                const result = await sshExec(cmd);
+                if (result) act._sshResult = result;
+              }
+            }
+            reply = raw.replace(jsonMatch[0], "").trim();
+            if (!reply && action.response) reply = action.response;
+            // Append SSH results if any
+            for (const act of actions) {
+              if (act._sshResult) reply += `\n\n\`\`\`\n${act._sshResult.slice(0, 2000)}\n\`\`\``;
+            }
+          } catch { /* invalid JSON */ }
         }
-        res.json({ reply: "Command VPS ga dikenal. Coba: status, logs, health, ram, disk, uptime." });
+
+        res.json({ reply: reply || raw });
         return;
       }
 

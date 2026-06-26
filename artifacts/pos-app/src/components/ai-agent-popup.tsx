@@ -386,7 +386,11 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                 </div>
               )}
 
-              {messages.map((msg, i) => (
+              {messages.map((msg, i) => {
+                const isLast = i === messages.length - 1;
+                const showDots = (loading && isLast && msg.role === "assistant" && !msg.text);
+                
+                return (
                 <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                   <div
                     className={`flex gap-2.5 max-w-[85%] ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
@@ -424,6 +428,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                       ) : (
                         msg.text
                       )}
+                      {showDots && <LoadingDots />}
                       {msg.role === "assistant" && (
                         <button
                           onClick={() => handleCopy(msg.text, i)}
@@ -445,7 +450,8 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
 
               {loading && (
                 <div className="flex justify-start">

@@ -192,7 +192,7 @@ export async function generateAndCommit(userMessage: string, userId: number): Pr
   // Fetch existing file content
   let fileContent = "";
   if (targetPath && !targetPath.endsWith("/")) {
-    fileContent = await fetchGitHubFile(targetPath, BRANCH);
+    fileContent = (await fetchGitHubFile(targetPath, BRANCH)).content;
   }
 
   // ── PHASE 2: Generate code (DeepSeek) ──
@@ -232,8 +232,8 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
     // Fetch additional files mentioned in edits
     for (const f of files) {
       if (f.path && !fetched[f.path]) {
-        const c = await fetchGitHubFile(f.path, BRANCH);
-        if (c) fetched[f.path] = c;
+        const result = await fetchGitHubFile(f.path, BRANCH);
+        if (result.content) fetched[f.path] = result.content;
       }
     }
 
@@ -277,11 +277,11 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
 // 5. SIMPLE PARSE — for quick file read (used by CTO tab)
 // ─────────────────────────────────────────────────────────────
 export async function quickAnalyzeFile(path: string, question: string): Promise<string> {
-  const content = await fetchGitHubFile(path, BRANCH);
-  if (!content) return `File "${path}" tidak ditemukan di branch ${BRANCH}.`;
+  const result = await fetchGitHubFile(path, BRANCH);
+  if (!result.content) return `File "${path}" tidak ditemukan di branch ${BRANCH}.`;
   const reply = await callDeepSeek(
     `Kamu adalah code reviewer untuk repo hamdallah24/lumespos (branch ${BRANCH}).`,
-    `PERTANYAAN: ${question}\n\nFILE: ${path}\n\`\`\`\n${content.slice(0, 5000)}\n\`\`\``,
+    `PERTANYAAN: ${question}\n\nFILE: ${path}\n\`\`\`\n${result.content.slice(0, 5000)}\n\`\`\``,
     0, "codegen", 1200);
   return reply || "Tidak bisa menganalisis file.";
 }

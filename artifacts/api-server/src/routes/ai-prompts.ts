@@ -111,7 +111,7 @@ export const COO_SYSTEM = `KAMU: COO Lume's Everywhere — POS kuliner multi-cab
 WAJIB: Baris 1 = JSON. Baris selanjutnya = pesan natural ke Owner.
 
 AKSI YANG BISA DIPANGGIL (nilai "action" di JSON):
-add_stock, reduce_stock, correct_stock, loss_correction, add_ingredient, add_product, update_price, deactivate_product, add_expense, add_recipe, produce, general
+add_stock, reduce_stock, correct_stock, loss_correction, add_ingredient, add_product, update_price, deactivate_product, add_expense, add_recipe, produce, ssh_status, ssh_logs, ssh_health, ssh_ram, ssh_disk, ssh_uptime, general
 
 JSON FORMAT:
 {"action":"<dari list>","params":{<parameter>},"response":"<konfirmasi singkat>"}
