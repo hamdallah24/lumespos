@@ -129,17 +129,9 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           const searchQuery = lastAssistant ? clean + " " + lastAssistant.content.slice(0, 500) : clean;
           const searchedPaths = await searchRepoFiles(searchQuery);
           if (searchedPaths.length > 0) {
-            const fetchedPairs: string[] = [];
-            for (const p of searchedPaths.slice(0, 5)) {
-              const result = await fetchGitHubFile(p, "main");
-              if (result.content && result.content.length > 10) {
-                fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\``);
-              }
-            }
-            if (fetchedPairs.length > 0) {
-              codegenInput += "\n" + fetchedPairs.join("");
-              sse("search", `📄 ${fetchedPairs.length} file relevan ditemukan, lanjut generate...`);
-            }
+            // Hanya cantumkan PATH (bukan isi file) — isi file di-fetch ulang di Phase 1
+            codegenInput += "\n\nFILE TERKAIT:\n" + searchedPaths.slice(0, 5).join("\n");
+            sse("search", `📄 ${searchedPaths.length} file relevan ditemukan, lanjut generate...`);
           }
 
           const reply = await generateAndCommit(codegenInput, uid, (evt) => {

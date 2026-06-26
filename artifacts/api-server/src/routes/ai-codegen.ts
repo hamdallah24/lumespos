@@ -310,12 +310,18 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
 
   // ── PHASE 2: Generate code (DeepSeek) ──
   log("generate", "✍️ AI sedang menulis kode...");
-  const userCtx = `REQUEST: ${userMessage}
-BRANCH TARGET: ${BRANCH}
-TARGET PATH: ${targetPath || "(tentukan sendiri)"}
-${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`\`` : "FILE BELUM ADA — buat file baru."}${relatedContext}`;
 
-  let rawOutput = await callDeepSeek(CODEGEN_PROMPT, userCtx, userId, "codegen", 2000);
+  // File content masuk system prompt (max 4000), bukan user message (max 2000)
+  const fileContext = fileContent
+    ? `\n\nISI FILE (${targetPath}):\n\`\`\`\n${fileContent.slice(0, 1800)}\n\`\`\`${relatedContext.slice(0, 300)}`
+    : (relatedContext ? `\n\n${relatedContext.slice(0, 500)}` : "");
+  const fullSystem = CODEGEN_PROMPT + fileContext;
+
+  const userCtx = `REQUEST: ${userMessage.slice(0, 500)}
+TARGET: ${targetPath || "(tentukan sendiri)"}
+BRANCH: ${BRANCH}${fileContent ? "" : "\n(BUAT FILE BARU — file belum ada di repo)"}`;
+
+  let rawOutput = await callDeepSeek(fullSystem, userCtx, userId, "codegen", 2000);
 
   // ── PHASE 3: Parse + Validate + Repair (max 2 attempts) ──
   log("validate", "🔍 Memeriksa kode yg dihasilkan (format, bracket, pencocokan)...");
@@ -328,7 +334,7 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
     } catch {
       if (attempt < 2) {
         log("retry", "Format kode tidak valid — minta AI perbaiki...");
-        rawOutput = await callDeepSeek(CODEGEN_PROMPT,
+        rawOutput = await callDeepSeek(fullSystem,
           `${userCtx}\n\nOUTPUT SEBELUMNYA INVALID JSON. Coba lagi dengan format JSON yang benar.`,
           userId, "codegen", 2000);
         continue;
@@ -365,7 +371,6 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
         log("typecheck", `🔨 Cek tipe TypeScript untuk ${fileNames}...`);
       }
       const tscErr = await runTypeCheck(patched);
-      // Cleanup: revert local files (committed to GitHub, not local)
       for (const p of Object.keys(patched)) {
         try { await execAsync(`cd ${ROOT} && git checkout -- ${p}`); } catch {}
       }
@@ -375,7 +380,7 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
           : tscErr.slice(0, 150);
         if (attempt < 2) {
           log("retry", `TypeScript error: "${shortErr}" — minta AI perbaiki tipe...`);
-          rawOutput = await callDeepSeek(CODEGEN_PROMPT,
+          rawOutput = await callDeepSeek(fullSystem,
             `${userCtx}\n\nTypeCheck GAGAL:\n${tscErr.slice(0, 1500)}\n\nPerbaiki. Pastikan import benar, tipe valid, tidak ada properti yg tidak ada.`,
             userId, "codegen", 2000);
           continue;
@@ -415,7 +420,7 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
       const errList = errors.map(e => `- [${e.type}] ${e.path || ""}: ${e.detail}`).join("\n");
       const humanErr = translateError(errors);
       log("retry", `Kode belum sesuai: ${humanErr.slice(0, 120)} (dicoba lagi)...`);
-      rawOutput = await callDeepSeek(CODEGEN_PROMPT,
+      rawOutput = await callDeepSeek(fullSystem,
         `${userCtx}\n\nVALIDASI GAGAL dengan error:\n${errList}\n\nPerbaiki output kamu.`,
         userId, "codegen", 2000);
       continue;
