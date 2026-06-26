@@ -191,8 +191,11 @@ export async function generateAndCommit(userMessage: string, userId: number): Pr
 
   // Fetch existing file content
   let fileContent = "";
+  let fileSha = "";
   if (targetPath && !targetPath.endsWith("/")) {
-    fileContent = (await fetchGitHubFile(targetPath, BRANCH)).content;
+    const f = await fetchGitHubFile(targetPath, BRANCH);
+    fileContent = f.content;
+    fileSha = f.sha;
   }
 
   // ── PHASE 2: Generate code (DeepSeek) ──
@@ -227,13 +230,14 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
 
     const files = parsed.files || [];
     const fetched: Record<string, string> = {};
-    if (targetPath && !targetPath.endsWith("/")) fetched[targetPath] = fileContent;
+    const fetchedSha: Record<string, string> = {};
+    if (targetPath && !targetPath.endsWith("/")) { fetched[targetPath] = fileContent; fetchedSha[targetPath] = fileSha; }
 
     // Fetch additional files mentioned in edits
     for (const f of files) {
       if (f.path && !fetched[f.path]) {
         const result = await fetchGitHubFile(f.path, BRANCH);
-        if (result.content) fetched[f.path] = result.content;
+        if (result.content) { fetched[f.path] = result.content; fetchedSha[f.path] = result.sha; }
       }
     }
 
@@ -243,7 +247,7 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
       // ── PHASE 4: Commit ──
       const results: string[] = [];
       for (const [path, p] of Object.entries(patched)) {
-        const existingSha = fetched[path] ? null : null; // Will get sha from GitHub API on PUT
+        const existingSha = fetchedSha[path] || null;
         const result = await commitFile(path, p.content, existingSha, p.msg);
         results.push(result ? `✅ ${path}` : `❌ ${path}`);
       }

@@ -69,15 +69,18 @@ export async function callDeepSeek(system: string, user: string, userId: number,
 }
 
 // ── GITHUB ──
-export async function fetchGitHubFile(path: string, branch = "main"): Promise<{ content: string; status: number }> {
-  if (!GITHUB_PAT) return { content: "", status: 0 };
+export async function fetchGitHubFile(path: string, branch = "main"): Promise<{ content: string; status: number; sha: string }> {
+  if (!GITHUB_PAT) return { content: "", status: 0, sha: "" };
   const url = `${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`;
-  const resp = await fetch(url, { headers: GH_HEADERS });
+  // Use JSON API to also get SHA
+  const resp = await fetch(url, { headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github+json" } });
   if (!resp.ok) {
     console.error(`[ai] GitHub fetch ${resp.status}: ${url}`);
-    return { content: "", status: resp.status };
+    return { content: "", status: resp.status, sha: "" };
   }
-  return { content: await resp.text(), status: 200 };
+  const json = await resp.json() as any;
+  const content = json.content ? Buffer.from(json.content, "base64").toString("utf-8") : "";
+  return { content, status: 200, sha: json.sha || "" };
 }
 
 export async function fetchGitHubDir(path: string, branch = "main"): Promise<string> {
