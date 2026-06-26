@@ -154,6 +154,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const lastMsgRef = React.useRef("");
+  const approvalMsgRef = React.useRef("");
 
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -208,6 +209,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
       }
       // Detect approval needed (contains SETUJU and TIDAK SETUJU) and original was code gen request
       const needsApproval = /SETUJU/i.test(finalText) && /TIDAK\s*SETUJU/i.test(finalText);
+      if (needsApproval) approvalMsgRef.current = msg;
       setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { ...copy[copy.length - 1], showApproval: needsApproval }; return copy; });
       setLoading(false);
       return;
@@ -242,7 +244,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
 
   const handleApprove = async () => {
     setLoading(true);
-    const msg = lastMsgRef.current;
+    const msg = approvalMsgRef.current || lastMsgRef.current;
     setMessages((prev) => [...prev, { role: "user", text: "✅ SETUJU — generate kode..." }]);
     setMessages((prev) => [...prev, { role: "assistant", text: "" }]);
 
@@ -301,6 +303,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
 
   const handleReject = () => {
     setMessages((prev) => [...prev, { role: "user", text: "❌ TIDAK SETUJU" }, { role: "assistant", text: "Baik bos, generate kode dibatalkan. Ada hal lain yg bisa dibantu?" }]);
+    approvalMsgRef.current = "";
   };
 
   const switchMode = (m: Mode) => {
