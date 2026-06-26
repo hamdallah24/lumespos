@@ -72,6 +72,27 @@ interface ValError {
   path?: string;
   detail: string;
 }
+export interface ProgressEvent { step: string; detail: string; }
+
+function translateError(errors: ValError[]): string {
+  if (errors.length === 0) return "";
+  const lines: string[] = [];
+  for (const e of errors) {
+    const p = e.path ? ` (${e.path.split("/").pop()})` : "";
+    switch (e.type) {
+      case "search_not_found": lines.push(`Kode yg mau diganti tidak cocok dengan file asli — mungkin spasi atau indentasi beda${p}.`); break;
+      case "search_ambiguous": lines.push(`Potongan kode muncul lebih dari 1x di file${p} — harus unik biar cuma 1 yg berubah.`); break;
+      case "unbalanced_brackets": lines.push(`Kurung kurawal/kurung buka-tutup tidak seimbang${p} — cek ulah bracket.`); break;
+      case "unknown_file": lines.push(`File "${e.path}" tidak ditemukan di repo.`); break;
+      case "malformed_entry": lines.push(`Format perubahan tidak lengkap${p}.`); break;
+      case "malformed_edit": lines.push(`Data perubahan rusak${p} — ulang lagi.`); break;
+      case "empty_output": lines.push("AI tidak menghasilkan perubahan apapun."); break;
+      default: lines.push(`${e.detail}${p ? ` — ${e.path?.split("/").pop()}` : ""}`); break;
+    }
+  }
+  // Deduplicate
+  return [...new Set(lines)].join("\n");
+}
 
 function checkBalanced(text: string): boolean {
   const pairs: Record<string, string> = { "(": ")", "{": "}", "[": "]" };
@@ -205,10 +226,16 @@ async function commitFile(path: string, content: string, sha: string | null, mes
 // ─────────────────────────────────────────────────────────────
 // 4. MAIN PIPELINE
 // ─────────────────────────────────────────────────────────────
-export async function generateAndCommit(userMessage: string, userId: number): Promise<string> {
-  if (!GITHUB_PAT) return "❌ GITHUB_PAT belum diset. Tidak bisa generate kode.";
+export async function generateAndCommit(userMessage: string, userId: number, onProgress?: (evt: ProgressEvent) => void): Promise<string> {
+  const log = (step: string, detail: string) => onProgress?.({ step, detail });
+
+  if (!GITHUB_PAT) {
+    log("error", "GitHub token belum diset. Hubungi admin.");
+    return "❌ GITHUB_PAT belum diset. Tidak bisa generate kode.";
+  }
 
   // ── PHASE 1: Intent + Fetch file ──
+  log("search", "Mencari file yg perlu diubah...");
   const lower = userMessage.toLowerCase();
   let targetPath = "";
 
@@ -227,6 +254,7 @@ export async function generateAndCommit(userMessage: string, userId: number): Pr
   let fileSha = "";
   let relatedContext = "";
   if (targetPath && !targetPath.endsWith("/")) {
+    log("search", targetPath ? `Membaca ${targetPath.split("/").pop() || targetPath}...` : "Mencari file...");
     const f = await fetchGitHubFile(targetPath, BRANCH);
     fileContent = f.content;
     fileSha = f.sha;
@@ -281,6 +309,7 @@ export async function generateAndCommit(userMessage: string, userId: number): Pr
   }
 
   // ── PHASE 2: Generate code (DeepSeek) ──
+  log("generate", "✍️ AI sedang menulis kode...");
   const userCtx = `REQUEST: ${userMessage}
 BRANCH TARGET: ${BRANCH}
 TARGET PATH: ${targetPath || "(tentukan sendiri)"}
@@ -289,6 +318,7 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
   let rawOutput = await callDeepSeek(CODEGEN_PROMPT, userCtx, userId, "codegen", 2000);
 
   // ── PHASE 3: Parse + Validate + Repair (max 2 attempts) ──
+  log("validate", "🔍 Memeriksa kode yg dihasilkan (format, bracket, pencocokan)...");
   let parsed: GenOutput;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -297,20 +327,23 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
       parsed = JSON.parse(cleaned);
     } catch {
       if (attempt < 2) {
-        // Retry with error feedback
+        log("retry", "Format kode tidak valid — minta AI perbaiki...");
         rawOutput = await callDeepSeek(CODEGEN_PROMPT,
           `${userCtx}\n\nOUTPUT SEBELUMNYA INVALID JSON. Coba lagi dengan format JSON yang benar.`,
           userId, "codegen", 2000);
         continue;
       }
+      log("error", "AI tidak bisa menghasilkan kode yg valid. Coba lagi dengan deskripsi yg lebih spesifik.");
       return "❌ Code Generator gagal menghasilkan JSON valid setelah 3x percobaan.";
     }
 
     if ((parsed as any).needs_more_context) {
+      log("error", "AI butuh informasi lebih detail. Coba sebutkan nama file & jelaskan perubahan yg diinginkan.");
       return "❌ Code Generator butuh lebih banyak konteks. Coba sebutkan file path spesifik atau jelaskan lebih detail.";
     }
 
     const files = parsed.files || [];
+    log("generate", `✍️ Kode untuk ${files.length} file dihasilkan.`);
     const fetched: Record<string, string> = {};
     const fetchedSha: Record<string, string> = {};
     if (targetPath && !targetPath.endsWith("/")) { fetched[targetPath] = fileContent; fetchedSha[targetPath] = fileSha; }
@@ -327,31 +360,49 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
 
     if (valid) {
       // ── PHASE 3.5: TypeCheck before commit ──
+      if (Object.keys(patched).length > 0) {
+        const fileNames = Object.keys(patched).map(p => p.split("/").pop()).join(", ");
+        log("typecheck", `🔨 Cek tipe TypeScript untuk ${fileNames}...`);
+      }
       const tscErr = await runTypeCheck(patched);
       // Cleanup: revert local files (committed to GitHub, not local)
       for (const p of Object.keys(patched)) {
         try { await execAsync(`cd ${ROOT} && git checkout -- ${p}`); } catch {}
       }
       if (tscErr) {
+        const shortErr = tscErr.includes("error TS")
+          ? tscErr.replace(/[\s\S]*?(error TS\d+:\s*[^\n]+)[\s\S]*/, "$1").slice(0, 150)
+          : tscErr.slice(0, 150);
         if (attempt < 2) {
+          log("retry", `TypeScript error: "${shortErr}" — minta AI perbaiki tipe...`);
           rawOutput = await callDeepSeek(CODEGEN_PROMPT,
             `${userCtx}\n\nTypeCheck GAGAL:\n${tscErr.slice(0, 1500)}\n\nPerbaiki. Pastikan import benar, tipe valid, tidak ada properti yg tidak ada.`,
             userId, "codegen", 2000);
           continue;
         }
+        log("error", `Gagal — kode tidak lulus TypeCheck. Masalah: ${shortErr}. Coba ulang dengan deskripsi lebih jelas.`);
         return `❌ TypeCheck gagal setelah 3x percobaan:\n\n\`\`\`\n${tscErr.slice(0, 1000)}\n\`\`\``;
       }
 
       // ── PHASE 4: Commit ──
       const results: string[] = [];
+      let committed = 0;
+      let failed = 0;
       for (const [path, p] of Object.entries(patched)) {
+        log("commit", `💾 Menyimpan ${path.split("/").pop()} ke GitHub (branch ${BRANCH})...`);
         const existingSha = fetchedSha[path] || null;
         const result = await commitFile(path, p.content, existingSha, p.msg);
-        results.push(result ? `✅ ${path}` : `❌ ${path}`);
+        if (result) { results.push(`✅ ${path}`); committed++; }
+        else { results.push(`❌ ${path}`); failed++; log("error", `Gagal menyimpan ${path.split("/").pop()} ke GitHub.`); }
       }
 
       const allOk = results.every(r => r.startsWith("✅"));
       const summary = results.join("\n");
+      if (allOk) {
+        log("done", `✅ Sukses! ${committed} file sudah tersimpan di branch ${BRANCH}.`);
+      } else {
+        log("error", `⚠️ ${committed} berhasil, ${failed} gagal. Cek log untuk detail.`);
+      }
       const reply = allOk
         ? `✅ Code generated & committed ke branch \`${BRANCH}\`!\n\n${summary}\n\nPull request atau cek langsung di repo.`
         : `⚠️ Sebagian commit gagal:\n\n${summary}\n\nCek log untuk detail.`;
@@ -362,16 +413,20 @@ ${fileContent ? `ISI FILE SAAT INI:\n\`\`\`\n${fileContent.slice(0, 4000)}\n\`\`
     // Validation failed — retry with errors
     if (attempt < 2) {
       const errList = errors.map(e => `- [${e.type}] ${e.path || ""}: ${e.detail}`).join("\n");
+      const humanErr = translateError(errors);
+      log("retry", `Kode belum sesuai: ${humanErr.slice(0, 120)} (dicoba lagi)...`);
       rawOutput = await callDeepSeek(CODEGEN_PROMPT,
         `${userCtx}\n\nVALIDASI GAGAL dengan error:\n${errList}\n\nPerbaiki output kamu.`,
         userId, "codegen", 2000);
       continue;
     }
 
+    log("error", `Gagal setelah 3x percobaan. ${translateError(errors).slice(0, 200)}`);
     const errList = errors.map(e => `❌ [${e.type}] ${e.path || ""}: ${e.detail}`).join("\n");
     return `❌ Validasi gagal setelah 3x percobaan:\n\n${errList}`;
   }
 
+  log("error", "Code Generator gagal setelah beberapa percobaan. Coba deskripsi yg lebih spesifik.");
   return "❌ Code Generator gagal. Coba lagi dengan deskripsi yg lebih jelas.";
 }
 

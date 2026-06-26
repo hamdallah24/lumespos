@@ -244,16 +244,57 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
     setLoading(true);
     const msg = lastMsgRef.current;
     setMessages((prev) => [...prev, { role: "user", text: "✅ SETUJU — generate kode..." }]);
+    setMessages((prev) => [...prev, { role: "assistant", text: "" }]);
+
     try {
-      const resp = await apiFetch("/api/ai/chat", {
+      const resp = await fetch("/api/ai/chat", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() || "" },
         body: JSON.stringify({ message: msg, mode: "cto", generateNow: true }),
       });
-      const data = await resp.json();
-      setMessages((prev) => [...prev, { role: "assistant", text: data.reply || "Gagal generate kode." }]);
+      if (!resp.ok) {
+        setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Gagal menghubungi server." }]; });
+        setLoading(false);
+        return;
+      }
+
+      const reader = resp.body!.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      const steps: string[] = [];
+      let finalReply = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.step === "final") {
+              finalReply = evt.detail;
+            } else if (evt.step === "done") {
+              steps.push(evt.detail);
+              setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: steps.join("\n") }; return copy; });
+            } else if (evt.step !== "retry") {
+              steps.push(evt.detail);
+              setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: steps.join("\n") }; return copy; });
+            }
+          } catch { /* skip */ }
+        }
+      }
+
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = { role: "assistant", text: finalReply || steps.join("\n") || "Selesai — cek hasil di GitHub." };
+        return copy;
+      });
     } catch {
-      setMessages((prev) => [...prev, { role: "assistant", text: "Maaf, gagal generate kode." }]);
+      setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, gagal generate kode." }]; });
     }
     setLoading(false);
   };

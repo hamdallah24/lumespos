@@ -106,16 +106,26 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       case "cto": {
         // Approval → generate kode langsung di backend
         if (generateNow) {
-          // Ambil analisis BANG terakhir sebagai konteks
+          // SSE streaming — kirim progress langkah demi langkah
+          res.setHeader("Content-Type", "text/event-stream");
+          res.setHeader("Cache-Control", "no-cache");
+          res.setHeader("Connection", "keep-alive");
+          res.flushHeaders();
+
+          const sse = (step: string, detail: string) => {
+            res.write(`data: ${JSON.stringify({ step, detail })}\n\n`);
+          };
+
+          // Step 1: Cari konteks dari BANG + file repo
           const history = getHistory(uid, "cto");
-          const lastAssistant = [...history].reverse().find(m => m.role === "assistant");
+          const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
           let codegenInput = clean;
 
           if (lastAssistant) {
             codegenInput += `\n\n--- ANALISIS BANG SEBELUMNYA ---\n${lastAssistant.content}`;
           }
 
-          // Auto-fetch file yg relevan dari repo — kirim isi file langsung ke Code Generator
+          sse("search", "🔍 Mencari file yg berkaitan di repo...");
           const searchQuery = lastAssistant ? clean + " " + lastAssistant.content.slice(0, 500) : clean;
           const searchedPaths = await searchRepoFiles(searchQuery);
           if (searchedPaths.length > 0) {
@@ -128,11 +138,17 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             }
             if (fetchedPairs.length > 0) {
               codegenInput += "\n" + fetchedPairs.join("");
+              sse("search", `📄 ${fetchedPairs.length} file relevan ditemukan, lanjut generate...`);
             }
           }
 
-          const reply = await generateAndCommit(codegenInput, uid);
-          res.json({ reply });
+          const reply = await generateAndCommit(codegenInput, uid, (evt) => {
+            sse(evt.step, evt.detail);
+          });
+
+          // Final response
+          res.write(`data: ${JSON.stringify({ step: "final", detail: reply })}\n\n`);
+          res.end();
           remember(uid, m, clean, reply);
           return;
         }
