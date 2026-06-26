@@ -242,7 +242,7 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
   // Try to extract file path from message
   const pathMatch = lower.match(/(?:di\s+)?(?:file\s+)?(?:path\s+)?(artifacts\/\S+\.[a-z]+)/i);
   if (pathMatch) targetPath = pathMatch[1];
-  else if (prefetchedFiles) {
+  else if (prefetchedFiles && Object.keys(prefetchedFiles).length > 0) {
     // Use first prefetched file as target
     targetPath = Object.keys(prefetchedFiles)[0] || "";
   } else {

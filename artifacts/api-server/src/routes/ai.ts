@@ -140,7 +140,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
               }
             }
             const n = Object.keys(prefetched).length;
-            sse("search", `📄 ${n} file relevan dibaca isinya, lanjut generate...`);
+            if (n > 0) {
+              sse("search", `📄 ${n} file relevan dibaca isinya, lanjut generate...`);
+            } else {
+              sse("search", "⚠️ Tidak bisa membaca isi file — mungkin file belum ada di repo. Generate tetap dilanjutkan...");
+            }
           }
 
           const reply = await generateAndCommit(codegenInput, uid, (evt) => {
