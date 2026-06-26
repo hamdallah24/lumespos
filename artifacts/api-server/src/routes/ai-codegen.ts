@@ -26,14 +26,15 @@ const CODEGEN_PROMPT = `Kamu Code Generator Lume's POS (React+Express+Drizzle+Po
 OUTPUT WAJIB — JSON SEARCH-AND-REPLACE (no markdown, no backticks):
 {"files":[{"path":"artifacts/pos-app/src/components/Foo.tsx","edits":[{"search":"teks persis","replace":"teks baru"}],"commit_message":"feat: deskripsi"}]}
 
-ATURAN:
+  ATURAN:
 1. "search" HARUS teks PERSIS dari file asli karakter-per-karakter (termasuk indentasi).
 2. "search" cukup unik (cuma match 1x), min 3 baris konteks.
 3. "replace" indentasi konsisten, bracket seimbang, import disertakan.
-4. File BARU: search="" dan replace=seluruh isi file.
-5. Maks 1500 karakter per edit.
+4. Jika kamu lihat "FILE UTAMA" ADA ISINYA → WAJIB EDIT file itu (search & replace). JANGAN PERNAH buat file baru dgn nama berbeda!
+5. HANYA buat file baru (search="" dan replace=seluruh isi file) jika userCtx bilang "BUAT FILE BARU".
+6. Maks 1500 karakter per edit.
 
-KAMU LIHAT ISI BEBERAPA FILE di system prompt ini. PILIH file yg paling pas untuk diedit. Selalu COBA generate — sistem retry 3x dengan validator. JANGAN pakai "needs_more_context" kecuali benar-benar tidak ada satu pun file yg relevan.`;
+KAMU LIHAT ISI BEBERAPA FILE di system prompt ini. Edit file yg paling pas. Selalu COBA generate — sistem retry 3x. JANGAN "needs_more_context" kecuali benar-benar ga ada file relevan.`;
 
 // ─────────────────────────────────────────────────────────────
 // 2. VALIDATOR (Pure JS — ported from n8n Self-Healing Layer 2)
@@ -337,9 +338,9 @@ export async function generateAndCommit(userMessage: string, userId: number, onP
   const fullSystem = CODEGEN_PROMPT + fileContext;
 
   const userCtx = `REQUEST: ${userMessage.slice(0, 800)}
-TARGET: ${targetPath || "(tentukan sendiri)"}
+${fileContent ? `EDIT FILE INI: ${targetPath} (SUDAH ada — WAJIB search & replace, JANGAN buat file baru!)` : `BUAT FILE BARU: ${targetPath} (belum ada di repo — tulis full code dari nol)`}
 ${Object.keys(prefetchedFiles || {}).length > 0 ? `FILE LAIN TERSEDIA: ${Object.keys(prefetchedFiles!).filter(p => p !== targetPath).join(", ")}` : ""}
-BRANCH: ${BRANCH}${fileContent ? "" : "\n(BUAT FILE BARU — file belum ada di repo)"}`;
+BRANCH: ${BRANCH}`;
 
   let rawOutput = await callDeepSeek(fullSystem, userCtx, userId, "codegen", 2000);
 
@@ -377,6 +378,17 @@ BRANCH: ${BRANCH}${fileContent ? "" : "\n(BUAT FILE BARU — file belum ada di r
 
     const files = parsed.files || [];
     log("generate", `✍️ Kode untuk ${files.length} file dihasilkan.`);
+
+    // Level 3 — anti-new-file: kalau targetFile ada isinya tapi AI malah bikin file baru
+    if (fileContent && files.length >= 1 && !files.some(f => f.path === targetPath)
+        && files[0].edits?.[0]?.search === "" && attempt < 2) {
+      log("retry", `AI buat file baru "${files[0].path}" — harusnya edit "${targetPath}". Dipaksa ulang...`);
+      rawOutput = await callDeepSeek(fullSystem,
+        `${userCtx}\n\nSALAH! Kamu buat file baru "${files[0].path}". File "${targetPath}" SUDAH disediakan isinya di system prompt. EDIT file itu pakai search & replace. JANGAN buat file baru!`,
+        userId, "codegen", 2000);
+      continue;
+    }
+
     const fetched: Record<string, string> = {};
     const fetchedSha: Record<string, string> = {};
     if (targetPath && !targetPath.endsWith("/")) { fetched[targetPath] = fileContent; fetchedSha[targetPath] = fileSha; }
