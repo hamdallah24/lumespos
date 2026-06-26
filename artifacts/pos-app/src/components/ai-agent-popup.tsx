@@ -168,8 +168,10 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
     setMessages((prev) => [...prev, { role: "user", text: msg }]);
     setLoading(true);
 
-    // CTO mode → tool-calling (JSON, non-streaming)
+    // CTO mode → streaming (with tool pre-fetch in backend)
     if (mode === "cto") {
+      setMessages((prev) => [...prev, { role: "assistant", text: "" }]);
+      let finalText = "";
       try {
         const resp = await fetch("/api/ai/chat", {
           method: "POST",
@@ -178,18 +180,36 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
           body: JSON.stringify({ message: msg, mode }),
         });
         if (!resp.ok) {
-          setMessages((prev) => [...prev, { role: "assistant", text: "BANG sedang sibuk." }]);
+          setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "BANG sedang sibuk." }]; });
           setLoading(false);
           return;
         }
-        const data = await resp.json();
-        const reply = data.reply || "BANG tidak merespon.";
-        const needsApproval = data.needsApproval === true || (/SETUJU/i.test(reply) && /TIDAK\s*SETUJU/i.test(reply));
-        if (needsApproval) approvalMsgRef.current = msg;
-        setMessages((prev) => [...prev, { role: "assistant", text: reply, showApproval: needsApproval }]);
+        const reader = resp.body!.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.done) { finalText = data.finalText || data.text || ""; break; }
+              if (data.text) {
+                setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: data.text }; return copy; });
+              }
+            } catch { /* skip */ }
+          }
+        }
       } catch {
-        setMessages((prev) => [...prev, { role: "assistant", text: "Maaf, terjadi kesalahan." }]);
+        setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, terjadi kesalahan." }]; });
       }
+      const needsApproval = /SETUJU/i.test(finalText) && /TIDAK\s*SETUJU/i.test(finalText);
+      if (needsApproval) approvalMsgRef.current = msg;
+      setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { ...copy[copy.length - 1], showApproval: needsApproval }; return copy; });
       setLoading(false);
       return;
     }

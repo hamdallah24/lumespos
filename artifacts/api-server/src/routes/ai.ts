@@ -232,6 +232,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         let bangContext = clean;
         const fetchedPairs: string[] = [];
         const fetchedPaths: string[] = [];
+        let manifestBlock = "";
         // Only auto-fetch if not already handled by explicit "baca" command
         if (!/baca\s+|lihat\s+|read\s+/i.test(clean)) {
           // Detect file mentions (.tsx, .ts, .json)
@@ -269,25 +270,27 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
               seen.add(p);
             }
           }
-          // ── FILE MANIFEST ──
           if (fetchedPaths.length > 0) {
             const manifestLines = fetchedPaths.map((p, i) => {
               const dir = p.split("/").slice(0, -1).pop() || "";
               return `${i + 1}. ${p}   → ${dir}`;
             }).join("\n");
-            bangContext = clean + `\n\n═══════════════════════════════════\n📋 FILE YANG TERSEDIA (sistem sudah membaca isinya):\n${manifestLines}\n═══════════════════════════════════\n` + fetchedPairs.join("");
+            manifestBlock = `\n\n═══════════════════════════════════\n📋 FILE YANG TERSEDIA (sistem sudah membaca isinya):\n${manifestLines}\n═══════════════════════════════════\n` + fetchedPairs.join("");
           }
         }
+        bangContext = clean + manifestBlock;
 
-        // BANG with tools — explore repo, then respond
-        const toolResult = await callDeepSeekWithTools(
-          BANG_ORCHESTRATOR, bangContext, uid, "cto", LOCAL_TOOLS, 3000
+        // ── Pre-call: BANG explore repo with tools (low tokens) ──
+        const preCtx = clean + manifestBlock + "\n\n⚠️ KAMU PUNYA TOOLS: listDirectory, readFile, searchContent. Gunakan untuk eksplorasi file tambahan. JANGAN analisis penuh — cukup baca file yg diperlukan. Di pesan berikutnya kamu akan diminta analisis lengkap.";
+        const preResult = await callDeepSeekWithTools(
+          BANG_ORCHESTRATOR, preCtx, uid, "cto", LOCAL_TOOLS, 500
         );
-        const reply = toolResult || "BANG sedang sibuk, coba lagi ya bos.";
+        if (preResult) {
+          bangContext += `\n\n--- HASIL EKSPLORASI TOOLS ---\n${preResult}`;
+        }
 
-        // Check for approval pattern
-        const needsApproval = /SETUJU/i.test(reply) && /TIDAK\s*SETUJU/i.test(reply);
-        res.json({ reply, needsApproval });
+        // ── Main: streaming response (no tools, full format) ──
+        await streamBANGResponse(res, uid, bangContext);
         return;
       }
 
