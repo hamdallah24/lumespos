@@ -293,8 +293,8 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
         copy[copy.length - 1] = { role: "assistant", text: finalReply || steps.join("\n") || "Selesai — cek hasil di GitHub." };
         return copy;
       });
-    } catch {
-      setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, gagal generate kode." }]; });
+    } catch (e: any) {
+      setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: `Maaf, gagal generate kode.${e?.message ? ` (${e.message.slice(0, 80)})` : ""}` }]; });
     }
     setLoading(false);
   };
