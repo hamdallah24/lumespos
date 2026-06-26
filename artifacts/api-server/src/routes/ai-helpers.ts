@@ -126,22 +126,13 @@ export async function searchRepoFiles(query: string): Promise<string[]> {
   const keywords = query.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 2);
   const scored = treeCache.paths.map((path: string) => {
     const lower = path.toLowerCase();
+    const fname = (path.split("/").pop() || "").replace(/\.[^.]+$/, "").toLowerCase();
     let score = 0;
-    // Bonus for source code paths
-    if (path.includes("src/") || path.includes("pages/") || path.includes("components/") || path.includes("routes/")) {
-      score += 5;
-    }
-    // Penalize non-source JSON
-    if (path.endsWith(".json") && !path.includes("src/") && !path.includes("package.json")) {
-      score -= 10;
-    }
     for (const kw of keywords) {
-      if (lower.includes(kw)) score += 3;
-      else if (kw.length >= 3) {
-        const chars = new Set(kw);
-        const overlap = [...new Set(lower.split("/").pop() || "")].filter(c => chars.has(c)).length;
-        score += (overlap / chars.size) * 1;
-      }
+      if (fname === kw) { score += 20; }
+      else if (fname.startsWith(kw)) { score += 12; }
+      else if (fname.includes(kw)) { score += 8; }
+      else if (lower.includes(kw)) { score += 3; }
     }
     return { path, score };
   });
