@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS } from "./ai-helpers";
+import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
@@ -280,13 +280,13 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
         bangContext = clean + manifestBlock;
 
-        // ── Pre-call: BANG explore repo with tools (low tokens) ──
-        const preCtx = clean + manifestBlock + "\n\n⚠️ KAMU PUNYA TOOLS: listDirectory, readFile, searchContent. Gunakan untuk eksplorasi file tambahan. JANGAN analisis penuh — cukup baca file yg diperlukan. Di pesan berikutnya kamu akan diminta analisis lengkap.";
+        // ── Pre-call: BANG explore repo with READ-ONLY tools (separate memory) ──
+        const exploreCtx = clean + manifestBlock + "\n\n⚠️ Gunakan tools read-only (listDirectory, readFile, searchContent) untuk eksplorasi file tambahan. JANGAN tulis/edit file — hanya BACA dan LAPORKAN file path relevan.";
         const preResult = await callDeepSeekWithTools(
-          BANG_ORCHESTRATOR, preCtx, uid, "cto", LOCAL_TOOLS, 500
+          BANG_ORCHESTRATOR, exploreCtx, uid, "cto_tools", EXPLORE_TOOLS, 500
         );
         if (preResult) {
-          bangContext += `\n\n--- HASIL EKSPLORASI TOOLS ---\n${preResult}`;
+          bangContext += `\n\n--- HASIL EKSPLORASI ---\n${preResult}`;
         }
 
         // ── Main: streaming response (no tools, full format) ──

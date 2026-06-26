@@ -245,6 +245,8 @@ export const LOCAL_TOOLS: ToolDef[] = [
   { name: "execCommand", description: "Execute a safe shell command. Allowed: git, pnpm, npm, pm2, node, tsc, npx, ls, cat, echo, uptime. Max 30s timeout.", parameters: { type: "object", properties: { command: { type: "string", description: "Command to run, e.g., git status, pnpm build, pm2 restart pos-api" } }, required: ["command"] } },
 ];
 
+export const EXPLORE_TOOLS: ToolDef[] = LOCAL_TOOLS.filter(t => ["listDirectory", "readFile", "searchContent"].includes(t.name));
+
 function executeToolCall(name: string, args: Record<string, any>): string {
   switch (name) {
     case "listDirectory": return listLocalDir(args.path || ".");
