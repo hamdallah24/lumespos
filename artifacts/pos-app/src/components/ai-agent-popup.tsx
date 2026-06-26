@@ -207,7 +207,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
         setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, terjadi kesalahan." }]; });
       }
       // Detect approval needed (contains SETUJU and TIDAK SETUJU) and original was code gen request
-      const needsApproval = /generate|bikin|buat|tulis\s*(?:kode|code|file|komponen|component|route|endpoint|halaman|page)/i.test(lastMsgRef.current) && /SETUJU/i.test(finalText) && /TIDAK\s*SETUJU/i.test(finalText);
+      const needsApproval = /SETUJU/i.test(finalText) && /TIDAK\s*SETUJU/i.test(finalText);
       setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { ...copy[copy.length - 1], showApproval: needsApproval }; return copy; });
       setLoading(false);
       return;
