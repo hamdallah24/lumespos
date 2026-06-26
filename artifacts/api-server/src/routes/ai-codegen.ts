@@ -4,7 +4,8 @@
 // ─────────────────────────────────────────────────────────────
 import { callDeepSeek, fetchGitHubFile, remember, clearMemory, GITHUB_PAT, GITHUB_REPO, GITHUB_RAW } from "./ai-helpers";
 import { exec } from "child_process";
-import { writeFileSync, unlinkSync } from "fs";
+import { writeFileSync, unlinkSync, mkdirSync } from "fs";
+import { dirname } from "path";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
@@ -168,6 +169,7 @@ async function runTypeCheck(patched: Record<string, { content: string }>): Promi
   const paths: string[] = [];
   for (const [p, { content }] of Object.entries(patched)) {
     const fullPath = `${ROOT}/${p}`;
+    mkdirSync(dirname(fullPath), { recursive: true });
     writeFileSync(fullPath, content);
     paths.push(fullPath);
   }
