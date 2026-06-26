@@ -106,7 +106,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       case "cto": {
         // Approval → generate kode langsung di backend
         if (generateNow) {
-          const reply = await generateAndCommit(clean, uid);
+          // Ambil analisis BANG terakhir sebagai konteks (mengandung file paths + proposed fix)
+          const history = getHistory(uid, "cto");
+          const lastAssistant = [...history].reverse().find(m => m.role === "assistant");
+          const bangCtx = lastAssistant ? `\n\n--- ANALISIS BANG SEBELUMNYA ---\n${lastAssistant.content}` : "";
+          const reply = await generateAndCommit(clean + bangCtx, uid);
           res.json({ reply });
           remember(uid, m, clean, reply);
           return;
