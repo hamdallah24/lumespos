@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, fetchGitHubFile, fetchGitHubDir, sshExec, getHistory, remember, clearMemory } from "./ai-helpers";
+import { callDeepSeek, fetchGitHubFile, fetchGitHubDir, sshExec, getHistory, remember, clearMemory, searchRepoFiles } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
@@ -180,65 +180,15 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
               }
             }
           }
-          // Keyword-based routing (runs ALONGSIDE file refs, broadens context)
-          const keywordFiles: [string, string][] = [];
-          const kw = clean.toLowerCase();
-
-          // Upload/storage/multer issues
-          if (/upload|storage|multer|file|photo|foto|gambar|image/i.test(kw)) {
-            keywordFiles.push(["artifacts/api-server/src/routes/storage.ts", "storage"]);
-            keywordFiles.push(["artifacts/api-server/src/app.ts", "app_config"]);
-            if (/shift|tutup/i.test(kw)) keywordFiles.push(["artifacts/pos-app/src/components/CloseShiftDialog.tsx", "frontend_upload"]);
-          }
-
-          // Product/menu related
-          if (/produk|product|menu|harga|varian|recipe/i.test(kw)) {
-            keywordFiles.push(["artifacts/api-server/src/routes/products.ts", "products"]);
-            keywordFiles.push(["artifacts/pos-app/src/lib/csrf.ts", "csrf_upload"]);
-          }
-
-          // Shift/audit related
-          if (/tutup\s*shift|shift|audit|stocktaking/i.test(kw)) {
-            keywordFiles.push(["artifacts/api-server/src/routes/shiftAudits.ts", "shiftAudits"]);
-          }
-
-          // Auth/session/CSRF
-          if (/login|auth|session|csrf|oauth|google|password/i.test(kw)) {
-            keywordFiles.push(["artifacts/api-server/src/routes/auth.ts", "auth"]);
-            keywordFiles.push(["artifacts/api-server/src/middlewares/requireAuth.ts", "middleware"]);
-            keywordFiles.push(["artifacts/api-server/src/app.ts", "app_config"]);
-          }
-
-          // Frontend components
-          if (/component|components|ui|css|tailwind|style|design|button|modal|popup|dialog|layout/i.test(kw)) {
-            keywordFiles.push(["artifacts/pos-app/src/components/layout.tsx", "layout"]);
-            keywordFiles.push(["artifacts/pos-app/src/components/ai-agent-popup.tsx", "ai_popup"]);
-          }
-
-          // Orders/cart/payment
-          if (/order|cart|payment|checkout|transaksi|penjualan|tunai/i.test(kw)) {
-            keywordFiles.push(["artifacts/api-server/src/routes/orders.ts", "orders"]);
-          }
-
-          // Dashboard/report
-          if (/dashboard|laporan|report|chart|grafik/i.test(kw)) {
-            keywordFiles.push(["artifacts/api-server/src/routes/dashboard.ts", "dashboard"]);
-          }
-
-          // Inventory/stock
-          if (/inventori|stok|bahan|ingredient|stock/i.test(kw)) {
-            keywordFiles.push(["artifacts/api-server/src/routes/inventory.ts", "inventory"]);
-            keywordFiles.push(["artifacts/api-server/src/services/inventory.ts", "inv_svc"]);
-          }
-
-          // Fetch keyword-matched files (max 8)
+          // Dynamic search: find relevant files from entire repo
+          const relevantPaths = await searchRepoFiles(clean);
           const seen = new Set(fetchedPairs.map(f => f.substring(0, 100)));
-          for (const [p] of keywordFiles) {
+          for (const p of relevantPaths) {
             if (fetchedPairs.length >= 8) break;
             if (seen.has(p)) continue;
             const result = await fetchGitHubFile(p, "main");
-            if (result.content) {
-              fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2500)}\n\`\`\``);
+            if (result.content && result.content.length > 10) {
+              fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2000)}\n\`\`\``);
               seen.add(p);
             }
           }

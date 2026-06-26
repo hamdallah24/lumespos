@@ -6,6 +6,8 @@ import { exec } from "child_process";
 export const GITHUB_PAT = process.env.GITHUB_PAT || "";
 export const GITHUB_REPO = "hamdallah24/lumespos";
 export const GITHUB_RAW = "https://api.github.com/repos";
+const GITHUB_API = "https://api.github.com/repos";
+const GITHUB_BRANCH = "main";
 const GH_HEADERS = { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github.v3.raw" };
 
 export const SSH_HOST = process.env.SSH_HOST || "";
@@ -92,6 +94,50 @@ export async function fetchGitHubDir(path: string, branch = "main"): Promise<str
   const items = await resp.json().catch(() => []);
   if (!Array.isArray(items)) return "";
   return items.map((i: any) => `${i.type === "dir" ? "📁" : "📄"} ${i.name}`).join("\n");
+}
+
+// ── DYNAMIC REPO SEARCH ──
+let treeCache: { ts: number; paths: string[] } | null = null;
+
+export async function searchRepoFiles(query: string): Promise<string[]> {
+  if (!GITHUB_PAT) return [];
+
+  // Fetch full repo tree (cached for 5 min)
+  if (!treeCache || Date.now() - treeCache.ts > 300000) {
+    const resp = await fetch(`${GITHUB_API}/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH || "main"}?recursive=true`, {
+      headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github+json" },
+    });
+    if (!resp.ok) return [];
+    const json = await resp.json() as any;
+    const paths: string[] = (json.tree || [])
+      .filter((t: any) => t.type === "blob" && /\.(tsx?|jsx?|json|css|md)$/.test(t.path))
+      .map((t: any) => t.path);
+    treeCache = { ts: Date.now(), paths };
+  }
+
+  // Score each file based on keyword matches in the path
+  const keywords = query.toLowerCase().split(/\s+/).filter((w: string) => w.length >= 2);
+  const scored = treeCache.paths.map((path: string) => {
+    const lower = path.toLowerCase();
+    let score = 0;
+    for (const kw of keywords) {
+      if (lower.includes(kw)) score += 3;              // exact substring match
+      else if (kw.length >= 3) {
+        // Partial matching: check character overlap
+        const chars = new Set(kw);
+        const overlap = [...new Set(lower.split("/").pop() || "")].filter(c => chars.has(c)).length;
+        score += (overlap / chars.size) * 1;
+      }
+    }
+    return { path, score };
+  });
+
+  // Return top 8 most relevant file paths
+  return scored
+    .filter(s => s.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8)
+    .map(s => s.path);
 }
 
 // ── SSH ──
