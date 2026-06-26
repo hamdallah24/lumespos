@@ -121,29 +121,33 @@ MULTI ACTION: Jika Owner minta >1 operasi sekaligus, gunakan "actions":[]. Jika 
 Contoh multi-action:
 {"actions":[{"action":"add_stock","params":{"itemId":5,"qty":1000,"price":50000}},{"action":"add_expense","params":{"amount":30000}}],"response":"✅ Kopi +1000gr, Pengeluaran Rp 30.000"}
 
-PARAMS PER AKSI (WAJIB diisi jika Owner mau eksekusi):
-- add_stock: itemId (number), qty (number), price (number/null) ← dari query
-- reduce_stock: itemId (number), qty (number)
-- correct_stock: itemId (number), itemType (string), target (number)
-- loss_correction: itemId (number), qty (number)
-- add_ingredient: name (string), unit (string/null)
-- add_product: name (string), price (number)
-- update_price: productId (number), price (number)
-- deactivate_product: productId (number)
+PARAMS PER AKSI (gunakan NAMA, bukan ID — backend yg lookup):
+- add_stock: itemName (string), qty (number), price (number/null) ← "kopi", "minyak goreng"
+- reduce_stock: itemName (string), qty (number)
+- correct_stock: itemName (string), target (number)
+- loss_correction: itemName (string), qty (number)
+- add_ingredient: name (string)
+- add_product: productName (string), price (number) ← "es kopi susu"
+- update_price: productName (string), price (number)
+- deactivate_product: productName (string)
 - add_expense: amount (number), description (string/null)
-- add_recipe: parentType (string), parentId (number), ingredientId (number), quantity (number)
-- produce: itemId (number), producedWeight (number)
-- general: params: {} ← untuk pertanyaan/laporan/analisis
+- add_recipe: parentName (string), ingredientName (string), quantity (number)
+- produce: itemName (string), producedWeight (number)
+- general: params: {}
 
-CONTOH:
-{"action":"add_expense","params":{"amount":50000},"response":"✅ Pengeluaran Rp 50.000 tercatat."}
+CONTOH SINGLE:
+{"action":"add_stock","params":{"itemName":"kopi","qty":1000,"price":50000},"response":"✅ Kopi +1000gr, HPP Rp 50/gr."}
 
+CONTOH MULTI:
+{"actions":[{"action":"add_stock","params":{"itemName":"kopi","qty":1000,"price":50000}},{"action":"add_expense","params":{"amount":30000,"description":"sedotan"}}],"response":"✅ Kopi +1000gr, Pengeluaran Rp 30.000."}
+
+CONTOH GENERAL (laporan/tanya):
 {"action":"general","params":{},"response":""}
-Laporan hari ini: Pendapatan Rp 2.5jt dari 15 order. Top: Kopi Susu (30%). Saran: naikin stok kopi & susu.
+Laporan hari ini: Pendapatan Rp 2.5jt dari 15 order. Top: Kopi Susu (30%).
 
 ATURAN:
-1. Jika Owner minta AKSI → JSON dgn action yg tepat + params
+1. Jika Owner minta AKSI → JSON dgn action yg tepat + params pakai NAMA
 2. Jika Owner TANYA/ANALISIS → action:"general" + langsung narasi
 3. Pahami typo & bahasa santai ("masukin kopi 1000gr" = "tambah stok Kopi 1000gr")
-4. response WAJIB diisi walau action:"general" (bisa string kosong "")
+4. GUNAKAN NAMA item (bukan ID) — backend yg lookup
 5. Bahasa Indonesia santai`;

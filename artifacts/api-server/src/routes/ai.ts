@@ -7,6 +7,8 @@ import { callDeepSeek, fetchGitHubFile, fetchGitHubDir, sshExec, getHistory, rem
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
+import { db, ingredientsTable, semiFinishedTable, productsTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
 
 const router = Router();
 
@@ -196,6 +198,45 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             const action = JSON.parse(jsonMatch[0]);
             const actions = action.actions || (action.action ? [action] : []);
             for (const act of actions) {
+              // Resolve names → IDs before executing
+              if (act.params?.itemName) {
+                const [ings, semis] = await Promise.all([
+                  db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, defaultBranchId)),
+                  db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, defaultBranchId)),
+                ]);
+                const n = act.params.itemName.toLowerCase();
+                const found = ings.find(i => i.name.toLowerCase().includes(n))
+                  || semis.find(s => s.name.toLowerCase().includes(n));
+                if (found) {
+                  act.params.itemId = (found as any).id;
+                  act.params.itemType = "unit" in found ? (found as any).unit ? "ingredient" : "semi_finished" : "ingredient";
+                }
+              }
+              if (act.params?.productName) {
+                const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, defaultBranchId), eq(productsTable.isActive, true)));
+                const n = act.params.productName.toLowerCase();
+                const found = prods.find(p => p.name.toLowerCase().includes(n));
+                if (found) act.params.productId = found.id;
+              }
+              if (act.params?.parentName) {
+                const [prods, semis] = await Promise.all([
+                  db.select().from(productsTable).where(and(eq(productsTable.branchId, defaultBranchId), eq(productsTable.isActive, true))),
+                  db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, defaultBranchId)),
+                ]);
+                const n = act.params.parentName.toLowerCase();
+                const found = prods.find(p => p.name.toLowerCase().includes(n))
+                  || semis.find(s => s.name.toLowerCase().includes(n));
+                if (found) {
+                  act.params.parentId = (found as any).id;
+                  act.params.parentType = (found as any).unit ? "semi_finished" : "product";
+                }
+              }
+              if (act.params?.ingredientName) {
+                const ings = await db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, defaultBranchId));
+                const n = act.params.ingredientName.toLowerCase();
+                const found = ings.find(i => i.name.toLowerCase().includes(n));
+                if (found) act.params.ingredientId = found.id;
+              }
               if (act.action && act.action !== "general" && act.params) {
                 await executeOperation(act.action, act.params, defaultBranchId);
               }
