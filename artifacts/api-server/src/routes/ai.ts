@@ -106,11 +106,32 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       case "cto": {
         // Approval → generate kode langsung di backend
         if (generateNow) {
-          // Ambil analisis BANG terakhir sebagai konteks (mengandung file paths + proposed fix)
+          // Ambil analisis BANG terakhir sebagai konteks
           const history = getHistory(uid, "cto");
           const lastAssistant = [...history].reverse().find(m => m.role === "assistant");
-          const bangCtx = lastAssistant ? `\n\n--- ANALISIS BANG SEBELUMNYA ---\n${lastAssistant.content}` : "";
-          const reply = await generateAndCommit(clean + bangCtx, uid);
+          let codegenInput = clean;
+
+          if (lastAssistant) {
+            codegenInput += `\n\n--- ANALISIS BANG SEBELUMNYA ---\n${lastAssistant.content}`;
+          }
+
+          // Auto-fetch file yg relevan dari repo — kirim isi file langsung ke Code Generator
+          const searchQuery = lastAssistant ? clean + " " + lastAssistant.content.slice(0, 500) : clean;
+          const searchedPaths = await searchRepoFiles(searchQuery);
+          if (searchedPaths.length > 0) {
+            const fetchedPairs: string[] = [];
+            for (const p of searchedPaths.slice(0, 5)) {
+              const result = await fetchGitHubFile(p, "main");
+              if (result.content && result.content.length > 10) {
+                fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\``);
+              }
+            }
+            if (fetchedPairs.length > 0) {
+              codegenInput += "\n" + fetchedPairs.join("");
+            }
+          }
+
+          const reply = await generateAndCommit(codegenInput, uid);
           res.json({ reply });
           remember(uid, m, clean, reply);
           return;
