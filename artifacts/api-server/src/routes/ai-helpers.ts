@@ -28,7 +28,7 @@ export function getHistory(userId: number, mode: string): ChatMsg[] {
 export function remember(userId: number, mode: string, userMsg: string, assistantReply: string) {
   const key = memoryKey(userId, mode);
   const msgs = memory.get(key) || [];
-  msgs.push({ role: "user", content: userMsg.slice(0, 1000) }, { role: "assistant", content: assistantReply.slice(0, 2000) });
+  msgs.push({ role: "user", content: userMsg.slice(0, 1000) }, { role: "assistant", content: assistantReply.slice(0, 4000) });
   if (msgs.length > MAX_MEMORY * 2) msgs.splice(0, 2);
   memory.set(key, msgs);
 }

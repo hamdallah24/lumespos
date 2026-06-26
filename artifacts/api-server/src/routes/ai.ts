@@ -27,7 +27,7 @@ async function streamBANGResponse(res: any, uid: number, clean: string) {
   const dsResp = await fetch(`${base}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({ model, messages, max_tokens: 1500, temperature: 0.7, stream: true }),
+    body: JSON.stringify({ model, messages, max_tokens: 3000, temperature: 0.7, stream: true }),
   });
   if (!dsResp.ok) {
     const errText = await dsResp.text().catch(() => "");
