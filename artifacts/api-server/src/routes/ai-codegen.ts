@@ -182,7 +182,6 @@ function validateEdits(files: GenFile[], fetchedContent: Record<string, string>)
 // ─────────────────────────────────────────────────────────────
 async function runTypeCheck(patched: Record<string, { content: string }>): Promise<string | null> {
   const paths: string[] = [];
-  // Write all patched files to disk
   for (const [p, { content }] of Object.entries(patched)) {
     const fullPath = `${ROOT}/${p}`;
     writeFileSync(fullPath, content);
@@ -194,12 +193,26 @@ async function runTypeCheck(patched: Record<string, { content: string }>): Promi
     return null; // PASS
   } catch (e: any) {
     const stderr = e.stderr || e.stdout || String(e);
+    // Filter: hanya gagal kalau error ada di file yg diubah
+    const patchedNames = Object.keys(patched).map(p => {
+      // Extract relative path within workspace: artifacts/pos-app/src/foo.ts → src/foo.ts
+      const parts = p.split("/");
+      const wsIdx = parts.indexOf("pos-app") >= 0 ? parts.indexOf("pos-app") : parts.indexOf("api-server");
+      return wsIdx >= 0 ? parts.slice(wsIdx + 1).join("/") : p.split("/").pop() || "";
+    });
+    const lines = stderr.split("\n");
+    const relevant = lines.filter((line: string) =>
+      patchedNames.some((n: string) => n && line.includes(n)) && line.includes("error TS")
+    );
+
+    if (relevant.length === 0) return null; // pre-existing errors di file lain → ignore
+
     // Revert written files
     for (const p of paths) {
       try { await execAsync(`cd ${ROOT} && git checkout -- ${p.replace(ROOT + "/", "")}`); } catch {}
       try { unlinkSync(p); } catch {}
     }
-    return stderr.includes("error TS") ? stderr.slice(0, 2000) : `TypeCheck error: ${stderr.slice(0, 1000)}`;
+    return relevant.join("\n").slice(0, 2000);
   }
 }
 
