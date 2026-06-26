@@ -3,7 +3,9 @@
 // ─────────────────────────────────────────────────────────────
 import { exec, execSync } from "child_process";
 import { readdirSync, statSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "fs";
-import { join, dirname, relative, resolve } from "path";
+import { join, dirname, resolve } from "path";
+import { db, conversationsTable, messagesTable } from "@workspace/db";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
 export const PROJECT_ROOT = resolve(process.cwd().includes("artifacts") ? "../.." : ".");
 
@@ -18,27 +20,71 @@ export const SSH_HOST = process.env.SSH_HOST || "";
 export const SSH_USER = process.env.SSH_USER || "";
 export const SSH_PASS = process.env.SSH_PASSWORD || "";
 
-// ── MEMORY ──
+// ── MEMORY (DB-backed) ──
 type ChatMsg = { role: "user" | "assistant"; content: string };
-const memory = new Map<string, ChatMsg[]>();
 const MAX_MEMORY = 10;
 
-function memoryKey(userId: number, mode: string) { return `${userId}_${mode}`; }
-
-export function getHistory(userId: number, mode: string): ChatMsg[] {
-  return memory.get(memoryKey(userId, mode)) || [];
+async function getOrCreateConversation(userId: number, mode: string): Promise<number> {
+  const existing = await db.select().from(conversationsTable)
+    .where(and(eq(conversationsTable.userId, userId), eq(conversationsTable.mode, mode)))
+    .limit(1);
+  if (existing.length > 0) return existing[0].id;
+  const [conv] = await db.insert(conversationsTable).values({ userId, mode }).returning();
+  return conv.id;
 }
 
-export function remember(userId: number, mode: string, userMsg: string, assistantReply: string) {
-  const key = memoryKey(userId, mode);
-  const msgs = memory.get(key) || [];
-  msgs.push({ role: "user", content: userMsg.slice(0, 1000) }, { role: "assistant", content: assistantReply.slice(0, 4000) });
-  if (msgs.length > MAX_MEMORY * 2) msgs.splice(0, 2);
-  memory.set(key, msgs);
+export async function getHistory(userId: number, mode: string): Promise<ChatMsg[]> {
+  try {
+    const convId = await getOrCreateConversation(userId, mode);
+    const rows = await db.select().from(messagesTable)
+      .where(eq(messagesTable.conversationId, convId))
+      .orderBy(messagesTable.id)
+      .limit(MAX_MEMORY * 2);
+    return rows.map(r => ({ role: r.role as "user" | "assistant", content: r.content }));
+  } catch (e) {
+    console.error("[ai] DB getHistory error:", e);
+    return [];
+  }
 }
 
-export function clearMemory(userId: number, mode: string) {
-  memory.delete(memoryKey(userId, mode));
+export async function remember(userId: number, mode: string, userMsg: string, assistantReply: string) {
+  try {
+    const convId = await getOrCreateConversation(userId, mode);
+    await db.insert(messagesTable).values([
+      { conversationId: convId, role: "user", content: userMsg.slice(0, 1000) },
+      { conversationId: convId, role: "assistant", content: assistantReply.slice(0, 4000) },
+    ]);
+
+    // Prune to MAX_MEMORY * 2 messages (keep newest)
+    const allMsgs = await db.select({ id: messagesTable.id }).from(messagesTable)
+      .where(eq(messagesTable.conversationId, convId))
+      .orderBy(messagesTable.id);
+    if (allMsgs.length > MAX_MEMORY * 2) {
+      const toRemove = allMsgs.slice(0, allMsgs.length - MAX_MEMORY * 2).map(r => r.id);
+      await db.delete(messagesTable).where(inArray(messagesTable.id, toRemove));
+    }
+
+    await db.update(conversationsTable)
+      .set({ updatedAt: new Date() })
+      .where(eq(conversationsTable.id, convId));
+  } catch (e) {
+    console.error("[ai] DB remember error:", e);
+  }
+}
+
+export async function clearMemory(userId: number, mode: string) {
+  try {
+    const existing = await db.select().from(conversationsTable)
+      .where(and(eq(conversationsTable.userId, userId), eq(conversationsTable.mode, mode)))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.delete(messagesTable)
+        .where(eq(messagesTable.conversationId, existing[0].id));
+      await db.delete(conversationsTable).where(eq(conversationsTable.id, existing[0].id));
+    }
+  } catch (e) {
+    console.error("[ai] DB clearMemory error:", e);
+  }
 }
 
 // ── DEEPSEEK / SUMOPOD ──
@@ -48,7 +94,7 @@ export async function callDeepSeek(system: string, user: string, userId: number,
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
   if (!key || !base) { console.error("[ai] DEEPSEEK_API_KEY or DEEPSEEK_BASE_URL not set"); return ""; }
   try {
-    const history = getHistory(userId, mode);
+    const history = await getHistory(userId, mode);
     const messages: any[] = [{ role: "system", content: system.slice(0, 4000) }];
     for (const h of history) messages.push(h);
     messages.push({ role: "user", content: user.slice(0, 2000) });
@@ -66,7 +112,7 @@ export async function callDeepSeek(system: string, user: string, userId: number,
     const json = await resp.json();
     const content = (json as any).choices?.[0]?.message?.content?.trim() || "";
     if (!content) console.error(`[ai] DeepSeek empty response. finish_reason=${(json as any).choices?.[0]?.finish_reason}`);
-    else remember(userId, mode, user, content);
+    else await remember(userId, mode, user, content);
     return content;
   } catch (err) {
     console.error("[ai] callDeepSeek fetch error:", err);
@@ -158,6 +204,33 @@ export function sshExec(cmd: string): Promise<string> {
       resolve(err ? (stderr || err.message) : (stdout || "no output"));
     });
   });
+}
+
+// ── IMPORT GRAPH (Dependency Resolution) ──
+const IMPORT_RE = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))?)\s+from\s+)?['"]([^'"]+)['"]/g;
+
+export function getDependencies(filePath: string): string {
+  // Try multiple resolutions: CWD-relative, then PROJECT_ROOT-relative
+  let full = resolve(filePath);
+  if (!existsSync(full)) full = resolve(join(PROJECT_ROOT, filePath));
+  if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
+  try {
+    const content = readFileSync(full, "utf-8");
+    const imports: string[] = [];
+    let match: RegExpExecArray | null;
+    IMPORT_RE.lastIndex = 0;
+    while ((match = IMPORT_RE.exec(content)) !== null) {
+      const specifier = match[1];
+      if (!specifier.startsWith(".") && !specifier.startsWith("/")) continue;
+      const resolved = resolve(dirname(full), specifier);
+      const relative = resolved.startsWith(PROJECT_ROOT) ? resolved.slice(PROJECT_ROOT.length + 1).replace(/\\/g, "/") : specifier;
+      if (!imports.includes(relative)) imports.push(relative);
+    }
+    if (imports.length === 0) return "(no internal imports)";
+    return imports.map(p => `  → ${p}`).join("\n");
+  } catch (e: any) {
+    return `Error: ${e.message}`;
+  }
 }
 
 // ── LOCAL TOOLS (Fase 1 — VPS filesystem) ──
@@ -282,7 +355,10 @@ export const LOCAL_TOOLS: ToolDef[] = [
   { name: "execCommand", description: "Execute a safe shell command. Allowed: git, pnpm, npm, pm2, node, tsc, npx, ls, cat, echo, uptime. Max 30s timeout.", parameters: { type: "object", properties: { command: { type: "string", description: "Command to run, e.g., git status, pnpm build, pm2 restart pos-api" } }, required: ["command"] } },
 ];
 
-export const EXPLORE_TOOLS: ToolDef[] = LOCAL_TOOLS.filter(t => ["listDirectory", "readFile", "searchContent"].includes(t.name));
+export const EXPLORE_TOOLS: ToolDef[] = [
+  ...LOCAL_TOOLS.filter(t => ["listDirectory", "readFile", "searchContent"].includes(t.name)),
+  { name: "getDependencies", description: "Read a file and return its internal dependency graph (import paths that start with ./ or ../). Useful to understand which files are connected.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file, e.g., artifacts/pos-app/src/pages/products.tsx" } }, required: ["path"] } },
+];
 
 function executeToolCall(name: string, args: Record<string, any>): string {
   switch (name) {
@@ -292,6 +368,7 @@ function executeToolCall(name: string, args: Record<string, any>): string {
     case "writeFile": return writeLocalFile(args.path || "", args.content || "");
     case "editFile": return editLocalFile(args.path || "", args.search || "", args.replace || "");
     case "execCommand": return execLocalCommand(args.command || "");
+    case "getDependencies": return getDependencies(args.path || "");
     default: return `Error: Unknown tool "${name}"`;
   }
 }
@@ -304,7 +381,7 @@ export async function callDeepSeekWithTools(
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
   if (!key || !base) { console.error("[ai] DeepSeek key/base not set"); return ""; }
 
-  const history = getHistory(userId, mode);
+  const history = await getHistory(userId, mode);
   const messages: any[] = [{ role: "system", content: system.slice(0, 4000) }];
   for (const h of history) messages.push(h);
   messages.push({ role: "user", content: user.slice(0, 2000) });
@@ -348,13 +425,13 @@ export async function callDeepSeekWithTools(
       if (!resp2.ok) return msg.content || "";
       const json2 = await resp2.json();
       const finalContent = (json2 as any).choices?.[0]?.message?.content?.trim() || "";
-      if (finalContent) remember(userId, mode, user, finalContent);
+      if (finalContent) await remember(userId, mode, user, finalContent);
       return finalContent || msg.content || "";
     }
 
     // No tool calls — normal text response
     const content = msg.content?.trim() || "";
-    if (content) remember(userId, mode, user, content);
+    if (content) await remember(userId, mode, user, content);
     return content;
   } catch (err) {
     console.error("[ai] callDeepSeekWithTools error:", err);

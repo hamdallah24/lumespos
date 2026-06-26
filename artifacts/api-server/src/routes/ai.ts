@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, mergeDeploy } from "./ai-helpers";
+import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, mergeDeploy, getDependencies } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
@@ -19,7 +19,7 @@ async function streamBANGResponse(res: any, uid: number, clean: string) {
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
   if (!key || !base) { res.json({ reply: "BANG sedang sibuk (API key belum diset)." }); return; }
 
-  const history = getHistory(uid, "cto");
+  const history = await getHistory(uid, "cto");
   const messages: any[] = [{ role: "system", content: BANG_ORCHESTRATOR.slice(0, 4000) }];
   for (const h of history) messages.push(h);
   messages.push({ role: "user", content: clean.slice(0, 2000) });
@@ -68,7 +68,7 @@ async function streamBANGResponse(res: any, uid: number, clean: string) {
 
   res.write(`data: ${JSON.stringify({ done: true, finalText: fullText })}\n\n`);
   res.end();
-  if (fullText) remember(uid, "cto", clean, fullText);
+  if (fullText) await remember(uid, "cto", clean, fullText);
 }
 
 // ── ROUTER ──
@@ -88,7 +88,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
     // Reset memory
     if (/reset|hapus\s*riwayat|mulai\s*baru|clear/i.test(clean.toLowerCase())) {
-      clearMemory(uid, m);
+      await clearMemory(uid, m);
       res.json({ reply: "✅ Riwayat percakapan sudah di-reset. Silakan tanya lagi." });
       return;
     }
@@ -117,7 +117,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           };
 
           // Step 1: Cari konteks dari BANG + file repo
-          const history = getHistory(uid, "cto");
+          const history = await getHistory(uid, "cto");
           const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
           let codegenInput = clean;
 
@@ -172,7 +172,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           // Final response
           res.write(`data: ${JSON.stringify({ step: "final", detail: reply })}\n\n`);
           res.end();
-          remember(uid, m, clean, reply);
+          await remember(uid, m, clean, reply);
           return;
         }
 
@@ -273,7 +273,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           if (fetchedPaths.length > 0) {
             const manifestLines = fetchedPaths.map((p, i) => {
               const dir = p.split("/").slice(0, -1).pop() || "";
-              return `${i + 1}. ${p}   → ${dir}`;
+              const deps = getDependencies(p);
+              const depLine = deps && !deps.startsWith("Error:") && deps !== "(no internal imports)"
+                ? `\n     @deps:[${deps.split("\n").map(d => d.replace(/^\s+→\s*/, "").trim()).join(", ")}]`
+                : "";
+              return `${i + 1}. ${p}   → ${dir}${depLine}`;
             }).join("\n");
             manifestBlock = `\n\n═══════════════════════════════════\n📋 FILE YANG TERSEDIA (sistem sudah membaca isinya):\n${manifestLines}\n═══════════════════════════════════\n` + fetchedPairs.join("");
           }

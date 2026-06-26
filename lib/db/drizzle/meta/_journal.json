@@ -8,6 +8,13 @@
       "when": 1782130058903,
       "tag": "0000_pretty_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782508401187,
+      "tag": "0001_chubby_rocket_raccoon",
+      "breakpoints": true
     }
   ]
 }
