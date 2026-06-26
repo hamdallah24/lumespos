@@ -8,6 +8,9 @@ cd ~/lumespos
 echo "📥 Fetching..."
 git fetch
 
+echo "🧹 Cleaning build artifacts..."
+git checkout -- artifacts/api-server/.tsbuildinfo 2>/dev/null || true
+
 echo "🔄 Syncing Staging ← main..."
 git checkout Staging
 git merge main --no-edit
