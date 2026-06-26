@@ -242,7 +242,6 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
               seen.add(p);
             }
           }
-          }
           if (fetchedPairs.length > 0) {
             bangContext = clean + "\n" + fetchedPairs.join("");
           }
