@@ -4,13 +4,14 @@
 // ─────────────────────────────────────────────────────────────
 import { callDeepSeek, fetchGitHubFile, remember, clearMemory, GITHUB_PAT, GITHUB_REPO, GITHUB_RAW, PROJECT_ROOT, readLocalFile } from "./ai-helpers";
 import { exec } from "child_process";
-import { writeFileSync, unlinkSync, mkdirSync } from "fs";
-import { dirname } from "path";
+import { writeFile, mkdir, unlink } from "fs/promises";
+import { dirname, join, resolve } from "path";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
-const ROOT = "/home/ubuntu/lumespos";
+const ROOT = process.env.NODE_ENV === "production" ? "/home/ubuntu/lumespos" : resolve(process.cwd().includes("artifacts") ? "../.." : ".");
+const ROOT_LOCK = new Set<string>();
 
 const BRANCH = "Staging";
 const GITHUB_API = "https://api.github.com/repos";
@@ -166,22 +167,26 @@ function validateEdits(files: GenFile[], fetchedContent: Record<string, string>)
 // 3.5 TYPECHECK HELPER
 // ─────────────────────────────────────────────────────────────
 async function runTypeCheck(patched: Record<string, { content: string }>): Promise<string | null> {
+  // Lock: skip if another typecheck is running on overlapping files
+  const lockKey = Object.keys(patched).sort().join(",");
+  if (ROOT_LOCK.has(lockKey)) { console.log("[codegen] typecheck locked — skipping"); return null; }
+  ROOT_LOCK.add(lockKey);
+
   const paths: string[] = [];
-  for (const [p, { content }] of Object.entries(patched)) {
-    const fullPath = `${ROOT}/${p}`;
-    mkdirSync(dirname(fullPath), { recursive: true });
-    writeFileSync(fullPath, content);
-    paths.push(fullPath);
-  }
   try {
-    const ws = paths.some(p => p.includes("artifacts/pos-app")) ? "pos-app" : "api-server";
+    for (const [p, { content }] of Object.entries(patched)) {
+      const fullPath = join(ROOT, p);
+      await mkdir(dirname(fullPath), { recursive: true });
+      await writeFile(fullPath, content);
+      paths.push(fullPath);
+    }
+
+    const ws = paths.some(p => p.includes("pos-app")) ? "pos-app" : "api-server";
     await execAsync(`cd ${ROOT} && pnpm --filter ./artifacts/${ws} run typecheck 2>&1`, { timeout: 30000 });
     return null; // PASS
   } catch (e: any) {
     const stderr = e.stderr || e.stdout || String(e);
-    // Filter: hanya gagal kalau error ada di file yg diubah
     const patchedNames = Object.keys(patched).map(p => {
-      // Extract relative path within workspace: artifacts/pos-app/src/foo.ts → src/foo.ts
       const parts = p.split("/");
       const wsIdx = parts.indexOf("pos-app") >= 0 ? parts.indexOf("pos-app") : parts.indexOf("api-server");
       return wsIdx >= 0 ? parts.slice(wsIdx + 1).join("/") : p.split("/").pop() || "";
@@ -190,15 +195,16 @@ async function runTypeCheck(patched: Record<string, { content: string }>): Promi
     const relevant = lines.filter((line: string) =>
       patchedNames.some((n: string) => n && line.includes(n)) && line.includes("error TS")
     );
-
     if (relevant.length === 0) return null; // pre-existing errors di file lain → ignore
 
     // Revert written files
     for (const p of paths) {
-      try { await execAsync(`cd ${ROOT} && git checkout -- ${p.replace(ROOT + "/", "")}`); } catch {}
-      try { unlinkSync(p); } catch {}
+      try { await execAsync(`cd ${ROOT} && git checkout -- ${p.replace(ROOT + "/", "")}`, { timeout: 5000 }); } catch {}
+      try { await unlink(p); } catch {}
     }
     return relevant.join("\n").slice(0, 2000);
+  } finally {
+    ROOT_LOCK.delete(lockKey);
   }
 }
 

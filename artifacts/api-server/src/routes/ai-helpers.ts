@@ -55,23 +55,27 @@ export async function getHistory(userId: number, mode: string): Promise<ChatMsg[
 export async function remember(userId: number, mode: string, userMsg: string, assistantReply: string) {
   try {
     const convId = await getOrCreateConversation(userId, mode);
-    await db.insert(messagesTable).values([
-      { conversationId: convId, role: "user", content: userMsg.slice(0, 1000) },
-      { conversationId: convId, role: "assistant", content: assistantReply.slice(0, 4000) },
-    ]);
-
-    // Prune to MAX_MEMORY * 2 messages (keep newest)
-    const allMsgs = await db.select({ id: messagesTable.id }).from(messagesTable)
-      .where(eq(messagesTable.conversationId, convId))
-      .orderBy(messagesTable.id);
-    if (allMsgs.length > MAX_MEMORY * 2) {
-      const toRemove = allMsgs.slice(0, allMsgs.length - MAX_MEMORY * 2).map(r => r.id);
-      await db.delete(messagesTable).where(inArray(messagesTable.id, toRemove));
-    }
-
-    await db.update(conversationsTable)
-      .set({ updatedAt: new Date() })
-      .where(eq(conversationsTable.id, convId));
+    // Single transaction: INSERT + PRUNE + UPDATE = 1 round trip
+    await db.transaction(async (tx) => {
+      await tx.insert(messagesTable).values([
+        { conversationId: convId, role: "user", content: userMsg.slice(0, 1000) },
+        { conversationId: convId, role: "assistant", content: assistantReply.slice(0, 4000) },
+      ]);
+      // Prune: keep only newest MAX_MEMORY*2 messages
+      await tx.execute(
+        sql`DELETE FROM ai_messages
+            WHERE conversation_id = ${convId}
+              AND id NOT IN (
+                SELECT id FROM ai_messages
+                WHERE conversation_id = ${convId}
+                ORDER BY id DESC
+                LIMIT ${MAX_MEMORY * 2}
+              )`
+      );
+      await tx.update(conversationsTable)
+        .set({ updatedAt: new Date() })
+        .where(eq(conversationsTable.id, convId));
+    });
   } catch (e) {
     console.error("[ai] DB remember error:", e);
   }

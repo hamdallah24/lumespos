@@ -128,8 +128,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           res.setHeader("Connection", "keep-alive");
           res.flushHeaders();
 
+          let aborted = false;
+          req.on("close", () => { aborted = true; });
+
           const sse = (step: string, detail: string) => {
-            res.write(`data: ${JSON.stringify({ step, detail })}\n\n`);
+            if (!aborted) res.write(`data: ${JSON.stringify({ step, detail })}\n\n`);
           };
 
           // Step 1: Cari konteks dari BANG + file repo
@@ -186,9 +189,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           }, prefetched);
 
           // Final response
-          res.write(`data: ${JSON.stringify({ step: "final", detail: reply })}\n\n`);
-          res.end();
-          await remember(uid, m, clean, reply);
+          if (!aborted) {
+            res.write(`data: ${JSON.stringify({ step: "final", detail: reply })}\n\n`);
+            res.end();
+            await remember(uid, m, clean, reply);
+          }
           return;
         }
 
@@ -441,7 +446,9 @@ router.post("/ai/deploy-merge", requireRole("owner"), async (req, res) => {
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
-  const sse = (step: string, detail: string) => res.write(`data: ${JSON.stringify({ step, detail })}\n\n`);
+  let aborted = false;
+  req.on("close", () => { aborted = true; });
+  const sse = (step: string, detail: string) => { if (!aborted) res.write(`data: ${JSON.stringify({ step, detail })}\n\n`); };
 
   const result = await mergeDeploy((step, detail) => {
     const labels: Record<string, string> = {
