@@ -131,9 +131,9 @@ export async function callDeepSeek(system: string, user: string, userId: number,
     else await remember(userId, mode, user, content);
     return content;
   } catch (err) {
-    if ((err as any)?.name === "AbortError") { console.error("[ai] DeepSeek timeout"); return ""; }
+    if ((err as any)?.name === "AbortError") { console.error("[ai] DeepSeek timeout"); return "ERROR: Layanan AI tidak merespon (timeout). Coba lagi."; }
     console.error("[ai] callDeepSeek fetch error:", err);
-    return "";
+    return `ERROR: Gagal menghubungi AI. ${(err as any)?.message || "Coba lagi."}`;
   }
 }
 
@@ -219,7 +219,7 @@ export async function searchRepoFiles(query: string): Promise<string[]> {
 // ── SSH ──
 export function sshExec(cmd: string): Promise<string> {
   return new Promise((resolve) => {
-    if (!SSH_HOST || !SSH_USER) { resolve(""); return; }
+    if (!SSH_HOST || !SSH_USER) { resolve("ERROR: SSH_HOST atau SSH_USER tidak dikonfigurasi."); return; }
     // Prefer key-based auth, fall back to password
     let sshCmd: string;
     if (SSH_KEY_PATH) {
@@ -228,7 +228,7 @@ export function sshExec(cmd: string): Promise<string> {
       // Safer: pipe password via env var read by sshpass -e
       sshCmd = `SSHPASS='${SSH_PASS}' sshpass -e ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "${cmd}"`;
     } else {
-      resolve(""); return;
+      resolve("ERROR: SSH_PASS atau SSH_KEY_PATH tidak dikonfigurasi."); return;
     }
     exec(sshCmd, { timeout: 15000 }, (err, stdout, stderr) => {
       resolve(err ? (stderr || err.message) : (stdout || "no output"));
@@ -479,9 +479,9 @@ export async function callDeepSeekWithTools(
     if (content) await remember(userId, mode, user, content);
     return content;
   } catch (err) {
-    if ((err as any)?.name === "AbortError") { console.error("[ai] callDeepSeekWithTools timeout"); return ""; }
+    if ((err as any)?.name === "AbortError") { console.error("[ai] callDeepSeekWithTools timeout"); return "ERROR: Layanan AI tidak merespon (timeout). Coba lagi."; }
     console.error("[ai] callDeepSeekWithTools error:", err);
-    return "";
+    return `ERROR: ${(err as any)?.message || "Gagal memproses permintaan AI."}`;
   }
 }
 

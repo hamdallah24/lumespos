@@ -122,6 +122,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       // ── CHAT ──
       case "chat": {
         const reply = await callDeepSeek(CHAT_SYSTEM, clean, uid, m);
+        if (reply.startsWith("ERROR:")) { res.json({ reply }); return; }
         res.json({ reply: reply || "Chat Agent sedang sibuk, coba lagi ya bos." });
         return;
       }
@@ -347,6 +348,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
         const prompt = `${COO_SYSTEM}\n\nOwner (VPS): ${clean}`;
         const raw = await callDeepSeek(prompt, clean, uid, "vps", 400);
+        if (raw.startsWith("ERROR:")) { res.json({ reply: raw }); return; }
         if (!raw) { res.json({ reply: "VPS agent sedang sibuk." }); return; }
 
         let reply = raw;
@@ -388,6 +390,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       default: {
         const prompt = `${COO_SYSTEM}\n\nOwner: ${clean}`;
         const raw = await callDeepSeek(prompt, clean, uid, "bisnis", 800);
+        if (raw.startsWith("ERROR:")) { res.json({ reply: raw }); return; }
         if (!raw) { res.json({ reply: "COO sedang sibuk. Coba lagi, bos." }); return; }
 
         // Parse JSON action di baris 1 (single or array)

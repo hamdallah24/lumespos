@@ -9,6 +9,7 @@ type Message = {
   role: "user" | "assistant";
   text: string;
   showApproval?: boolean;
+  approvalContext?: string;
   showMerge?: boolean;
 };
 
@@ -154,8 +155,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [openGroup, setOpenGroup] = React.useState<string | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
-  const lastMsgRef = React.useRef("");
-  const approvalMsgRef = React.useRef("");
+
 
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -165,7 +165,6 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
     const msg = (text || input).trim();
     if (!msg) return;
     setInput("");
-    lastMsgRef.current = msg;
     setMessages((prev) => [...prev, { role: "user", text: msg }]);
     setLoading(true);
 
@@ -210,8 +209,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
         setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, terjadi kesalahan." }]; });
       }
       const needsApproval = /SETUJU/i.test(accumulated) && /TIDAK\s*SETUJU/i.test(accumulated);
-      if (needsApproval) approvalMsgRef.current = msg;
-      setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { ...copy[copy.length - 1], showApproval: needsApproval }; return copy; });
+      setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { ...copy[copy.length - 1], showApproval: needsApproval, approvalContext: needsApproval ? msg : undefined }; return copy; });
       setLoading(false);
       return;
     }
@@ -245,7 +243,8 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
 
   const handleApprove = async () => {
     setLoading(true);
-    const msg = approvalMsgRef.current || lastMsgRef.current;
+    const lastMsg = messages.filter(m => m.role === "assistant").pop();
+    const msg = lastMsg?.approvalContext || messages.filter(m => m.role === "user").pop()?.text || "";
     setMessages((prev) => [...prev, { role: "user", text: "✅ SETUJU — generate kode..." }]);
     setMessages((prev) => [...prev, { role: "assistant", text: "" }]);
 
@@ -305,7 +304,6 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
 
   const handleReject = () => {
     setMessages((prev) => [...prev, { role: "user", text: "❌ TIDAK SETUJU" }, { role: "assistant", text: "Baik bos, generate kode dibatalkan. Ada hal lain yg bisa dibantu?" }]);
-    approvalMsgRef.current = "";
   };
 
   const handleMerge = async () => {
