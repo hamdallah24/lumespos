@@ -188,18 +188,20 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         const raw = await callDeepSeek(prompt, clean, uid, "bisnis", 800);
         if (!raw) { res.json({ reply: "COO sedang sibuk. Coba lagi, bos." }); return; }
 
-        // Parse JSON action di baris 1
+        // Parse JSON action di baris 1 (single or array)
         let reply = raw;
         const jsonMatch = raw.match(/^\{.+\}/);
         if (jsonMatch) {
           try {
             const action = JSON.parse(jsonMatch[0]);
-            if (action.action && action.action !== "general" && action.params) {
-              await executeOperation(action.action, action.params, defaultBranchId);
+            const actions = action.actions || (action.action ? [action] : []);
+            for (const act of actions) {
+              if (act.action && act.action !== "general" && act.params) {
+                await executeOperation(act.action, act.params, defaultBranchId);
+              }
             }
             reply = raw.replace(jsonMatch[0], "").trim();
-            // Use COO's response field if provided
-            if (action.response && !reply) reply = action.response;
+            if (!reply && action.response) reply = action.response;
           } catch { /* invalid JSON — show raw */ }
         }
 

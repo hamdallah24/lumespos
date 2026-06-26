@@ -116,6 +116,11 @@ add_stock, reduce_stock, correct_stock, loss_correction, add_ingredient, add_pro
 JSON FORMAT:
 {"action":"<dari list>","params":{<parameter>},"response":"<konfirmasi singkat>"}
 
+MULTI ACTION: Jika Owner minta >1 operasi sekaligus, gunakan "actions":[]. Jika cuma 1, pakai format single.
+
+Contoh multi-action:
+{"actions":[{"action":"add_stock","params":{"itemId":5,"qty":1000,"price":50000}},{"action":"add_expense","params":{"amount":30000}}],"response":"✅ Kopi +1000gr, Pengeluaran Rp 30.000"}
+
 PARAMS PER AKSI (WAJIB diisi jika Owner mau eksekusi):
 - add_stock: itemId (number), qty (number), price (number/null) ← dari query
 - reduce_stock: itemId (number), qty (number)
