@@ -92,12 +92,20 @@ router.get("/shift/sales", requireAuth, async (req, res) => {
     const qrisTotal = firstRow ? parseFloat(firstRow.qris || 0) : 0;
     const cardTotal = firstRow ? parseFloat(firstRow.card || 0) : 0;
 
+    // Hitung total cup terjual
+    const [cupResult] = await db
+      .select({ total: sql<string>`COALESCE(SUM(oi.quantity), 0)` })
+      .from(orderItemsTable)
+      .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+      .where(and(gte(ordersTable.createdAt, shift.shiftStart!), eq(ordersTable.branchId, shift.branchId)));
+
     return res.json({
       cash: cashTotal,
       qris: qrisTotal,
       card: cardTotal,
       total: cashTotal + qrisTotal + cardTotal,
       totalOrders: firstRow ? parseInt(firstRow.total_orders || 0) : 0,
+      totalCups: cupResult ? parseInt(cupResult.total || "0") : 0,
     });
   } catch (error) {
     console.error("GET /shift/sales error:", error);
@@ -162,7 +170,7 @@ router.post("/shift/start", requireAuth, requireBranchAccess((req) => Number(req
 // POST /api/shift/end - tutup shift
 router.post("/shift/end", requireAuth, async (req, res) => {
   try {
-    const { shiftId, closingBalance, photoProofUrl, actualStock, notes } = req.body;
+    const { shiftId, closingBalance, photoProofUrl, actualStock, notes, endingCupCount } = req.body;
 
     if (!shiftId || closingBalance === undefined) {
       return res.status(400).json({ error: "shiftId and closingBalance required" });
@@ -212,6 +220,19 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     // Gabungkan JSON catatannya
     const notesObj = { closingBalance, expectedBalance, difference, totalCash, userNotes: notes || null };
 
+    // ── Cup tracking ──
+    let startingCupCount = 0;
+    if (endingCupCount !== undefined) {
+      // Ambil endingCupCount dari shift sebelumnya di branch yg sama (diluar shift ini)
+      const [prevShift] = await db
+        .select({ ec: shiftAuditsTable.endingCupCount })
+        .from(shiftAuditsTable)
+        .where(and(eq(shiftAuditsTable.branchId, shift.branchId), sql`${shiftAuditsTable.id} < ${shiftId}`))
+        .orderBy(sql`${shiftAuditsTable.id} DESC`)
+        .limit(1);
+      startingCupCount = prevShift ? parseFloat(prevShift.ec || "0") : 0;
+    }
+
     const [updatedShift] = await db
       .update(shiftAuditsTable)
       .set({
@@ -223,6 +244,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         actualStockJson: Array.isArray(actualStock) && actualStock.length > 0 ? actualStock : null,
         photoProofUrl: photoProofUrl || null,
         notes: JSON.stringify(notesObj),
+        endingCupCount: endingCupCount !== undefined ? String(endingCupCount) : null,
       })
       .where(eq(shiftAuditsTable.id, shiftId))
       .returning();
@@ -266,7 +288,9 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         id: updatedShift.id,
         expectedBalance,
         closingBalance,
-        difference
+        difference,
+        startingCupCount,
+        endingCupCount: endingCupCount ?? 0
       }
     });
   } catch (error) {
@@ -331,6 +355,10 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
       photoProofUrl: shiftAuditsTable.photoProofUrl,
       status: shiftAuditsTable.status,
       notes: shiftAuditsTable.notes,
+      openingBalance: shiftAuditsTable.openingBalance,
+      closingBalance: shiftAuditsTable.closingBalance,
+      expectedBalance: shiftAuditsTable.expectedBalance,
+      endingCupCount: shiftAuditsTable.endingCupCount,
       createdAt: shiftAuditsTable.createdAt,
       expectedStockJson: shiftAuditsTable.expectedStockJson,
       actualStockJson: shiftAuditsTable.actualStockJson,
@@ -345,6 +373,8 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
       const expected = (r.expectedStockJson as StockEntry[] | null) ?? [];
       const actual = (r.actualStockJson as StockEntry[] | null) ?? [];
       const { maxDiscrepancyPct } = buildReconciliation(expected, actual);
+      let moneyNote: any = null;
+      if (r.notes) { try { moneyNote = JSON.parse(r.notes); } catch { moneyNote = { raw: r.notes }; } }
       return {
         id: r.id,
         branchId: r.branchId,
@@ -355,6 +385,12 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
         photoProofUrl: r.photoProofUrl,
         status: r.status,
         notes: r.notes,
+        openingBalance: r.openingBalance ? parseFloat(r.openingBalance) : 0,
+        closingBalance: r.closingBalance ? parseFloat(r.closingBalance) : null,
+        expectedBalance: r.expectedBalance ? parseFloat(r.expectedBalance) : null,
+        difference: moneyNote?.difference ?? null,
+        totalCash: moneyNote?.totalCash ?? null,
+        endingCupCount: r.endingCupCount ? parseFloat(r.endingCupCount) : null,
         createdAt: r.createdAt,
         maxDiscrepancyPct,
       };
@@ -382,6 +418,10 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
       photoProofUrl: shiftAuditsTable.photoProofUrl,
       status: shiftAuditsTable.status,
       notes: shiftAuditsTable.notes,
+      openingBalance: shiftAuditsTable.openingBalance,
+      closingBalance: shiftAuditsTable.closingBalance,
+      expectedBalance: shiftAuditsTable.expectedBalance,
+      endingCupCount: shiftAuditsTable.endingCupCount,
       createdAt: shiftAuditsTable.createdAt,
       expectedStockJson: shiftAuditsTable.expectedStockJson,
       actualStockJson: shiftAuditsTable.actualStockJson,
@@ -399,6 +439,9 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
   const actual = (row.actualStockJson as StockEntry[] | null) ?? [];
   const { reconciliation, maxDiscrepancyPct } = buildReconciliation(expected, actual);
 
+  let moneyNote: any = null;
+  if (row.notes) { try { moneyNote = JSON.parse(row.notes); } catch { moneyNote = { raw: row.notes }; } }
+
   res.json({
     id: row.id,
     branchId: row.branchId,
@@ -406,9 +449,15 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
     cashierName: row.cashierName,
     shiftStart: row.shiftStart,
     shiftEnd: row.shiftEnd,
-    photoProofUrl: row.photoPro0fUrl,
+    photoProofUrl: row.photoProofUrl,
     status: row.status,
     notes: row.notes,
+    openingBalance: row.openingBalance ? parseFloat(row.openingBalance) : 0,
+    closingBalance: row.closingBalance ? parseFloat(row.closingBalance) : null,
+    expectedBalance: row.expectedBalance ? parseFloat(row.expectedBalance) : null,
+    difference: moneyNote?.difference ?? null,
+    totalCash: moneyNote?.totalCash ?? null,
+    endingCupCount: row.endingCupCount ? parseFloat(row.endingCupCount) : null,
     createdAt: row.createdAt,
     maxDiscrepancyPct,
     reconciliation,
@@ -537,17 +586,28 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
     const actual = (audit.actualStockJson as any[] | null) ?? [];
     if (!expected.length || !actual.length) { res.json({ shiftId: id, note: "No stock data" }); return; }
 
-    // Get orders during shift (joining items)
+    // Get orders with variant names
     const orders = await db.select({
-      id: ordersTable.id, productId: orderItemsTable.productId, variantId: orderItemsTable.productVariantId, quantity: orderItemsTable.quantity,
-    }).from(orderItemsTable).innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+      qty: orderItemsTable.quantity,
+      variantId: orderItemsTable.productVariantId,
+      variantName: productVariantsTable.name,
+      productName: productsTable.name,
+    }).from(orderItemsTable)
+      .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+      .leftJoin(productVariantsTable, eq(productVariantsTable.id, orderItemsTable.productVariantId))
+      .leftJoin(productsTable, eq(productsTable.id, orderItemsTable.productId))
       .where(and(
-      gte(ordersTable.createdAt, audit.shiftStart!), lte(ordersTable.createdAt, audit.shiftEnd || new Date()),
-      eq(ordersTable.branchId, audit.branchId!),
-    ));
+        gte(ordersTable.createdAt, audit.shiftStart!), lte(ordersTable.createdAt, audit.shiftEnd || new Date()),
+        eq(ordersTable.branchId, audit.branchId!),
+      ));
 
-    const anomalies: any[] = [];
-    const ingredientMap = new Map<string, { sold: number; expected: number; items: { variant: string; sold: number; recipe: number; expected: number }[] }>();
+    const totalCups = orders.reduce((s: number, o: any) => s + (o.qty || 0), 0);
+
+    // ── Step 1: Build ingredient map with per-variant breakdown ──
+    const ingredientMap = new Map<string, {
+      sold: number; expected: number;
+      variants: Map<string, { sold: number; recipe: number; expected: number; variantName: string }>;
+    }>();
 
     for (const o of orders) {
       if (!o.variantId) continue;
@@ -557,18 +617,30 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
         const [ing] = await db.select().from(sql`ingredients`).where(sql`id = ${r.componentId}`) as any[];
         if (!ing) continue;
         const key = ing.name || `ing_${r.componentId}`;
-        const exp = parseFloat(r.quantity) * o.quantity!;
+        const exp = parseFloat(r.quantity) * (o.qty!);
+        const vName = o.variantName || o.productName || `var_${o.variantId}`;
         const existing = ingredientMap.get(key);
         if (existing) {
-          existing.sold += o.quantity!;
+          existing.sold += o.qty!;
           existing.expected += exp;
-          existing.items.push({ variant: `var_${o.variantId}`, sold: o.quantity!, recipe: parseFloat(r.quantity), expected: exp });
+          const ve = existing.variants.get(vName);
+          if (ve) { ve.sold += o.qty!; ve.expected += exp; }
+          else { existing.variants.set(vName, { sold: o.qty!, recipe: parseFloat(r.quantity), expected: exp, variantName: vName }); }
         } else {
-          ingredientMap.set(key, { sold: o.quantity!, expected: exp, items: [{ variant: `var_${o.variantId}`, sold: o.quantity!, recipe: parseFloat(r.quantity), expected: exp }] });
+          ingredientMap.set(key, {
+            sold: o.qty!, expected: exp,
+            variants: new Map([[vName, { sold: o.qty!, recipe: parseFloat(r.quantity), expected: exp, variantName: vName }]]),
+          });
         }
       }
     }
 
+    // ── Step 2: Get min product price from DB (ganti hardcoded 7000) ──
+    const [minP] = await db.select({ p: sql<string>`MIN(price)` }).from(productsTable).where(eq(productsTable.isActive, true));
+    const minPrice = minP ? parseFloat(minP.p) : 7000;
+
+    // ── Step 3: Per-ingredient analysis with weighted recipe ──
+    const anomalies: any[] = [];
     for (const [ingName, data] of ingredientMap) {
       const expItem = expected.find((e: any) => e.name === ingName);
       const actItem = actual.find((a: any) => a.name === ingName);
@@ -579,38 +651,63 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
       const pct = data.expected > 0 ? (excess / data.expected) * 100 : 0;
       const flag = Math.abs(pct) > 20 ? "HIGH" : Math.abs(pct) > 10 ? "MEDIUM" : "LOW";
       const hpp = expItem.hpp || expItem.costPricePerUnit || 0;
-      const minRecipe = Math.min(...data.items.map(i => i.recipe));
-      const potentialCups = minRecipe > 0 ? Math.round(excess / minRecipe) : 0;
-      const minPrice = 7000; // TODO: get actual min variant price
+
+      // Weighted recipe
+      const variantArr = [...data.variants.values()];
+      const totalSold = variantArr.reduce((s, v) => s + v.sold, 0);
+      const weightedRecipe = totalSold > 0 ? variantArr.reduce((s, v) => s + (v.sold / totalSold) * v.recipe, 0) : variantArr[0]?.recipe || 1;
+      const potentialCups = weightedRecipe > 0 ? Math.round(excess / weightedRecipe) : 0;
       const materialLoss = Math.abs(excess) * hpp;
       const potentialRevenue = potentialCups * minPrice;
 
+      // Per-variant analysis
+      const variantAnalysis = variantArr.map(v => {
+        const pot = v.recipe > 0 ? Math.round(excess / v.recipe) : 0;
+        const ilegalRatio = v.sold > 0 ? (pot / v.sold) * 100 : 0;
+        return {
+          variant: v.variantName, recipePerCup: v.recipe, sold: v.sold,
+          totalExpected: v.expected.toFixed(2), potentialIlegalCups: pot,
+          ilegalRatio: ilegalRatio.toFixed(0), flag2: ilegalRatio > 50 ? "⚠️ HIGH" : ilegalRatio > 30 ? "MEDIUM" : "LOW",
+        };
+      }).sort((a, b) => parseFloat(b.ilegalRatio) - parseFloat(a.ilegalRatio));
+
       anomalies.push({
-        ingredient: ingName, hpp: hpp || 0,
-        totalExpected: data.expected.toFixed(2),
-        totalActualLoss: actualLoss.toFixed(2),
-        excessQty: excess.toFixed(2),
-        excessPct: Math.abs(pct).toFixed(1),
-        materialLoss: Math.round(materialLoss),
-        potentialCups,
-        potentialRevenue,
-        flag,
-        variants: data.items,
+        ingredient: ingName, hpp: hpp || 0, totalExpected: data.expected.toFixed(2),
+        totalActualLoss: actualLoss.toFixed(2), excessQty: excess.toFixed(2),
+        excessPct: Math.abs(pct).toFixed(1), materialLoss: Math.round(materialLoss),
+        potentialCups, potentialRevenue, flag, weightedRecipe: weightedRecipe.toFixed(2),
+        variantAnalysis,
         causes: pct > 15 ? ["Porsi berlebih", "Spill/tumpah", "Kecurangan takaran"] : ["Variasi normal", "Toleransi produksi"],
       });
     }
+
+    // ── Step 4: Cup cross-check ──
+    const endingCupCount = audit.endingCupCount ? parseFloat(audit.endingCupCount) : null;
+    const [prevShift] = await db
+      .select({ ec: shiftAuditsTable.endingCupCount })
+      .from(shiftAuditsTable)
+      .where(and(eq(shiftAuditsTable.branchId, audit.branchId!), sql`${shiftAuditsTable.id} < ${id}`))
+      .orderBy(sql`${shiftAuditsTable.id} DESC`).limit(1);
+    const startingCups = prevShift ? parseFloat(prevShift.ec || "0") : 0;
+    const cupsUsed = endingCupCount !== null ? startingCups - endingCupCount + totalCups : null;
+    const cupDiscrepancy = cupsUsed !== null ? cupsUsed - totalCups : null;
+    const cupStatus = cupDiscrepancy === null ? "Tidak ada data cup" :
+      Math.abs(cupDiscrepancy) < 1 ? "OK — cup sesuai" : "SELISIH";
+    const ingredientCups = anomalies.reduce((s, a) => s + (a.potentialCups || 0), 0);
+    const cupVsIngredient = ingredientCups > 0 && cupDiscrepancy !== null ?
+      (Math.abs(cupDiscrepancy) < ingredientCups * 0.5 ? "⚠️ MENcurigakan — cup selisih kecil tapi bahan loss besar" :
+       "Pantau — kemungkinan lupa input order") : "Normal";
 
     const totalMaterial = anomalies.reduce((s: number, a: any) => s + a.materialLoss, 0);
     const totalRevenue = anomalies.reduce((s: number, a: any) => s + a.potentialRevenue, 0);
 
     res.json({
       shiftId: id, branchId: audit.branchId, period: `${audit.shiftStart} — ${audit.shiftEnd}`,
-      totalCups: orders.reduce((s: number, o: any) => s + (o.quantity || 0), 0),
+      totalCups,
+      cupAnalysis: { startingCups, endingCupCount, cupsUsed, cupDiscrepancy, cupStatus, ingredientCups, cupVsIngredient },
       anomalies,
       summary: {
-        totalAnomalies: anomalies.length,
-        totalMaterialLoss: totalMaterial,
-        totalPotentialRevenue: totalRevenue,
+        totalAnomalies: anomalies.length, totalMaterialLoss: totalMaterial, totalPotentialRevenue: totalRevenue,
         recommendation: anomalies.length > 0 ? "Audit SOP takaran. Cek barista & training." : "Semua dalam batas normal.",
       },
     });

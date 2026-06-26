@@ -462,6 +462,17 @@ export interface ShiftAudit {
   status: ShiftAuditStatus;
   /** @nullable */
   notes?: string | null;
+  openingBalance?: number;
+  /** @nullable */
+  closingBalance?: number | null;
+  /** @nullable */
+  expectedBalance?: number | null;
+  /** @nullable */
+  difference?: number | null;
+  /** @nullable */
+  totalCash?: number | null;
+  /** @nullable */
+  endingCupCount?: number | null;
   createdAt: string;
   maxDiscrepancyPct?: number;
 }
@@ -494,6 +505,17 @@ export interface ShiftAuditDetail {
   status: string;
   /** @nullable */
   notes?: string | null;
+  openingBalance?: number;
+  /** @nullable */
+  closingBalance?: number | null;
+  /** @nullable */
+  expectedBalance?: number | null;
+  /** @nullable */
+  difference?: number | null;
+  /** @nullable */
+  totalCash?: number | null;
+  /** @nullable */
+  endingCupCount?: number | null;
   createdAt: string;
   maxDiscrepancyPct?: number;
   reconciliation: ShiftAuditReconLine[];

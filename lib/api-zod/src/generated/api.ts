@@ -779,6 +779,12 @@ export const ListShiftAuditsResponseItem = zod.object({
   "photoProofUrl": zod.string().nullish(),
   "status": zod.enum(['pending', 'verified', 'discrepancy']),
   "notes": zod.string().nullish(),
+  "openingBalance": zod.number().optional(),
+  "closingBalance": zod.number().nullish(),
+  "expectedBalance": zod.number().nullish(),
+  "difference": zod.number().nullish(),
+  "totalCash": zod.number().nullish(),
+  "endingCupCount": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "maxDiscrepancyPct": zod.number().optional()
 })
@@ -840,19 +846,25 @@ export const GetShiftAuditResponse = zod.object({
   "photoProofUrl": zod.string().nullish(),
   "status": zod.string(),
   "notes": zod.string().nullish(),
+  "openingBalance": zod.number().optional(),
+  "closingBalance": zod.number().nullish(),
+  "expectedBalance": zod.number().nullish(),
+  "difference": zod.number().nullish(),
+  "totalCash": zod.number().nullish(),
+  "endingCupCount": zod.number().nullish(),
   "createdAt": zod.coerce.date(),
   "maxDiscrepancyPct": zod.number().optional(),
   "reconciliation": zod.array(zod.object({
-  "itemType": zod.string(),
-  "itemId": zod.number(),
-  "name": zod.string(),
-  "unit": zod.string(),
-  "expected": zod.number(),
-  "actual": zod.number(),
-  "diff": zod.number(),
-  "diffPct": zod.number(),
-  "isWarning": zod.boolean()
-}))
+    "itemType": zod.string(),
+    "itemId": zod.number(),
+    "name": zod.string(),
+    "unit": zod.string(),
+    "expected": zod.number(),
+    "actual": zod.number(),
+    "diff": zod.number(),
+    "diffPct": zod.number(),
+    "isWarning": zod.boolean()
+  }))
 })
 
 

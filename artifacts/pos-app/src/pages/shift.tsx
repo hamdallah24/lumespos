@@ -26,6 +26,8 @@ interface SalesData {
   qris: number;
   card: number;
   total: number;
+  totalOrders: number;
+  totalCups: number;
 }
 
 export default function ShiftPage() {
@@ -42,6 +44,7 @@ export default function ShiftPage() {
   const [isLoadingShift, setIsLoadingShift] = useState(true);
 
   const [closingBalance, setClosingBalance] = useState("");
+  const [endingCupCount, setEndingCupCount] = useState("");
   const [loading, setLoading] = useState(false);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
@@ -114,12 +117,14 @@ export default function ShiftPage() {
               qris: data.qris ?? 0,
               card: data.card ?? 0,
               total: (data.cash ?? 0) + (data.qris ?? 0) + (data.card ?? 0),
+              totalOrders: data.totalOrders ?? 0,
+              totalCups: data.totalCups ?? 0,
             });
           } else {
-            setSalesData({ cash: 0, qris: 0, card: 0, total: 0 });
+            setSalesData({ cash: 0, qris: 0, card: 0, total: 0, totalOrders: 0, totalCups: 0 });
           }
         } catch (error) {
-          setSalesData({ cash: 0, qris: 0, card: 0, total: 0 });
+          setSalesData({ cash: 0, qris: 0, card: 0, total: 0, totalOrders: 0, totalCups: 0 });
         } finally {
           setIsLoadingSales(false);
         }
@@ -253,6 +258,7 @@ export default function ShiftPage() {
         body: JSON.stringify({
           shiftId,
           closingBalance: balance,
+          endingCupCount: parseFloat(endingCupCount) || undefined,
           actualStock,
           notes,
           photoProofUrl: finalPhotoUrl,
@@ -396,6 +402,24 @@ export default function ShiftPage() {
                         autoFocus
                       />
                       <p className="text-xs text-muted-foreground mt-1">Masukkan total seluruh uang fisik di kasir.</p>
+                    </div>
+
+                    <div className="pt-2 border-t">
+                      <Label className="text-sm font-semibold flex items-center gap-2">
+                        <Package className="w-4 h-4 text-primary" />Jumlah Cup Akhir
+                      </Label>
+                      <Input
+                        type="number"
+                        value={endingCupCount}
+                        onChange={(e) => setEndingCupCount(e.target.value)}
+                        placeholder="Contoh: 43"
+                        className="h-12 text-lg font-bold mt-1"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {salesData ? (
+                          <>Terjual <span className="font-semibold text-primary">{salesData.totalCups} cup</span> di shift ini. Hitung sisa cup fisik sekarang.</>
+                        ) : "Hitung sisa cup fisik di akhir shift."}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
