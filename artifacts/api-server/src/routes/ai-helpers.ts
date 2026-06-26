@@ -22,6 +22,7 @@ const GH_HEADERS = { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application
 export const SSH_HOST = process.env.SSH_HOST || "";
 export const SSH_USER = process.env.SSH_USER || "";
 export const SSH_PASS = process.env.SSH_PASSWORD || "";
+export const SSH_KEY_PATH = process.env.SSH_KEY_PATH || "";
 
 // ── MEMORY (DB-backed) ──
 type ChatMsg = { role: "user" | "assistant"; content: string };
@@ -218,8 +219,17 @@ export async function searchRepoFiles(query: string): Promise<string[]> {
 // ── SSH ──
 export function sshExec(cmd: string): Promise<string> {
   return new Promise((resolve) => {
-    if (!SSH_HOST || !SSH_USER || !SSH_PASS) { resolve(""); return; }
-    const sshCmd = `sshpass -p '${SSH_PASS}' ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "${cmd}"`;
+    if (!SSH_HOST || !SSH_USER) { resolve(""); return; }
+    // Prefer key-based auth, fall back to password
+    let sshCmd: string;
+    if (SSH_KEY_PATH) {
+      sshCmd = `ssh -i ${SSH_KEY_PATH} -o StrictHostKeyChecking=no -o BatchMode=yes ${SSH_USER}@${SSH_HOST} "${cmd}"`;
+    } else if (SSH_PASS) {
+      // Safer: pipe password via env var read by sshpass -e
+      sshCmd = `SSHPASS='${SSH_PASS}' sshpass -e ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} "${cmd}"`;
+    } else {
+      resolve(""); return;
+    }
     exec(sshCmd, { timeout: 15000 }, (err, stdout, stderr) => {
       resolve(err ? (stderr || err.message) : (stdout || "no output"));
     });
@@ -473,4 +483,25 @@ export async function callDeepSeekWithTools(
     console.error("[ai] callDeepSeekWithTools error:", err);
     return "";
   }
+}
+
+// ── RATE LIMITER (per-user sliding window) ──
+const RATE_WINDOW_MS = 60000;
+interface RateEntry { windowStart: number; count: number }
+const rateMap = new Map<string, RateEntry>();
+
+export function checkRateLimit(userId: number, mode: string, maxRequests: number): { ok: boolean; retryAfter?: number } {
+  const now = Date.now();
+  const key = `${userId}_${mode}`;
+  const entry = rateMap.get(key);
+  if (!entry || now - entry.windowStart > RATE_WINDOW_MS) {
+    rateMap.set(key, { windowStart: now, count: 1 });
+    return { ok: true };
+  }
+  if (entry.count >= maxRequests) {
+    const retryAfter = Math.ceil((entry.windowStart + RATE_WINDOW_MS - now) / 1000);
+    return { ok: false, retryAfter };
+  }
+  entry.count++;
+  return { ok: true };
 }

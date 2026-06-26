@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, mergeDeploy, getDependencies } from "./ai-helpers";
+import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, mergeDeploy, getDependencies, checkRateLimit } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
@@ -109,6 +109,14 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       return;
     }
 
+    // Rate limit
+    const maxReqs = m === "cto" ? (generateNow ? 2 : 10) : (m === "vps" ? 30 : 20);
+    const rl = checkRateLimit(uid, m, maxReqs);
+    if (!rl.ok) {
+      res.status(429).json({ error: `Terlalu banyak permintaan. Coba lagi ${rl.retryAfter} detik lagi.` });
+      return;
+    }
+
     switch (m) {
 
       // ── CHAT ──
@@ -151,12 +159,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
           if (lastAssistant) {
             const pathsFromBANG = (lastAssistant.content.match(/artifacts\/\S+\.[a-z]{2,4}/gi) || [])
-              .filter((p: string, i: number, arr: string[]) => arr.indexOf(p) === i); // deduplicate
-            for (const p of pathsFromBANG.slice(0, 3)) {
-              const result = await fetchGitHubFile(p, "main");
-              if (result.content && result.content.length > 10) {
-                prefetched[p] = result.content;
-              }
+              .filter((p: string, i: number, arr: string[]) => arr.indexOf(p) === i);
+            const bangResults = await Promise.all(pathsFromBANG.slice(0, 3).map(p => fetchGitHubFile(p, "main")));
+            for (let i = 0; i < bangResults.length; i++) {
+              const r = bangResults[i];
+              if (r.content && r.content.length > 10) prefetched[pathsFromBANG[i]] = r.content;
             }
           }
 
@@ -165,12 +172,14 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           const searchedPaths = await searchRepoFiles(searchQuery);
           if (searchedPaths.length > 0) {
             codegenInput += "\n\nFILE TERKAIT:\n" + searchedPaths.slice(0, 5).join("\n");
-            for (const p of searchedPaths) {
-              if (Object.keys(prefetched).length >= 3) break;
-              if (prefetched[p]) continue;
-              const result = await fetchGitHubFile(p, "main");
-              if (result.content && result.content.length > 10) {
-                prefetched[p] = result.content;
+            const need = 3 - Object.keys(prefetched).length;
+            if (need > 0) {
+              const searchResults = await Promise.all(
+                searchedPaths.filter(p => !prefetched[p]).slice(0, need).map(p => fetchGitHubFile(p, "main"))
+              );
+              for (let i = 0; i < searchResults.length; i++) {
+                const r = searchResults[i];
+                if (r.content && r.content.length > 10) prefetched[searchedPaths[i]] = r.content;
               }
             }
           }
@@ -259,8 +268,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           // Detect file mentions (.tsx, .ts, .json)
           const fileRefs = clean.match(/(\w+\.[a-z]{2,4})/gi);
           if (fileRefs) {
-            for (const ref of fileRefs.slice(0, 3)) {
-              const possiblePaths = [
+            const refResults = await Promise.all(fileRefs.slice(0, 3).map(async (ref) => {
+              const paths = [
                 `artifacts/pos-app/src/components/${ref}`,
                 `artifacts/pos-app/src/${ref}`,
                 `artifacts/api-server/src/routes/${ref}`,
@@ -268,27 +277,34 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
                 `artifacts/api-server/src/middlewares/${ref}`,
                 ref,
               ];
-              for (const p of possiblePaths) {
-                const result = await fetchGitHubFile(p, "main");
-                if (result.content) {
-                  fetchedPaths.push(p);
-                  fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2500)}\n\`\`\``);
-                  break;
-                }
+              const results = await Promise.all(paths.map(p => fetchGitHubFile(p, "main")));
+              for (let i = 0; i < results.length; i++) {
+                if (results[i].content) return { path: paths[i], content: results[i].content };
+              }
+              return null;
+            }));
+            for (const r of refResults) {
+              if (r) {
+                fetchedPaths.push(r.path);
+                fetchedPairs.push(`\n\n[FILE: ${r.path}]:\n\`\`\`\n${r.content.slice(0, 2500)}\n\`\`\``);
               }
             }
           }
           // Dynamic search
           const relevantPaths = await searchRepoFiles(clean);
           const seen = new Set(fetchedPaths);
-          for (const p of relevantPaths) {
-            if (fetchedPairs.length >= 8) break;
-            if (seen.has(p)) continue;
-            const result = await fetchGitHubFile(p, "main");
-            if (result.content && result.content.length > 10) {
-              fetchedPaths.push(p);
-              fetchedPairs.push(`\n\n[FILE: ${p}]:\n\`\`\`\n${result.content.slice(0, 2000)}\n\`\`\``);
-              seen.add(p);
+          const unseen = relevantPaths.filter(p => !seen.has(p));
+          const need = Math.min(8 - fetchedPairs.length, unseen.length);
+          if (need > 0) {
+            const targets = unseen.slice(0, need);
+            const searchResults = await Promise.all(targets.map(p => fetchGitHubFile(p, "main")));
+            for (let i = 0; i < searchResults.length && fetchedPairs.length < 8; i++) {
+              const r = searchResults[i];
+              if (r.content && r.content.length > 10) {
+                fetchedPaths.push(targets[i]);
+                fetchedPairs.push(`\n\n[FILE: ${targets[i]}]:\n\`\`\`\n${r.content.slice(0, 2000)}\n\`\`\``);
+                seen.add(targets[i]);
+              }
             }
           }
           if (fetchedPaths.length > 0) {
