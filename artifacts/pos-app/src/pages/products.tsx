@@ -198,7 +198,23 @@ function VariantsPanel({ productId, onVariantChange }: { productId: number; onVa
 /* BOM (Bill of Materials) Panel        */
 /* ──────────────────────────────────── */
 function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?: () => void }) {
-  return <div className="p-4 text-sm">BomPanel loaded (ID: {productId})</div>;
+  const queryClient = useQueryClient();
+  const { branchId } = useBranch();
+  const { data: variants = [] } = useListProductVariants(productId);
+  const [targetType, setTargetType] = useState<"product" | "product_variant">("product");
+  const [targetId, setTargetId] = useState<number>(productId);
+  const { data: recipe = [] } = useGetRecipe({ parentType: targetType, parentId: targetId } as any);
+  const { data: ingredients = [], isLoading: ingredientsLoading } = useListIngredients({ branchId: branchId ?? 0 });
+  const { data: semiFinished = [] } = useListSemiFinished({ branchId: branchId ?? 0 });
+  const setRecipe = useSetRecipe();
+  const [selectedComponents, setSelectedComponents] = useState<Record<string, number>>({});
+  const [bomSearch, setBomSearch] = useState("");
+
+  try {
+    return <div id="_bom_root_">BomPanel render OK hooks={variants.length},{recipe.length},{ingredients.length},{semiFinished.length}</div>;
+  } catch (e: any) {
+    return <div className="p-4 text-red-600">BomPanel error: {e?.message || String(e)}</div>;
+  }
 }
 
 /* ──────────────────────────────────── */

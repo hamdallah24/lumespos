@@ -283,9 +283,9 @@ export default function CashierPage() {
                   className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer active:scale-[0.97] transition-transform"
                   onClick={() => handleProductClick(product)}
                 >
-                  <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden p-1.5">
+                  <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
                     {product.imageUrl ? (
-                      <img src={product.imageUrl.startsWith("http") ? product.imageUrl : `/api/storage${product.imageUrl}`} alt={product.name} className="w-full h-full object-cover rounded-lg" />
+                      <img src={product.imageUrl.startsWith("http") ? product.imageUrl : `/api/storage${product.imageUrl}`} alt={product.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-background flex items-center justify-center text-muted-foreground font-bold text-lg md:text-2xl shadow-sm">
                         {product.name.charAt(0)}
