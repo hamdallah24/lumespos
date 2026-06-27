@@ -98,38 +98,51 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
     reader.releaseLock();
     clearTimeout(tid);
 
-    // If tool calls were requested, execute them and follow up
-    if (fullToolCalls.length > 0) {
-      sse({ delta: "\n\n⏳ Mengeksekusi perintah...\n" });
-      const toolResults: any[] = await Promise.all(fullToolCalls.map(async (tc: any) => {
+    // ── REACT LOOP: tool → think → tool → think → final ──
+    let allToolCalls = fullToolCalls;
+    let followUpMessages = [...messages];
+    let maxRounds = 5;
+
+    while (allToolCalls.length > 0 && maxRounds-- > 0) {
+      sse({ delta: `\n\n⏳ Mengeksekusi ${allToolCalls.length} perintah...\n` });
+      const toolResults: any[] = await Promise.all(allToolCalls.map(async (tc: any) => {
         let args: Record<string, any> = {};
         try { args = JSON.parse(tc.args); } catch { args = {}; }
         const result = await executeToolCall(tc.name, args);
-        return { role: "tool", tool_call_id: tc.id, content: result.slice(0, 5000) };
+        return { role: "tool", tool_call_id: tc.id, content: (result || "-").slice(0, 5000) };
       }));
-      const toolMsg = { role: "assistant", content: null, tool_calls: fullToolCalls.map((tc: any) => ({
+      const toolMsg = { role: "assistant", content: null, tool_calls: allToolCalls.map((tc: any) => ({
         id: tc.id, type: "function", function: { name: tc.name, arguments: tc.args }
       })) };
-      const followUp = [...messages, toolMsg, ...toolResults];
+      followUpMessages = [...followUpMessages, toolMsg, ...toolResults];
       const c2 = new AbortController();
       const t2 = setTimeout(() => c2.abort(), 30000);
       try {
         const resp2 = await fetch(`${base}/chat/completions`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({ model, messages: followUp, max_tokens: 3000, temperature: 0.7 }),
+          body: JSON.stringify({ model, messages: followUpMessages, max_tokens: 3000, temperature: 0.7, tools: toolsPayload }),
           signal: c2.signal,
         });
         clearTimeout(t2);
-        if (resp2.ok) {
-          const json2 = await resp2.json();
-          const reply = (json2 as any).choices?.[0]?.message?.content?.trim() || "";
-          if (reply) {
-            fullText += "\n" + reply;
-            sse({ delta: reply });
+        if (!resp2.ok) break;
+        const json2 = await resp2.json();
+        const msg2 = (json2 as any).choices?.[0]?.message;
+        if (msg2?.content) {
+          fullText += "\n\n" + msg2.content;
+          sse({ delta: msg2.content });
+        }
+        allToolCalls = [];
+        if (msg2?.tool_calls) {
+          for (const tc of msg2.tool_calls) {
+            const idx = tc.index ?? allToolCalls.length;
+            if (!allToolCalls[idx]) allToolCalls[idx] = { id: "", name: "", args: "" };
+            if (tc.id) allToolCalls[idx].id = tc.id;
+            if (tc.function?.name) allToolCalls[idx].name = tc.function.name;
+            if (tc.function?.arguments) allToolCalls[idx].args = (allToolCalls[idx].args || "") + tc.function.arguments;
           }
         }
-      } catch { clearTimeout(t2); }
+      } catch { clearTimeout(t2); break; }
     }
 
     if (!aborted) {
