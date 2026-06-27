@@ -104,17 +104,15 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
     let maxRounds = 10;
 
     while (allToolCalls.length > 0 && maxRounds-- > 0) {
+      // Kirim progress tool ke user
       const cmdList = allToolCalls.map((tc: any) => {
         let brief = tc.name;
-        try {
-          const a = JSON.parse(tc.args || "{}");
-          const val = Object.values(a)[0];
-          if (val) brief += `(${String(val).slice(0, 60)})`;
-        } catch {}
+        try { const a = JSON.parse(tc.args || "{}"); const v = Object.values(a)[0]; if (v) brief += `(${String(v).slice(0, 60)})`; } catch {}
         return brief;
       }).join(", ");
       sse({ delta: `\n\n▶️ ${cmdList}\n` });
 
+      // Execute tools
       const toolResults: any[] = await Promise.all(allToolCalls.map(async (tc: any) => {
         let args: Record<string, any> = {};
         try { args = JSON.parse(tc.args); } catch { args = {}; }
@@ -125,46 +123,69 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
         id: tc.id, type: "function", function: { name: tc.name, arguments: tc.args }
       })) };
       followUpMessages = [...followUpMessages, toolMsg, ...toolResults];
+
+      // Streaming follow-up — AI mikir + mungkin minta tool lagi
       const c2 = new AbortController();
-      const t2 = setTimeout(() => c2.abort(), 30000);
+      const t2 = setTimeout(() => c2.abort(), 35000);
       try {
         const resp2 = await fetch(`${base}/chat/completions`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({ model, messages: followUpMessages, max_tokens: 3000, temperature: 0.7, tools: toolsPayload }),
+          body: JSON.stringify({ model, messages: followUpMessages, max_tokens: 3000, temperature: 0.7, stream: true, tools: toolsPayload }),
           signal: c2.signal,
         });
         clearTimeout(t2);
         if (!resp2.ok) break;
-        const json2 = await resp2.json();
-        const msg2 = (json2 as any).choices?.[0]?.message;
-        if (msg2?.content) {
-          fullText += "\n\n" + msg2.content;
-          sse({ delta: msg2.content });
-        }
-        allToolCalls = [];
-        if (msg2?.tool_calls) {
-          for (const tc of msg2.tool_calls) {
-            const idx = tc.index ?? allToolCalls.length;
-            if (!allToolCalls[idx]) allToolCalls[idx] = { id: "", name: "", args: "" };
-            if (tc.id) allToolCalls[idx].id = tc.id;
-            if (tc.function?.name) allToolCalls[idx].name = tc.function.name;
-            if (tc.function?.arguments) allToolCalls[idx].args = (allToolCalls[idx].args || "") + tc.function.arguments;
+
+        const r2 = resp2.body!.getReader();
+        const d2 = new TextDecoder();
+        let b2 = "", nextToolCalls: any[] = [];
+        while (true) {
+          const { done, value } = await r2.read();
+          if (done) break;
+          b2 += d2.decode(value, { stream: true });
+          const lines = b2.split("\n");
+          b2 = lines.pop() || "";
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const p = line.slice(6);
+            if (p === "[DONE]") continue;
+            try {
+              const c = JSON.parse(p);
+              const d = c.choices?.[0]?.delta;
+              const f = c.choices?.[0]?.finish_reason;
+              if (d?.content) {
+                fullText += d.content;
+                sse({ delta: d.content });
+              }
+              if (d?.tool_calls) {
+                for (const tc of d.tool_calls) {
+                  const idx = tc.index ?? nextToolCalls.length;
+                  if (!nextToolCalls[idx]) nextToolCalls[idx] = { id: "", name: "", args: "" };
+                  if (tc.id) nextToolCalls[idx].id = tc.id;
+                  if (tc.function?.name) nextToolCalls[idx].name = tc.function.name;
+                  if (tc.function?.arguments) nextToolCalls[idx].args = (nextToolCalls[idx].args || "") + tc.function.arguments;
+                }
+              }
+              if (f === "tool_calls") { break; }
+            } catch { /* skip */ }
           }
+          if (nextToolCalls.length > 0) break;
         }
+        r2.releaseLock();
+        allToolCalls = nextToolCalls;
       } catch { clearTimeout(t2); break; }
     }
 
-    // If loop exhausted with no text final, force a final answer without tools
-    if (!aborted && allToolCalls.length > 0 && !fullText.includes("Kesimpulan")) {
-      sse({ delta: `\n\n📊 **Loop tools habis — menyusun kesimpulan...**\n` });
+    // Jika loop habis tapi AI kehabisan putaran & belum final, paksa kesimpulan tanpa tools
+    if (!aborted && allToolCalls.length > 0) {
       try {
         const c3 = new AbortController();
         setTimeout(() => c3.abort(), 30000);
         const resp3 = await fetch(`${base}/chat/completions`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({ model, messages: followUpMessages, max_tokens: 3000, temperature: 0.7 }),
+          body: JSON.stringify({ model, messages: followUpMessages, max_tokens: 2000, temperature: 0.7 }),
           signal: c3.signal,
         });
         if (resp3.ok) {
