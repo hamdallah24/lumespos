@@ -156,60 +156,43 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
 
       // 5. Recipes (BOM) — auto-resolve dependencies and copy
       if (includeProducts) {
-        // Fetch all product recipes from source branch products
         const prodKeys = Array.from(prodMap.keys());
-        const srcRecipes = prodKeys.length > 0 ? await tx
-          .select()
-          .from(recipesTable)
-          .where(
-            and(
-              eq(recipesTable.parentType, "product"),
-              inArray(recipesTable.parentId, prodKeys)
-            )
-          ) : [];
+        const sfKeys = Array.from(sfMap.keys());
 
-        // Also get semi_finished recipes if semi_finished items exist
-        let sfRecipeRows: typeof srcRecipes = [];
-        if (sfMap.size > 0) {
-          const sfKeys = Array.from(sfMap.keys());
-          sfRecipeRows = await tx
+        // Collect all recipes: product recipes + SF recipes (if any)
+        const allRecipeRows: { parentType: string; parentId: number; componentType: string; componentId: number; quantity: string }[] = [];
+        if (prodKeys.length > 0) {
+          const rows = await tx
             .select()
             .from(recipesTable)
-            .where(
-              and(
-                eq(recipesTable.parentType, "semi_finished"),
-                inArray(recipesTable.parentId, sfKeys)
-              )
-            );
+            .where(and(eq(recipesTable.parentType, "product"), inArray(recipesTable.parentId, prodKeys)));
+          allRecipeRows.push(...rows);
+        }
+        if (sfKeys.length > 0) {
+          const rows = await tx
+            .select()
+            .from(recipesTable)
+            .where(and(eq(recipesTable.parentType, "semi_finished"), inArray(recipesTable.parentId, sfKeys)));
+          allRecipeRows.push(...rows);
         }
 
-        const allRecipes = [...srcRecipes, ...sfRecipeRows];
+        // Phase 1: resolve component dependencies (loop until stable)
+        const newSfIds = new Set<number>();
+        const newIngIds = new Set<number>();
+        let pendingSfRecipeRows: typeof allRecipeRows = [];
 
-        // Collect all required component IDs that aren't yet mapped
-        const missingSfIds = new Set<number>();
-        const missingIngIds = new Set<number>();
-
-        for (const r of allRecipes) {
-          if (r.componentType === "semi_finished" && !sfMap.has(r.componentId)) {
-            missingSfIds.add(r.componentId);
-          }
-          if (r.componentType === "ingredient" && !ingMap.has(r.componentId)) {
-            missingIngIds.add(r.componentId);
-          }
+        for (const r of allRecipeRows) {
+          if (r.componentType === "semi_finished" && !sfMap.has(r.componentId)) newSfIds.add(r.componentId);
+          if (r.componentType === "ingredient" && !ingMap.has(r.componentId)) newIngIds.add(r.componentId);
         }
 
-        // Auto-copy missing semi_finished items to target branch
-        if (missingSfIds.size > 0) {
-          const missingSfRows = await tx
+        // Auto-copy missing semi_finished items and collect their recipes too
+        if (newSfIds.size > 0) {
+          const rows = await tx
             .select()
             .from(semiFinishedTable)
-            .where(
-              and(
-                eq(semiFinishedTable.branchId, sourceBranchId),
-                inArray(semiFinishedTable.id, Array.from(missingSfIds))
-              )
-            );
-          for (const sf of missingSfRows) {
+            .where(and(eq(semiFinishedTable.branchId, sourceBranchId), inArray(semiFinishedTable.id, Array.from(newSfIds))));
+          for (const sf of rows) {
             const [existing] = await tx
               .select()
               .from(semiFinishedTable)
@@ -232,21 +215,28 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
               sfMap.set(sf.id, created.id);
               stats.semiFinished = (stats.semiFinished || 0) + 1;
             }
+            // Collect recipes for this newly mapped SF item
+            const sfRecipes = await tx
+              .select()
+              .from(recipesTable)
+              .where(and(eq(recipesTable.parentType, "semi_finished"), eq(recipesTable.parentId, sf.id)));
+            pendingSfRecipeRows.push(...sfRecipes);
           }
         }
 
-        // Auto-copy missing ingredients to target branch
-        if (missingIngIds.size > 0) {
-          const missingIngRows = await tx
+        // Resolve ingredient dependencies from both original and newly-fetched SF recipes
+        const allWithPending = [...allRecipeRows, ...pendingSfRecipeRows];
+        newIngIds.clear();
+        for (const r of allWithPending) {
+          if (r.componentType === "ingredient" && !ingMap.has(r.componentId)) newIngIds.add(r.componentId);
+        }
+
+        if (newIngIds.size > 0) {
+          const rows = await tx
             .select()
             .from(ingredientsTable)
-            .where(
-              and(
-                eq(ingredientsTable.branchId, sourceBranchId),
-                inArray(ingredientsTable.id, Array.from(missingIngIds))
-              )
-            );
-          for (const ing of missingIngRows) {
+            .where(and(eq(ingredientsTable.branchId, sourceBranchId), inArray(ingredientsTable.id, Array.from(newIngIds))));
+          for (const ing of rows) {
             const [existing] = await tx
               .select()
               .from(ingredientsTable)
@@ -271,27 +261,20 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
           }
         }
 
-        // Now copy all recipes with resolved IDs
+        // Phase 2: copy all recipes (original + newly resolved) with mapped IDs
+        const finalRecipes = [...allWithPending];
         let count = 0;
-        for (const r of allRecipes) {
-          const newParentId = r.parentType === "product"
-            ? prodMap.get(r.parentId)
-            : sfMap.get(r.parentId);
-          const newComponentId = r.componentType === "ingredient"
-            ? ingMap.get(r.componentId)
-            : sfMap.get(r.componentId);
-
+        for (const r of finalRecipes) {
+          const newParentId = r.parentType === "product" ? prodMap.get(r.parentId) : sfMap.get(r.parentId);
+          const newComponentId = r.componentType === "ingredient" ? ingMap.get(r.componentId) : sfMap.get(r.componentId);
           if (!newParentId || !newComponentId) continue;
-
-          await tx
-            .insert(recipesTable)
-            .values({
-              parentType: r.parentType,
-              parentId: newParentId,
-              componentType: r.componentType,
-              componentId: newComponentId,
-              quantity: r.quantity,
-            });
+          await tx.insert(recipesTable).values({
+            parentType: r.parentType,
+            parentId: newParentId,
+            componentType: r.componentType,
+            componentId: newComponentId,
+            quantity: r.quantity,
+          });
           count++;
         }
         stats.recipes = count;
