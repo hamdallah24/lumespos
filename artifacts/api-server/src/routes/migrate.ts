@@ -7,12 +7,13 @@ const router = Router();
 
 router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req, res) => {
   try {
-    const { sourceBranchId, targetBranchId, includeIngredients, includeSemiFinished, includeProducts } = req.body as {
+    const { sourceBranchId, targetBranchId, includeIngredients, includeSemiFinished, includeProducts, overwrite } = req.body as {
       sourceBranchId: number;
       targetBranchId: number;
       includeIngredients?: boolean;
       includeSemiFinished?: boolean;
       includeProducts?: boolean;
+      overwrite?: boolean;
     };
 
     if (!sourceBranchId || !targetBranchId) {
@@ -32,6 +33,11 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
       const prodMap = new Map<number, number>();  // old product id → new
       const varMap = new Map<number, number>();   // old variant id → new
 
+      // Helper: collect all new parent IDs in target for recipe cleanup
+      const targetProductIds = new Set<number>();
+      const targetVariantIds = new Set<number>();
+      const targetSfIds = new Set<number>();
+
       // 1. Ingredients
       if (includeIngredients) {
         const srcIngredients = await tx
@@ -45,7 +51,18 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
             .from(ingredientsTable)
             .where(and(eq(ingredientsTable.branchId, targetBranchId), eq(ingredientsTable.name, ing.name)));
           if (existing) {
+            if (overwrite) {
+              await tx.update(ingredientsTable)
+                .set({
+                  unit: ing.unit,
+                  costPricePerUnit: ing.costPricePerUnit,
+                  minimalStock: ing.minimalStock,
+                  trackInShift: ing.trackInShift,
+                })
+                .where(eq(ingredientsTable.id, existing.id));
+            }
             ingMap.set(ing.id, existing.id);
+            if (overwrite) stats.ingredients = (stats.ingredients || 0) + 1;
             continue;
           }
           const [created] = await tx
@@ -77,7 +94,19 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
             .from(semiFinishedTable)
             .where(and(eq(semiFinishedTable.branchId, targetBranchId), eq(semiFinishedTable.name, sf.name)));
           if (existing) {
+            if (overwrite) {
+              await tx.update(semiFinishedTable)
+                .set({
+                  unit: sf.unit,
+                  yieldQuantity: sf.yieldQuantity,
+                  yieldUnit: sf.yieldUnit,
+                  costPricePerUnit: sf.costPricePerUnit,
+                  trackInShift: sf.trackInShift,
+                })
+                .where(eq(semiFinishedTable.id, existing.id));
+            }
             sfMap.set(sf.id, existing.id);
+            if (overwrite) stats.semiFinished = (stats.semiFinished || 0) + 1;
             continue;
           }
           const [created] = await tx
@@ -110,7 +139,20 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
             .from(productsTable)
             .where(and(eq(productsTable.branchId, targetBranchId), eq(productsTable.name, prod.name)));
           if (existing) {
+            if (overwrite) {
+              await tx.update(productsTable)
+                .set({
+                  categoryId: prod.categoryId,
+                  price: prod.price,
+                  imageUrl: prod.imageUrl,
+                  isActive: prod.isActive,
+                  requiresStock: prod.requiresStock,
+                })
+                .where(eq(productsTable.id, existing.id));
+            }
             prodMap.set(prod.id, existing.id);
+            targetProductIds.add(existing.id);
+            if (overwrite) stats.products = (stats.products || 0) + 1;
             continue;
           }
           const [created] = await tx
@@ -126,6 +168,7 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
             })
             .returning();
           prodMap.set(prod.id, created.id);
+          targetProductIds.add(created.id);
           stats.products = (stats.products || 0) + 1;
         }
       }
@@ -137,6 +180,15 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
           .select()
           .from(productVariantsTable)
           .where(inArray(productVariantsTable.productId, oldIds));
+
+        if (overwrite) {
+          // Delete existing variants in target for these products, then re-insert
+          const targetProdIds = Array.from(targetProductIds);
+          if (targetProdIds.length > 0) {
+            await tx.delete(productVariantsTable)
+              .where(inArray(productVariantsTable.productId, targetProdIds));
+          }
+        }
 
         let count = 0;
         for (const v of srcVariants) {
@@ -152,6 +204,7 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
             })
             .returning();
           varMap.set(v.id, created.id);
+          targetVariantIds.add(created.id);
           count++;
         }
         stats.variants = count;
@@ -209,7 +262,19 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
               .from(semiFinishedTable)
               .where(and(eq(semiFinishedTable.branchId, targetBranchId), eq(semiFinishedTable.name, sf.name)));
             if (existing) {
+              if (overwrite) {
+                await tx.update(semiFinishedTable)
+                  .set({
+                    unit: sf.unit,
+                    yieldQuantity: sf.yieldQuantity,
+                    yieldUnit: sf.yieldUnit,
+                    costPricePerUnit: sf.costPricePerUnit,
+                    trackInShift: sf.trackInShift,
+                  })
+                  .where(eq(semiFinishedTable.id, existing.id));
+              }
               sfMap.set(sf.id, existing.id);
+              targetSfIds.add(existing.id);
             } else {
               const [created] = await tx
                 .insert(semiFinishedTable)
@@ -224,6 +289,7 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
                 })
                 .returning();
               sfMap.set(sf.id, created.id);
+              targetSfIds.add(created.id);
               stats.semiFinished = (stats.semiFinished || 0) + 1;
             }
             const sfRecipes = await tx
@@ -252,6 +318,16 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
               .from(ingredientsTable)
               .where(and(eq(ingredientsTable.branchId, targetBranchId), eq(ingredientsTable.name, ing.name)));
             if (existing) {
+              if (overwrite) {
+                await tx.update(ingredientsTable)
+                  .set({
+                    unit: ing.unit,
+                    costPricePerUnit: ing.costPricePerUnit,
+                    minimalStock: ing.minimalStock,
+                    trackInShift: ing.trackInShift,
+                  })
+                  .where(eq(ingredientsTable.id, existing.id));
+              }
               ingMap.set(ing.id, existing.id);
             } else {
               const [created] = await tx
@@ -267,6 +343,30 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
                 .returning();
               ingMap.set(ing.id, created.id);
               stats.ingredients = (stats.ingredients || 0) + 1;
+            }
+          }
+        }
+
+        // If overwrite, delete existing recipes for target parents, then re-insert
+        if (overwrite) {
+          const orConditions: any[] = [];
+          if (targetProductIds.size > 0) {
+            orConditions.push(and(eq(recipesTable.parentType, "product"), inArray(recipesTable.parentId, Array.from(targetProductIds))));
+          }
+          if (targetVariantIds.size > 0) {
+            orConditions.push(and(eq(recipesTable.parentType, "product_variant"), inArray(recipesTable.parentId, Array.from(targetVariantIds))));
+          }
+          if (targetSfIds.size > 0) {
+            orConditions.push(and(eq(recipesTable.parentType, "semi_finished"), inArray(recipesTable.parentId, Array.from(targetSfIds))));
+          }
+          if (orConditions.length > 0) {
+            if (orConditions.length === 1) {
+              await tx.delete(recipesTable).where(orConditions[0]);
+            } else {
+              // Use OR via multiple deletes since drizzle OR can be tricky
+              for (const cond of orConditions) {
+                await tx.delete(recipesTable).where(cond);
+              }
             }
           }
         }
@@ -296,7 +396,7 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
         stats.recipes = count;
       }
 
-      // 6. Current Inventory
+      // 6. Current Inventory — always upsert (idempotent)
       const invItemIds: { oldId: number; type: string; map: Map<number, number> }[] = [];
       if (includeIngredients && ingMap.size > 0) invItemIds.push({ oldId: 0, type: "ingredient", map: ingMap });
       if (includeSemiFinished && sfMap.size > 0) invItemIds.push({ oldId: 0, type: "semi_finished", map: sfMap });
@@ -318,7 +418,6 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
         for (const inv of srcInv) {
           const newItemId = entry.map.get(inv.itemId);
           if (!newItemId) continue;
-          // UPSERT — insert or update
           await tx
             .insert(currentInventoryTable)
             .values({

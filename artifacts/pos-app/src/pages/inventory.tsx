@@ -960,6 +960,7 @@ function MigrateDialog({ open, onOpenChange, branches, onComplete }: { open: boo
   const [includeIngredients, setIncludeIngredients] = useState(true);
   const [includeSemiFinished, setIncludeSemiFinished] = useState(true);
   const [includeProducts, setIncludeProducts] = useState(true);
+  const [overwrite, setOverwrite] = useState(false);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState<Record<string, number> | null>(null);
   const [error, setError] = useState("");
@@ -978,6 +979,7 @@ function MigrateDialog({ open, onOpenChange, branches, onComplete }: { open: boo
           includeIngredients,
           includeSemiFinished,
           includeProducts,
+          overwrite,
         }),
       });
       const data = await res.json();
@@ -1042,6 +1044,11 @@ function MigrateDialog({ open, onOpenChange, branches, onComplete }: { open: boo
               <span className="text-sm">Menu Produk & Varian</span>
             </label>
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer py-1 border-t pt-2">
+            <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} />
+            <span className="text-sm">Timpa data yang sudah ada</span>
+          </label>
 
           {error && <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs">{error}</div>}
 
