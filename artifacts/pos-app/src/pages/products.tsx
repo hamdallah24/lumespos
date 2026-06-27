@@ -207,59 +207,56 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
   const { data: ingredients = [] } = useListIngredients({ branchId: branchId ?? 0 });
   const { data: semiFinished = [] } = useListSemiFinished({ branchId: branchId ?? 0 });
   const setRecipe = useSetRecipe();
-  const [selectedComponent, setSelectedComponent] = useState<string>("");
-  const [quantity, setQuantity] = useState("");
-  const [editing, setEditing] = useState<number | null>(null);
-  const [editQty, setEditQty] = useState("");
+  const [selectedComponents, setSelectedComponents] = useState<Record<string, number>>({});
   const [bomSearch, setBomSearch] = useState("");
 
-  const filteredIngredients = ingredients.filter((i: any) => !bomSearch || i.name.toLowerCase().includes(bomSearch.toLowerCase()));
-  const filteredSemiFinished = semiFinished.filter((s: any) => !bomSearch || s.name.toLowerCase().includes(bomSearch.toLowerCase()));
+  useEffect(() => {
+    const map: Record<string, number> = {};
+    recipe.forEach((r: any) => {
+      map[`${r.componentType}:${r.componentId}`] = r.quantity;
+    });
+    setSelectedComponents(map);
+  }, [recipe]);
 
   const handleTargetChange = (val: string) => {
     if (val === "global") { setTargetType("product"); setTargetId(productId); }
     else { setTargetType("product_variant"); setTargetId(Number(val)); }
   };
 
+  const currentTargetValue = targetType === "product" ? "global" : String(targetId);
+  const isSaving = setRecipe.isPending;
+
+  const filteredIngredients = ingredients.filter((i: any) => !bomSearch || i.name.toLowerCase().includes(bomSearch.toLowerCase()));
+  const filteredSemiFinished = semiFinished.filter((s: any) => !bomSearch || s.name.toLowerCase().includes(bomSearch.toLowerCase()));
+
+  const toggleComponent = (key: string) => {
+    setSelectedComponents(prev => {
+      const next = { ...prev };
+      if (next[key]) delete next[key];
+      else next[key] = 1;
+      return next;
+    });
+  };
+
+  const updateQuantity = (key: string, qty: number) => {
+    setSelectedComponents(prev => ({ ...prev, [key]: qty }));
+  };
+
+  const saveRecipe = () => {
+    const components = Object.entries(selectedComponents).map(([key, qty]) => {
+      const [type, idStr] = key.split(":");
+      return { componentType: type as "ingredient" | "semi_finished", componentId: Number(idStr), quantity: qty };
+    });
+    setRecipe.mutate({ data: { parentType: targetType, parentId: targetId, components } } as any, {
+      onSuccess: () => { toast.success("Resep disimpan"); refreshRecipe(); },
+      onError: () => toast.error("Gagal menyimpan resep"),
+    });
+  };
+
   const refreshRecipe = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/recipes"] });
     if (onBomChange) onBomChange();
   };
-
-  const handleAdd = () => {
-    if (!selectedComponent || !quantity) return;
-    const [type, idStr] = selectedComponent.split(":");
-    const compId = Number(idStr);
-    const compType = type as "ingredient" | "semi_finished";
-    const existing = recipe.filter(r => !(r.componentType === compType && r.componentId === compId));
-    const newComponents = [
-      ...existing.map(r => ({ componentType: r.componentType as "ingredient" | "semi_finished", componentId: r.componentId, quantity: r.quantity })),
-      { componentType: compType, componentId: compId, quantity: parseFloat(quantity) },
-    ];
-    setRecipe.mutate({ data: { parentType: targetType, parentId: targetId, components: newComponents } } as any, {
-      onSuccess: () => { toast.success("Bahan ditambahkan ke BOM"); setSelectedComponent(""); setQuantity(""); refreshRecipe(); },
-      onError: () => toast.error("Gagal menambah bahan"),
-    });
-  };
-
-  const handleUpdate = (id: number) => {
-    if (!editQty) return;
-    const newComponents = recipe.map(r => r.id === id ? { ...r, quantity: parseFloat(editQty) } : r);
-    setRecipe.mutate({ data: { parentType: targetType, parentId: targetId, components: newComponents.map((c: any) => ({ componentType: c.componentType, componentId: c.componentId, quantity: c.quantity })) } } as any, {
-      onSuccess: () => { toast.success("Takaran diperbarui"); setEditing(null); setEditQty(""); refreshRecipe(); },
-      onError: () => toast.error("Gagal memperbarui"),
-    });
-  };
-
-  const handleDelete = (id: number) => {
-    const newComponents = recipe.filter(r => r.id !== id);
-    setRecipe.mutate({ data: { parentType: targetType, parentId: targetId, components: newComponents.map((c: any) => ({ componentType: c.componentType, componentId: c.componentId, quantity: c.quantity })) } } as any, {
-      onSuccess: () => { toast.success("Bahan dihapus dari BOM"); refreshRecipe(); },
-      onError: () => toast.error("Gagal menghapus bahan"),
-    });
-  };
-
-  const currentTargetValue = targetType === "product" ? "global" : String(targetId);
 
   return (
     <div className="space-y-4">
@@ -272,56 +269,58 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
             {variants.map(v => <SelectItem key={v.id} value={String(v.id)}>Resep Varian: {v.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <p className="text-[10px] text-muted-foreground">{targetType === "product" ? "Mempengaruhi seluruh varian secara default." : "Khusus untuk varian ini."}</p>
       </div>
 
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          <Input placeholder="Cari bahan..." value={bomSearch} onChange={e => setBomSearch(e.target.value)} className="flex-1" />
-          <Input placeholder="Takaran" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-24" />
-          <Button onClick={handleAdd} disabled={setRecipe.isPending || !selectedComponent || !quantity}><Plus className="w-4 h-4" /></Button>
-        </div>
-        <div className="max-h-48 overflow-y-auto border rounded-lg">
-          {filteredIngredients.length === 0 && filteredSemiFinished.length === 0 ? (
-            <div className="p-3 text-center text-xs text-muted-foreground">Tidak ada bahan ditemukan</div>
-          ) : (
-            <>
-              {filteredIngredients.length > 0 && <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 sticky top-0">Bahan Baku</div>}
-              {filteredIngredients.map((ing: any) => (
-                <div key={`ingredient:${ing.id}`} className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent text-sm ${selectedComponent === `ingredient:${ing.id}` ? "bg-accent" : ""}`} onClick={() => setSelectedComponent(`ingredient:${ing.id}`)}>
-                  <div className="w-4 h-4 rounded border flex items-center justify-center shrink-0">{selectedComponent === `ingredient:${ing.id}` ? <div className="w-2 h-2 rounded bg-primary" /> : null}</div>
-                  <span className="flex-1 truncate">{ing.name}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{ing.unit} — {formatRp(ing.costPricePerUnit)}</span>
+      <Input placeholder="Cari bahan..." value={bomSearch} onChange={e => setBomSearch(e.target.value)} />
+
+      <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+        {filteredIngredients.length === 0 && filteredSemiFinished.length === 0 ? (
+          <div className="p-4 text-center text-xs text-muted-foreground">Tidak ada bahan ditemukan</div>
+        ) : (
+          <>
+            {filteredIngredients.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 sticky top-0">Bahan Baku</div>}
+            {filteredIngredients.map((ing: any) => {
+              const key = `ingredient:${ing.id}`;
+              const checked = key in selectedComponents;
+              return (
+                <div key={key} className="flex items-center gap-2 px-3 py-2">
+                  <input type="checkbox" checked={checked} onChange={() => toggleComponent(key)} className="shrink-0" />
+                  <span className="flex-1 text-sm truncate">{ing.name}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 mr-1">{ing.unit}</span>
+                  {checked && <Input value={selectedComponents[key] || ""} onChange={e => updateQuantity(key, parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" placeholder="Qty" />}
                 </div>
-              ))}
-              {filteredSemiFinished.length > 0 && <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 border-t sticky top-0">Bahan Setengah Jadi</div>}
-              {filteredSemiFinished.map((sf: any) => (
-                <div key={`semi_finished:${sf.id}`} className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent text-sm ${selectedComponent === `semi_finished:${sf.id}` ? "bg-accent" : ""}`} onClick={() => setSelectedComponent(`semi_finished:${sf.id}`)}>
-                  <div className="w-4 h-4 rounded border flex items-center justify-center shrink-0">{selectedComponent === `semi_finished:${sf.id}` ? <div className="w-2 h-2 rounded bg-primary" /> : null}</div>
-                  <span className="flex-1 truncate">{sf.name}</span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">{sf.unit} — {formatRp(sf.costPricePerUnit)}</span>
+              );
+            })}
+            {filteredSemiFinished.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 border-t sticky top-0">Bahan Setengah Jadi</div>}
+            {filteredSemiFinished.map((sf: any) => {
+              const key = `semi_finished:${sf.id}`;
+              const checked = key in selectedComponents;
+              return (
+                <div key={key} className="flex items-center gap-2 px-3 py-2">
+                  <input type="checkbox" checked={checked} onChange={() => toggleComponent(key)} className="shrink-0" />
+                  <span className="flex-1 text-sm truncate">{sf.name}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 mr-1">{sf.unit}</span>
+                  {checked && <Input value={selectedComponents[key] || ""} onChange={e => updateQuantity(key, parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" placeholder="Qty" />}
                 </div>
-              ))}
-            </>
-          )}
-        </div>
+              );
+            })}
+          </>
+        )}
       </div>
 
-      {recipe.length === 0 ? (
-        <div className="text-center text-muted-foreground py-6"><ChefHat className="w-6 h-6 sm:w-8 sm:h-8 mx-auto mb-2 opacity-20" /><p className="text-sm">Belum ada BOM untuk target ini</p></div>
-      ) : (
+      <div className="flex gap-2">
+        <Button onClick={saveRecipe} disabled={isSaving} className="flex-1">{isSaving ? "Menyimpan..." : "Simpan Resep"}</Button>
+      </div>
+
+      {recipe.length > 0 && (
         <div className="border rounded-lg overflow-hidden">
-          {recipe.map((r, idx) => (
-            <div key={r.id} className={`flex items-center gap-3 px-4 py-3 ${idx < recipe.length - 1 ? "border-b" : ""}`}>
-              <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0"><PackagePlus className="w-4 h-4" /></div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2"><p className="font-medium text-sm">{r.componentName}</p>
-                <Badge variant="outline" className={`text-[9px] px-1.5 py-0 h-4 ${r.componentType === "semi_finished" ? "text-blue-600 border-blue-200 bg-blue-50" : "text-slate-600 border-slate-200 bg-slate-50"}`}>{r.componentType === "semi_finished" ? "Setengah Jadi" : "Bahan Baku"}</Badge></div>
-                {editing === r.id ? (
-                  <span className="flex items-center gap-2 mt-1"><Input className="w-20 h-7 text-xs" value={editQty} onChange={e => setEditQty(e.target.value)} autoFocus /><Button size="sm" className="h-7 text-xs" onClick={() => handleUpdate(r.id!)}>Simpan</Button><Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditing(null); setEditQty(""); }}>Batal</Button></span>
-                ) : (<p className="text-xs text-muted-foreground mt-0.5">{r.quantity} {r.unit} per 1 produk</p>)}
-              </div>
-              {editing !== r.id && (<div className="flex gap-1"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(r.id!); setEditQty(String(r.quantity)); }}><Pencil className="w-3.5 h-3.5" /></Button><Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(r.id!)}><Trash2 className="w-3.5 h-3.5" /></Button></div>)}
+          <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30">Resep Saat Ini</div>
+          {recipe.map((r: any, idx: number) => (
+            <div key={r.id || idx} className="flex items-center gap-2 px-3 py-2 border-t">
+              <div className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center shrink-0"><PackagePlus className="w-3 h-3" /></div>
+              <span className="flex-1 text-sm">{r.componentName}</span>
+              <Badge variant="outline" className={`text-[9px] ${r.componentType === "semi_finished" ? "text-blue-600" : "text-slate-600"}`}>{r.componentType === "semi_finished" ? "Setengah Jadi" : "Bahan Baku"}</Badge>
+              <span className="text-xs font-medium">{r.quantity} {r.unit}</span>
             </div>
           ))}
         </div>
@@ -451,7 +450,8 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
           <Tabs value={variantTab} onValueChange={setVariantTab} className="flex flex-col h-full">
             <TabsList className="flex h-auto shrink-0 w-full">
               <TabsTrigger value="basic" className="gap-1 flex-1 text-xs px-2 py-1.5 h-9"><Box className="w-3 h-3" /> Info</TabsTrigger>
-              {isEdit && product && (<><TabsTrigger value="variants" className="gap-1 flex-1 text-xs px-2 py-1.5 h-9"><List className="w-3 h-3" /> Varian</TabsTrigger><TabsTrigger value="bom" className="gap-1 flex-1 text-xs px-2 py-1.5 h-9"><ChefHat className="w-3 h-3" /> Resep</TabsTrigger></>)}
+              <TabsTrigger value="variants" className="gap-1 flex-1 text-xs px-2 py-1.5 h-9"><List className="w-3 h-3" /> Varian</TabsTrigger>
+              <TabsTrigger value="bom" className="gap-1 flex-1 text-xs px-2 py-1.5 h-9"><ChefHat className="w-3 h-3" /> Resep</TabsTrigger>
             </TabsList>
             <TabsContent value="basic" className="mt-4 overflow-y-auto max-h-[60vh]">
               <div className="space-y-4 py-2">
@@ -481,7 +481,8 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
                 <p className="text-xs text-muted-foreground -mt-2">Jika diaktifkan, produk akan mengecek stok setengah jadi. Jika tidak (On-Demand), stok kosong tetap bisa dijual.</p>
               </div>
             </TabsContent>
-            {isEdit && product && (<><TabsContent value="variants" className="mt-4 overflow-y-auto max-h-[60vh]"><VariantsPanel productId={product.id} onVariantChange={() => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); }} /></TabsContent><TabsContent value="bom" className="mt-4 overflow-y-auto max-h-[60vh]"><BomPanel productId={product.id} onBomChange={() => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); }} /></TabsContent></>)}
+            <TabsContent value="variants" className="mt-4 overflow-y-auto max-h-[60vh]">{product ? <VariantsPanel productId={product.id} onVariantChange={() => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); }} /> : <div className="py-12 text-center text-muted-foreground text-sm">Simpan produk terlebih dahulu untuk menambah varian</div>}</TabsContent>
+            <TabsContent value="bom" className="mt-4 overflow-y-auto max-h-[60vh]">{product ? <BomPanel productId={product.id} onBomChange={() => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); }} /> : <div className="py-12 text-center text-muted-foreground text-sm">Simpan produk terlebih dahulu untuk mengatur resep</div>}</TabsContent>
           </Tabs>
         </div>
         <DialogFooter className="shrink-0"><Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Batal</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Tambah Produk"}</Button></DialogFooter>
