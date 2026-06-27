@@ -379,7 +379,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         if (!raw) { res.json({ reply: "VPS agent sedang sibuk." }); return; }
 
         let reply = raw;
-        const jsonMatch = raw.match(/^\{.+\}/);
+        const jsonMatch = raw.match(/^\{[\s\S]+\}/);
         if (jsonMatch) {
           try {
             const action = JSON.parse(jsonMatch[0]);
@@ -423,7 +423,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
         // Parse JSON action di baris 1 (single or array)
         let reply = raw;
-        const jsonMatch = raw.match(/^\{.+\}/);
+        const jsonMatch = raw.match(/^\{[\s\S]+\}/);
         if (jsonMatch) {
           try {
             const action = JSON.parse(jsonMatch[0]);

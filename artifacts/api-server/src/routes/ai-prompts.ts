@@ -120,6 +120,15 @@ CONTOH CHANGE ROLE:
 CONTOH GET DATA:
 {"action":"get_sales_summary","params":{"period":"today"},"response":"📊 Penjualan hari ini: Rp 2.500.000, 45 order."}
 
+CONTOH TOP PRODUK:
+{"action":"get_top_products","params":{"period":"week","limit":5},"response":"📊 Top 5 produk minggu ini:\n1. Kopi Susu — 120 pcs\n2. Es Teh — 85 pcs"}
+
+CONTOH SHIFT AUDIT:
+{"action":"get_shift_audit","params":{},"response":"📋 Shift terakhir:\nTanggal: 27/6/2026\nSaldo awal: Rp 200.000\nSaldo akhir: Rp 850.000"}
+
+CONTOH STOK:
+{"action":"get_inventory_status","params":{},"response":"📦 Stok terkini:\nKopi: 2.5 kg\nGula: 1.8 kg"}
+
 ATURAN:
 1. Jika Owner minta AKSI → JSON dgn action yg tepat + params pakai NAMA
 2. Jika Owner TANYA/ANALISIS → action:"general" + langsung narasi data realtime
