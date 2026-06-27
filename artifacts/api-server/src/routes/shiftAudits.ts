@@ -170,7 +170,7 @@ router.post("/shift/start", requireAuth, requireBranchAccess((req) => Number(req
 // POST /api/shift/end - tutup shift
 router.post("/shift/end", requireAuth, async (req, res) => {
   try {
-    const { shiftId, closingBalance, photoProofUrl, actualStock, notes, endingCupCount } = req.body;
+    const { shiftId, closingBalance, photoProofUrl, actualStock, notes, cupCounts } = req.body;
 
     if (!shiftId || closingBalance === undefined) {
       return res.status(400).json({ error: "shiftId and closingBalance required" });
@@ -220,17 +220,24 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     // Gabungkan JSON catatannya
     const notesObj = { closingBalance, expectedBalance, difference, totalCash, userNotes: notes || null };
 
-    // ── Cup tracking ──
-    let startingCupCount = 0;
-    if (endingCupCount !== undefined) {
-      // Ambil endingCupCount dari shift sebelumnya di branch yg sama (diluar shift ini)
+    // ── Cup tracking (3 ukuran: small, medium, large) ──
+    const cupCountsStr = cupCounts && (cupCounts.s !== undefined || cupCounts.m !== undefined || cupCounts.l !== undefined)
+      ? JSON.stringify({ s: Number(cupCounts.s) || 0, m: Number(cupCounts.m) || 0, l: Number(cupCounts.l) || 0 })
+      : null;
+    let prevCupCounts = { s: 0, m: 0, l: 0 };
+    if (cupCountsStr) {
       const [prevShift] = await db
         .select({ ec: shiftAuditsTable.endingCupCount })
         .from(shiftAuditsTable)
         .where(and(eq(shiftAuditsTable.branchId, shift.branchId), sql`${shiftAuditsTable.id} < ${shiftId}`))
         .orderBy(sql`${shiftAuditsTable.id} DESC`)
         .limit(1);
-      startingCupCount = prevShift ? parseFloat(prevShift.ec || "0") : 0;
+      if (prevShift?.ec) {
+        try {
+          const p = typeof prevShift.ec === "string" ? JSON.parse(prevShift.ec) : prevShift.ec;
+          prevCupCounts = { s: Number(p.s) || 0, m: Number(p.m) || 0, l: Number(p.l) || 0 };
+        } catch { prevCupCounts = { s: 0, m: 0, l: 0 }; }
+      }
     }
 
     const [updatedShift] = await db
@@ -244,7 +251,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         actualStockJson: Array.isArray(actualStock) && actualStock.length > 0 ? actualStock : null,
         photoProofUrl: photoProofUrl || null,
         notes: JSON.stringify(notesObj),
-        endingCupCount: endingCupCount !== undefined ? String(endingCupCount) : null,
+        endingCupCount: cupCountsStr,
       })
       .where(eq(shiftAuditsTable.id, shiftId))
       .returning();
@@ -289,8 +296,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         expectedBalance,
         closingBalance,
         difference,
-        startingCupCount,
-        endingCupCount: endingCupCount ?? 0
+        cupCounts: cupCountsStr ? cupCounts : null,
       }
     });
   } catch (error) {
@@ -390,7 +396,7 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
         expectedBalance: r.expectedBalance ? parseFloat(r.expectedBalance) : null,
         difference: moneyNote?.difference ?? null,
         totalCash: moneyNote?.totalCash ?? null,
-        endingCupCount: r.endingCupCount ? parseFloat(r.endingCupCount) : null,
+        endingCupCount: r.endingCupCount ? (() => { try { return typeof r.endingCupCount === "string" ? JSON.parse(r.endingCupCount) : r.endingCupCount; } catch { return null; } })() : null,
         createdAt: r.createdAt,
         maxDiscrepancyPct,
       };
@@ -457,7 +463,7 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
     expectedBalance: row.expectedBalance ? parseFloat(row.expectedBalance) : null,
     difference: moneyNote?.difference ?? null,
     totalCash: moneyNote?.totalCash ?? null,
-    endingCupCount: row.endingCupCount ? parseFloat(row.endingCupCount) : null,
+    endingCupCount: row.endingCupCount ? (() => { try { return typeof row.endingCupCount === "string" ? JSON.parse(row.endingCupCount) : row.endingCupCount; } catch { return null; } })() : null,
     createdAt: row.createdAt,
     maxDiscrepancyPct,
     reconciliation,
@@ -681,22 +687,38 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
       });
     }
 
-    // ── Step 4: Cup cross-check ──
-    const endingCupCount = audit.endingCupCount ? parseFloat(audit.endingCupCount) : null;
+    // ── Step 4: Cup cross-check per 3 ukuran ──
+    const cupData: { s: number; m: number; l: number } | null = audit.endingCupCount
+      ? (() => { try { const c = typeof audit.endingCupCount === "string" ? JSON.parse(audit.endingCupCount) : audit.endingCupCount; return { s: Number(c.s) || 0, m: Number(c.m) || 0, l: Number(c.l) || 0 }; } catch { return null; } })()
+      : null;
     const [prevShift] = await db
       .select({ ec: shiftAuditsTable.endingCupCount })
       .from(shiftAuditsTable)
       .where(and(eq(shiftAuditsTable.branchId, audit.branchId!), sql`${shiftAuditsTable.id} < ${id}`))
       .orderBy(sql`${shiftAuditsTable.id} DESC`).limit(1);
-    const startingCups = prevShift ? parseFloat(prevShift.ec || "0") : 0;
-    const cupsUsed = endingCupCount !== null ? startingCups - endingCupCount + totalCups : null;
-    const cupDiscrepancy = cupsUsed !== null ? cupsUsed - totalCups : null;
-    const cupStatus = cupDiscrepancy === null ? "Tidak ada data cup" :
-      Math.abs(cupDiscrepancy) < 1 ? "OK — cup sesuai" : "SELISIH";
+    const prevCups: { s: number; m: number; l: number } = prevShift?.ec
+      ? (() => { try { const c = typeof prevShift.ec === "string" ? JSON.parse(prevShift.ec) : prevShift.ec; return { s: Number(c.s) || 0, m: Number(c.m) || 0, l: Number(c.l) || 0 }; } catch { return { s: 0, m: 0, l: 0 }; } })()
+      : { s: 0, m: 0, l: 0 };
+
+    const totalCupStart = prevCups.s + prevCups.m + prevCups.l;
+    const totalCupEnd = cupData ? cupData.s + cupData.m + cupData.l : null;
+
+    const cupAnalysis = {
+      start: { s: prevCups.s, m: prevCups.m, l: prevCups.l, total: totalCupStart },
+      end: cupData ? { s: cupData.s, m: cupData.m, l: cupData.l, total: totalCupEnd! } : null,
+      sold: totalCups,
+      used: totalCupEnd !== null ? totalCupStart - totalCupEnd! + totalCups : null,
+      discrepancy: totalCupEnd !== null ? (totalCupStart - totalCupEnd! + totalCups) - totalCups : null,
+      status: totalCupEnd === null ? "Tidak ada data cup" :
+        Math.abs(totalCupStart - totalCupEnd! + totalCups - totalCups) < 1 ? "OK — cup sesuai" : "SELISIH",
+    };
+
     const ingredientCups = anomalies.reduce((s, a) => s + (a.potentialCups || 0), 0);
-    const cupVsIngredient = ingredientCups > 0 && cupDiscrepancy !== null ?
-      (Math.abs(cupDiscrepancy) < ingredientCups * 0.5 ? "⚠️ MENcurigakan — cup selisih kecil tapi bahan loss besar" :
+    const cupVsIngredient = ingredientCups > 0 && cupAnalysis.discrepancy !== null ?
+      (Math.abs(cupAnalysis.discrepancy) < ingredientCups * 0.5 ? "⚠️ MENcurigakan — cup selisih kecil tapi bahan loss besar" :
        "Pantau — kemungkinan lupa input order") : "Normal";
+    cupAnalysis.ingredientCups = ingredientCups;
+    cupAnalysis.cupVsIngredient = cupVsIngredient;
 
     const totalMaterial = anomalies.reduce((s: number, a: any) => s + a.materialLoss, 0);
     const totalRevenue = anomalies.reduce((s: number, a: any) => s + a.potentialRevenue, 0);
@@ -704,7 +726,7 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
     res.json({
       shiftId: id, branchId: audit.branchId, period: `${audit.shiftStart} — ${audit.shiftEnd}`,
       totalCups,
-      cupAnalysis: { startingCups, endingCupCount, cupsUsed, cupDiscrepancy, cupStatus, ingredientCups, cupVsIngredient },
+      cupAnalysis,
       anomalies,
       summary: {
         totalAnomalies: anomalies.length, totalMaterialLoss: totalMaterial, totalPotentialRevenue: totalRevenue,

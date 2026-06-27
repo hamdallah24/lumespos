@@ -16,7 +16,7 @@ export const shiftAuditsTable = pgTable("shift_audits", {
   openingBalance: numeric("opening_balance", { precision: 12, scale: 2 }).notNull().default("0"),
   closingBalance: numeric("closing_balance", { precision: 12, scale: 2 }),
   expectedBalance: numeric("expected_balance", { precision: 12, scale: 2 }),
-  endingCupCount: numeric("ending_cup_count", { precision: 10, scale: 2 }),
+  endingCupCount: jsonb("ending_cup_count"),
   expectedStockJson: jsonb("expected_stock_json"),
   actualStockJson: jsonb("actual_stock_json"),
   photoProofUrl: text("photo_proof_url"),

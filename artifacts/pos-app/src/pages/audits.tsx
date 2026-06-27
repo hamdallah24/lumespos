@@ -210,18 +210,38 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
                 <div className="h-20 bg-muted rounded animate-pulse" />
               ) : fraud ? (
                 <div className="space-y-3">
-                  {/* Cup Analysis */}
+                  {/* Cup Analysis — 3 ukuran */}
                   {fraud.cupAnalysis && (
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Cup Awal</span><span className="font-semibold">{fraud.cupAnalysis.startingCups}</span></div>
-                      <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Cup Akhir</span><span className="font-semibold">{fraud.cupAnalysis.endingCupCount ?? "—"}</span></div>
-                      <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Terjual</span><span className="font-semibold">{fraud.totalCups}</span></div>
-                      <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Terpakai</span><span className="font-semibold">{fraud.cupAnalysis.cupsUsed ?? "—"}</span></div>
+                    <div className="space-y-2 text-xs">
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="p-2 bg-muted/50 rounded">
+                          <span className="text-muted-foreground">Cup Awal</span>
+                          <div className="font-semibold mt-0.5 space-x-2">
+                            <span>K: {fraud.cupAnalysis.start?.s ?? "—"}</span>
+                            <span>S: {fraud.cupAnalysis.start?.m ?? "—"}</span>
+                            <span>B: {fraud.cupAnalysis.start?.l ?? "—"}</span>
+                            <span className="text-primary">({fraud.cupAnalysis.start?.total ?? 0})</span>
+                          </div>
+                        </div>
+                        <div className="p-2 bg-muted/50 rounded">
+                          <span className="text-muted-foreground">Cup Akhir</span>
+                          <div className="font-semibold mt-0.5 space-x-2">
+                            {fraud.cupAnalysis.end ? <>
+                              <span>K: {fraud.cupAnalysis.end.s}</span>
+                              <span>S: {fraud.cupAnalysis.end.m}</span>
+                              <span>B: {fraud.cupAnalysis.end.l}</span>
+                              <span className="text-primary">({fraud.cupAnalysis.end.total})</span>
+                            </> : <span>—</span>}
+                          </div>
+                        </div>
+                        <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Terjual</span><span className="font-semibold">{fraud.totalCups}</span></div>
+                        <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Terpakai</span><span className="font-semibold">{fraud.cupAnalysis.used ?? "—"}</span></div>
+                      </div>
                     </div>
                   )}
-                  {fraud.cupAnalysis?.cupDiscrepancy != null && Math.abs(fraud.cupAnalysis.cupDiscrepancy) > 0.5 && (
-                    <div className={`p-2 rounded text-xs font-semibold text-center ${fraud.cupAnalysis.cupStatus === "OK — cup sesuai" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-                      {fraud.cupAnalysis.cupStatus}: {fraud.cupAnalysis.cupDiscrepancy > 0 ? "+" : ""}{fraud.cupAnalysis.cupDiscrepancy} cup
+                  {fraud.cupAnalysis?.discrepancy != null && Math.abs(fraud.cupAnalysis.discrepancy) > 0.5 && (
+                    <div className={`p-2 rounded text-xs font-semibold text-center ${fraud.cupAnalysis.status === "OK — cup sesuai" ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+                      {fraud.cupAnalysis.status}: {fraud.cupAnalysis.discrepancy > 0 ? "+" : ""}{fraud.cupAnalysis.discrepancy} cup
                     </div>
                   )}
                   {fraud.cupAnalysis?.cupVsIngredient && (

@@ -44,7 +44,7 @@ export default function ShiftPage() {
   const [isLoadingShift, setIsLoadingShift] = useState(true);
 
   const [closingBalance, setClosingBalance] = useState("");
-  const [endingCupCount, setEndingCupCount] = useState("");
+  const [cupCounts, setCupCounts] = useState({ s: "", m: "", l: "" });
   const [loading, setLoading] = useState(false);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
@@ -258,7 +258,7 @@ export default function ShiftPage() {
         body: JSON.stringify({
           shiftId,
           closingBalance: balance,
-          endingCupCount: parseFloat(endingCupCount) || undefined,
+          cupCounts: { s: parseFloat(cupCounts.s) || 0, m: parseFloat(cupCounts.m) || 0, l: parseFloat(cupCounts.l) || 0 },
           actualStock,
           notes,
           photoProofUrl: finalPhotoUrl,
@@ -405,16 +405,23 @@ export default function ShiftPage() {
                     </div>
 
                     <div className="pt-2 border-t">
-                      <Label className="text-sm font-semibold flex items-center gap-2">
-                        <Package className="w-4 h-4 text-primary" />Jumlah Cup Akhir
+                      <Label className="text-sm font-semibold flex items-center gap-2 mb-2">
+                        <Package className="w-4 h-4 text-primary" />Stok Cup Akhir
                       </Label>
-                      <Input
-                        type="number"
-                        value={endingCupCount}
-                        onChange={(e) => setEndingCupCount(e.target.value)}
-                        placeholder="Contoh: 43"
-                        className="h-12 text-lg font-bold mt-1"
-                      />
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Kecil</Label>
+                          <Input type="number" value={cupCounts.s} onChange={(e) => setCupCounts(p => ({ ...p, s: e.target.value }))} placeholder="0" className="h-10 text-base font-bold text-center" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Sedang</Label>
+                          <Input type="number" value={cupCounts.m} onChange={(e) => setCupCounts(p => ({ ...p, m: e.target.value }))} placeholder="0" className="h-10 text-base font-bold text-center" />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] text-muted-foreground">Besar</Label>
+                          <Input type="number" value={cupCounts.l} onChange={(e) => setCupCounts(p => ({ ...p, l: e.target.value }))} placeholder="0" className="h-10 text-base font-bold text-center" />
+                        </div>
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1">
                         {salesData ? (
                           <>Terjual <span className="font-semibold text-primary">{salesData.totalCups} cup</span> di shift ini. Hitung sisa cup fisik sekarang.</>
