@@ -355,7 +355,7 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
       if (!urlRes.ok) throw new Error("Gagal mendapatkan URL upload");
       const { uploadURL, objectPath } = await urlRes.json();
 
-      const putRes = await apiFetch(uploadURL, {
+      const putRes = await fetch(uploadURL, {
         method: "PUT",
         credentials: "include",
         headers: { "Content-Type": file.type || "image/jpeg" },

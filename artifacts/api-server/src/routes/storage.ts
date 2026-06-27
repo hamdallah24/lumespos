@@ -165,29 +165,20 @@ router.put("/local-upload/:objectId", requireAuth, async (req: Request, res: Res
       return;
     }
 
-    const chunks: Buffer[] = [];
-    let received = 0;
-    
-    req.on("data", (chunk: Buffer) => {
-      received += chunk.length;
-      if (received > MAX_UPLOAD_BYTES) {
-        res.status(413).json({ error: "Upload too large" });
-        req.destroy();
-        return;
-      }
-      chunks.push(chunk);
+    const ws = fs.createWriteStream(resolvedFilePath, { flags: "wx" });
+    req.pipe(ws);
+    ws.on("finish", () => { res.status(200).end(); });
+    ws.on("error", (err) => {
+      console.error("[upload] write error:", err);
+      if (!res.headersSent) res.status(500).json({ error: "Upload failed" });
     });
-    req.on("end", () => {
-      fs.writeFileSync(resolvedFilePath, Buffer.concat(chunks), { flag: "wx" });
-      res.status(200).end();
-    });
-    req.on("error", () => {
-      if (!res.headersSent) {
-        res.status(413).json({ error: "Upload failed" });
-      }
+    req.on("error", (err) => {
+      console.error("[upload] req error:", err);
+      if (!res.headersSent) res.status(500).json({ error: "Upload failed" });
     });
   } catch (error) {
-    res.status(500).json({ error: "Upload failed" });
+    console.error("[upload] catch:", error);
+    if (!res.headersSent) res.status(500).json({ error: "Upload failed" });
   }
 });
 
