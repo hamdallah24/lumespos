@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListProducts, useListCategories,
@@ -211,6 +211,10 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
   const [quantity, setQuantity] = useState("");
   const [editing, setEditing] = useState<number | null>(null);
   const [editQty, setEditQty] = useState("");
+  const [bomSearch, setBomSearch] = useState("");
+
+  const filteredIngredients = ingredients.filter((i: any) => !bomSearch || i.name.toLowerCase().includes(bomSearch.toLowerCase()));
+  const filteredSemiFinished = semiFinished.filter((s: any) => !bomSearch || s.name.toLowerCase().includes(bomSearch.toLowerCase()));
 
   const handleTargetChange = (val: string) => {
     if (val === "global") { setTargetType("product"); setTargetId(productId); }
@@ -273,17 +277,33 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
 
       <div className="space-y-2">
         <div className="flex gap-2">
-          <Select value={selectedComponent} onValueChange={setSelectedComponent}>
-            <SelectTrigger className="flex-1"><SelectValue placeholder="Pilih bahan baku atau setengah jadi" /></SelectTrigger>
-            <SelectContent>
-              {ingredients.length > 0 && (<><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/30">Bahan Baku</div>
-              {ingredients.map(ing => <SelectItem key={`ingredient:${ing.id}`} value={`ingredient:${ing.id}`}>{ing.name} ({ing.unit}) — HPP {formatRp(ing.costPricePerUnit)}</SelectItem>)}</>)}
-              {semiFinished.length > 0 && (<><div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/30 border-t mt-1">Bahan Setengah Jadi</div>
-              {semiFinished.map(sf => <SelectItem key={`semi_finished:${sf.id}`} value={`semi_finished:${sf.id}`}>{sf.name} ({sf.unit}) — HPP {formatRp(sf.costPricePerUnit)}</SelectItem>)}</>)}
-            </SelectContent>
-          </Select>
+          <Input placeholder="Cari bahan..." value={bomSearch} onChange={e => setBomSearch(e.target.value)} className="flex-1" />
           <Input placeholder="Takaran" value={quantity} onChange={e => setQuantity(e.target.value)} className="w-24" />
           <Button onClick={handleAdd} disabled={setRecipe.isPending || !selectedComponent || !quantity}><Plus className="w-4 h-4" /></Button>
+        </div>
+        <div className="max-h-48 overflow-y-auto border rounded-lg">
+          {filteredIngredients.length === 0 && filteredSemiFinished.length === 0 ? (
+            <div className="p-3 text-center text-xs text-muted-foreground">Tidak ada bahan ditemukan</div>
+          ) : (
+            <>
+              {filteredIngredients.length > 0 && <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 sticky top-0">Bahan Baku</div>}
+              {filteredIngredients.map((ing: any) => (
+                <div key={`ingredient:${ing.id}`} className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent text-sm ${selectedComponent === `ingredient:${ing.id}` ? "bg-accent" : ""}`} onClick={() => setSelectedComponent(`ingredient:${ing.id}`)}>
+                  <div className="w-4 h-4 rounded border flex items-center justify-center shrink-0">{selectedComponent === `ingredient:${ing.id}` ? <div className="w-2 h-2 rounded bg-primary" /> : null}</div>
+                  <span className="flex-1 truncate">{ing.name}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">{ing.unit} — {formatRp(ing.costPricePerUnit)}</span>
+                </div>
+              ))}
+              {filteredSemiFinished.length > 0 && <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 border-t sticky top-0">Bahan Setengah Jadi</div>}
+              {filteredSemiFinished.map((sf: any) => (
+                <div key={`semi_finished:${sf.id}`} className={`flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-accent text-sm ${selectedComponent === `semi_finished:${sf.id}` ? "bg-accent" : ""}`} onClick={() => setSelectedComponent(`semi_finished:${sf.id}`)}>
+                  <div className="w-4 h-4 rounded border flex items-center justify-center shrink-0">{selectedComponent === `semi_finished:${sf.id}` ? <div className="w-2 h-2 rounded bg-primary" /> : null}</div>
+                  <span className="flex-1 truncate">{sf.name}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0">{sf.unit} — {formatRp(sf.costPricePerUnit)}</span>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       </div>
 
@@ -313,7 +333,7 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
 /* ──────────────────────────────────── */
 /* Product Form Dialog                  */
 /* ──────────────────────────────────── */
-function ProductFormDialog({ open, onOpenChange, product, categories, onProductChange }: { open: boolean; onOpenChange: (v: boolean) => void; product: Product | null; categories: Category[]; onProductChange?: () => void }) {
+function ProductFormDialog({ open, onOpenChange, product, categories, onProductChange, onCreated }: { open: boolean; onOpenChange: (v: boolean) => void; product: Product | null; categories: Category[]; onProductChange?: () => void; onCreated?: (product: Product) => void }) {
   const queryClient = useQueryClient();
   const { branchId } = useBranch();
   const createProduct = useCreateProduct();
@@ -329,6 +349,15 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [variantTab, setVariantTab] = useState("basic");
   const isEdit = product !== null;
+
+  useEffect(() => {
+    setName(product?.name ?? "");
+    setCategoryId(product?.categoryId ? String(product.categoryId) : "none");
+    setPrice(product ? String(product.price) : "");
+    setImageUrl(product?.imageUrl ?? "");
+    setIsActive(product?.isActive ?? true);
+    setRequiresStock((product as any)?.requiresStock ?? true);
+  }, [product]);
 
   const resolveImageUrl = (url: string | null | undefined): string | undefined => {
     if (!url) return undefined;
@@ -401,11 +430,11 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
         if (onProductChange) onProductChange(); 
         onOpenChange(false);
       } else {
-        await createProduct.mutateAsync({ data: { ...payload, branchId } } as any);
+        const newProduct = await createProduct.mutateAsync({ data: { ...payload, branchId } } as any);
         toast.success("Produk ditambahkan"); 
         queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); 
-        if (onProductChange) onProductChange(); 
-        onOpenChange(false);
+        if (onProductChange) onProductChange();
+        if (onCreated) onCreated(newProduct);
       }
     } catch (err: any) { 
       toast.error(err?.response?.data?.error || err?.message || "Gagal menyimpan produk"); 
@@ -497,7 +526,7 @@ export default function ProductsPage() {
   const [isLoadingVariants, setIsLoadingVariants] = useState(false);
 
   const { data: categories = [] } = useListCategories();
-  const { data: products = [], isLoading, refetch } = useListProducts({ branchId: branchId ?? undefined, ...(filterCategory !== "all" ? { categoryId: Number(filterCategory) } : {}) } as any, { query: { enabled: branchId != null } });
+  const { data: products = [], isLoading, refetch } = useListProducts(branchId != null ? { branchId, ...(filterCategory !== "all" ? { categoryId: Number(filterCategory) } : {}) } as any : undefined, { query: { enabled: branchId != null } } as any);
 
   const filtered = products.filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -622,7 +651,7 @@ export default function ProductsPage() {
         </Tabs>
       </div>
 
-      <ProductFormDialog key={editingProduct?.id ?? 'new'} open={formOpen} onOpenChange={(v) => { setFormOpen(v); if (!v) setEditingProduct(null); }} product={editingProduct} categories={categories} onProductChange={refreshProducts} />
+      <ProductFormDialog open={formOpen} onOpenChange={(v) => { setFormOpen(v); if (!v) setEditingProduct(null); }} product={editingProduct} categories={categories} onProductChange={refreshProducts} onCreated={(p) => { setEditingProduct(p); }} />
       <AlertDialog open={deletingProductId !== null} onOpenChange={() => setDeletingProductId(null)}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Hapus Produk?</AlertDialogTitle><AlertDialogDescription>Produk akan dihapus permanen dan tidak bisa dikembalikan.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction className="bg-destructive" onClick={() => deletingProductId && handleDelete(deletingProductId)}>Hapus</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
 
       <Dialog open={variantDialogOpen} onOpenChange={setVariantDialogOpen}>
