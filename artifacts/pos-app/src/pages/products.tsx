@@ -386,6 +386,7 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
   };
 
   const handleSubmit = async () => {
+    console.log("[ProductFormDialog] handleSubmit called, isSubmitting=", isSubmitting);
     if (!name.trim()) { toast.error("Nama wajib diisi"); return; }
     if (!price) { toast.error("Harga jual wajib diisi"); return; }
     const parsedPrice = parseFloat(price);
@@ -455,7 +456,7 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
             {isEdit && product && (<><TabsContent value="variants" className="mt-4 overflow-y-auto max-h-[60vh]"><VariantsPanel productId={product.id} onVariantChange={() => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); }} /></TabsContent><TabsContent value="bom" className="mt-4 overflow-y-auto max-h-[60vh]"><BomPanel productId={product.id} onBomChange={() => { queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() }); if (onProductChange) onProductChange(); }} /></TabsContent></>)}
           </Tabs>
         </div>
-        <DialogFooter className="shrink-0"><Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Batal</Button><Button onClick={handleSubmit} disabled={isSubmitting}>{isSubmitting ? "Menyimpan..." : isEdit ? "Simpan Perubahan" : "Tambah Produk"}</Button></DialogFooter>
+        <DialogFooter className="shrink-0"><Button variant="outline" onClick={() => { console.log("[ProductFormDialog] Batal clicked"); onOpenChange(false); }} type="button">Batal</Button><Button onClick={handleSubmit} type="button">{isEdit ? "Simpan Perubahan" : "Tambah Produk"}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
   );
