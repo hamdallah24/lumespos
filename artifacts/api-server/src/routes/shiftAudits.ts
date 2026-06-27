@@ -94,7 +94,7 @@ router.get("/shift/sales", requireAuth, async (req, res) => {
 
     // Hitung total cup terjual
     const [cupResult] = await db
-      .select({ total: sql<string>`COALESCE(SUM(oi.quantity), 0)` })
+      .select({ total: sql<string>`COALESCE(SUM(${orderItemsTable.quantity}), 0)` })
       .from(orderItemsTable)
       .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
       .where(and(gte(ordersTable.createdAt, shift.shiftStart!), eq(ordersTable.branchId, shift.branchId)));
