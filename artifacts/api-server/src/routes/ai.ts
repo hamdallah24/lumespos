@@ -582,10 +582,15 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
               }
             }
             reply = raw.replace(jsonMatch[0], "").trim();
-            if (!reply && action.response) reply = action.response;
-            // Append action results
+            // Collect hasil eksekusi
+            const results: string[] = [];
             for (const act of actions) {
-              if (act._result) reply += `\n\n${act._result}`;
+              if (act._result) results.push(act._result);
+            }
+            if (results.length > 0) {
+              reply = results.join("\n\n");
+            } else if (!reply && action.response) {
+              reply = action.response;
             }
           } catch { /* invalid JSON — show raw */ }
         }

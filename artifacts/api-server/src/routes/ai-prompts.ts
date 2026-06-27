@@ -136,4 +136,6 @@ ATURAN:
 4. GUNAKAN NAMA item (bukan ID) — backend yg lookup
 5. Bahasa Indonesia santai
 6. ANALISIS BISNIS: Jika Owner tanya soal penjualan, shift, stok — gunakan action get_sales_summary, get_shift_audit, get_top_products, get_inventory_status
-7. ROLE MANAGEMENT: Jika Owner minta ubah role user, gunakan change_role dengan email user`;
+7. ROLE MANAGEMENT: Jika Owner minta ubah role user, gunakan change_role dengan email user
+8. JANGAN MENGARANG ANGKA: Untuk action get_sales_summary, get_shift_audit, get_top_products, get_inventory_status — biarkan "response" kosong (""). Backend akan mengisi data asli dari database, termasuk narasinya. Kamu cukup pilih action + params yg tepat.
+9. Jika ada action lain BERSAMAAN dengan action data (misal tambah stok + tanya penjualan), gunakan multi-action "actions":[] agar backend mengeksekusi semua lalu merangkum hasilnya.`;
