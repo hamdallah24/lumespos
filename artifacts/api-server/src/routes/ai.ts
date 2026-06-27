@@ -270,7 +270,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             if (!aborted) res.write(`data: ${JSON.stringify({ step, detail })}\n\n`);
           };
 
-          // Step 1: Cari konteks dari BANG + file repo
+          try {
+            // Step 1: Cari konteks dari BANG + file repo
           const history = await getHistory(uid, "cto");
           const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
           let codegenInput = clean;
@@ -350,11 +351,19 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             await remember(uid, m, clean, finalReply);
           }
           return;
+        } catch (e: any) {
+          console.error("[ai] generateNow error:", e);
+          if (!aborted) {
+            sse("final", `❌ Gagal generate kode: ${(e?.message || String(e)).slice(0, 200)}`);
+            res.end();
+          }
+          return;
         }
+      }
 
-        const lower = clean.toLowerCase();
+      const lower = clean.toLowerCase();
 
-        // Approval flow — manual type
+      // Approval flow — manual type
         if (/^setuju/i.test(lower)) {
           res.json({ reply: "Balas dengan klik tombol SETUJU di bawah proposal ya bos." });
           return;
@@ -642,7 +651,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     }
   } catch (err) {
     console.error("[ai] Route error:", err);
-    res.status(500).json({ error: "Internal server error" });
+    if (res.headersSent) {
+      try { res.end(); } catch {}
+    } else {
+      res.status(500).json({ error: "Internal server error" });
+    }
   }
 });
 

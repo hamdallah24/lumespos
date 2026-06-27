@@ -203,7 +203,18 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
           body: JSON.stringify({ message: msg, mode }),
         });
         if (!resp.ok) {
+          const errText = await resp.text().catch(() => "");
+          console.error("[ai-popup] CTO HTTP", resp.status, errText.slice(0, 200));
           setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "BANG sedang sibuk." }]; });
+          setLoading(false);
+          return;
+        }
+        // Detect JSON response (not SSE) — e.g. "setuju" check
+        const ct = resp.headers.get("content-type") || "";
+        if (ct.includes("json")) {
+          const json = await resp.json();
+          accumulated = json.reply || json.error || "";
+          setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: accumulated }; return copy; });
           setLoading(false);
           return;
         }
@@ -225,10 +236,11 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                 accumulated += data.delta;
                 setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: accumulated }; return copy; });
               }
-            } catch { /* skip */ }
+            } catch (e) { console.error("[ai-popup] SSE parse:", e); }
           }
         }
-      } catch {
+      } catch (e) {
+        console.error("[ai-popup] CTO stream error:", e);
         setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, terjadi kesalahan." }]; });
       }
       const needsApproval = /SETUJU/i.test(accumulated) && /TIDAK\s*SETUJU/i.test(accumulated);
@@ -244,13 +256,15 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
         body: JSON.stringify({ message: msg, mode }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        setMessages((prev) => [...prev, { role: "assistant", text: err.error || "Terjadi kesalahan." }]);
+        const errText = await res.text().catch(() => "");
+        console.error("[ai-popup] API HTTP", res.status, errText.slice(0, 200));
+        setMessages((prev) => [...prev, { role: "assistant", text: errText || "Terjadi kesalahan." }]);
         return;
       }
       const data = await res.json();
       setMessages((prev) => [...prev, { role: "assistant", text: data.reply }]);
-    } catch {
+    } catch (e) {
+      console.error("[ai-popup] API error:", e);
       setMessages((prev) => [...prev, { role: "assistant", text: "Maaf, terjadi kesalahan. Coba lagi." }]);
     } finally {
       setLoading(false);
@@ -279,6 +293,8 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
         body: JSON.stringify({ message: msg, mode: "cto", generateNow: true }),
       });
       if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        console.error("[ai-popup] approve HTTP", resp.status, errText.slice(0, 200));
         setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Gagal menghubungi server." }]; });
         setLoading(false);
         return;
@@ -309,7 +325,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
               steps.push(evt.detail);
               setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: steps.join("\n") }; return copy; });
             }
-          } catch { /* skip */ }
+          } catch (e) { console.error("[ai-popup] approve SSE parse:", e); }
         }
       }
 
@@ -320,6 +336,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
         return copy;
       });
     } catch (e: any) {
+      console.error("[ai-popup] approve error:", e);
       setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: `Maaf, gagal generate kode.${e?.message ? ` (${e.message.slice(0, 80)})` : ""}` }]; });
     }
     setLoading(false);
@@ -337,7 +354,11 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
         method: "POST", credentials: "include",
         headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() || "" },
       });
-      if (!resp.ok) { setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Gagal merge." }]; }); setLoading(false); return; }
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => "");
+        console.error("[ai-popup] merge HTTP", resp.status, errText.slice(0, 200));
+        setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Gagal merge." }]; }); setLoading(false); return;
+      }
 
       const reader = resp.body!.getReader();
       const decoder = new TextDecoder();
@@ -353,11 +374,12 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
             const evt = JSON.parse(line.slice(6));
             if (evt.step === "final") finalReply = evt.detail;
             else setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: evt.detail }; return copy; });
-          } catch { /* skip */ }
+            } catch (e) { console.error("[ai-popup] merge SSE parse:", e); }
         }
       }
       setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: finalReply }; return copy; });
-    } catch {
+    } catch (e) {
+      console.error("[ai-popup] merge error:", e);
       setMessages((prev) => { const copy = [...prev]; copy.pop(); return [...copy, { role: "assistant", text: "Maaf, gagal merge." }]; });
     }
     setLoading(false);
