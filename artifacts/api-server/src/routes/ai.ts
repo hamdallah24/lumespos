@@ -581,6 +581,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
                 act._result = `✅ Migrasi dari "${srcBranch.name}" → "${tgtBranch.name}" berhasil!\n${parts.join(", ")}.`;
                 continue;
               }
+              if (act.action === "get_sales_summary") {
                 const period = (act.params?.period || "today") as string;
                 let dateFilter: Date;
                 const now = new Date();
