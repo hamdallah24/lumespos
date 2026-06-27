@@ -101,10 +101,20 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
     // ── REACT LOOP: tool → think → tool → think → final ──
     let allToolCalls = fullToolCalls;
     let followUpMessages = [...messages];
-    let maxRounds = 5;
+    let maxRounds = 10;
 
     while (allToolCalls.length > 0 && maxRounds-- > 0) {
-      sse({ delta: `\n\n⏳ Mengeksekusi ${allToolCalls.length} perintah...\n` });
+      const cmdList = allToolCalls.map((tc: any) => {
+        let brief = tc.name;
+        try {
+          const a = JSON.parse(tc.args || "{}");
+          const val = Object.values(a)[0];
+          if (val) brief += `(${String(val).slice(0, 60)})`;
+        } catch {}
+        return brief;
+      }).join(", ");
+      sse({ delta: `\n\n▶️ ${cmdList}\n` });
+
       const toolResults: any[] = await Promise.all(allToolCalls.map(async (tc: any) => {
         let args: Record<string, any> = {};
         try { args = JSON.parse(tc.args); } catch { args = {}; }
@@ -143,6 +153,29 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
           }
         }
       } catch { clearTimeout(t2); break; }
+    }
+
+    // If loop exhausted with no text final, force a final answer without tools
+    if (!aborted && allToolCalls.length > 0 && !fullText.includes("Kesimpulan")) {
+      sse({ delta: `\n\n📊 **Loop tools habis — menyusun kesimpulan...**\n` });
+      try {
+        const c3 = new AbortController();
+        setTimeout(() => c3.abort(), 30000);
+        const resp3 = await fetch(`${base}/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify({ model, messages: followUpMessages, max_tokens: 3000, temperature: 0.7 }),
+          signal: c3.signal,
+        });
+        if (resp3.ok) {
+          const json3 = await resp3.json();
+          const finalContent = (json3 as any).choices?.[0]?.message?.content;
+          if (finalContent) {
+            fullText += "\n\n" + finalContent;
+            sse({ delta: finalContent });
+          }
+        }
+      } catch {}
     }
 
     if (!aborted) {
