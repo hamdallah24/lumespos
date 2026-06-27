@@ -157,13 +157,13 @@ export async function fetchGitHubFile(path: string, branch = "main"): Promise<{ 
 }
 
 export async function fetchGitHubDir(path: string, branch = "main"): Promise<string> {
-  if (!GITHUB_PAT) return "";
+  if (!GITHUB_PAT) return "Error: GITHUB_PAT tidak dikonfigurasi.";
   const resp = await fetch(`${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`, {
     headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github.v3+json" },
   });
-  if (!resp.ok) return "";
+  if (!resp.ok) return `Error: GitHub ${resp.status} — ${path} tidak ditemukan di branch ${branch}.`;
   const items = await resp.json().catch(() => []);
-  if (!Array.isArray(items)) return "";
+  if (!Array.isArray(items)) return "Error: Response GitHub bukan array.";
   return items.map((i: any) => `${i.type === "dir" ? "📁" : "📄"} ${i.name}`).join("\n");
 }
 
@@ -392,17 +392,41 @@ export const LOCAL_TOOLS: ToolDef[] = [
 export const EXPLORE_TOOLS: ToolDef[] = [
   ...LOCAL_TOOLS.filter(t => ["listDirectory", "readFile", "searchContent"].includes(t.name)),
   { name: "getDependencies", description: "Read a file and return its internal dependency graph (import paths that start with ./ or ../). Useful to understand which files are connected.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file, e.g., artifacts/pos-app/src/pages/products.tsx" } }, required: ["path"] } },
+  { name: "fetchGitHubFile", description: "Fetch a file directly from GitHub (not local). Use when local file not found or you want the latest from a specific branch.", parameters: { type: "object", properties: { path: { type: "string", description: "Path relative to repo root, e.g., artifacts/api-server/src/routes/ai.ts" }, branch: { type: "string", description: "Git branch (default: main)" } }, required: ["path"] } },
+  { name: "fetchGitHubDir", description: "List directory contents from GitHub (not local). Use when local directory listing fails.", parameters: { type: "object", properties: { path: { type: "string", description: "Path relative to repo root, e.g., artifacts/api-server/src/routes" }, branch: { type: "string", description: "Git branch (default: main)" } }, required: ["path"] } },
 ];
 
 async function executeToolCall(name: string, args: Record<string, any>): Promise<string> {
   switch (name) {
-    case "listDirectory": return listLocalDir(args.path || ".");
-    case "readFile": return readLocalFile(args.path || "");
+    case "listDirectory": {
+      const dir = args.path || ".";
+      const local = await listLocalDir(dir);
+      if (!local.startsWith("Error:")) return local;
+      const gh = await fetchGitHubDir(dir);
+      return gh || local;
+    }
+    case "readFile": {
+      const p = args.path || "";
+      const local = await readLocalFile(p);
+      if (!local.startsWith("Error:")) return local;
+      const gh = await fetchGitHubFile(p, "main");
+      if (gh.content) return `✅ ${p} (GitHub):\n\`\`\`\n${gh.content.slice(0, 5000)}\n\`\`\``;
+      return local;
+    }
     case "searchContent": return searchLocalContent(args.path || ".", args.pattern || "");
     case "writeFile": return writeLocalFile(args.path || "", args.content || "");
     case "editFile": return editLocalFile(args.path || "", args.search || "", args.replace || "");
     case "execCommand": return execLocalCommand(args.command || "");
     case "getDependencies": return getDependencies(args.path || "");
+    case "fetchGitHubFile": {
+      const r = await fetchGitHubFile(args.path || "", args.branch || "main");
+      if (r.content) return `✅ ${args.path} (GitHub):\n\`\`\`\n${r.content.slice(0, 5000)}\n\`\`\``;
+      return `Error: File "${args.path}" tidak ditemukan di GitHub (branch: ${args.branch || "main"}).`;
+    }
+    case "fetchGitHubDir": {
+      const d = await fetchGitHubDir(args.path || "", args.branch || "main");
+      return d || `Error: Directory "${args.path}" tidak ditemukan di GitHub.`;
+    }
     default: return `Error: Unknown tool "${name}"`;
   }
 }
@@ -416,9 +440,9 @@ export async function callDeepSeekWithTools(
   if (!key || !base) { console.error("[ai] DeepSeek key/base not set"); return ""; }
 
   const history = await getHistory(userId, mode);
-  const messages: any[] = [{ role: "system", content: system.slice(0, 4000) }];
+  const messages: any[] = [{ role: "system", content: system.slice(0, 5000) }];
   for (const h of history) messages.push(h);
-  messages.push({ role: "user", content: user.slice(0, 2000) });
+  messages.push({ role: "user", content: user.slice(0, 5000) });
 
   const body: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
   if (tools.length > 0) {
@@ -451,7 +475,7 @@ export async function callDeepSeekWithTools(
         let args: Record<string, any> = {};
         try { args = JSON.parse(fn.arguments); } catch { args = {}; }
         const result = await executeToolCall(fn.name, args);
-        return { role: "tool", tool_call_id: tc.id, content: result.slice(0, 3000) };
+        return { role: "tool", tool_call_id: tc.id, content: result.slice(0, 5000) };
       }));
 
       // Feed tool results back to DeepSeek

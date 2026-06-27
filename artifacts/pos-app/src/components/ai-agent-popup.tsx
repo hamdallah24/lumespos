@@ -152,6 +152,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
+const [checkedMap, setCheckedMap] = React.useState<Record<string, boolean>>({});
   const [openGroup, setOpenGroup] = React.useState<string | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -510,7 +511,38 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                             if (isName) {
                               return <div key={j} className="pt-1 pb-1"><span className="font-bold text-[#1565FF]">{block.split(":")[0]}</span><span className="text-slate-400 dark:text-slate-500">:</span><br /><span className="whitespace-pre-wrap">{block.slice(block.indexOf(":") + 1).trim()}</span></div>;
                             }
-                            return <div key={j} className="whitespace-pre-wrap">{block}</div>;
+                            // Render checklist items
+                            const lines = block.split("\n");
+                            const rendered: React.ReactNode[] = [];
+                            for (let li = 0; li < lines.length; li++) {
+                              const line = lines[li];
+                              const checkMatch = line.match(/^(\s*)\[([ x])\]\s*(\d+\.?\s*)?(.+)/);
+                              if (checkMatch) {
+                                const indent = checkMatch[1];
+                                const checked = checkMatch[2] === "x";
+                                const num = checkMatch[3] || "";
+                                const text = checkMatch[4];
+                                const key = `check-${i}-${j}-${li}`;
+                                const toggled = checkedMap[key] ?? checked;
+                                rendered.push(
+                                  <button key={key} onClick={() => setCheckedMap(prev => ({ ...prev, [key]: !toggled }))}
+                                    className="flex items-start gap-2 w-full text-left py-0.5 group active:scale-[0.98] transition-transform"
+                                  >
+                                    <span className={`mt-0.5 w-4 h-4 shrink-0 rounded border-2 flex items-center justify-center text-[10px] font-bold transition-all ${
+                                      toggled ? "bg-green-500 border-green-500 text-white" : "border-slate-300 dark:border-slate-600 group-hover:border-[#1565FF]/50"
+                                    }`}>
+                                      {toggled ? "✓" : ""}
+                                    </span>
+                                    <span className={`whitespace-pre-wrap ${toggled ? "line-through text-slate-400 dark:text-slate-500" : "text-slate-700 dark:text-slate-300"}`}>
+                                      {num}{text}
+                                    </span>
+                                  </button>
+                                );
+                              } else {
+                                rendered.push(<div key={`line-${i}-${j}-${li}`} className="whitespace-pre-wrap">{line}</div>);
+                              }
+                            }
+                            return rendered;
                           })}
                         </div>
                       ) : (

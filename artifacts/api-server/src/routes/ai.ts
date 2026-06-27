@@ -22,7 +22,7 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
   const history = await getHistory(uid, "cto");
   const messages: any[] = [{ role: "system", content: BANG_ORCHESTRATOR.slice(0, 4000) }];
   for (const h of history) messages.push(h);
-  messages.push({ role: "user", content: clean.slice(0, 2000) });
+  messages.push({ role: "user", content: clean.slice(0, 5000) });
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
@@ -110,7 +110,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     }
 
     // Rate limit
-    const maxReqs = m === "cto" ? (generateNow ? 2 : 10) : (m === "vps" ? 30 : 20);
+    const maxReqs = m === "cto" ? (generateNow ? 2 : 30) : (m === "vps" ? 30 : 20);
     const rl = checkRateLimit(uid, m, maxReqs);
     if (!rl.ok) {
       res.status(429).json({ error: `Terlalu banyak permintaan. Coba lagi ${rl.retryAfter} detik lagi.` });
@@ -149,8 +149,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
           let codegenInput = clean;
 
-          if (lastAssistant) {
-            codegenInput += `\n\n--- ANALISIS BANG SEBELUMNYA ---\n${lastAssistant.content}`;
+          if (lastAssistant && lastAssistant.content.trim()) {
+            codegenInput += `\n\n--- ANALISIS BANG SEBELUMNYA ---\n${lastAssistant.content.slice(0, 4000)}`;
+            sse("search", "📄 Menemukan analisis BANG sebelumnya, melanjutkan generate...");
+          } else {
+            sse("search", "⚠️ Riwayat analisis BANG tidak ditemukan — generate berdasarkan permintaan langsung.");
           }
 
           sse("search", "🔍 Mencari file yg berkaitan di repo...");
@@ -327,10 +330,14 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         // ── Pre-call: BANG explore repo with READ-ONLY tools (separate memory) ──
         const exploreCtx = clean + manifestBlock + "\n\n⚠️ Gunakan tools read-only (listDirectory, readFile, searchContent) untuk eksplorasi file tambahan. JANGAN tulis/edit file — hanya BACA dan LAPORKAN file path relevan.";
         const preResult = await callDeepSeekWithTools(
-          BANG_ORCHESTRATOR, exploreCtx, uid, "cto_tools", EXPLORE_TOOLS, 500
+          BANG_ORCHESTRATOR, exploreCtx, uid, "cto_tools", EXPLORE_TOOLS, 2000
         );
-        if (preResult) {
+        if (preResult && preResult.startsWith("ERROR:")) {
+          bangContext += `\n\n⚠️ Eksplorasi file gagal: ${preResult.slice(6)}. BANG hanya punya file dari manifest.`;
+        } else if (preResult) {
           bangContext += `\n\n--- HASIL EKSPLORASI ---\n${preResult}`;
+        } else {
+          bangContext += `\n\n⚠️ Eksplorasi file tidak menghasilkan data. BANG hanya punya file dari manifest.`;
         }
 
         // ── Main: streaming response (no tools, full format) ──
