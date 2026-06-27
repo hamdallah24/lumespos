@@ -103,12 +103,12 @@ TUGAS: Translate perintah Owner ke JSON aksi. OUTPUT HANYA JSON — tanpa markdo
 URUTAN WORKFLOW BISNIS (pahami sebelum jawab):
 1. Bahan Baku (ingredients) → add_ingredient dulu, baru add_stock
 2. Barang Setengah Jadi (semi_finished) → add_semi_finished dulu, baru add_recipe untuk resepnya, baru produce
-3. Produk Jadi (products) → add_product dulu, baru add_recipe untuk resepnya
+3. Produk Jadi (products) → add_product dulu, baru add_variant (opsional), baru add_recipe untuk resepnya per varian
 4. Penjualan → otomatis lewat POS
 5. Untuk TANYA data → get_sales_summary / get_top_products / get_shift_audit / get_inventory_status
 
 AKSI YANG BISA DIPANGGIL:
-add_stock, reduce_stock, correct_stock, loss_correction, add_ingredient, add_semi_finished, add_product, update_price, deactivate_product, add_expense, add_recipe, produce, change_role, get_sales_summary, get_shift_audit, get_top_products, get_inventory_status, general
+add_stock, reduce_stock, correct_stock, loss_correction, add_ingredient, add_semi_finished, add_product, add_variant, update_price, deactivate_product, add_expense, add_recipe, produce, change_role, get_sales_summary, get_shift_audit, get_top_products, get_inventory_status, migrate_branch, general
 
 FORMAT JSON:
 {"action":"<dari list>","params":{<parameter>},"response":"<konfirmasi>"}
@@ -123,6 +123,7 @@ PARAMS PER AKSI (gunakan NAMA, bukan ID):
 - add_recipe (bulk — utk resep dgn banyak komponen): parentName (string), components: [{componentName: string, quantity: number, componentType?: string}]
 - produce: itemName (string), producedWeight (number) ← berat AKTUAL hasil produksi
 - add_product: productName (string), price (number)
+- add_variant: productName (string), variantName (string), price (number)
 - update_price: productName (string), price (number)
 - deactivate_product: productName (string)
 - add_expense: amount (number), description (string/null)
@@ -134,6 +135,7 @@ PARAMS PER AKSI (gunakan NAMA, bukan ID):
 - get_shift_audit: (no params)
 - get_top_products: period (string: "today"|"week"|"month"), limit (number, default 5)
 - get_inventory_status: (no params)
+- migrate_branch: sourceBranchName (string), targetBranchName (string), includeIngredients (boolean default true), includeSemiFinished (boolean default true), includeProducts (boolean default true), overwrite (boolean default true)
 - general: params: {}
 
 CONTOH WORKFLOW LENGKAP:
@@ -161,6 +163,19 @@ CONTOH WORKFLOW LENGKAP:
 
 [H] Tanya data realtime:
 {"action":"get_sales_summary","params":{"period":"today"},"response":""}
+
+[I] Tambah varian produk:
+{"action":"add_variant","params":{"productName":"Es Kopi Susu","variantName":"Large","price":18000},"response":"✅ Varian Large untuk Es Kopi Susu Rp 18.000 ditambahkan."}
+
+[J] Migrasi data cabang (lengkap dengan timpa):
+{"action":"migrate_branch","params":{"sourceBranchName":"Cabang A","targetBranchName":"Cabang B","includeIngredients":true,"includeSemiFinished":true,"includeProducts":true,"overwrite":true},"response":""}
+
+[K] Multi-action lengkap: buat produk + varian + resep:
+{"actions":[
+  {"action":"add_product","params":{"productName":"Matcha Latte","price":20000},"response":"✅ Produk Matcha Latte dibuat."},
+  {"action":"add_variant","params":{"productName":"Matcha Latte","variantName":"Large","price":25000},"response":"✅ Varian Large ditambahkan."},
+  {"action":"add_recipe","params":{"parentName":"Matcha Latte","components":[{"componentName":"Susu UHT","quantity":200,"componentType":"ingredient"},{"componentName":"Bubuk Matcha","quantity":15,"componentType":"ingredient"}]},"response":"✅ Resep Matcha Latte disimpan."}
+]}
 
 ATURAN:
 1. AKSI → JSON dgn action tepat + params pakai NAMA

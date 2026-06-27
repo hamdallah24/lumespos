@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // AI BUSINESS — executeOperation (dispatched via JSON from COO)
 // ─────────────────────────────────────────────────────────────
-import { db, ingredientsTable, semiFinishedTable, productsTable, expensesTable, ordersTable, orderItemsTable, stockAdjustmentsTable, productVariantsTable, recipesTable, currentInventoryTable } from "@workspace/db";
+import { db, ingredientsTable, semiFinishedTable, productsTable, productVariantsTable, expensesTable, ordersTable, orderItemsTable, stockAdjustmentsTable, recipesTable, currentInventoryTable } from "@workspace/db";
 import { eq, and, gte, lte, sum, desc, sql } from "drizzle-orm";
 import { listInventoryForBranch, adjustInventory, applyMovingAverage, getRecipeRows, getInventoryStock } from "../services/inventory";
 
@@ -119,6 +119,13 @@ export async function executeOperation(action: string, params: Record<string, an
       const { name, price } = params;
       if (!name || !price) return "Parameter tidak lengkap.";
       await db.insert(productsTable).values({ branchId: bid, name, price: String(price) });
+      return "ok";
+    }
+
+    case "add_variant": {
+      const { productId, variantName, price } = params;
+      if (!productId || !variantName || !price) return "Parameter tidak lengkap.";
+      await db.insert(productVariantsTable).values({ productId, name: variantName, price: String(price) });
       return "ok";
     }
 

@@ -7,7 +7,8 @@ import { callDeepSeek, callDeepSeekWithTools, executeToolCall, fetchGitHubFile, 
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
-import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable } from "@workspace/db";
+import { runMigration } from "./migrate";
+import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
 const router = Router();
@@ -538,7 +539,48 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
                 }
                 continue;
               }
-              if (act.action === "get_sales_summary") {
+              if (act.action === "add_variant") {
+                const { productName, variantName, price } = act.params || {};
+                if (!productName || !variantName || !price) {
+                  act._result = "❌ Parameter productName, variantName, dan price wajib diisi.";
+                  continue;
+                }
+                const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, defaultBranchId), eq(productsTable.isActive, true)));
+                const foundProd = prods.find(p => p.name.toLowerCase().includes(productName.toLowerCase()));
+                if (!foundProd) {
+                  act._result = `❌ Produk "${productName}" tidak ditemukan.`;
+                  continue;
+                }
+                act.params.productId = foundProd.id;
+                await executeOperation("add_variant", act.params, defaultBranchId);
+                act._result = `✅ Varian "${variantName}" Rp ${Number(price).toLocaleString("id-ID")} ditambahkan ke ${foundProd.name}.`;
+                continue;
+              }
+              if (act.action === "migrate_branch") {
+                const { sourceBranchName, targetBranchName, includeIngredients, includeSemiFinished, includeProducts, overwrite } = act.params || {};
+                if (!sourceBranchName || !targetBranchName) {
+                  act._result = "❌ Parameter sourceBranchName dan targetBranchName wajib diisi.";
+                  continue;
+                }
+                const allBranches = await db.select().from(branchesTable);
+                const srcBranch = allBranches.find(b => b.name.toLowerCase().includes(sourceBranchName.toLowerCase()));
+                const tgtBranch = allBranches.find(b => b.name.toLowerCase().includes(targetBranchName.toLowerCase()));
+                if (!srcBranch) { act._result = `❌ Cabang sumber "${sourceBranchName}" tidak ditemukan.`; continue; }
+                if (!tgtBranch) { act._result = `❌ Cabang target "${targetBranchName}" tidak ditemukan.`; continue; }
+                if (srcBranch.id === tgtBranch.id) { act._result = "❌ Sumber dan target harus berbeda."; continue; }
+                const stats = await db.transaction((tx) =>
+                  runMigration(tx, srcBranch.id, tgtBranch.id, includeIngredients !== false, includeSemiFinished !== false, includeProducts !== false, overwrite === true)
+                );
+                const parts: string[] = [];
+                if (stats.ingredients) parts.push(`${stats.ingredients} bahan baku`);
+                if (stats.semiFinished) parts.push(`${stats.semiFinished} setengah jadi`);
+                if (stats.products) parts.push(`${stats.products} produk`);
+                if (stats.variants) parts.push(`${stats.variants} varian`);
+                if (stats.recipes) parts.push(`${stats.recipes} resep`);
+                if (stats.inventory) parts.push(`stok diperbarui`);
+                act._result = `✅ Migrasi dari "${srcBranch.name}" → "${tgtBranch.name}" berhasil!\n${parts.join(", ")}.`;
+                continue;
+              }
                 const period = (act.params?.period || "today") as string;
                 let dateFilter: Date;
                 const now = new Date();
