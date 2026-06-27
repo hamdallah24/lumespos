@@ -164,12 +164,12 @@ export async function callDeepSeek(system: string, user: string, userId: number,
   const key = process.env.DEEPSEEK_API_KEY;
   const base = process.env.DEEPSEEK_BASE_URL;
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
-  if (!key || !base) { console.error("[ai] DEEPSEEK_API_KEY or DEEPSEEK_BASE_URL not set"); return ""; }
+  if (!key || !base) { console.error("[ai] DEEPSEEK_API_KEY or DEEPSEEK_BASE_URL not set"); return "ERROR: API key AI belum dikonfigurasi."; }
   try {
     const history = await getHistory(userId, mode);
     const messages: any[] = [{ role: "system", content: system.slice(0, 4000) }];
     for (const h of history) messages.push(h);
-    messages.push({ role: "user", content: user.slice(0, 2000) });
+    messages.push({ role: "user", content: user.slice(0, 5000) });
 
     const controller = new AbortController();
     const tid = setTimeout(() => controller.abort(), 30000);
@@ -185,7 +185,7 @@ export async function callDeepSeek(system: string, user: string, userId: number,
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
       console.error(`[ai] DeepSeek HTTP ${resp.status}: ${err.slice(0, 300)}`);
-      return "";
+      return `ERROR: AI tidak merespon (HTTP ${resp.status}). ${err.slice(0, 100)}`;
     }
     const json = await resp.json();
     const content = (json as any).choices?.[0]?.message?.content?.trim() || "";
