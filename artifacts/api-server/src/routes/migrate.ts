@@ -30,6 +30,7 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
       const ingMap = new Map<number, number>();  // old ingredient id → new
       const sfMap = new Map<number, number>();    // old semi_finished id → new
       const prodMap = new Map<number, number>();  // old product id → new
+      const varMap = new Map<number, number>();   // old variant id → new
 
       // 1. Ingredients
       if (includeIngredients) {
@@ -141,14 +142,16 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
         for (const v of srcVariants) {
           const newProductId = prodMap.get(v.productId);
           if (!newProductId) continue;
-          await tx
+          const [created] = await tx
             .insert(productVariantsTable)
             .values({
               productId: newProductId,
               name: v.name,
               price: v.price,
               requiresStock: v.requiresStock,
-            });
+            })
+            .returning();
+          varMap.set(v.id, created.id);
           count++;
         }
         stats.variants = count;
@@ -158,14 +161,22 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
       if (includeProducts) {
         const prodKeys = Array.from(prodMap.keys());
         const sfKeys = Array.from(sfMap.keys());
+        const varKeys = Array.from(varMap.keys());
 
-        // Collect all recipes: product recipes + SF recipes (if any)
+        // Collect all recipes: product + variant + SF
         const allRecipeRows: { parentType: string; parentId: number; componentType: string; componentId: number; quantity: string }[] = [];
         if (prodKeys.length > 0) {
           const rows = await tx
             .select()
             .from(recipesTable)
             .where(and(eq(recipesTable.parentType, "product"), inArray(recipesTable.parentId, prodKeys)));
+          allRecipeRows.push(...rows);
+        }
+        if (varKeys.length > 0) {
+          const rows = await tx
+            .select()
+            .from(recipesTable)
+            .where(and(eq(recipesTable.parentType, "product_variant"), inArray(recipesTable.parentId, varKeys)));
           allRecipeRows.push(...rows);
         }
         if (sfKeys.length > 0) {
@@ -176,7 +187,7 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
           allRecipeRows.push(...rows);
         }
 
-        // Phase 1: resolve component dependencies (loop until stable)
+        // Phase 1: resolve component dependencies
         const newSfIds = new Set<number>();
         const newIngIds = new Set<number>();
         let pendingSfRecipeRows: typeof allRecipeRows = [];
@@ -215,7 +226,6 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
               sfMap.set(sf.id, created.id);
               stats.semiFinished = (stats.semiFinished || 0) + 1;
             }
-            // Collect recipes for this newly mapped SF item
             const sfRecipes = await tx
               .select()
               .from(recipesTable)
@@ -261,12 +271,18 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
           }
         }
 
-        // Phase 2: copy all recipes (original + newly resolved) with mapped IDs
+        // Phase 2: copy all recipes with mapped IDs
         const finalRecipes = [...allWithPending];
         let count = 0;
         for (const r of finalRecipes) {
-          const newParentId = r.parentType === "product" ? prodMap.get(r.parentId) : sfMap.get(r.parentId);
-          const newComponentId = r.componentType === "ingredient" ? ingMap.get(r.componentId) : sfMap.get(r.componentId);
+          const newParentId = r.parentType === "product"
+            ? prodMap.get(r.parentId)
+            : r.parentType === "product_variant"
+              ? varMap.get(r.parentId)
+              : sfMap.get(r.parentId);
+          const newComponentId = r.componentType === "ingredient"
+            ? ingMap.get(r.componentId)
+            : sfMap.get(r.componentId);
           if (!newParentId || !newComponentId) continue;
           await tx.insert(recipesTable).values({
             parentType: r.parentType,
