@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, mergeDeploy, getDependencies, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation } from "./ai-helpers";
+import { callDeepSeek, callDeepSeekWithTools, executeToolCall, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, ToolDef, mergeDeploy, getDependencies, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
@@ -12,7 +12,7 @@ import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
-// ── CTO STREAMING HELPER ──
+// ── CTO STREAMING HELPER (dengan tool support) ──
 async function streamBANGResponse(req: any, res: any, uid: number, clean: string) {
   const key = process.env.DEEPSEEK_API_KEY;
   const base = process.env.DEEPSEEK_BASE_URL;
@@ -24,69 +24,125 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
   for (const h of history) messages.push(h);
   messages.push({ role: "user", content: clean.slice(0, 5000) });
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 60000);
-  let dsResp;
-  try {
-    dsResp = await fetch(`${base}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages, max_tokens: 3000, temperature: 0.7, stream: true }),
-      signal: controller.signal,
-    });
-  } catch {
-    clearTimeout(timeout);
-    res.json({ reply: "BANG sedang sibuk, coba lagi ya bos." });
-    return;
-  } finally { clearTimeout(timeout); }
-  if (!dsResp.ok) {
-    const errText = await dsResp.text().catch(() => "");
-    console.error(`[ai] BANG stream HTTP ${dsResp.status}: ${errText.slice(0, 300)}`);
-    res.json({ reply: "BANG sedang sibuk, coba lagi ya bos." });
-    return;
-  }
-
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
-  // Cleanup on client disconnect
   let aborted = false;
-  req.on("close", () => { aborted = true; controller.abort(); });
+  req.on("close", () => { aborted = true; });
 
-  const reader = dsResp.body!.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let fullText = "";
+  const sse = (data: any) => { if (!aborted) res.write(`data: ${JSON.stringify(data)}\n\n`); };
+
+  // Streaming call with tools
+  const controller = new AbortController();
+  const tid = setTimeout(() => controller.abort(), 60000);
+
+  const toolsPayload = EXPLORE_TOOLS.map(t => ({
+    type: "function",
+    function: { name: t.name, description: t.description, parameters: t.parameters }
+  }));
 
   try {
+    const resp = await fetch(`${base}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ model, messages, max_tokens: 3000, temperature: 0.7, stream: true, tools: toolsPayload }),
+      signal: controller.signal,
+    });
+    if (!resp.ok) {
+      const err = await resp.text().catch(() => "");
+      console.error(`[ai] BANG stream HTTP ${resp.status}: ${err.slice(0, 300)}`);
+      sse({ delta: "Maaf, BANG sedang sibuk. Coba lagi." }); sse({ done: true, finalText: "" });
+      return;
+    }
+
+    const reader = resp.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = "", fullText = "", fullToolCalls: any[] = [];
+    let toolCallsDetected = false;
+
     while (true) {
       const { done, value } = await reader.read();
-      if (done || aborted) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+      if (done || aborted || toolCallsDetected) break;
+      buf += decoder.decode(value, { stream: true });
+      const lines = buf.split("\n");
+      buf = lines.pop() || "";
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const payload = line.slice(6);
         if (payload === "[DONE]") continue;
         try {
           const chunk = JSON.parse(payload);
-          const content = chunk.choices?.[0]?.delta?.content;
-          if (content && !aborted) { fullText += content; res.write(`data: ${JSON.stringify({ delta: content })}\n\n`); }
-        } catch { /* skip malformed chunks */ }
+          const delta = chunk.choices?.[0]?.delta;
+          const finish = chunk.choices?.[0]?.finish_reason;
+          if (delta?.content) {
+            fullText += delta.content;
+            sse({ delta: delta.content });
+          }
+          if (delta?.tool_calls) {
+            for (const tc of delta.tool_calls) {
+              const idx = tc.index;
+              if (!fullToolCalls[idx]) fullToolCalls[idx] = { id: "", name: "", args: "" };
+              if (tc.id) fullToolCalls[idx].id = tc.id;
+              if (tc.function?.name) fullToolCalls[idx].name = tc.function.name;
+              if (tc.function?.arguments) fullToolCalls[idx].args += tc.function.arguments;
+            }
+          }
+          if (finish === "tool_calls" && fullToolCalls.length > 0) {
+            toolCallsDetected = true;
+          }
+        } catch { /* skip */ }
       }
     }
-  } finally { reader.releaseLock(); }
+    reader.releaseLock();
+    clearTimeout(tid);
 
-  if (!aborted) {
-    res.write(`data: ${JSON.stringify({ done: true, finalText: fullText })}\n\n`);
-    res.end();
-    if (fullText) {
-      await remember(uid, "cto", clean, fullText);
-      await saveSharedContext(uid, "cto", fullText.slice(0, 500));
+    // If tool calls were requested, execute them and follow up
+    if (fullToolCalls.length > 0) {
+      sse({ delta: "\n\n⏳ Mengeksekusi perintah...\n" });
+      const toolResults: any[] = await Promise.all(fullToolCalls.map(async (tc: any) => {
+        let args: Record<string, any> = {};
+        try { args = JSON.parse(tc.args); } catch { args = {}; }
+        const result = await executeToolCall(tc.name, args);
+        return { role: "tool", tool_call_id: tc.id, content: result.slice(0, 5000) };
+      }));
+      const toolMsg = { role: "assistant", content: null, tool_calls: fullToolCalls.map((tc: any) => ({
+        id: tc.id, type: "function", function: { name: tc.name, arguments: tc.args }
+      })) };
+      const followUp = [...messages, toolMsg, ...toolResults];
+      const c2 = new AbortController();
+      const t2 = setTimeout(() => c2.abort(), 30000);
+      try {
+        const resp2 = await fetch(`${base}/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify({ model, messages: followUp, max_tokens: 3000, temperature: 0.7 }),
+          signal: c2.signal,
+        });
+        clearTimeout(t2);
+        if (resp2.ok) {
+          const json2 = await resp2.json();
+          const reply = (json2 as any).choices?.[0]?.message?.content?.trim() || "";
+          if (reply) {
+            fullText += "\n" + reply;
+            sse({ delta: reply });
+          }
+        }
+      } catch { clearTimeout(t2); }
     }
+
+    if (!aborted) {
+      sse({ done: true, finalText: fullText });
+      res.end();
+      if (fullText) {
+        await remember(uid, "cto", clean, fullText);
+        await saveSharedContext(uid, "cto", fullText.slice(0, 500));
+      }
+    }
+  } catch (e: any) {
+    console.error("[ai] BANG stream error:", e);
+    if (!aborted) { sse({ delta: "Maaf, terjadi kesalahan." }); sse({ done: true, finalText: "" }); res.end(); }
   }
 }
 

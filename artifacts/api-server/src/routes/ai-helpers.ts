@@ -462,7 +462,7 @@ export const EXPLORE_TOOLS: ToolDef[] = [
   { name: "sshExec", description: "Run a shell command on the VPS via SSH. Only use for VPS operations (git pull, pm2 status, etc.). NOT for file editing — use readFile/writeFile instead.", parameters: { type: "object", properties: { command: { type: "string", description: "Command to run on VPS, e.g., cd ~/lumespos && git merge main, cd ~/lumespos && git pull origin main, pm2 restart pos-api" } }, required: ["command"] } },
 ];
 
-async function executeToolCall(name: string, args: Record<string, any>): Promise<string> {
+export async function executeToolCall(name: string, args: Record<string, any>): Promise<string> {
   switch (name) {
     case "listDirectory": {
       const dir = args.path || ".";
