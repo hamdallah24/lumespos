@@ -209,14 +209,28 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
   const setRecipe = useSetRecipe();
   const [selectedComponents, setSelectedComponents] = useState<Record<string, number>>({});
   const [bomSearch, setBomSearch] = useState("");
+  const [renderError, setRenderError] = useState<string | null>(null);
 
   useEffect(() => {
-    const map: Record<string, number> = {};
-    recipe.forEach((r: any) => {
-      map[`${r.componentType}:${r.componentId}`] = r.quantity;
-    });
-    setSelectedComponents(map);
+    try {
+      setRenderError(null);
+      const map: Record<string, number> = {};
+      if (Array.isArray(recipe)) {
+        recipe.forEach((r: any) => {
+          if (r && r.componentType != null && r.componentId != null) {
+            map[`${r.componentType}:${r.componentId}`] = r.quantity ?? 0;
+          }
+        });
+      }
+      setSelectedComponents(map);
+    } catch (e) {
+      console.error("[BomPanel] useEffect error:", e);
+    }
   }, [recipe]);
+
+  if (renderError) {
+    return <div className="p-4 text-sm text-destructive">{renderError}</div>;
+  }
 
   const handleTargetChange = (val: string) => {
     if (val === "global") { setTargetType("product"); setTargetId(productId); }
@@ -226,8 +240,8 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
   const currentTargetValue = targetType === "product" ? "global" : String(targetId);
   const isSaving = setRecipe.isPending;
 
-  const filteredIngredients = ingredients.filter((i: any) => !bomSearch || i.name.toLowerCase().includes(bomSearch.toLowerCase()));
-  const filteredSemiFinished = semiFinished.filter((s: any) => !bomSearch || s.name.toLowerCase().includes(bomSearch.toLowerCase()));
+  const filteredIngredients = (ingredients || []).filter((i: any) => !bomSearch || i.name?.toLowerCase().includes(bomSearch.toLowerCase()));
+  const filteredSemiFinished = (semiFinished || []).filter((s: any) => !bomSearch || s.name?.toLowerCase().includes(bomSearch.toLowerCase()));
 
   const toggleComponent = (key: string) => {
     setSelectedComponents(prev => {
@@ -278,8 +292,8 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
           <div className="p-4 text-center text-xs text-muted-foreground">Tidak ada bahan ditemukan</div>
         ) : (
           <>
-            {filteredIngredients.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 sticky top-0">Bahan Baku</div>}
-            {filteredIngredients.map((ing: any) => {
+            {Array.isArray(filteredIngredients) && filteredIngredients.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 sticky top-0">Bahan Baku</div>}
+            {Array.isArray(filteredIngredients) && filteredIngredients.map((ing: any) => {
               const key = `ingredient:${ing.id}`;
               const checked = key in selectedComponents;
               return (
@@ -291,8 +305,8 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
                 </div>
               );
             })}
-            {filteredSemiFinished.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 border-t sticky top-0">Bahan Setengah Jadi</div>}
-            {filteredSemiFinished.map((sf: any) => {
+            {Array.isArray(filteredSemiFinished) && filteredSemiFinished.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 border-t sticky top-0">Bahan Setengah Jadi</div>}
+            {Array.isArray(filteredSemiFinished) && filteredSemiFinished.map((sf: any) => {
               const key = `semi_finished:${sf.id}`;
               const checked = key in selectedComponents;
               return (
@@ -312,7 +326,7 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
         <Button onClick={saveRecipe} disabled={isSaving} className="flex-1">{isSaving ? "Menyimpan..." : "Simpan Resep"}</Button>
       </div>
 
-      {recipe.length > 0 && (
+      {Array.isArray(recipe) && recipe.length > 0 && (
         <div className="border rounded-lg overflow-hidden">
           <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30">Resep Saat Ini</div>
           {recipe.map((r: any, idx: number) => (
