@@ -242,6 +242,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
 
         // Baca file — local VPS first, GitHub fallback, multi-path search
+        let bacaContent = "";
         if (/baca\s+(file\s+)?\S+\.[a-z]+/i.test(lower) || /lihat\s+(file\s+)?\S+/i.test(lower)) {
           const fileMatch = lower.match(/(?:baca|lihat|read)\s+(?:file\s+)?(\S+\.\w+)/i);
           if (fileMatch) {
@@ -251,21 +252,29 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
               `artifacts/api-server/src/routes/${rawPath}`, `artifacts/api-server/src/${rawPath}`, `artifacts/api-server/src/middlewares/${rawPath}`,
               `artifacts/api-server/src/services/${rawPath}`, `lib/db/src/schema/${rawPath}`, `lib/db/src/${rawPath}`,
             ];
-            let found = false;
             for (const p of possiblePaths) {
               const content = await readLocalFile(p, 5000);
               if (content && !content.startsWith("Error:")) {
-                res.json({ reply: `📄 ${p} (lokal):\n\`\`\`\n${content}\n\`\`\`` + (content.length >= 5000 ? `\n\n...dipotong` : "") });
-                found = true; break;
+                bacaContent = `📄 ${p} (lokal):\n\`\`\`\n${content}\n\`\`\`` + (content.length >= 5000 ? `\n\n...dipotong` : "");
+                break;
               }
               const result = await fetchGitHubFile(p, "main");
               if (result.content) {
-                res.json({ reply: `📄 ${p} (GitHub):\n\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\`` + (result.content.length > 3000 ? `\n\n...dipotong` : "") });
-                found = true; break;
+                bacaContent = `📄 ${p} (GitHub):\n\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\`` + (result.content.length > 3000 ? `\n\n...dipotong` : "");
+                break;
               }
             }
-            if (!found) res.json({ reply: `❌ File "${rawPath}" tidak ditemukan di lokasi manapun. Coba pakai path lengkap (misal: artifacts/api-server/src/routes/ai.ts)` });
-            return;
+            if (!bacaContent) {
+              res.json({ reply: `❌ File "${rawPath}" tidak ditemukan di lokasi manapun. Coba pakai path lengkap (misal: artifacts/api-server/src/routes/ai.ts)` });
+              return;
+            }
+            // If user ALSO asks for analysis, append to context instead of returning raw
+            if (/analisa|analisis|analys|cek|periksa|review/i.test(lower)) {
+              // Don't return — content will be prepended to bangContext below
+            } else {
+              res.json({ reply: bacaContent });
+              return;
+            }
           }
         }
 
@@ -283,11 +292,12 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
         // Auto-fetch relevant files for BANG + specialists
         let bangContext = clean;
+        if (bacaContent) bangContext = `[ISI FILE]:\n${bacaContent}\n\n---\n${clean}`;
         const fetchedPairs: string[] = [];
         const fetchedPaths: string[] = [];
         let manifestBlock = "";
-        // Only auto-fetch if not already handled by explicit "baca" command
-        if (!/baca\s+|lihat\s+|read\s+/i.test(clean)) {
+        // Only auto-fetch if not a simple "baca" without analysis request
+        if (!/baca\s+|lihat\s+|read\s+/i.test(clean) || /\b(analisa|analisis|analys|cek|periksa|review)\b/i.test(clean)) {
           // Detect file mentions (.tsx, .ts, .json)
           const fileRefs = clean.match(/(\w+\.[a-z]{2,4})/gi);
           if (fileRefs) {
