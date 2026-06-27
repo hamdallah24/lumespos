@@ -322,49 +322,6 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         return;
       }
 
-      // ── VPS (JSON mode — SSH actions) ──
-      case "vps": {
-        const lower = clean.toLowerCase();
-        if (/deploy|git pull/i.test(lower)) {
-          res.json({ reply: "Deploy jangan lewat sini ya bos. SSH manual aja:\n```\ngit pull && pnpm build && pm2 restart\n```" });
-          return;
-        }
-
-        const prompt = `${COO_SYSTEM}\n\nOwner (VPS): ${clean}`;
-        const raw = await callDeepSeek(prompt, clean, uid, "vps", 400, true);
-        if (raw.startsWith("ERROR:")) { res.json({ reply: raw }); return; }
-        if (!raw) { res.json({ reply: "VPS agent sedang sibuk." }); return; }
-
-        let reply = raw;
-        try {
-          const action = JSON.parse(raw);
-          const actions = action.actions || (action.action ? [action] : []);
-          for (const act of actions) {
-            if (!act.action || !act.action.startsWith("ssh_")) continue;
-            let cmd = "";
-            if (act.action === "ssh_status") cmd = "pm2 status && echo '---' && free -m && echo '---' && uptime";
-            else if (act.action === "ssh_logs") cmd = "pm2 logs pos-api --lines 30 --nostream";
-            else if (act.action === "ssh_health") cmd = "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health && echo ' (200=OK)'";
-            else if (act.action === "ssh_ram") cmd = "free -m";
-            else if (act.action === "ssh_disk") cmd = "df -h /";
-            else if (act.action === "ssh_uptime") cmd = "uptime";
-            else if (act.action === "ssh_restart") cmd = "pm2 restart pos-api";
-            if (cmd) {
-              const result = await sshExec(cmd);
-              if (result) act._sshResult = result;
-            }
-          }
-          reply = action.response || raw;
-          for (const act of actions) {
-            if (act._sshResult) reply += `\n\n\`\`\`\n${act._sshResult.slice(0, 2000)}\n\`\`\``;
-          }
-        } catch { /* invalid JSON */ }
-
-        res.json({ reply: reply || raw });
-        if (reply && reply.length > 20) await saveSharedContext(uid, "vps", reply.slice(0, 500));
-        return;
-      }
-
       // ── BISNIS (COO JSON action — response_format json_object) ──
       case "bisnis":
       default: {

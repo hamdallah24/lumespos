@@ -1,9 +1,9 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Bot, User, Briefcase, MessageSquare, Code, Server, Copy, Check } from "lucide-react";
+import { X, Send, Bot, User, Briefcase, MessageSquare, Code, Copy, Check } from "lucide-react";
 import { apiFetch, getCsrfToken } from "@/lib/csrf";
 
-type Mode = "bisnis" | "chat" | "cto" | "vps";
+type Mode = "bisnis" | "chat" | "cto";
 
 type Message = {
   role: "user" | "assistant";
@@ -17,7 +17,6 @@ const MODE_TABS: { key: Mode; label: string; icon: React.ElementType }[] = [
   { key: "bisnis", label: "Bisnis", icon: Briefcase },
   { key: "chat", label: "Chat", icon: MessageSquare },
   { key: "cto", label: "CTO", icon: Code },
-  { key: "vps", label: "VPS", icon: Server },
 ];
 
 const BISNIS_GROUPS = [
@@ -72,10 +71,7 @@ const MODE_SHORTCUTS: Record<Mode, { label: string; text: string }[]> = {
     { label: "Analisis kode", text: "analisis struktur folder frontend" },
     { label: "Baca file", text: "baca package.json" },
     { label: "Optimasi", text: "gimana cara ningkatin performa?" },
-  ],
-  vps: [
-    { label: "Deploy", text: "deploy terbaru" },
-    { label: "Status", text: "status server" },
+    { label: "Status Server", text: "status server" },
     { label: "Restart", text: "restart api" },
     { label: "Logs", text: "logs terbaru" },
     { label: "Health", text: "health check" },
@@ -85,8 +81,7 @@ const MODE_SHORTCUTS: Record<Mode, { label: string; text: string }[]> = {
 const MODE_DESC: Record<Mode, string> = {
   bisnis: "Tanya stok, menu, laporan, pengeluaran",
   chat: "Ngobrol santai, brainstorming, resep",
-  cto: "Fitur baru, baca file, analisis kode",
-  vps: "Deploy, status, restart, logs server",
+  cto: "Fitur baru, baca file, analisis kode, server",
 };
 
 function SiriWave() {
