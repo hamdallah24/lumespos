@@ -210,131 +210,127 @@ function BomPanel({ productId, onBomChange }: { productId: number; onBomChange?:
   const [selectedComponents, setSelectedComponents] = useState<Record<string, number>>({});
   const [bomSearch, setBomSearch] = useState("");
 
-  try {
-    useEffect(() => {
-      const map: Record<string, number> = {};
-      if (Array.isArray(recipe)) {
-        recipe.forEach((r: any) => {
-          if (r && r.componentType != null && r.componentId != null) {
-            map[`${r.componentType}:${r.componentId}`] = r.quantity ?? 0;
-          }
-        });
-      }
-      setSelectedComponents(map);
-    }, [recipe]);
-
-    const handleTargetChange = (val: string) => {
-      if (val === "global") { setTargetType("product"); setTargetId(productId); }
-      else { setTargetType("product_variant"); setTargetId(Number(val)); }
-    };
-
-    const currentTargetValue = targetType === "product" ? "global" : String(targetId);
-    const isSaving = setRecipe.isPending;
-
-    const filteredIngredients = (ingredients || []).filter((i: any) => !bomSearch || i.name?.toLowerCase().includes(bomSearch.toLowerCase()));
-    const filteredSemiFinished = (semiFinished || []).filter((s: any) => !bomSearch || s.name?.toLowerCase().includes(bomSearch.toLowerCase()));
-
-    const toggleComponent = (key: string) => {
-      setSelectedComponents(prev => {
-        const next = { ...prev };
-        if (next[key]) delete next[key];
-        else next[key] = 1;
-        return next;
+  useEffect(() => {
+    const map: Record<string, number> = {};
+    if (Array.isArray(recipe)) {
+      recipe.forEach((r: any) => {
+        if (r && r.componentType != null && r.componentId != null) {
+          map[`${r.componentType}:${r.componentId}`] = r.quantity ?? 0;
+        }
       });
-    };
+    }
+    setSelectedComponents(map);
+  }, [recipe]);
 
-    const updateQuantity = (key: string, qty: number) => {
-      setSelectedComponents(prev => ({ ...prev, [key]: qty }));
-    };
+  const refreshRecipe = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/recipes"] });
+    if (onBomChange) onBomChange();
+  };
 
-    const saveRecipe = () => {
-      const components = Object.entries(selectedComponents).map(([key, qty]) => {
-        const [type, idStr] = key.split(":");
-        return { componentType: type as "ingredient" | "semi_finished", componentId: Number(idStr), quantity: qty };
-      });
-      setRecipe.mutate({ data: { parentType: targetType, parentId: targetId, components } } as any, {
-        onSuccess: () => { toast.success("Resep disimpan"); refreshRecipe(); },
-        onError: () => toast.error("Gagal menyimpan resep"),
-      });
-    };
+  const handleTargetChange = (val: string) => {
+    if (val === "global") { setTargetType("product"); setTargetId(productId); }
+    else { setTargetType("product_variant"); setTargetId(Number(val)); }
+  };
 
-    const refreshRecipe = () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/recipes"] });
-      if (onBomChange) onBomChange();
-    };
+  const currentTargetValue = targetType === "product" ? "global" : String(targetId);
+  const isSaving = setRecipe.isPending;
 
-    return (
-      <div className="space-y-4">
-        <div className="space-y-1.5 p-3 rounded-lg border bg-muted/20">
-          <Label className="text-xs font-semibold text-muted-foreground">Target Konfigurasi Resep (BOM)</Label>
-          <Select value={currentTargetValue} onValueChange={handleTargetChange}>
-            <SelectTrigger className="bg-background"><SelectValue placeholder="Pilih target resep" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="global">Default Produk (Global)</SelectItem>
-              {Array.isArray(variants) && variants.map((v: any) => <SelectItem key={v.id} value={String(v.id)}>Resep Varian: {v.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+  const filteredIngredients = (ingredients || []).filter((i: any) => !bomSearch || i.name?.toLowerCase().includes(bomSearch.toLowerCase()));
+  const filteredSemiFinished = (semiFinished || []).filter((s: any) => !bomSearch || s.name?.toLowerCase().includes(bomSearch.toLowerCase()));
 
-        <Input placeholder="Cari bahan..." value={bomSearch} onChange={e => setBomSearch(e.target.value)} />
+  const toggleComponent = (key: string) => {
+    setSelectedComponents(prev => {
+      const next = { ...prev };
+      if (next[key]) delete next[key];
+      else next[key] = 1;
+      return next;
+    });
+  };
 
-        <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
-          {(!Array.isArray(filteredIngredients) || filteredIngredients.length === 0) && (!Array.isArray(filteredSemiFinished) || filteredSemiFinished.length === 0) ? (
-            <div className="p-4 text-center text-xs text-muted-foreground">Tidak ada bahan ditemukan</div>
-          ) : (
-            <>
-              {Array.isArray(filteredIngredients) && filteredIngredients.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 sticky top-0">Bahan Baku</div>}
-              {Array.isArray(filteredIngredients) && filteredIngredients.map((ing: any) => {
-                const key = `ingredient:${ing.id}`;
-                const checked = key in selectedComponents;
-                return (
-                  <div key={key} className="flex items-center gap-2 px-3 py-2">
-                    <input type="checkbox" checked={checked} onChange={() => toggleComponent(key)} className="shrink-0" />
-                    <span className="flex-1 text-sm truncate">{ing.name}</span>
-                    <span className="text-[10px] text-muted-foreground shrink-0 mr-1">{ing.unit}</span>
-                    {checked && <Input value={selectedComponents[key] || ""} onChange={e => updateQuantity(key, parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" placeholder="Qty" />}
-                  </div>
-                );
-              })}
-              {Array.isArray(filteredSemiFinished) && filteredSemiFinished.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 border-t sticky top-0">Bahan Setengah Jadi</div>}
-              {Array.isArray(filteredSemiFinished) && filteredSemiFinished.map((sf: any) => {
-                const key = `semi_finished:${sf.id}`;
-                const checked = key in selectedComponents;
-                return (
-                  <div key={key} className="flex items-center gap-2 px-3 py-2">
-                    <input type="checkbox" checked={checked} onChange={() => toggleComponent(key)} className="shrink-0" />
-                    <span className="flex-1 text-sm truncate">{sf.name}</span>
-                    <span className="text-[10px] text-muted-foreground shrink-0 mr-1">{sf.unit}</span>
-                    {checked && <Input value={selectedComponents[key] || ""} onChange={e => updateQuantity(key, parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" placeholder="Qty" />}
-                  </div>
-                );
-              })}
-            </>
-          )}
-        </div>
+  const updateQuantity = (key: string, qty: number) => {
+    setSelectedComponents(prev => ({ ...prev, [key]: qty }));
+  };
 
-        <div className="flex gap-2">
-          <Button onClick={saveRecipe} disabled={isSaving} className="flex-1">{isSaving ? "Menyimpan..." : "Simpan Resep"}</Button>
-        </div>
+  const saveRecipe = () => {
+    const components = Object.entries(selectedComponents).map(([key, qty]) => {
+      const [type, idStr] = key.split(":");
+      return { componentType: type as "ingredient" | "semi_finished", componentId: Number(idStr), quantity: qty };
+    });
+    setRecipe.mutate({ data: { parentType: targetType, parentId: targetId, components } } as any, {
+      onSuccess: () => { toast.success("Resep disimpan"); refreshRecipe(); },
+      onError: () => toast.error("Gagal menyimpan resep"),
+    });
+  };
 
-        {Array.isArray(recipe) && recipe.length > 0 && (
-          <div className="border rounded-lg overflow-hidden">
-            <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30">Resep Saat Ini</div>
-            {recipe.map((r: any, idx: number) => (
-              <div key={r.id || idx} className="flex items-center gap-2 px-3 py-2 border-t">
-                <div className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center shrink-0"><PackagePlus className="w-3 h-3" /></div>
-                <span className="flex-1 text-sm">{r.componentName}</span>
-                <Badge variant="outline" className={`text-[9px] ${r.componentType === "semi_finished" ? "text-blue-600" : "text-slate-600"}`}>{r.componentType === "semi_finished" ? "Setengah Jadi" : "Bahan Baku"}</Badge>
-                <span className="text-xs font-medium">{r.quantity} {r.unit}</span>
-              </div>
-            ))}
-          </div>
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5 p-3 rounded-lg border bg-muted/20">
+        <Label className="text-xs font-semibold text-muted-foreground">Target Konfigurasi Resep (BOM)</Label>
+        <Select value={currentTargetValue} onValueChange={handleTargetChange}>
+          <SelectTrigger className="bg-background"><SelectValue placeholder="Pilih target resep" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="global">Default Produk (Global)</SelectItem>
+            {Array.isArray(variants) && variants.map((v: any) => <SelectItem key={v.id} value={String(v.id)}>Resep Varian: {v.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <Input placeholder="Cari bahan..." value={bomSearch} onChange={e => setBomSearch(e.target.value)} />
+
+      <div className="max-h-48 overflow-y-auto border rounded-lg divide-y">
+        {(!Array.isArray(filteredIngredients) || filteredIngredients.length === 0) && (!Array.isArray(filteredSemiFinished) || filteredSemiFinished.length === 0) ? (
+          <div className="p-4 text-center text-xs text-muted-foreground">Tidak ada bahan ditemukan</div>
+        ) : (
+          <>
+            {Array.isArray(filteredIngredients) && filteredIngredients.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 sticky top-0">Bahan Baku</div>}
+            {Array.isArray(filteredIngredients) && filteredIngredients.map((ing: any) => {
+              const key = `ingredient:${ing.id}`;
+              const checked = key in selectedComponents;
+              return (
+                <div key={key} className="flex items-center gap-2 px-3 py-2">
+                  <input type="checkbox" checked={checked} onChange={() => toggleComponent(key)} className="shrink-0" />
+                  <span className="flex-1 text-sm truncate">{ing.name}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 mr-1">{ing.unit}</span>
+                  {checked && <Input value={selectedComponents[key] || ""} onChange={e => updateQuantity(key, parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" placeholder="Qty" />}
+                </div>
+              );
+            })}
+            {Array.isArray(filteredSemiFinished) && filteredSemiFinished.length > 0 && <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30 border-t sticky top-0">Bahan Setengah Jadi</div>}
+            {Array.isArray(filteredSemiFinished) && filteredSemiFinished.map((sf: any) => {
+              const key = `semi_finished:${sf.id}`;
+              const checked = key in selectedComponents;
+              return (
+                <div key={key} className="flex items-center gap-2 px-3 py-2">
+                  <input type="checkbox" checked={checked} onChange={() => toggleComponent(key)} className="shrink-0" />
+                  <span className="flex-1 text-sm truncate">{sf.name}</span>
+                  <span className="text-[10px] text-muted-foreground shrink-0 mr-1">{sf.unit}</span>
+                  {checked && <Input value={selectedComponents[key] || ""} onChange={e => updateQuantity(key, parseFloat(e.target.value) || 0)} className="w-20 h-7 text-xs" placeholder="Qty" />}
+                </div>
+              );
+            })}
+          </>
         )}
       </div>
-    );
-  } catch (e: any) {
-    return <div className="p-4 text-red-600">BomPanel error: {e?.message || String(e)} {e?.stack || ""}</div>;
-  }
+
+      <div className="flex gap-2">
+        <Button onClick={saveRecipe} disabled={isSaving} className="flex-1">{isSaving ? "Menyimpan..." : "Simpan Resep"}</Button>
+      </div>
+
+      {Array.isArray(recipe) && recipe.length > 0 && (
+        <div className="border rounded-lg overflow-hidden">
+          <div className="px-3 py-1.5 text-[10px] font-semibold text-muted-foreground bg-muted/30">Resep Saat Ini</div>
+          {recipe.map((r: any, idx: number) => (
+            <div key={r.id || idx} className="flex items-center gap-2 px-3 py-2 border-t">
+              <div className="w-5 h-5 rounded bg-primary/10 text-primary flex items-center justify-center shrink-0"><PackagePlus className="w-3 h-3" /></div>
+              <span className="flex-1 text-sm">{r.componentName}</span>
+              <Badge variant="outline" className={`text-[9px] ${r.componentType === "semi_finished" ? "text-blue-600" : "text-slate-600"}`}>{r.componentType === "semi_finished" ? "Setengah Jadi" : "Bahan Baku"}</Badge>
+              <span className="text-xs font-medium">{r.quantity} {r.unit}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /* ──────────────────────────────────── */
