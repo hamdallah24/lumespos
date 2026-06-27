@@ -15,6 +15,13 @@
       "when": 1782508401187,
       "tag": "0001_chubby_rocket_raccoon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782900000000,
+      "tag": "0002_lively_sunset",
+      "breakpoints": true
     }
   ]
 }

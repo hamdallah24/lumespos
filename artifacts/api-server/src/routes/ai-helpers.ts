@@ -7,7 +7,8 @@ import { readdir, stat, readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname, resolve } from "path";
 import { promisify } from "util";
 const execP = promisify(exec);
-import { db, conversationsTable, messagesTable } from "@workspace/db";
+import { execSync } from "child_process";
+import { db, conversationsTable, messagesTable, sharedContextTable, checklistItemsTable } from "@workspace/db";
 import { eq, and, desc, sql, inArray } from "drizzle-orm";
 
 export const PROJECT_ROOT = resolve(process.cwd().includes("artifacts") ? "../.." : ".");
@@ -28,7 +29,7 @@ export const SSH_KEY_PATH = process.env.SSH_KEY_PATH || "";
 type ChatMsg = { role: "user" | "assistant"; content: string };
 const MAX_MEMORY = 10;
 
-async function getOrCreateConversation(userId: number, mode: string): Promise<number> {
+export async function getOrCreateConversation(userId: number, mode: string): Promise<number> {
   // Atomic upsert — no race condition: INSERT if not exists, RETURN id either way
   const result = await db.execute(
     sql`INSERT INTO ai_conversations (user_id, mode, created_at, updated_at)
@@ -36,7 +37,7 @@ async function getOrCreateConversation(userId: number, mode: string): Promise<nu
         ON CONFLICT (user_id, mode) DO UPDATE SET updated_at = NOW()
         RETURNING id`
   );
-  return result.rows[0].id;
+  return (result.rows[0] as any).id as number;
 }
 
 export async function getHistory(userId: number, mode: string): Promise<ChatMsg[]> {
@@ -94,6 +95,67 @@ export async function clearMemory(userId: number, mode: string) {
     }
   } catch (e) {
     console.error("[ai] DB clearMemory error:", e);
+  }
+}
+
+// ── SHARED CONTEXT (agent-to-agent communication) ──
+export async function saveSharedContext(userId: number, mode: string, summary: string) {
+  try {
+    await db.insert(sharedContextTable).values({ userId, mode, summary: summary.slice(0, 2000) });
+  } catch (e) {
+    console.error("[ai] DB saveSharedContext error:", e);
+  }
+}
+
+export async function getSharedContext(userId: number, limit = 5): Promise<string> {
+  try {
+    const rows = await db.select()
+      .from(sharedContextTable)
+      .where(eq(sharedContextTable.userId, userId))
+      .orderBy(desc(sharedContextTable.createdAt))
+      .limit(limit);
+    if (rows.length === 0) return "";
+    return rows.map(r => `[${r.mode}] ${r.summary}`).join("\n");
+  } catch (e) {
+    console.error("[ai] DB getSharedContext error:", e);
+    return "";
+  }
+}
+
+// ── CHECKLIST ITEMS ──
+export async function getChecklistItems(conversationId: number): Promise<{ itemKey: string; text: string; checked: boolean }[]> {
+  try {
+    const rows = await db.select()
+      .from(checklistItemsTable)
+      .where(eq(checklistItemsTable.conversationId, conversationId))
+      .orderBy(checklistItemsTable.createdAt);
+    return rows.map(r => ({ itemKey: r.itemKey, text: r.text, checked: r.checked }));
+  } catch (e) {
+    console.error("[ai] DB getChecklistItems error:", e);
+    return [];
+  }
+}
+
+export async function upsertChecklistItem(conversationId: number, itemKey: string, text: string, checked: boolean) {
+  try {
+    const existing = await db.select().from(checklistItemsTable)
+      .where(and(eq(checklistItemsTable.conversationId, conversationId), eq(checklistItemsTable.itemKey, itemKey)))
+      .limit(1);
+    if (existing.length > 0) {
+      await db.update(checklistItemsTable).set({ checked }).where(eq(checklistItemsTable.id, existing[0].id));
+    } else {
+      await db.insert(checklistItemsTable).values({ conversationId, itemKey, text, checked });
+    }
+  } catch (e) {
+    console.error("[ai] DB upsertChecklistItem error:", e);
+  }
+}
+
+export async function clearChecklistItems(conversationId: number) {
+  try {
+    await db.delete(checklistItemsTable).where(eq(checklistItemsTable.conversationId, conversationId));
+  } catch (e) {
+    console.error("[ai] DB clearChecklistItems error:", e);
   }
 }
 

@@ -152,7 +152,34 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
-const [checkedMap, setCheckedMap] = React.useState<Record<string, boolean>>({});
+  const [checkedMap, setCheckedMap] = React.useState<Record<string, boolean>>({});
+
+  // Load checklist dari DB
+  React.useEffect(() => {
+    if (open && mode === "cto") {
+      fetch(`/api/ai/checklist?mode=cto`, { credentials: "include" })
+        .then(r => r.json())
+        .then(data => {
+          if (data.items?.length > 0) {
+            const m: Record<string, boolean> = {};
+            data.items.forEach((item: any) => { m[item.itemKey] = item.checked; });
+            setCheckedMap(m);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [open, mode]);
+
+  // Save toggle ke DB
+  const toggleCheckbox = (key: string, newVal: boolean, convKey?: string) => {
+    setCheckedMap(prev => ({ ...prev, [key]: newVal }));
+    fetch("/api/ai/checklist/toggle", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() || "" },
+      body: JSON.stringify({ itemKey: key, checked: newVal, text: convKey || key, mode: "cto" }),
+    }).catch(() => {});
+  };
   const [openGroup, setOpenGroup] = React.useState<string | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -525,7 +552,7 @@ const [checkedMap, setCheckedMap] = React.useState<Record<string, boolean>>({});
                                 const key = `check-${i}-${j}-${li}`;
                                 const toggled = checkedMap[key] ?? checked;
                                 rendered.push(
-                                  <button key={key} onClick={() => setCheckedMap(prev => ({ ...prev, [key]: !toggled }))}
+                                  <button key={key} onClick={() => toggleCheckbox(key, !toggled)}
                                     className="flex items-start gap-2 w-full text-left py-0.5 group active:scale-[0.98] transition-transform"
                                   >
                                     <span className={`mt-0.5 w-4 h-4 shrink-0 rounded border-2 flex items-center justify-center text-[10px] font-bold transition-all ${

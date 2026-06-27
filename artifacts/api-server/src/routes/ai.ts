@@ -3,12 +3,12 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, mergeDeploy, getDependencies, checkRateLimit } from "./ai-helpers";
+import { callDeepSeek, callDeepSeekWithTools, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, mergeDeploy, getDependencies, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
-import { db, ingredientsTable, semiFinishedTable, productsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable } from "@workspace/db";
+import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -83,7 +83,10 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
   if (!aborted) {
     res.write(`data: ${JSON.stringify({ done: true, finalText: fullText })}\n\n`);
     res.end();
-    if (fullText) await remember(uid, "cto", clean, fullText);
+    if (fullText) {
+      await remember(uid, "cto", clean, fullText);
+      await saveSharedContext(uid, "cto", fullText.slice(0, 500));
+    }
   }
 }
 
@@ -344,7 +347,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         bangContext = clean + manifestBlock;
 
         // ── Pre-call: BANG explore repo with READ-ONLY tools (separate memory) ──
-        const exploreCtx = clean + manifestBlock + "\n\n⚠️ Gunakan tools read-only (listDirectory, readFile, searchContent) untuk eksplorasi file tambahan. JANGAN tulis/edit file — hanya BACA dan LAPORKAN file path relevan.";
+        const sharedCtx = await getSharedContext(uid);
+        const exploreCtx = clean + manifestBlock + (sharedCtx ? `\n\n--- KONTEKS DARI AGENT LAIN ---\n${sharedCtx}` : "") + "\n\n⚠️ Gunakan tools read-only (listDirectory, readFile, searchContent) untuk eksplorasi file tambahan. JANGAN tulis/edit file — hanya BACA dan LAPORKAN file path relevan.";
         const preResult = await callDeepSeekWithTools(
           BANG_ORCHESTRATOR, exploreCtx, uid, "cto_tools", EXPLORE_TOOLS, 2000
         );
@@ -405,6 +409,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
 
         res.json({ reply: reply || raw });
+        if (reply && reply.length > 20) await saveSharedContext(uid, "vps", reply.slice(0, 500));
         return;
       }
 
@@ -463,16 +468,130 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
                 const found = ings.find(i => i.name.toLowerCase().includes(n));
                 if (found) act.params.ingredientId = found.id;
               }
+              // ── New COO actions ──
+              if (act.action === "change_role") {
+                const { email, role } = act.params || {};
+                if (email && ["owner", "manager", "cashier"].includes(role)) {
+                  try {
+                    await db.update(usersTable).set({ role }).where(eq(usersTable.email, email));
+                    act._result = `✅ Role ${email} diubah menjadi ${role}.`;
+                  } catch {
+                    act._result = `❌ User dengan email ${email} tidak ditemukan.`;
+                  }
+                } else {
+                  act._result = "❌ Parameter email dan role (owner/manager/cashier) wajib diisi.";
+                }
+                continue;
+              }
+              if (act.action === "get_sales_summary") {
+                const period = (act.params?.period || "today") as string;
+                let dateFilter: Date;
+                const now = new Date();
+                if (period === "today") dateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                else if (period === "yesterday") dateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+                else if (period === "week") dateFilter = new Date(now.getTime() - 7 * 86400000);
+                else dateFilter = new Date(now.getTime() - 30 * 86400000);
+                const [sales] = await db.select({
+                  total: sum(ordersTable.total),
+                  count: sql<number>`count(*)::int`,
+                }).from(ordersTable)
+                  .where(and(
+                    eq(ordersTable.branchId, defaultBranchId),
+                    gte(ordersTable.createdAt, dateFilter),
+                  ));
+                const total = sales?.total ? parseFloat(sales.total as string) : 0;
+                const count = sales?.count || 0;
+                act._result = `📊 Penjualan (${period}): Rp ${total.toLocaleString("id-ID")} dari ${count} order.`;
+                continue;
+              }
+              if (act.action === "get_top_products") {
+                const period = (act.params?.period || "today") as string;
+                const limitN = (act.params?.limit || 5) as number;
+                let dateFilter: Date;
+                const now = new Date();
+                if (period === "today") dateFilter = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                else if (period === "week") dateFilter = new Date(now.getTime() - 7 * 86400000);
+                else dateFilter = new Date(now.getTime() - 30 * 86400000);
+                const rows = await db.select({
+                  name: productsTable.name,
+                  qty: sql<number>`sum(${orderItemsTable.quantity})::int`,
+                  total: sql<string>`sum(${orderItemsTable.subtotal})`,
+                }).from(orderItemsTable)
+                  .innerJoin(productsTable, eq(orderItemsTable.productId, productsTable.id))
+                  .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+                  .where(and(
+                    eq(ordersTable.branchId, defaultBranchId),
+                    gte(ordersTable.createdAt, dateFilter),
+                  ))
+                  .groupBy(productsTable.id, productsTable.name)
+                  .orderBy(sql`sum(${orderItemsTable.quantity}) desc`)
+                  .limit(limitN);
+                if (rows.length === 0) {
+                  act._result = `📊 Top produk (${period}): Belum ada data.`;
+                } else {
+                  act._result = `📊 Top ${limitN} produk (${period}):\n` + rows.map((r, i) =>
+                    `${i + 1}. ${r.name} — ${r.qty} pcs (Rp ${parseFloat(r.total || "0").toLocaleString("id-ID")})`
+                  ).join("\n");
+                }
+                continue;
+              }
+              if (act.action === "get_shift_audit") {
+                const rows = await db.select({
+                  id: shiftAuditsTable.id,
+                  shiftDate: shiftAuditsTable.createdAt,
+                  openingBalance: shiftAuditsTable.openingBalance,
+                  closingBalance: shiftAuditsTable.closingBalance,
+                  expectedBalance: shiftAuditsTable.expectedBalance,
+                  endingCupCount: shiftAuditsTable.endingCupCount,
+                  status: shiftAuditsTable.status,
+                }).from(shiftAuditsTable)
+                  .where(eq(shiftAuditsTable.branchId, defaultBranchId))
+                  .orderBy(desc(shiftAuditsTable.createdAt))
+                  .limit(1);
+                if (rows.length === 0) {
+                  act._result = "📋 Belum ada shift audit.";
+                } else {
+                  const r = rows[0];
+                  act._result = `📋 Shift terakhir:\nTanggal: ${r.shiftDate ? new Date(r.shiftDate).toLocaleDateString("id-ID") : "-"}\nSaldo awal: Rp ${parseFloat(r.openingBalance || "0").toLocaleString("id-ID")}\nSaldo akhir: Rp ${parseFloat(r.closingBalance || "0").toLocaleString("id-ID")}\nCup tersisa: ${r.endingCupCount || 0}\nStatus: ${r.status}`;
+                }
+                continue;
+              }
+              if (act.action === "get_inventory_status") {
+                const items = await db.select({
+                  name: semiFinishedTable.name,
+                  stock: currentInventoryTable.currentStock,
+                }).from(currentInventoryTable)
+                  .innerJoin(semiFinishedTable, and(
+                    eq(currentInventoryTable.itemId, semiFinishedTable.id),
+                    eq(currentInventoryTable.itemType, "semi_finished"),
+                  ))
+                  .where(eq(currentInventoryTable.branchId, defaultBranchId))
+                  .orderBy(desc(currentInventoryTable.currentStock))
+                  .limit(10);
+                if (items.length === 0) {
+                  act._result = "📦 Belum ada data stok.";
+                } else {
+                  act._result = "📦 Stok terkini (top 10):\n" + items.map(i =>
+                    `${i.name}: ${parseFloat(i.stock as string).toFixed(1)}`
+                  ).join("\n");
+                }
+                continue;
+              }
               if (act.action && act.action !== "general" && act.params) {
                 await executeOperation(act.action, act.params, defaultBranchId);
               }
             }
             reply = raw.replace(jsonMatch[0], "").trim();
             if (!reply && action.response) reply = action.response;
+            // Append action results
+            for (const act of actions) {
+              if (act._result) reply += `\n\n${act._result}`;
+            }
           } catch { /* invalid JSON — show raw */ }
         }
 
         res.json({ reply: reply || raw });
+        if (reply && reply.length > 20) await saveSharedContext(uid, "bisnis", reply.slice(0, 500));
         return;
       }
     }
@@ -506,6 +625,30 @@ router.post("/ai/deploy-merge", requireRole("owner"), async (req, res) => {
 
   sse("final", result.summary);
   res.end();
+});
+
+// ── CHECKLIST API ──
+router.get("/ai/checklist", requireRole("owner"), async (req, res) => {
+  try {
+    const convId = await getOrCreateConversation(req.user!.id, req.query.mode as string || "cto");
+    const items = await getChecklistItems(convId);
+    res.json({ items });
+  } catch { res.json({ items: [] }); }
+});
+
+router.post("/ai/checklist/toggle", requireRole("owner"), async (req, res) => {
+  try {
+    const { itemKey, checked, text, mode } = req.body as { itemKey: string; checked: boolean; text?: string; mode?: string };
+    const convId = await getOrCreateConversation(req.user!.id, mode || "cto");
+    await upsertChecklistItem(convId, itemKey, text || itemKey, checked);
+    res.json({ ok: true });
+  } catch { res.status(500).json({ error: "Gagal update checklist." }); }
+});
+
+// ── SHARED CONTEXT API (agent sync) ──
+router.get("/ai/shared-context", requireRole("owner"), async (req, res) => {
+  const ctx = await getSharedContext(req.user!.id, 10);
+  res.json({ context: ctx });
 });
 
 export default router;
