@@ -322,7 +322,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         return;
       }
 
-      // ── VPS (COO JSON translator like Bisnis) ──
+      // ── VPS (JSON mode — SSH actions) ──
       case "vps": {
         const lower = clean.toLowerCase();
         if (/deploy|git pull/i.test(lower)) {
@@ -331,76 +331,68 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
 
         const prompt = `${COO_SYSTEM}\n\nOwner (VPS): ${clean}`;
-        const raw = await callDeepSeek(prompt, clean, uid, "vps", 400);
+        const raw = await callDeepSeek(prompt, clean, uid, "vps", 400, true);
         if (raw.startsWith("ERROR:")) { res.json({ reply: raw }); return; }
         if (!raw) { res.json({ reply: "VPS agent sedang sibuk." }); return; }
 
         let reply = raw;
-        const jsonMatch = raw.match(/^\{[\s\S]+\}/);
-        if (jsonMatch) {
-          try {
-            const action = JSON.parse(jsonMatch[0]);
-            const actions = action.actions || (action.action ? [action] : []);
-            for (const act of actions) {
-              if (!act.action || !act.action.startsWith("ssh_")) continue;
-              let cmd = "";
-              if (act.action === "ssh_status") cmd = "pm2 status && echo '---' && free -m && echo '---' && uptime";
-              else if (act.action === "ssh_logs") cmd = "pm2 logs pos-api --lines 30 --nostream";
-              else if (act.action === "ssh_health") cmd = "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health && echo ' (200=OK)'";
-              else if (act.action === "ssh_ram") cmd = "free -m";
-              else if (act.action === "ssh_disk") cmd = "df -h /";
-              else if (act.action === "ssh_uptime") cmd = "uptime";
-              else if (act.action === "ssh_restart") cmd = "pm2 restart pos-api";
-              if (cmd) {
-                const result = await sshExec(cmd);
-                if (result) act._sshResult = result;
-              }
+        try {
+          const action = JSON.parse(raw);
+          const actions = action.actions || (action.action ? [action] : []);
+          for (const act of actions) {
+            if (!act.action || !act.action.startsWith("ssh_")) continue;
+            let cmd = "";
+            if (act.action === "ssh_status") cmd = "pm2 status && echo '---' && free -m && echo '---' && uptime";
+            else if (act.action === "ssh_logs") cmd = "pm2 logs pos-api --lines 30 --nostream";
+            else if (act.action === "ssh_health") cmd = "curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/health && echo ' (200=OK)'";
+            else if (act.action === "ssh_ram") cmd = "free -m";
+            else if (act.action === "ssh_disk") cmd = "df -h /";
+            else if (act.action === "ssh_uptime") cmd = "uptime";
+            else if (act.action === "ssh_restart") cmd = "pm2 restart pos-api";
+            if (cmd) {
+              const result = await sshExec(cmd);
+              if (result) act._sshResult = result;
             }
-            reply = raw.replace(jsonMatch[0], "").trim();
-            if (!reply && action.response) reply = action.response;
-            // Append SSH results if any
-            for (const act of actions) {
-              if (act._sshResult) reply += `\n\n\`\`\`\n${act._sshResult.slice(0, 2000)}\n\`\`\``;
-            }
-          } catch { /* invalid JSON */ }
-        }
+          }
+          reply = action.response || raw;
+          for (const act of actions) {
+            if (act._sshResult) reply += `\n\n\`\`\`\n${act._sshResult.slice(0, 2000)}\n\`\`\``;
+          }
+        } catch { /* invalid JSON */ }
 
         res.json({ reply: reply || raw });
         if (reply && reply.length > 20) await saveSharedContext(uid, "vps", reply.slice(0, 500));
         return;
       }
 
-      // ── BISNIS (COO JSON action + narration) ──
+      // ── BISNIS (COO JSON action — response_format json_object) ──
       case "bisnis":
       default: {
         const prompt = `${COO_SYSTEM}\n\nOwner: ${clean}`;
-        const raw = await callDeepSeek(prompt, clean, uid, "bisnis", 800);
+        const raw = await callDeepSeek(prompt, clean, uid, "bisnis", 800, true);
         if (raw.startsWith("ERROR:")) { res.json({ reply: raw }); return; }
         if (!raw) { res.json({ reply: "COO sedang sibuk. Coba lagi, bos." }); return; }
 
-        // Parse JSON action di baris 1 (single or array)
         let reply = raw;
-        const jsonMatch = raw.match(/^\{[\s\S]+\}/);
-        if (jsonMatch) {
-          try {
-            const action = JSON.parse(jsonMatch[0]);
-            const actions = action.actions || (action.action ? [action] : []);
-            for (const act of actions) {
-              // Resolve names → IDs before executing
-              if (act.params?.itemName) {
-                const [ings, semis] = await Promise.all([
-                  db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, defaultBranchId)),
-                  db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, defaultBranchId)),
-                ]);
-                const n = act.params.itemName.toLowerCase();
-                const found = ings.find(i => i.name.toLowerCase().includes(n))
-                  || semis.find(s => s.name.toLowerCase().includes(n));
-                if (found) {
-                  act.params.itemId = (found as any).id;
-                  act.params.itemType = "unit" in found ? (found as any).unit ? "ingredient" : "semi_finished" : "ingredient";
-                }
+        try {
+          const action = JSON.parse(raw);
+          const actions = action.actions || (action.action ? [action] : []);
+          for (const act of actions) {
+            // Resolve names → IDs before executing
+            if (act.params?.itemName) {
+              const [ings, semis] = await Promise.all([
+                db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, defaultBranchId)),
+                db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, defaultBranchId)),
+              ]);
+              const n = act.params.itemName.toLowerCase();
+              const found = ings.find(i => i.name.toLowerCase().includes(n))
+                || semis.find(s => s.name.toLowerCase().includes(n));
+              if (found) {
+                act.params.itemId = (found as any).id;
+                act.params.itemType = "unit" in found ? (found as any).unit ? "ingredient" : "semi_finished" : "ingredient";
               }
-              if (act.params?.productName) {
+            }
+            if (act.params?.productName) {
                 const prods = await db.select().from(productsTable).where(and(eq(productsTable.branchId, defaultBranchId), eq(productsTable.isActive, true)));
                 const n = act.params.productName.toLowerCase();
                 const found = prods.find(p => p.name.toLowerCase().includes(n));
@@ -555,19 +547,13 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
                 await executeOperation(act.action, act.params, defaultBranchId);
               }
             }
-            reply = raw.replace(jsonMatch[0], "").trim();
             // Collect hasil eksekusi
             const results: string[] = [];
             for (const act of actions) {
               if (act._result) results.push(act._result);
             }
-            if (results.length > 0) {
-              reply = results.join("\n\n");
-            } else if (!reply && action.response) {
-              reply = action.response;
-            }
-          } catch { /* invalid JSON — show raw */ }
-        }
+            reply = results.length > 0 ? results.join("\n\n") : (action.response || raw);
+          } catch { reply = raw; }
 
         res.json({ reply: reply || raw });
         if (reply && reply.length > 20) await saveSharedContext(uid, "bisnis", reply.slice(0, 500));

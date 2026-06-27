@@ -160,7 +160,7 @@ export async function clearChecklistItems(conversationId: number) {
 }
 
 // ── DEEPSEEK / SUMOPOD ──
-export async function callDeepSeek(system: string, user: string, userId: number, mode: string, maxTokens = 800): Promise<string> {
+export async function callDeepSeek(system: string, user: string, userId: number, mode: string, maxTokens = 800, jsonMode = false): Promise<string> {
   const key = process.env.DEEPSEEK_API_KEY;
   const base = process.env.DEEPSEEK_BASE_URL;
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
@@ -171,6 +171,9 @@ export async function callDeepSeek(system: string, user: string, userId: number,
     for (const h of history) messages.push(h);
     messages.push({ role: "user", content: user.slice(0, 5000) });
 
+    const body: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
+    if (jsonMode) body.response_format = { type: "json_object" };
+
     const controller = new AbortController();
     const tid = setTimeout(() => controller.abort(), 30000);
     let resp;
@@ -178,7 +181,7 @@ export async function callDeepSeek(system: string, user: string, userId: number,
       resp = await fetch(`${base}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model, messages, max_tokens: maxTokens, temperature: 0.7 }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
     } finally { clearTimeout(tid); }
