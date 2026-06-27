@@ -910,7 +910,7 @@ export const RequestUploadUrlBody = zod.object({
 
 
 export const RequestUploadUrlResponse = zod.object({
-  "uploadURL": zod.string().url(),
+  "uploadURL": zod.string().min(1),
   "objectPath": zod.string(),
   "metadata": zod.object({
   "name": zod.string().min(1),
