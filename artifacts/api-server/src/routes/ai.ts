@@ -201,6 +201,20 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             sse(evt.step, evt.detail);
           }, prefetched);
 
+          // SSH pull ke VPS setelah commit sukses
+          const isSuccess = /✅|committed|sukses|berhasil/i.test(reply);
+          if (!aborted && isSuccess) {
+            sse("pull", "🔄 Menarik kode ke VPS...");
+            try {
+              const pullResult = await sshExec("cd ~/lumespos && git pull origin Staging");
+              sse("pull", pullResult.includes("Already up to date") || pullResult.includes("Updating")
+                ? `✅ VPS sudah sinkron dengan Staging.\n${pullResult.slice(0, 200)}`
+                : `⚠️ Hasil pull VPS:\n${pullResult.slice(0, 200)}`);
+            } catch {
+              sse("pull", "⚠️ Gagal SSH pull ke VPS. Lakukan manual: cd ~/lumespos && git pull origin Staging");
+            }
+          }
+
           // Final response
           if (!aborted) {
             res.write(`data: ${JSON.stringify({ step: "final", detail: reply })}\n\n`);
