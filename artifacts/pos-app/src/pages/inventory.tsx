@@ -39,7 +39,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/csrf";
-import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle, ClipboardCheck, ChevronRight, ChevronLeft, Pencil } from "lucide-react";
+import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle, ClipboardCheck, ChevronRight, ChevronLeft, Pencil, Copy } from "lucide-react";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { motion } from "framer-motion";
 
@@ -50,12 +51,16 @@ function isLow(item: { currentStock: number; minimalStock?: number | null }): bo
 
 export default function InventoryPage() {
   const { branchId } = useBranch();
+  const { branches } = useBranch();
+  const [migrateOpen, setMigrateOpen] = useState(false);
   return (
     <div className="flex flex-col h-full">
       <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mt-3">
         <h1 className="font-bold text-lg tracking-tight">Stok & Bahan</h1>
         <Badge variant="outline" className="ml-3 text-xs">Multi-Cabang</Badge>
+        <button onClick={() => setMigrateOpen(true)} className="ml-auto shrink-0 h-9 px-3 rounded-xl bg-primary/10 text-primary text-xs font-medium flex items-center gap-1.5 active:scale-[0.97] transition-transform"><Copy className="w-3.5 h-3.5" /> Migrasi Data</button>
       </div>
+      <MigrateDialog open={migrateOpen} onOpenChange={setMigrateOpen} branches={branches} onComplete={() => window.location.reload()} />
       <Tabs defaultValue="stock" className="flex-1 flex flex-col min-h-0">
         <div className="px-4 md:px-6 pt-3 md:pt-4 shrink-0 overflow-hidden">
           <TabsList className="flex-wrap h-auto">
@@ -946,5 +951,123 @@ function Empty({ icon: Icon, text }: { icon: React.ElementType; text: string }) 
       <Icon className="w-10 h-10 mx-auto mb-2 opacity-20" />
       <p className="text-sm">{text}</p>
     </div>
+  );
+}
+
+function MigrateDialog({ open, onOpenChange, branches, onComplete }: { open: boolean; onOpenChange: (v: boolean) => void; branches: { id: number; name: string }[]; onComplete: () => void }) {
+  const [sourceId, setSourceId] = useState("");
+  const [targetId, setTargetId] = useState("");
+  const [includeIngredients, setIncludeIngredients] = useState(true);
+  const [includeSemiFinished, setIncludeSemiFinished] = useState(true);
+  const [includeProducts, setIncludeProducts] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<Record<string, number> | null>(null);
+  const [error, setError] = useState("");
+
+  const doMigrate = async () => {
+    if (!sourceId || !targetId) { toast.error("Pilih sumber dan target cabang"); return; }
+    if (sourceId === targetId) { toast.error("Sumber dan target harus berbeda"); return; }
+    setLoading(true); setError(""); setStats(null);
+    try {
+      const res = await apiFetch("/api/admin/migrate-branch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sourceBranchId: Number(sourceId),
+          targetBranchId: Number(targetId),
+          includeIngredients,
+          includeSemiFinished,
+          includeProducts,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error || "Gagal migrasi"); return; }
+      setStats(data.stats);
+      toast.success("Migrasi berhasil!");
+    } catch (e: any) {
+      setError(e.message || "Gagal terhubung ke server");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const targetBranches = branches.filter((b) => String(b.id) !== sourceId);
+  if (!sourceId && branches.length > 0) {
+    const first = branches[0];
+    const second = branches.length > 1 ? branches[1] : null;
+    if (sourceId === "" && first) setSourceId(String(first.id));
+    if (second && targetId === "") setTargetId(String(second.id));
+    if (!second && first) setTargetId("");
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm mx-4">
+        <DialogHeader>
+          <DialogTitle className="text-base flex items-center gap-2"><Copy className="w-4 h-4" /> Migrasi Data Cabang</DialogTitle>
+          <DialogDescription className="text-xs">Salin data dari satu cabang ke cabang lainnya. Stok tetap terpisah per cabang.</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <div className="space-y-1.5">
+            <Label className="text-xs">Sumber Cabang</Label>
+            <Select value={sourceId} onValueChange={(v) => { setSourceId(v); if (v === targetId) setTargetId(""); }}>
+              <SelectTrigger><SelectValue placeholder="Pilih cabang sumber" /></SelectTrigger>
+              <SelectContent>
+                {branches.map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Target Cabang</Label>
+            <Select value={targetId} onValueChange={setTargetId}>
+              <SelectTrigger><SelectValue placeholder="Pilih cabang target" /></SelectTrigger>
+              <SelectContent>
+                {targetBranches.map((b) => <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2 pt-2 border-t">
+            <p className="text-xs font-medium">Data yang akan disalin:</p>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={includeIngredients} onChange={(e) => setIncludeIngredients(e.target.checked)} />
+              <span className="text-sm">Bahan Baku</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={includeSemiFinished} onChange={(e) => setIncludeSemiFinished(e.target.checked)} />
+              <span className="text-sm">Setengah Jadi</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={includeProducts} onChange={(e) => setIncludeProducts(e.target.checked)} />
+              <span className="text-sm">Menu Produk & Varian</span>
+            </label>
+          </div>
+
+          {error && <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-xs">{error}</div>}
+
+          {stats && (
+            <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 text-xs space-y-1">
+              <p className="font-medium text-primary">Migrasi selesai!</p>
+              {stats.ingredients > 0 && <p>Bahan Baku: {stats.ingredients}</p>}
+              {stats.semiFinished > 0 && <p>Setengah Jadi: {stats.semiFinished}</p>}
+              {stats.products > 0 && <p>Produk: {stats.products}</p>}
+              {stats.variants > 0 && <p>Varian: {stats.variants}</p>}
+              {stats.recipes > 0 && <p>Resep BOM: {stats.recipes}</p>}
+              {stats.inventory > 0 && <p>Stok: {stats.inventory}</p>}
+              {Object.values(stats).every((v) => v === 0) && <p>Tidak ada data baru yang disalin (semua sudah ada di target).</p>}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          {stats ? (
+            <Button onClick={() => { onOpenChange(false); onComplete(); }} className="w-full">Tutup</Button>
+          ) : (
+            <Button onClick={doMigrate} disabled={loading || !sourceId || !targetId} className="w-full">
+              {loading ? "Memproses..." : "Mulai Migrasi"}
+            </Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
