@@ -203,6 +203,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
           // SSH pull ke VPS setelah commit sukses
           const isSuccess = /✅|committed|sukses|berhasil/i.test(reply);
+          let finalReply = reply;
           if (!aborted && isSuccess) {
             sse("pull", "🔄 Menarik kode ke VPS...");
             try {
@@ -213,13 +214,14 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             } catch {
               sse("pull", "⚠️ Gagal SSH pull ke VPS. Lakukan manual: cd ~/lumespos && git pull origin Staging");
             }
+            finalReply += `\n\n📋 **Langkah selanjutnya:**\n1. Merge Staging → main: \`git checkout main && git merge Staging && git push origin main\`\n2. Restart VPS: \`cd ~/lumespos && git pull origin main && pnpm --filter ./artifacts/api-server run build && pm2 restart pos-api\`\nAtau bilang "merge" biar saya eksekusi via tool.`;
           }
 
           // Final response
           if (!aborted) {
-            res.write(`data: ${JSON.stringify({ step: "final", detail: reply })}\n\n`);
+            res.write(`data: ${JSON.stringify({ step: "final", detail: finalReply })}\n\n`);
             res.end();
-            await remember(uid, m, clean, reply);
+            await remember(uid, m, clean, finalReply);
           }
           return;
         }
