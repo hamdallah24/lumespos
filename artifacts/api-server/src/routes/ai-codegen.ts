@@ -25,7 +25,7 @@ const GH_JSON_HEADERS = {
 // 1. CODEGEN SYSTEM PROMPT
 // ─────────────────────────────────────────────────────────────
 const CODEGEN_PROMPT = `Kamu Code Generator Lume's POS (React+Express+Drizzle+PostgreSQL). Repo: hamdallah24/lumespos, branch: Staging.
-OUTPUT WAJIB — JSON SEARCH-AND-REPLACE (no markdown, no backticks):
+OUTPUT HANYA JSON (response_format json_object):
 {"files":[{"path":"artifacts/pos-app/src/components/Foo.tsx","edits":[{"search":"teks persis","replace":"teks baru"}],"commit_message":"feat: deskripsi"}]}
 
   ATURAN:
@@ -354,22 +354,20 @@ ${fileContent ? `EDIT FILE INI: ${targetPath} (SUDAH ada — WAJIB search & repl
 ${Object.keys(prefetchedFiles || {}).length > 0 ? `FILE LAIN TERSEDIA: ${Object.keys(prefetchedFiles!).filter(p => p !== targetPath).join(", ")}` : ""}
 BRANCH: ${BRANCH}`;
 
-  let rawOutput = await callDeepSeek(fullSystem, userCtx, userId, "codegen", 2000);
+  let rawOutput = await callDeepSeek(fullSystem, userCtx, userId, "codegen", 2000, true);
 
   // ── PHASE 3: Parse + Validate + Repair (max 2 attempts) ──
   log("validate", "🔍 Memeriksa kode yg dihasilkan (format, bracket, pencocokan)...");
   let parsed: GenOutput;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      let cleaned = rawOutput.trim();
-      cleaned = cleaned.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "");
-      parsed = JSON.parse(cleaned);
+      parsed = JSON.parse(rawOutput.trim());
     } catch {
       if (attempt < 2) {
         log("retry", "Format kode tidak valid — minta AI perbaiki...");
         rawOutput = await callDeepSeek(fullSystem,
           `${userCtx}\n\nOUTPUT SEBELUMNYA INVALID JSON. Coba lagi dengan format JSON yang benar.`,
-          userId, "codegen", 2000);
+          userId, "codegen", 2000, true);
         continue;
       }
       log("error", "AI tidak bisa menghasilkan kode yg valid. Coba lagi dengan deskripsi yg lebih spesifik.");
@@ -381,7 +379,7 @@ BRANCH: ${BRANCH}`;
         log("retry", "AI minta konteks lebih — dipaksa coba lagi...");
         rawOutput = await callDeepSeek(fullSystem,
           `${userCtx}\n\nKAMU BILANG "needs_more_context". JANGAN — COBA generate kode apapun. Gunakan informasi yg sudah ada. Validator akan cek nanti.`,
-          userId, "codegen", 2000);
+          userId, "codegen", 2000, true);
         continue;
       }
       log("error", "AI tetap tidak bisa generate — beri deskripsi lebih detail.");
@@ -397,7 +395,7 @@ BRANCH: ${BRANCH}`;
       log("retry", `AI buat file baru "${files[0].path}" — harusnya edit "${targetPath}". Dipaksa ulang...`);
       rawOutput = await callDeepSeek(fullSystem,
         `${userCtx}\n\nSALAH! Kamu buat file baru "${files[0].path}". File "${targetPath}" SUDAH disediakan isinya di system prompt. EDIT file itu pakai search & replace. JANGAN buat file baru!`,
-        userId, "codegen", 2000);
+        userId, "codegen", 2000, true);
       continue;
     }
 
@@ -433,7 +431,7 @@ BRANCH: ${BRANCH}`;
           log("retry", `TypeScript error: "${shortErr}" — minta AI perbaiki tipe...`);
           rawOutput = await callDeepSeek(fullSystem,
             `${userCtx}\n\nTypeCheck GAGAL:\n${tscErr.slice(0, 1500)}\n\nPerbaiki. Pastikan import benar, tipe valid, tidak ada properti yg tidak ada.`,
-            userId, "codegen", 2000);
+            userId, "codegen", 2000, true);
           continue;
         }
         log("error", `Gagal — kode tidak lulus TypeCheck. Masalah: ${shortErr}. Coba ulang dengan deskripsi lebih jelas.`);
@@ -473,7 +471,7 @@ BRANCH: ${BRANCH}`;
       log("retry", `Kode belum sesuai: ${humanErr.slice(0, 120)} (dicoba lagi)...`);
       rawOutput = await callDeepSeek(fullSystem,
         `${userCtx}\n\nVALIDASI GAGAL dengan error:\n${errList}\n\nPerbaiki output kamu.`,
-        userId, "codegen", 2000);
+        userId, "codegen", 2000, true);
       continue;
     }
 
