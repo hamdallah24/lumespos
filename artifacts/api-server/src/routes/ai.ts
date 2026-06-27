@@ -241,118 +241,65 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           return;
         }
 
-        // Baca file — local VPS first, GitHub fallback, multi-path search
-        let bacaContent = "";
-        if (/baca\s+(file\s+)?\S+\.[a-z]+/i.test(lower) || /lihat\s+(file\s+)?\S+/i.test(lower)) {
-          const fileMatch = lower.match(/(?:baca|lihat|read)\s+(?:file\s+)?(\S+\.\w+)/i);
-          if (fileMatch) {
-            const rawPath = fileMatch[1];
-            const possiblePaths = [rawPath,
-              `artifacts/pos-app/src/components/${rawPath}`, `artifacts/pos-app/src/pages/${rawPath}`, `artifacts/pos-app/src/${rawPath}`,
-              `artifacts/api-server/src/routes/${rawPath}`, `artifacts/api-server/src/${rawPath}`, `artifacts/api-server/src/middlewares/${rawPath}`,
-              `artifacts/api-server/src/services/${rawPath}`, `lib/db/src/schema/${rawPath}`, `lib/db/src/${rawPath}`,
-            ];
-            for (const p of possiblePaths) {
-              const content = await readLocalFile(p, 5000);
-              if (content && !content.startsWith("Error:")) {
-                bacaContent = `📄 ${p} (lokal):\n\`\`\`\n${content}\n\`\`\`` + (content.length >= 5000 ? `\n\n...dipotong` : "");
-                break;
-              }
-              const result = await fetchGitHubFile(p, "main");
-              if (result.content) {
-                bacaContent = `📄 ${p} (GitHub):\n\`\`\`\n${result.content.slice(0, 3000)}\n\`\`\`` + (result.content.length > 3000 ? `\n\n...dipotong` : "");
-                break;
-              }
-            }
-            if (!bacaContent) {
-              res.json({ reply: `❌ File "${rawPath}" tidak ditemukan di lokasi manapun. Coba pakai path lengkap (misal: artifacts/api-server/src/routes/ai.ts)` });
-              return;
-            }
-            // If user ALSO asks for analysis, append to context instead of returning raw
-            if (/analisa|analisis|analys|cek|periksa|review/i.test(lower)) {
-              // Don't return — content will be prepended to bangContext below
-            } else {
-              res.json({ reply: bacaContent });
-              return;
-            }
-          }
-        }
-
-        // List direktori — local VPS first
-        if (/list\s+(?:direktori|directory|folder|struktur)/i.test(lower)) {
-          const dirMatch = lower.match(/(?:list\s+(?:direktori|directory|folder|struktur)\s+)?(\S+)/i);
-          const dir = dirMatch ? dirMatch[1].replace(/(list|direktori|directory|folder|struktur)/i, "").trim() : "";
-          const listing = await listLocalDir(dir || ".");
-          if (listing && !listing.startsWith("Error:")) {
-            res.json({ reply: `📁 ${dir || "."} (lokal):\n${listing}` }); return;
-          }
-          res.json({ reply: `❌ Direktori "${dir || "."}" tidak ditemukan.` });
-          return;
-        }
-
         // Auto-fetch relevant files for BANG + specialists
         let bangContext = clean;
-        if (bacaContent) bangContext = `[ISI FILE]:\n${bacaContent}\n\n---\n${clean}`;
         const fetchedPairs: string[] = [];
         const fetchedPaths: string[] = [];
         let manifestBlock = "";
-        // Only auto-fetch if not a simple "baca" without analysis request
-        if (!/baca\s+|lihat\s+|read\s+/i.test(clean) || /\b(analisa|analisis|analys|cek|periksa|review)\b/i.test(clean)) {
-          // Detect file mentions (.tsx, .ts, .json)
-          const fileRefs = clean.match(/(\w+\.[a-z]{2,4})/gi);
-          if (fileRefs) {
-            const refResults = await Promise.all(fileRefs.slice(0, 3).map(async (ref) => {
-              const paths = [
-                `artifacts/pos-app/src/components/${ref}`,
-                `artifacts/pos-app/src/${ref}`,
-                `artifacts/api-server/src/routes/${ref}`,
-                `artifacts/api-server/src/${ref}`,
-                `artifacts/api-server/src/middlewares/${ref}`,
-                ref,
-              ];
-              const results = await Promise.all(paths.map(p => fetchGitHubFile(p, "main")));
-              for (let i = 0; i < results.length; i++) {
-                if (results[i].content) return { path: paths[i], content: results[i].content };
-              }
-              return null;
-            }));
-            for (const r of refResults) {
-              if (r) {
-                fetchedPaths.push(r.path);
-                fetchedPairs.push(`\n\n[FILE: ${r.path}]:\n\`\`\`\n${r.content.slice(0, 2500)}\n\`\`\``);
-              }
+        // Detect file mentions (.tsx, .ts, .json)
+        const fileRefs = clean.match(/(\w+\.[a-z]{2,4})/gi);
+        if (fileRefs) {
+          const refResults = await Promise.all(fileRefs.slice(0, 3).map(async (ref) => {
+            const paths = [
+              `artifacts/pos-app/src/components/${ref}`,
+              `artifacts/pos-app/src/${ref}`,
+              `artifacts/api-server/src/routes/${ref}`,
+              `artifacts/api-server/src/${ref}`,
+              `artifacts/api-server/src/middlewares/${ref}`,
+              ref,
+            ];
+            const results = await Promise.all(paths.map(p => fetchGitHubFile(p, "main")));
+            for (let i = 0; i < results.length; i++) {
+              if (results[i].content) return { path: paths[i], content: results[i].content };
+            }
+            return null;
+          }));
+          for (const r of refResults) {
+            if (r) {
+              fetchedPaths.push(r.path);
+              fetchedPairs.push(`\n\n[FILE: ${r.path}]:\n\`\`\`\n${r.content.slice(0, 2500)}\n\`\`\``);
             }
           }
-          // Dynamic search
-          const relevantPaths = await searchRepoFiles(clean);
-          const seen = new Set(fetchedPaths);
-          const unseen = relevantPaths.filter(p => !seen.has(p));
-          const need = Math.min(8 - fetchedPairs.length, unseen.length);
-          if (need > 0) {
-            const targets = unseen.slice(0, need);
-            const searchResults = await Promise.all(targets.map(p => fetchGitHubFile(p, "main")));
-            for (let i = 0; i < searchResults.length && fetchedPairs.length < 8; i++) {
-              const r = searchResults[i];
-              if (r.content && r.content.length > 10) {
-                fetchedPaths.push(targets[i]);
-                fetchedPairs.push(`\n\n[FILE: ${targets[i]}]:\n\`\`\`\n${r.content.slice(0, 2000)}\n\`\`\``);
-                seen.add(targets[i]);
-              }
+        }
+        // Dynamic search
+        const relevantPaths = await searchRepoFiles(clean);
+        const seen = new Set(fetchedPaths);
+        const unseen = relevantPaths.filter(p => !seen.has(p));
+        const need = Math.min(8 - fetchedPairs.length, unseen.length);
+        if (need > 0) {
+          const targets = unseen.slice(0, need);
+          const searchResults = await Promise.all(targets.map(p => fetchGitHubFile(p, "main")));
+          for (let i = 0; i < searchResults.length && fetchedPairs.length < 8; i++) {
+            const r = searchResults[i];
+            if (r.content && r.content.length > 10) {
+              fetchedPaths.push(targets[i]);
+              fetchedPairs.push(`\n\n[FILE: ${targets[i]}]:\n\`\`\`\n${r.content.slice(0, 2000)}\n\`\`\``);
+              seen.add(targets[i]);
             }
           }
-          if (fetchedPaths.length > 0) {
-            const depResults = await Promise.all(fetchedPaths.map(async (p) => ({ p, deps: await getDependencies(p) })));
-            const depMap = new Map(depResults.map(r => [r.p, r.deps]));
-            const manifestLines = fetchedPaths.map((p, i) => {
-              const dir = p.split("/").slice(0, -1).pop() || "";
-              const deps = depMap.get(p) || "";
-              const depLine = deps && !deps.startsWith("Error:") && deps !== "(no internal imports)"
-                ? `\n     @deps:[${deps.split("\n").map(d => d.replace(/^\s+→\s*/, "").trim()).join(", ")}]`
-                : "";
-              return `${i + 1}. ${p}   → ${dir}${depLine}`;
-            }).join("\n");
-            manifestBlock = `\n\n═══════════════════════════════════\n📋 FILE YANG TERSEDIA (sistem sudah membaca isinya):\n${manifestLines}\n═══════════════════════════════════\n` + fetchedPairs.join("");
-          }
+        }
+        if (fetchedPaths.length > 0) {
+          const depResults = await Promise.all(fetchedPaths.map(async (p) => ({ p, deps: await getDependencies(p) })));
+          const depMap = new Map(depResults.map(r => [r.p, r.deps]));
+          const manifestLines = fetchedPaths.map((p, i) => {
+            const dir = p.split("/").slice(0, -1).pop() || "";
+            const deps = depMap.get(p) || "";
+            const depLine = deps && !deps.startsWith("Error:") && deps !== "(no internal imports)"
+              ? `\n     @deps:[${deps.split("\n").map(d => d.replace(/^\s+→\s*/, "").trim()).join(", ")}]`
+              : "";
+            return `${i + 1}. ${p}   → ${dir}${depLine}`;
+          }).join("\n");
+          manifestBlock = `\n\n═══════════════════════════════════\n📋 FILE YANG TERSEDIA (sistem sudah membaca isinya):\n${manifestLines}\n═══════════════════════════════════\n` + fetchedPairs.join("");
         }
         bangContext = clean + manifestBlock;
 
