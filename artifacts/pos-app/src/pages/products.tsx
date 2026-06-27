@@ -497,7 +497,7 @@ export default function ProductsPage() {
   const [isLoadingVariants, setIsLoadingVariants] = useState(false);
 
   const { data: categories = [] } = useListCategories();
-  const { data: products = [], isLoading, refetch } = useListProducts({ branchId: branchId ?? 0, ...(filterCategory !== "all" ? { categoryId: Number(filterCategory) } : {}) } as any);
+  const { data: products = [], isLoading, refetch } = useListProducts({ branchId: branchId ?? undefined, ...(filterCategory !== "all" ? { categoryId: Number(filterCategory) } : {}) } as any, { query: { enabled: branchId != null } });
 
   const filtered = products.filter(p => !search || p.name.toLowerCase().includes(search.toLowerCase()));
 
