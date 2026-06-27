@@ -154,36 +154,126 @@ router.post("/admin/migrate-branch", requireRole("owner", "manager"), async (req
         stats.variants = count;
       }
 
-      // 5. Recipes (BOM) — copy recipes for products and semi_finished
-      const hasProductRecipes = includeProducts && prodMap.size > 0;
-      const hasSfRecipes = includeSemiFinished && sfMap.size > 0;
-
-      if (hasProductRecipes || hasSfRecipes) {
-        const srcRecipes = await tx
+      // 5. Recipes (BOM) — auto-resolve dependencies and copy
+      if (includeProducts) {
+        // Fetch all product recipes from source branch products
+        const prodKeys = Array.from(prodMap.keys());
+        const srcRecipes = prodKeys.length > 0 ? await tx
           .select()
           .from(recipesTable)
           .where(
             and(
               eq(recipesTable.parentType, "product"),
-              inArray(recipesTable.parentId, Array.from(prodMap.keys()))
+              inArray(recipesTable.parentId, prodKeys)
             )
-          );
+          ) : [];
 
-        if (includeSemiFinished && sfMap.size > 0) {
-          const sfRecipes = await tx
+        // Also get semi_finished recipes if semi_finished items exist
+        let sfRecipeRows: typeof srcRecipes = [];
+        if (sfMap.size > 0) {
+          const sfKeys = Array.from(sfMap.keys());
+          sfRecipeRows = await tx
             .select()
             .from(recipesTable)
             .where(
               and(
                 eq(recipesTable.parentType, "semi_finished"),
-                inArray(recipesTable.parentId, Array.from(sfMap.keys()))
+                inArray(recipesTable.parentId, sfKeys)
               )
             );
-          srcRecipes.push(...sfRecipes);
         }
 
+        const allRecipes = [...srcRecipes, ...sfRecipeRows];
+
+        // Collect all required component IDs that aren't yet mapped
+        const missingSfIds = new Set<number>();
+        const missingIngIds = new Set<number>();
+
+        for (const r of allRecipes) {
+          if (r.componentType === "semi_finished" && !sfMap.has(r.componentId)) {
+            missingSfIds.add(r.componentId);
+          }
+          if (r.componentType === "ingredient" && !ingMap.has(r.componentId)) {
+            missingIngIds.add(r.componentId);
+          }
+        }
+
+        // Auto-copy missing semi_finished items to target branch
+        if (missingSfIds.size > 0) {
+          const missingSfRows = await tx
+            .select()
+            .from(semiFinishedTable)
+            .where(
+              and(
+                eq(semiFinishedTable.branchId, sourceBranchId),
+                inArray(semiFinishedTable.id, Array.from(missingSfIds))
+              )
+            );
+          for (const sf of missingSfRows) {
+            const [existing] = await tx
+              .select()
+              .from(semiFinishedTable)
+              .where(and(eq(semiFinishedTable.branchId, targetBranchId), eq(semiFinishedTable.name, sf.name)));
+            if (existing) {
+              sfMap.set(sf.id, existing.id);
+            } else {
+              const [created] = await tx
+                .insert(semiFinishedTable)
+                .values({
+                  branchId: targetBranchId,
+                  name: sf.name,
+                  unit: sf.unit,
+                  yieldQuantity: sf.yieldQuantity,
+                  yieldUnit: sf.yieldUnit,
+                  costPricePerUnit: sf.costPricePerUnit,
+                  trackInShift: sf.trackInShift,
+                })
+                .returning();
+              sfMap.set(sf.id, created.id);
+              stats.semiFinished = (stats.semiFinished || 0) + 1;
+            }
+          }
+        }
+
+        // Auto-copy missing ingredients to target branch
+        if (missingIngIds.size > 0) {
+          const missingIngRows = await tx
+            .select()
+            .from(ingredientsTable)
+            .where(
+              and(
+                eq(ingredientsTable.branchId, sourceBranchId),
+                inArray(ingredientsTable.id, Array.from(missingIngIds))
+              )
+            );
+          for (const ing of missingIngRows) {
+            const [existing] = await tx
+              .select()
+              .from(ingredientsTable)
+              .where(and(eq(ingredientsTable.branchId, targetBranchId), eq(ingredientsTable.name, ing.name)));
+            if (existing) {
+              ingMap.set(ing.id, existing.id);
+            } else {
+              const [created] = await tx
+                .insert(ingredientsTable)
+                .values({
+                  branchId: targetBranchId,
+                  name: ing.name,
+                  unit: ing.unit,
+                  costPricePerUnit: ing.costPricePerUnit,
+                  minimalStock: ing.minimalStock,
+                  trackInShift: ing.trackInShift,
+                })
+                .returning();
+              ingMap.set(ing.id, created.id);
+              stats.ingredients = (stats.ingredients || 0) + 1;
+            }
+          }
+        }
+
+        // Now copy all recipes with resolved IDs
         let count = 0;
-        for (const r of srcRecipes) {
+        for (const r of allRecipes) {
           const newParentId = r.parentType === "product"
             ? prodMap.get(r.parentId)
             : sfMap.get(r.parentId);
