@@ -285,7 +285,7 @@ export default function CashierPage() {
                 >
                   <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
                     {product.imageUrl ? (
-                      <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                      <img src={product.imageUrl.startsWith("http") ? product.imageUrl : `/api/storage${product.imageUrl}`} alt={product.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-background flex items-center justify-center text-muted-foreground font-bold text-lg md:text-2xl shadow-sm">
                         {product.name.charAt(0)}
