@@ -468,6 +468,23 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
                 const found = ings.find(i => i.name.toLowerCase().includes(n));
                 if (found) act.params.ingredientId = found.id;
               }
+              // Resolve component names in bulk recipe
+              if (act.params?.components && Array.isArray(act.params.components)) {
+                const [ings, semis] = await Promise.all([
+                  db.select().from(ingredientsTable).where(eq(ingredientsTable.branchId, defaultBranchId)),
+                  db.select().from(semiFinishedTable).where(eq(semiFinishedTable.branchId, defaultBranchId)),
+                ]);
+                for (const comp of act.params.components) {
+                  const cName = (comp.componentName || comp.ingredientName || "").toLowerCase();
+                  if (!cName) continue;
+                  const found = ings.find(i => i.name.toLowerCase().includes(cName))
+                    || semis.find(s => s.name.toLowerCase().includes(cName));
+                  if (found) {
+                    comp.componentId = (found as any).id;
+                    comp.componentType = (found as any).unit ? "ingredient" : "semi_finished";
+                  }
+                }
+              }
               // ── New COO actions ──
               if (act.action === "change_role") {
                 const { email, role } = act.params || {};

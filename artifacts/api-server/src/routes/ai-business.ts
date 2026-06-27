@@ -96,6 +96,18 @@ export async function executeOperation(action: string, params: Record<string, an
       return "ok";
     }
 
+    case "add_semi_finished": {
+      const { name, unit, yieldQuantity, yieldUnit } = params;
+      if (!name) return "Nama tidak boleh kosong.";
+      await db.insert(semiFinishedTable).values({
+        branchId: bid, name,
+        unit: unit || "gram",
+        yieldQuantity: yieldQuantity || 1,
+        yieldUnit: yieldUnit || "pcs",
+      });
+      return "ok";
+    }
+
     case "add_ingredient": {
       const { name, unit } = params;
       if (!name) return "Nama bahan tidak boleh kosong.";
@@ -132,8 +144,23 @@ export async function executeOperation(action: string, params: Record<string, an
     }
 
     case "add_recipe": {
-      const { parentType, parentId, ingredientId, quantity, componentType } = params;
-      if (!parentType || !parentId || !ingredientId || !quantity) return "Parameter tidak lengkap.";
+      const { parentType, parentId, components, ingredientId, quantity, componentType } = params;
+      if (!parentType || !parentId) return "Parameter tidak lengkap.";
+      if (components && Array.isArray(components)) {
+        await db.transaction(async (tx) => {
+          for (const comp of components) {
+            if (!comp.componentId || !comp.quantity) continue;
+            await tx.insert(recipesTable).values({
+              parentType, parentId,
+              componentType: comp.componentType || "ingredient",
+              componentId: comp.componentId,
+              quantity: String(comp.quantity),
+            });
+          }
+        });
+        return "ok";
+      }
+      if (!ingredientId || !quantity) return "Parameter tidak lengkap.";
       await db.insert(recipesTable).values({
         parentType, parentId, componentType: componentType || "ingredient", componentId: ingredientId, quantity: String(quantity),
       });
