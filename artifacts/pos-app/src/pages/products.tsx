@@ -346,14 +346,20 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
 
     setUploading(true);
     try {
+      console.log("[upload] Step 1: request upload URL");
       const urlRes = await apiFetch("/api/storage/uploads/request-url", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: file.name, contentType: file.type || "image/jpeg", size: file.size }),
       });
-      if (!urlRes.ok) throw new Error("Gagal mendapatkan URL upload");
+      if (!urlRes.ok) {
+        const errText = await urlRes.text().catch(() => "");
+        console.error("[upload] POST request-url failed:", urlRes.status, errText.slice(0, 200));
+        throw new Error(`Gagal mendapatkan URL upload (${urlRes.status})`);
+      }
       const { uploadURL, objectPath } = await urlRes.json();
+      console.log("[upload] Step 2: PUT file to", uploadURL);
 
       const putRes = await fetch(uploadURL, {
         method: "PUT",
@@ -361,11 +367,17 @@ function ProductFormDialog({ open, onOpenChange, product, categories, onProductC
         headers: { "Content-Type": file.type || "image/jpeg" },
         body: file,
       });
-      if (!putRes.ok) throw new Error("Upload gagal");
+      if (!putRes.ok) {
+        const errText = await putRes.text().catch(() => "");
+        console.error("[upload] PUT failed:", putRes.status, errText.slice(0, 200));
+        throw new Error(`Upload gagal (${putRes.status})`);
+      }
 
+      console.log("[upload] Step 3: success, objectPath =", objectPath);
       setImageUrl(objectPath);
       toast.success("Gambar berhasil diupload");
     } catch (err: any) {
+      console.error("[upload] error:", err);
       toast.error(err?.message || "Gagal upload gambar");
     } finally {
       setUploading(false);
