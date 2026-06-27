@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, ordersTable, orderItemsTable, productsTable, semiFinishedTable, ingredientsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, productsTable, productVariantsTable, semiFinishedTable, ingredientsTable } from "@workspace/db";
 import { eq, and, gte, lte, count, sql } from "drizzle-orm";
 import { canAccessBranch, requireAuth } from "../middlewares/requireAuth";
 import { getRecipeRows, adjustInventory, type Executor } from "../services/inventory";
@@ -201,7 +201,13 @@ router.post("/orders", requireAuth, async (req, res) => {
         const [prod] = await tx.select().from(productsTable).where(eq(productsTable.id, item.productId));
         if (!prod) throw new Error(`Product ${item.productId} not found`);
         
-        const price = parseFloat(prod.price);
+        let price: number;
+        if (item.productVariantId) {
+          const [variant] = await tx.select().from(productVariantsTable).where(eq(productVariantsTable.id, item.productVariantId));
+          price = variant ? parseFloat(variant.price) : parseFloat(prod.price);
+        } else {
+          price = parseFloat(prod.price);
+        }
         const subtotal = price * item.quantity;
         total += subtotal;
         
