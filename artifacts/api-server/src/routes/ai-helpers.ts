@@ -390,10 +390,11 @@ export const LOCAL_TOOLS: ToolDef[] = [
 ];
 
 export const EXPLORE_TOOLS: ToolDef[] = [
-  ...LOCAL_TOOLS.filter(t => ["listDirectory", "readFile", "searchContent"].includes(t.name)),
+  ...LOCAL_TOOLS.filter(t => ["listDirectory", "readFile", "searchContent", "execCommand"].includes(t.name)),
   { name: "getDependencies", description: "Read a file and return its internal dependency graph (import paths that start with ./ or ../). Useful to understand which files are connected.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file, e.g., artifacts/pos-app/src/pages/products.tsx" } }, required: ["path"] } },
   { name: "fetchGitHubFile", description: "Fetch a file directly from GitHub (not local). Use when local file not found or you want the latest from a specific branch.", parameters: { type: "object", properties: { path: { type: "string", description: "Path relative to repo root, e.g., artifacts/api-server/src/routes/ai.ts" }, branch: { type: "string", description: "Git branch (default: main)" } }, required: ["path"] } },
   { name: "fetchGitHubDir", description: "List directory contents from GitHub (not local). Use when local directory listing fails.", parameters: { type: "object", properties: { path: { type: "string", description: "Path relative to repo root, e.g., artifacts/api-server/src/routes" }, branch: { type: "string", description: "Git branch (default: main)" } }, required: ["path"] } },
+  { name: "sshExec", description: "Run a shell command on the VPS via SSH. Only use for VPS operations (git pull, pm2 status, etc.). NOT for file editing — use readFile/writeFile instead.", parameters: { type: "object", properties: { command: { type: "string", description: "Command to run on VPS, e.g., cd ~/lumespos && git merge main, cd ~/lumespos && git pull origin main, pm2 restart pos-api" } }, required: ["command"] } },
 ];
 
 async function executeToolCall(name: string, args: Record<string, any>): Promise<string> {
@@ -426,6 +427,10 @@ async function executeToolCall(name: string, args: Record<string, any>): Promise
     case "fetchGitHubDir": {
       const d = await fetchGitHubDir(args.path || "", args.branch || "main");
       return d || `Error: Directory "${args.path}" tidak ditemukan di GitHub.`;
+    }
+    case "sshExec": {
+      const r = await sshExec(args.command || "");
+      return r || "Error: SSH command gagal atau tidak ada output.";
     }
     default: return `Error: Unknown tool "${name}"`;
   }
