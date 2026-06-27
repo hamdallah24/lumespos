@@ -303,9 +303,9 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
         bangContext = clean + manifestBlock;
 
-        // ── Pre-call: BANG explore repo with READ-ONLY tools (separate memory) ──
+        // ── Pre-call: BANG explore repo with tools (separate memory) ──
         const sharedCtx = await getSharedContext(uid);
-        const exploreCtx = clean + manifestBlock + (sharedCtx ? `\n\n--- KONTEKS DARI AGENT LAIN ---\n${sharedCtx}` : "") + "\n\n⚠️ Gunakan tools read-only (listDirectory, readFile, searchContent) untuk eksplorasi file tambahan. JANGAN tulis/edit file — hanya BACA dan LAPORKAN file path relevan.";
+        const exploreCtx = clean + manifestBlock + (sharedCtx ? `\n\n--- KONTEKS DARI AGENT LAIN ---\n${sharedCtx}` : "") + "\n\n⚠️ Fase eksplorasi: Kamu punya alat untuk BACA file (listDirectory, readFile, searchContent, getDependencies, fetchGitHubFile), EKSEKUSI command (execCommand), dan SSH ke VPS (sshExec). Gunakan alat yg relevan. JANGAN tulis/edit file. LAPORKAN hasil eksplorasi + jalankan perintah yg diminta user.";
         const preResult = await callDeepSeekWithTools(
           BANG_ORCHESTRATOR, exploreCtx, uid, "cto_tools", EXPLORE_TOOLS, 2000
         );
