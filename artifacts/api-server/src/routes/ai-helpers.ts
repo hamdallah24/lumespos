@@ -295,7 +295,7 @@ export function sshExec(cmd: string): Promise<string> {
     } else {
       resolve("ERROR: SSH_PASS atau SSH_KEY_PATH tidak dikonfigurasi."); return;
     }
-    exec(sshCmd, { timeout: 15000 }, (err, stdout, stderr) => {
+    exec(sshCmd, { timeout: 30000 }, (err, stdout, stderr) => {
       resolve(err ? (stderr || err.message) : (stdout || "no output"));
     });
   });

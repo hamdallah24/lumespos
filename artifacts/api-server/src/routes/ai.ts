@@ -103,22 +103,29 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
     let allToolCalls = fullToolCalls;
     let followUpMessages = [...messages];
     let maxRounds = 10;
+    let roundNum = 0;
+    const totalRoundsEstimate = 10;
 
     while (allToolCalls.length > 0 && maxRounds-- > 0) {
-      // Kirim progress tool ke user
+      roundNum++;
+      // Kirim progress tool ke user dengan counter
       const cmdList = allToolCalls.map((tc: any) => {
         let brief = tc.name;
         try { const a = JSON.parse(tc.args || "{}"); const v = Object.values(a)[0]; if (v) brief += `(${String(v).slice(0, 60)})`; } catch {}
         return brief;
       }).join(", ");
-      sse({ delta: `\n\n▶️ ${cmdList}\n` });
+      sse({ delta: `\n\n🔧 Round ${roundNum}/${totalRoundsEstimate}: ${cmdList}\n` });
 
-      // Execute tools
+      // Execute tools (parallel, each with 30s internal timeout via tool itself)
       const toolResults: any[] = await Promise.all(allToolCalls.map(async (tc: any) => {
         let args: Record<string, any> = {};
         try { args = JSON.parse(tc.args); } catch { args = {}; }
-        const result = await executeToolCall(tc.name, args);
-        return { role: "tool", tool_call_id: tc.id, content: (result || "-").slice(0, 5000) };
+        try {
+          const result = await executeToolCall(tc.name, args);
+          return { role: "tool", tool_call_id: tc.id, content: (result || "(no output)").slice(0, 5000) };
+        } catch (toolErr: any) {
+          return { role: "tool", tool_call_id: tc.id, content: `Error: ${toolErr.message || "tool execution failed"}` };
+        }
       }));
       const toolMsg = { role: "assistant", content: null, tool_calls: allToolCalls.map((tc: any) => ({
         id: tc.id, type: "function", function: { name: tc.name, arguments: tc.args }
@@ -136,12 +143,16 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
           signal: c2.signal,
         });
         clearTimeout(t2);
-        if (!resp2.ok) break;
+        if (!resp2.ok) {
+          sse({ delta: `\n⚠️ AI engine HTTP ${resp2.status} — mencoba lanjut tanpa tools...\n` });
+          break;
+        }
 
         const r2 = resp2.body!.getReader();
         const d2 = new TextDecoder();
         let b2 = "", nextToolCalls: any[] = [];
         while (true) {
+          if (aborted) break;
           const { done, value } = await r2.read();
           if (done) break;
           b2 += d2.decode(value, { stream: true });
@@ -173,9 +184,17 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
           }
           if (nextToolCalls.length > 0) break;
         }
-        r2.releaseLock();
+        try { r2.releaseLock(); } catch {}
         allToolCalls = nextToolCalls;
-      } catch { clearTimeout(t2); break; }
+      } catch (err: any) {
+        clearTimeout(t2);
+        if (err.name === "AbortError") {
+          sse({ delta: `\n⏱️ Timeout 35s — AI engine terlalu lama merespon. Melanjutkan...\n` });
+        } else {
+          sse({ delta: `\n⚠️ Error koneksi: ${err.message?.slice(0, 80) || "unknown"}. Melanjutkan...\n` });
+        }
+        break;
+      }
     }
 
     // Jika loop habis tapi AI kehabisan putaran & belum final, paksa kesimpulan tanpa tools
