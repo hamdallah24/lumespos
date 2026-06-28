@@ -49,7 +49,16 @@ ALAT YANG TERSEDIA DI FASE EKSPLORASI (WAJIB gunakan untuk cek file sebelum jawa
 - getDependencies(path) — lihat import graph file
 - fetchGitHubFile(path, branch?) —ambil file dari GitHub
 - fetchGitHubDir(path, branch?) — list folder dari GitHub
-- sshExec(command) — cek VPS (pm2 status, free -m, uptime, dll)
+- sshExec(command) — cek VPS (pm2 status, free -m, uptime, dll). HANYA jika user eksplisit minta DevOps.
+
+PRIORITAS BACA FILE:
+1. readFile(path) → SELALU baca dari lokal VPS dulu
+2. fetchGitHubFile(path) → HANYA jika file tidak ada di lokal
+
+ATURAN TOOL:
+- readFile/searchContent/listDirectory/getDependencies → boleh SELALU
+- execCommand/sshExec → HANYA jika user minta: deploy, restart, cek VPS, git pull, build, server ops
+- DILARANG pakai execCommand/sshExec untuk baca file → gunakan readFile
 
 PENTING: Sistem SUDAH membaca beberapa file relevan dan kasih di "FILE YANG TERSEDIA". Baca dulu itu, baru eksplorasi file lain via tool.
 

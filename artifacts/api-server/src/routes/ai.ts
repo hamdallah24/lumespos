@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
 import { requireRole } from "../middlewares/requireAuth";
-import { callDeepSeek, callDeepSeekWithTools, executeToolCall, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, LOCAL_TOOLS, EXPLORE_TOOLS, ToolDef, mergeDeploy, getDependencies, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation } from "./ai-helpers";
+import { callDeepSeek, callDeepSeekWithTools, executeToolCall, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, READ_TOOLS, DEVOPS_TOOLS, ToolDef, mergeDeploy, getDependencies, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
@@ -273,9 +273,14 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         res.flushHeaders();
 
         try {
-          emitStatus(res, "⚙️ Menganalisis permintaan...");
+          // Intent-based tool selection: DevOps keywords → SSH/execCommand allowed
+          const devopsKeywords = ["vps", "server", "ssh", "deploy", "pm2", "nginx", "restart", "pull", "merge", "build", "error log", "cek server", "cek vps", "status server", "uptime", "git pull", "git merge", "install", "pnpm", "log"];
+          const needsDevOps = devopsKeywords.some(k => clean.toLowerCase().includes(k));
+          const activeTools = needsDevOps ? DEVOPS_TOOLS : READ_TOOLS;
+          console.log("[Tool Set]", { needsDevOps, tools: activeTools.map(t => t.name) });
+          emitStatus(res, needsDevOps ? "⚙️ Menganalisis (mode DevOps)..." : "⚙️ Menganalisis permintaan...");
           const finalText = await callDeepSeekWithTools(
-            BANG_ORCHESTRATOR, fullCtx, uid, "cto", EXPLORE_TOOLS, 3000
+            BANG_ORCHESTRATOR, fullCtx, uid, "cto", activeTools, 3000
           );
           if (finalText.startsWith("ERROR:")) {
             await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);

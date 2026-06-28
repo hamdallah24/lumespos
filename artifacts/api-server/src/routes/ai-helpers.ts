@@ -454,13 +454,49 @@ export const LOCAL_TOOLS: ToolDef[] = [
   { name: "execCommand", description: "Execute a safe shell command. Allowed: git, pnpm, npm, pm2, node, tsc, npx, ls, cat, echo, uptime. Max 30s timeout.", parameters: { type: "object", properties: { command: { type: "string", description: "Command to run, e.g., git status, pnpm build, pm2 restart pos-api" } }, required: ["command"] } },
 ];
 
-export const EXPLORE_TOOLS: ToolDef[] = [
-  ...LOCAL_TOOLS.filter(t => ["listDirectory", "readFile", "searchContent", "execCommand"].includes(t.name)),
-  { name: "getDependencies", description: "Read a file and return its internal dependency graph (import paths that start with ./ or ../). Useful to understand which files are connected.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file, e.g., artifacts/pos-app/src/pages/products.tsx" } }, required: ["path"] } },
-  { name: "fetchGitHubFile", description: "Fetch a file directly from GitHub (not local). Use when local file not found or you want the latest from a specific branch.", parameters: { type: "object", properties: { path: { type: "string", description: "Path relative to repo root, e.g., artifacts/api-server/src/routes/ai.ts" }, branch: { type: "string", description: "Git branch (default: main)" } }, required: ["path"] } },
-  { name: "fetchGitHubDir", description: "List directory contents from GitHub (not local). Use when local directory listing fails.", parameters: { type: "object", properties: { path: { type: "string", description: "Path relative to repo root, e.g., artifacts/api-server/src/routes" }, branch: { type: "string", description: "Git branch (default: main)" } }, required: ["path"] } },
-  { name: "sshExec", description: "Run a shell command on the VPS via SSH. Only use for VPS operations (git pull, pm2 status, etc.). NOT for file editing — use readFile/writeFile instead.", parameters: { type: "object", properties: { command: { type: "string", description: "Command to run on VPS, e.g., cd ~/lumespos && git merge main, cd ~/lumespos && git pull origin main, pm2 restart pos-api" } }, required: ["command"] } },
+// READ_TOOLS — file analysis only, no SSH, no execCommand
+export const READ_TOOLS: ToolDef[] = [
+  ...LOCAL_TOOLS.filter(t =>
+    ["listDirectory", "readFile", "searchContent", "getDependencies"].includes(t.name)
+  ),
+  { name: "fetchGitHubFile", description: "Fetch file from GitHub (fallback only — use readFile for local first).", parameters: { type: "object", properties: { path: { type: "string", description: "Path relative to repo root" }, branch: { type: "string", description: "Branch (default: main)" } }, required: ["path"] } },
+  { name: "fetchGitHubDir", description: "List directory from GitHub (fallback only).", parameters: { type: "object", properties: { path: { type: "string" }, branch: { type: "string" } }, required: ["path"] } },
 ];
+
+// DEVOPS_TOOLS — includes SSH + execCommand for VPS operations
+export const DEVOPS_TOOLS: ToolDef[] = [
+  ...READ_TOOLS,
+  LOCAL_TOOLS.find(t => t.name === "execCommand")!,
+  {
+    name: "sshExec",
+    description: "Run shell command on VPS via SSH. Only for: pm2 status/logs, git pull/merge, deploy, nginx, systemctl, server ops.",
+    parameters: { type: "object", properties: { command: { type: "string", description: "e.g., pm2 status, cd ~/lumespos && git pull, free -m" } }, required: ["command"] }
+  },
+];
+
+// Backward compat
+export const EXPLORE_TOOLS = READ_TOOLS;
+
+// Local-first file reader — tries VPS first, GitHub fallback
+export async function readFileWithFallback(path: string, branch = "main"): Promise<string> {
+  const localPath = path.startsWith("/") ? path : `/home/ubuntu/lumespos/${path}`;
+  try {
+    const local = await readLocalFile(localPath);
+    if (local && !local.startsWith("Error:")) {
+      console.log("[FileRead] Local hit:", localPath.slice(0, 80));
+      return local;
+    }
+  } catch { console.log("[FileRead] Local miss:", localPath.slice(0, 60)); }
+  // GitHub fallback
+  try {
+    const gh = await fetchGitHubFile(path, branch);
+    if (gh.content) {
+      console.log("[FileRead] GitHub hit:", path);
+      return `✅ ${path} (GitHub):\n\`\`\`\n${gh.content.slice(0, 5000)}\n\`\`\``;
+    }
+  } catch {}
+  return `Error: File "${path}" tidak ditemukan (local maupun GitHub).`;
+}
 
 export async function executeToolCall(name: string, args: Record<string, any>): Promise<string> {
   switch (name) {
