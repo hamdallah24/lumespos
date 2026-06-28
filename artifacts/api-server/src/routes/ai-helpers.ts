@@ -501,6 +501,42 @@ export async function executeToolCall(name: string, args: Record<string, any>): 
   }
 }
 
+// DSML parser — detect hallucinated tool call tags in model output
+function parseDSMLToolCalls(text: string): any[] | null {
+  if (!text?.includes("<｜｜DSML｜｜tool_calls>")) return null;
+  const toolCalls: any[] = [];
+  const invokeRegex = /<｜｜DSML｜｜invoke name="([^"]+)">([\s\S]*?)<\/｜｜DSML｜｜invoke>/g;
+  const paramRegex = /<｜｜DSML｜｜parameter name="([^"]+)"[^>]*>([\s\S]*?)<\/｜｜DSML｜｜parameter>/g;
+  let invokeMatch;
+  while ((invokeMatch = invokeRegex.exec(text)) !== null) {
+    const toolName = invokeMatch[1];
+    const paramBlock = invokeMatch[2];
+    const args: Record<string, string> = {};
+    let paramMatch;
+    while ((paramMatch = paramRegex.exec(paramBlock)) !== null) {
+      args[paramMatch[1]] = paramMatch[2].trim();
+    }
+    toolCalls.push({ id: `call_${Date.now()}_${toolCalls.length}`, type: "function", function: { name: toolName, arguments: JSON.stringify(args) } });
+  }
+  return toolCalls.length > 0 ? toolCalls : null;
+}
+
+function stripDSML(text: string): string {
+  return text.replace(/<｜｜DSML｜｜[\s\S]*?>/g, "").replace(/<\/｜｜DSML｜｜[\s\S]*?>/g, "").trim();
+}
+
+function validateMessageSequence(msgs: any[]) {
+  for (let i = 0; i < msgs.length; i++) {
+    const m = msgs[i];
+    if (m.role === "assistant" && m.tool_calls?.length > 0) {
+      const next = msgs[i + 1];
+      if (!next || next.role !== "tool") {
+        throw new Error(`Invalid sequence at index ${i}: assistant tool_calls not followed by tool message. Next role: ${next?.role ?? "nothing"}`);
+      }
+    }
+  }
+}
+
 export async function callDeepSeekWithTools(
   system: string, user: string, userId: number, mode: string, tools: ToolDef[], maxTokens = 2000
 ): Promise<string> {
@@ -564,6 +600,7 @@ export async function callDeepSeekWithTools(
     }
 
     const cleanMessages = sanitizeMessages(messages);
+    validateMessageSequence(cleanMessages);
     logPayload("Request", cleanMessages, round);
 
     const body: any = { model, messages: cleanMessages, max_tokens: maxTokens, temperature: 0.7 };
@@ -619,11 +656,19 @@ export async function callDeepSeekWithTools(
     const msg = (json as any).choices?.[0]?.message;
     if (!msg) return "";
 
-    // No tool calls — final text
+    // No tool calls — check DSML fallback, then final text
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
-      const content = msg.content?.trim() || "";
-      if (content) await remember(userId, mode, user, content);
-      return content;
+      const rawContent = msg.content?.trim() || "";
+      // Detect hallucinated DSML tool calls in text output
+      const dsmlTools = parseDSMLToolCalls(rawContent);
+      if (dsmlTools) {
+        msg.tool_calls = dsmlTools;
+        // Fall through to tool execution
+      } else {
+        const content = stripDSML(rawContent);
+        if (content) await remember(userId, mode, user, content);
+        return content;
+      }
     }
 
     // Execute tools — strict shape guaranteed
@@ -655,8 +700,9 @@ export async function callDeepSeekWithTools(
     if (round === MAX_ROUNDS - 1) {
       const doFinalCall = async (withTools: boolean): Promise<string> => {
         const clean = sanitizeMessages(messages);
+        validateMessageSequence(clean);
         logPayload("FinalCall", clean, MAX_ROUNDS - 1);
-        const fb: any = { model, messages: clean, max_tokens: maxTokens, temperature: 0.7 };
+        const fb: any = { model, messages: clean, max_tokens: 8000, temperature: 0.7 };
         if (withTools) fb.tools = toolsPayload;
         const fc = new AbortController();
         const ft = setTimeout(() => fc.abort(), TIMEOUT_MS);
@@ -688,9 +734,9 @@ export async function callDeepSeekWithTools(
           messages.push(rest);
           return doFinalCall(false);
         }
-        const fc2 = fmsg?.content?.trim() || "";
+        const fc2 = stripDSML(fmsg?.content?.trim() || "");
         if (fc2) await remember(userId, mode, user, fc2);
-        return fc2 || msg.content?.trim() || "";
+        return fc2 || stripDSML(msg.content?.trim() || "");
       };
       return doFinalCall(true);
     }

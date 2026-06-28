@@ -146,6 +146,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
+  const [statusMsg, setStatusMsg] = React.useState("");
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
   const [checkedMap, setCheckedMap] = React.useState<Record<string, boolean>>({});
 
@@ -231,6 +232,21 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
             if (!line.startsWith("data: ")) continue;
             try {
               const data = JSON.parse(line.slice(6));
+              // New typed events
+              if (data.type === "status") {
+                setStatusMsg(data.message);
+                continue;
+              }
+              if (data.type === "delta") {
+                accumulated += data.delta;
+                setMessages((prev) => { const copy = [...prev]; copy[copy.length - 1] = { role: "assistant", text: accumulated }; return copy; });
+                continue;
+              }
+              if (data.type === "done") {
+                accumulated = data.finalText || accumulated;
+                break;
+              }
+              // Legacy fallback
               if (data.done) { accumulated = data.finalText || ""; break; }
               if (data.delta) {
                 accumulated += data.delta;
@@ -388,6 +404,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const switchMode = (m: Mode) => {
     setMode(m);
     setMessages([]);
+    setStatusMsg("");
   };
 
   const handleCopy = (text: string, index: number) => {
@@ -467,6 +484,12 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 min-h-0">
+              {statusMsg && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#1565FF]/5 border border-[#1565FF]/10 text-xs text-slate-500 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#1565FF] animate-ping" />
+                  {statusMsg}
+                </div>
+              )}
               {messages.length === 0 && !loading && (
                 <div className="flex flex-col items-center justify-center py-2 text-center">
                   <SiriWave />

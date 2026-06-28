@@ -13,16 +13,32 @@ import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
-// Fake stream — token-by-token dari final string, frontend gak berubah
-async function fakeStream(finalText: string, res: any, donePayload?: any) {
+// Tool labels for status bar
+const toolLabels: Record<string, string> = {
+  searchContent:  "🔎 Mencari di codebase...",
+  readFile:       "📄 Membaca file...",
+  fetchGitHubFile:"📂 Mengambil dari GitHub...",
+  fetchGitHubDir: "📁 List folder GitHub...",
+  listDirectory:  "📁 Melihat struktur folder...",
+  getDependencies:"🔗 Cek dependency...",
+  execCommand:    "⚙️  Menjalankan perintah...",
+  sshExec:        "🖥️  SSH ke VPS...",
+};
+
+function emitStatus(res: any, message: string) {
+  res.write(`data: ${JSON.stringify({ type: "status", message })}\n\n`);
+}
+
+// Fake stream — typed events: status → delta → done
+async function fakeStream(finalText: string, res: any) {
   const CHUNK_SIZE = 4;
   const DELAY_MS = 25;
   for (let i = 0; i < finalText.length; i += CHUNK_SIZE) {
     const chunk = finalText.slice(i, i + CHUNK_SIZE);
-    res.write(`data: ${JSON.stringify({ delta: chunk })}\n\n`);
+    res.write(`data: ${JSON.stringify({ type: "delta", delta: chunk })}\n\n`);
     await new Promise(r => setTimeout(r, DELAY_MS));
   }
-  res.write(`data: ${JSON.stringify({ done: true, finalText, ...(donePayload || {}) })}\n\n`);
+  res.write(`data: ${JSON.stringify({ type: "done", finalText })}\n\n`);
   res.end();
 }
 
@@ -257,12 +273,14 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         res.flushHeaders();
 
         try {
+          emitStatus(res, "⚙️ Menganalisis permintaan...");
           const finalText = await callDeepSeekWithTools(
             BANG_ORCHESTRATOR, fullCtx, uid, "cto", EXPLORE_TOOLS, 3000
           );
           if (finalText.startsWith("ERROR:")) {
             await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);
           } else if (finalText) {
+            emitStatus(res, "✅ Menyusun jawaban...");
             await fakeStream(finalText, res);
             await remember(uid, "cto", clean, finalText);
             await saveSharedContext(uid, "cto", finalText.slice(0, 500));
