@@ -217,21 +217,23 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
                         <div className="p-2 bg-muted/50 rounded">
                           <span className="text-muted-foreground">Cup Awal</span>
                           <div className="font-semibold mt-0.5 space-x-2">
-                            <span>K: {fraud.cupAnalysis.start?.s ?? "—"}</span>
-                            <span>S: {fraud.cupAnalysis.start?.m ?? "—"}</span>
-                            <span>B: {fraud.cupAnalysis.start?.l ?? "—"}</span>
-                            <span className="text-primary">({fraud.cupAnalysis.start?.total ?? 0})</span>
+                            {fraud.cupAnalysis.start?.s !== undefined ? <>
+                              <span>K: {fraud.cupAnalysis.start.s}</span>
+                              <span>S: {fraud.cupAnalysis.start.m}</span>
+                              <span>B: {fraud.cupAnalysis.start.l}</span>
+                            </> : null}
+                            <span className="text-primary">({fraud.cupAnalysis.start?.total ?? "—"})</span>
                           </div>
                         </div>
                         <div className="p-2 bg-muted/50 rounded">
                           <span className="text-muted-foreground">Cup Akhir</span>
                           <div className="font-semibold mt-0.5 space-x-2">
-                            {fraud.cupAnalysis.end ? <>
+                            {fraud.cupAnalysis.end?.s !== undefined ? <>
                               <span>K: {fraud.cupAnalysis.end.s}</span>
                               <span>S: {fraud.cupAnalysis.end.m}</span>
                               <span>B: {fraud.cupAnalysis.end.l}</span>
-                              <span className="text-primary">({fraud.cupAnalysis.end.total})</span>
-                            </> : <span>—</span>}
+                            </> : null}
+                            <span className="text-primary">({fraud.cupAnalysis.end?.total ?? "—"})</span>
                           </div>
                         </div>
                         <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Terjual</span><span className="font-semibold">{fraud.totalCups}</span></div>

@@ -218,26 +218,22 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     }
 
     // Gabungkan JSON catatannya
-    const notesObj = { closingBalance, expectedBalance, difference, totalCash, userNotes: notes || null };
+    const cupS = cupCounts ? (Number(cupCounts.s) || 0) : 0;
+    const cupM = cupCounts ? (Number(cupCounts.m) || 0) : 0;
+    const cupL = cupCounts ? (Number(cupCounts.l) || 0) : 0;
+    const cupTotal = cupS + cupM + cupL;
+    const notesObj = { closingBalance, expectedBalance, difference, totalCash, userNotes: notes || null, cupCounts: cupTotal > 0 ? { s: cupS, m: cupM, l: cupL } : undefined };
 
-    // ── Cup tracking (3 ukuran: small, medium, large) ──
-    const cupCountsStr = cupCounts && (cupCounts.s !== undefined || cupCounts.m !== undefined || cupCounts.l !== undefined)
-      ? JSON.stringify({ s: Number(cupCounts.s) || 0, m: Number(cupCounts.m) || 0, l: Number(cupCounts.l) || 0 })
-      : null;
-    let prevCupCounts = { s: 0, m: 0, l: 0 };
-    if (cupCountsStr) {
+    // ── Cup tracking ──
+    let startingCupCount = 0;
+    if (cupTotal > 0) {
       const [prevShift] = await db
         .select({ ec: shiftAuditsTable.endingCupCount })
         .from(shiftAuditsTable)
         .where(and(eq(shiftAuditsTable.branchId, shift.branchId), sql`${shiftAuditsTable.id} < ${shiftId}`))
         .orderBy(sql`${shiftAuditsTable.id} DESC`)
         .limit(1);
-      if (prevShift?.ec) {
-        try {
-          const p = typeof prevShift.ec === "string" ? JSON.parse(prevShift.ec) : prevShift.ec;
-          prevCupCounts = { s: Number(p.s) || 0, m: Number(p.m) || 0, l: Number(p.l) || 0 };
-        } catch { prevCupCounts = { s: 0, m: 0, l: 0 }; }
-      }
+      startingCupCount = prevShift ? parseFloat(prevShift.ec || "0") : 0;
     }
 
     const [updatedShift] = await db
@@ -251,7 +247,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         actualStockJson: Array.isArray(actualStock) && actualStock.length > 0 ? actualStock : null,
         photoProofUrl: photoProofUrl || null,
         notes: JSON.stringify(notesObj),
-        endingCupCount: cupCountsStr,
+        endingCupCount: cupTotal > 0 ? String(cupTotal) : null,
       })
       .where(eq(shiftAuditsTable.id, shiftId))
       .returning();
@@ -296,7 +292,8 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         expectedBalance,
         closingBalance,
         difference,
-        cupCounts: cupCountsStr ? cupCounts : null,
+        startingCupCount,
+        endingCupCount: cupTotal,
       }
     });
   } catch (error) {
@@ -396,7 +393,7 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
         expectedBalance: r.expectedBalance ? parseFloat(r.expectedBalance) : null,
         difference: moneyNote?.difference ?? null,
         totalCash: moneyNote?.totalCash ?? null,
-        endingCupCount: r.endingCupCount ? (() => { try { return typeof r.endingCupCount === "string" ? JSON.parse(r.endingCupCount) : r.endingCupCount; } catch { return null; } })() : null,
+        endingCupCount: r.endingCupCount ? parseFloat(r.endingCupCount) : null,
         createdAt: r.createdAt,
         maxDiscrepancyPct,
       };
@@ -463,7 +460,7 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
     expectedBalance: row.expectedBalance ? parseFloat(row.expectedBalance) : null,
     difference: moneyNote?.difference ?? null,
     totalCash: moneyNote?.totalCash ?? null,
-    endingCupCount: row.endingCupCount ? (() => { try { return typeof row.endingCupCount === "string" ? JSON.parse(row.endingCupCount) : row.endingCupCount; } catch { return null; } })() : null,
+    endingCupCount: row.endingCupCount ? parseFloat(row.endingCupCount) : null,
     createdAt: row.createdAt,
     maxDiscrepancyPct,
     reconciliation,
@@ -688,29 +685,33 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
     }
 
     // ── Step 4: Cup cross-check per 3 ukuran ──
-    const cupData: { s: number; m: number; l: number } | null = audit.endingCupCount
-      ? (() => { try { const c = typeof audit.endingCupCount === "string" ? JSON.parse(audit.endingCupCount) : audit.endingCupCount; return { s: Number(c.s) || 0, m: Number(c.m) || 0, l: Number(c.l) || 0 }; } catch { return null; } })()
-      : null;
+    // Read per-category cup counts from notes (stored as JSON), fallback to old single numeric
+    let cupBySize: { s: number; m: number; l: number } | null = null;
+    if (audit.notes) {
+      try {
+        const n = JSON.parse(audit.notes);
+        if (n.cupCounts) cupBySize = { s: Number(n.cupCounts.s) || 0, m: Number(n.cupCounts.m) || 0, l: Number(n.cupCounts.l) || 0 };
+      } catch {}
+    }
+    const endingCupCount = audit.endingCupCount ? parseFloat(audit.endingCupCount) : null;
     const [prevShift] = await db
       .select({ ec: shiftAuditsTable.endingCupCount })
       .from(shiftAuditsTable)
       .where(and(eq(shiftAuditsTable.branchId, audit.branchId!), sql`${shiftAuditsTable.id} < ${id}`))
       .orderBy(sql`${shiftAuditsTable.id} DESC`).limit(1);
-    const prevCups: { s: number; m: number; l: number } = prevShift?.ec
-      ? (() => { try { const c = typeof prevShift.ec === "string" ? JSON.parse(prevShift.ec) : prevShift.ec; return { s: Number(c.s) || 0, m: Number(c.m) || 0, l: Number(c.l) || 0 }; } catch { return { s: 0, m: 0, l: 0 }; } })()
-      : { s: 0, m: 0, l: 0 };
+    const startingCups = prevShift ? parseFloat(prevShift.ec || "0") : 0;
+    const cupsUsed = endingCupCount !== null ? startingCups - endingCupCount + totalCups : null;
+    const cupDiscrepancy = cupsUsed !== null ? cupsUsed - totalCups : null;
+    const cupStatus = cupDiscrepancy === null ? "Tidak ada data cup" :
+      Math.abs(cupDiscrepancy) < 1 ? "OK — cup sesuai" : "SELISIH";
 
-    const totalCupStart = prevCups.s + prevCups.m + prevCups.l;
-    const totalCupEnd = cupData ? cupData.s + cupData.m + cupData.l : null;
-
-    const cupAnalysis = {
-      start: { s: prevCups.s, m: prevCups.m, l: prevCups.l, total: totalCupStart },
-      end: cupData ? { s: cupData.s, m: cupData.m, l: cupData.l, total: totalCupEnd! } : null,
+    const cupAnalysis: any = {
+      start: cupBySize ? { s: cupBySize.s, m: cupBySize.m, l: cupBySize.l, total: startingCups } : { total: startingCups },
+      end: cupBySize ? { s: cupBySize.s, m: cupBySize.m, l: cupBySize.l, total: endingCupCount ?? 0 } : { total: endingCupCount ?? 0 },
       sold: totalCups,
-      used: totalCupEnd !== null ? totalCupStart - totalCupEnd! + totalCups : null,
-      discrepancy: totalCupEnd !== null ? (totalCupStart - totalCupEnd! + totalCups) - totalCups : null,
-      status: totalCupEnd === null ? "Tidak ada data cup" :
-        Math.abs(totalCupStart - totalCupEnd! + totalCups - totalCups) < 1 ? "OK — cup sesuai" : "SELISIH",
+      used: cupsUsed,
+      discrepancy: cupDiscrepancy,
+      status: cupStatus,
     };
 
     const ingredientCups = anomalies.reduce((s, a) => s + (a.potentialCups || 0), 0);

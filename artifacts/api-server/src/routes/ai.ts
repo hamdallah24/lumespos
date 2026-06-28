@@ -650,10 +650,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
                   act._result = "📋 Belum ada shift audit.";
                 } else {
                   const r = rows[0];
-                  let cupText = "—";
-                  if (r.endingCupCount) {
-                    try { const c = typeof r.endingCupCount === "string" ? JSON.parse(r.endingCupCount) : r.endingCupCount; cupText = `K:${c.s||0} S:${c.m||0} B:${c.l||0}`; } catch { cupText = String(r.endingCupCount); }
-                  }
+                  let cupText = r.endingCupCount ? String(parseFloat(r.endingCupCount)) : "—";
                   act._result = `📋 Shift terakhir:\nTanggal: ${r.shiftDate ? new Date(r.shiftDate).toLocaleDateString("id-ID") : "-"}\nSaldo awal: Rp ${parseFloat(r.openingBalance || "0").toLocaleString("id-ID")}\nSaldo akhir: Rp ${parseFloat(r.closingBalance || "0").toLocaleString("id-ID")}\nCup tersisa: ${cupText}\nStatus: ${r.status}`;
                 }
                 continue;
