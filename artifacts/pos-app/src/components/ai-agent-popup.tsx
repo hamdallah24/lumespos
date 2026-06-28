@@ -181,10 +181,19 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const inputRef = React.useRef<HTMLInputElement>(null);
 
 
+  // Scroll on new messages or status change
   React.useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages.length, statusMsg]);
 
+  // Continuous scroll during streaming
+  React.useEffect(() => {
+    if (!loading) return;
+    const id = setInterval(() => {
+      chatEndRef.current?.scrollIntoView({ behavior: "auto" });
+    }, 80);
+    return () => clearInterval(id);
+  }, [loading]);
   const sendMessage = async (text?: string) => {
     const msg = (text || input).trim();
     if (!msg) return;
