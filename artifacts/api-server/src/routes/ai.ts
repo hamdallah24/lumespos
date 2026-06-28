@@ -280,7 +280,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           console.log("[Tool Set]", { needsDevOps, tools: activeTools.map(t => t.name) });
           emitStatus(res, needsDevOps ? "⚙️ Menganalisis (mode DevOps)..." : "⚙️ Menganalisis permintaan...");
           const finalText = await callDeepSeekWithTools(
-            BANG_ORCHESTRATOR, fullCtx, uid, "cto", activeTools, 3000
+            BANG_ORCHESTRATOR, fullCtx, uid, "cto", activeTools, 3000,
+            (msg) => emitStatus(res, msg)
           );
           if (finalText.startsWith("ERROR:")) {
             await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);

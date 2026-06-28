@@ -477,6 +477,22 @@ export const DEVOPS_TOOLS: ToolDef[] = [
 // Backward compat
 export const EXPLORE_TOOLS = READ_TOOLS;
 
+// Tool labels for progress status
+const toolLabelMap: Record<string, string> = {
+  listDirectory: "📁 Melihat folder...",
+  readFile: "📄 Membaca file...",
+  searchContent: "🔎 Mencari di codebase...",
+  getDependencies: "🔗 Cek import graph...",
+  execCommand: "⚙️ Menjalankan perintah...",
+  sshExec: "🖥️ SSH ke VPS...",
+  fetchGitHubFile: "📂 GitHub fetch...",
+  fetchGitHubDir: "📁 List GitHub...",
+};
+
+function getToolLabel(name: string): string {
+  return toolLabelMap[name] ?? `⚙️ ${name}...`;
+}
+
 // Local-first file reader — tries VPS first, GitHub fallback
 export async function readFileWithFallback(path: string, branch = "main"): Promise<string> {
   const localPath = path.startsWith("/") ? path : `/home/ubuntu/lumespos/${path}`;
@@ -574,7 +590,8 @@ function validateMessageSequence(msgs: any[]) {
 }
 
 export async function callDeepSeekWithTools(
-  system: string, user: string, userId: number, mode: string, tools: ToolDef[], maxTokens = 2000
+  system: string, user: string, userId: number, mode: string, tools: ToolDef[], maxTokens = 2000,
+  onProgress?: (msg: string) => void,
 ): Promise<string> {
   const key = process.env.DEEPSEEK_API_KEY;
   const base = process.env.DEEPSEEK_BASE_URL;
@@ -714,6 +731,8 @@ export async function callDeepSeekWithTools(
       const fn = tc.function;
       let args: Record<string, any> = {};
       try { args = JSON.parse(fn.arguments); } catch { args = {}; }
+      const label = getToolLabel(fn.name);
+      if (onProgress) onProgress(label);
       try {
         const r = await executeToolCall(fn.name, args);
         toolResults.push({

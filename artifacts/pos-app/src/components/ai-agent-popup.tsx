@@ -195,6 +195,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
     return () => clearInterval(id);
   }, [loading]);
   const sendMessage = async (text?: string) => {
+    if (loading) return;
     const msg = (text || input).trim();
     if (!msg) return;
     setInput("");
@@ -679,12 +680,13 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={`Tanya AI ${MODE_TABS.find((t) => t.key === mode)?.label}...`}
-                  className="flex-1 bg-transparent text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none min-w-0"
+                  placeholder={loading ? "CTO sedang bekerja..." : `Tanya AI ${MODE_TABS.find((t) => t.key === mode)?.label}...`}
+                  disabled={loading}
+                  className="flex-1 bg-transparent text-sm text-slate-800 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none min-w-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <button
                   onClick={() => sendMessage()}
-                  disabled={!input.trim()}
+                  disabled={!input.trim() || loading}
                   className="w-8 h-8 rounded-xl bg-[#1565FF] text-white flex items-center justify-center hover:bg-[#1565FF]/90 active:scale-90 transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
                 >
                   <Send size={15} />
