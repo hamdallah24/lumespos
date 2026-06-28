@@ -125,8 +125,8 @@ if (googleClientId && googleClientSecret) {
             isFirstUser = (await db.select().from(usersTable).limit(1)).length === 0;
           } catch {}
           if (signupCode && !isFirstUser) {
-            // Store pending Google user in session, redirect to invite page
-            done(null, { _pending: { googleId, email, name } } as any);
+            // Store pending Google user directly in session, don't pass to serializeUser
+            done(null, { clerkId: "_pending_" + googleId, _pending: { googleId, email, name } } as any);
             return;
           }
 
