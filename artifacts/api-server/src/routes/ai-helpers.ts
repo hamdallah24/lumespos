@@ -519,6 +519,34 @@ export async function callDeepSeekWithTools(
   const MAX_ROUNDS = 3;
   const TIMEOUT_MS = 30000;
 
+  // ── SANITIZE ──
+  function sanitizeMessages(msgs: any[]): any[] {
+    return msgs
+      .filter(m => m !== null && m !== undefined && m.role)
+      .map(m => {
+        let content: string | null;
+        if (m.content === undefined) content = null;
+        else if (typeof m.content === "string") content = m.content;
+        else content = JSON.stringify(m.content);
+        return { ...m, content };
+      });
+  }
+
+  // ── DEBUG LOG ──
+  const logPayload = (label: string, msgs: any[], r: number) => {
+    console.log(`[DeepSeek ${label}]`, JSON.stringify({
+      round: r + 1, totalRounds: MAX_ROUNDS,
+      messageCount: msgs.length,
+      messages: msgs.map(m => ({
+        role: m.role,
+        contentType: typeof m.content,
+        contentPreview: JSON.stringify(m.content)?.slice(0, 120),
+        tool_call_id: m.tool_call_id ?? null,
+        tool_calls: m.tool_calls?.map((tc: any) => ({ id: tc.id, name: tc.function?.name })) ?? null,
+      })),
+    }, null, 2));
+  };
+
   for (let round = 0; round < MAX_ROUNDS; round++) {
     // ── INPUT VALIDATION ──
     for (let i = 0; i < messages.length; i++) {
@@ -535,7 +563,10 @@ export async function callDeepSeekWithTools(
       }
     }
 
-    const body: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
+    const cleanMessages = sanitizeMessages(messages);
+    logPayload("Request", cleanMessages, round);
+
+    const body: any = { model, messages: cleanMessages, max_tokens: maxTokens, temperature: 0.7 };
     if (tools.length > 0) body.tools = toolsPayload;
 
     const controller = new AbortController();
@@ -554,20 +585,17 @@ export async function callDeepSeekWithTools(
       const errorBody = await resp.text().catch(() => "{}");
       let parsedErr: any = {};
       try { parsedErr = JSON.parse(errorBody); } catch { parsedErr = { raw: errorBody }; }
-      const logPayload = {
+      console.error("[DeepSeek 400 Error]", JSON.stringify({
         status: resp.status,
-        round,
-        msgCount: messages.length,
-        bodySize: JSON.stringify(body).length,
         errorBody: parsedErr,
-        timestamp: new Date().toISOString(),
-      };
-      console.error("[ai] callDeepSeekWithTools HTTP error:", JSON.stringify(logPayload));
-      // Circuit breaker: if error after round 1, surface to frontend
+        round: round + 1,
+        messageCount: messages.length,
+        lastMessage: messages[messages.length - 1],
+      }, null, 2));
       if (round > 0) {
         throw new Error(`AI engine error at round ${round + 1}/${MAX_ROUNDS}: HTTP ${resp.status}`);
       }
-      // Round 0 with error: try without tools
+      // Round 0 error: retry without tools
       delete body.tools;
       const retryCtl = new AbortController();
       const retryTid = setTimeout(() => retryCtl.abort(), TIMEOUT_MS);
@@ -591,33 +619,44 @@ export async function callDeepSeekWithTools(
     const msg = (json as any).choices?.[0]?.message;
     if (!msg) return "";
 
-    // No tool calls — final response
+    // No tool calls — final text
     if (!msg.tool_calls || msg.tool_calls.length === 0) {
       const content = msg.content?.trim() || "";
       if (content) await remember(userId, mode, user, content);
       return content;
     }
 
-    // Execute tools in parallel
-    const toolResults: any[] = await Promise.all(msg.tool_calls.map(async (tc: any) => {
+    // Execute tools — strict shape guaranteed
+    const toolResults: any[] = [];
+    for (const tc of msg.tool_calls) {
+      if (!tc.id) throw new Error(`tool_call_id missing for tool: ${tc.function?.name}`);
       const fn = tc.function;
       let args: Record<string, any> = {};
       try { args = JSON.parse(fn.arguments); } catch { args = {}; }
       try {
         const r = await executeToolCall(fn.name, args);
-        return { role: "tool", tool_call_id: tc.id, content: String(r || "(no output)").slice(0, 2000) };
+        toolResults.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content: String(r || "(no output)").slice(0, 2000),
+        });
       } catch (toolErr: any) {
-        return { role: "tool", tool_call_id: tc.id, content: `Error: ${toolErr.message || "tool failed"}` };
+        toolResults.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content: `Error: ${toolErr.message || "tool failed"}`,
+        });
       }
-    }));
+    }
 
-    // Append assistant msg + tool results for next round
     messages.push(msg, ...toolResults);
 
-    // If this was the last round, force final response without tools
+    // Final round: safety net force text
     if (round === MAX_ROUNDS - 1) {
       const doFinalCall = async (withTools: boolean): Promise<string> => {
-        const fb: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
+        const clean = sanitizeMessages(messages);
+        logPayload("FinalCall", clean, MAX_ROUNDS - 1);
+        const fb: any = { model, messages: clean, max_tokens: maxTokens, temperature: 0.7 };
         if (withTools) fb.tools = toolsPayload;
         const fc = new AbortController();
         const ft = setTimeout(() => fc.abort(), TIMEOUT_MS);
@@ -630,13 +669,22 @@ export async function callDeepSeekWithTools(
             signal: fc.signal,
           });
         } finally { clearTimeout(ft); }
-        if (!fr.ok) throw new Error(`AI engine error at final round: HTTP ${fr.status}`);
+        if (!fr.ok) {
+          const errText = await fr.text().catch(() => "{}");
+          let errParsed: any = {};
+          try { errParsed = JSON.parse(errText); } catch { errParsed = { raw: errText }; }
+          console.error("[DeepSeek 400 FinalCall]", JSON.stringify({
+            status: fr.status, errorBody: errParsed,
+            messageCount: clean.length,
+            lastMessage: clean[clean.length - 1],
+          }, null, 2));
+          throw new Error(`AI engine error at final round: HTTP ${fr.status}: ${JSON.stringify(errParsed)}`);
+        }
         const fj = await fr.json();
         const fmsg = (fj as any).choices?.[0]?.message;
-        // If model STILL wants tools, retry once with empty tools to force summary
         if (fmsg?.tool_calls?.length > 0 && withTools) {
           messages.push(fmsg);
-          return doFinalCall(false); // recursive safety net
+          return doFinalCall(false);
         }
         const fc2 = fmsg?.content?.trim() || "";
         if (fc2) await remember(userId, mode, user, fc2);
@@ -644,7 +692,6 @@ export async function callDeepSeekWithTools(
       };
       return doFinalCall(true);
     }
-    // Continue to next round — tools are appended to messages, model will see them
   }
 
   return "";
