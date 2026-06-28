@@ -683,7 +683,9 @@ export async function callDeepSeekWithTools(
         const fj = await fr.json();
         const fmsg = (fj as any).choices?.[0]?.message;
         if (fmsg?.tool_calls?.length > 0 && withTools) {
-          messages.push(fmsg);
+          // Strip tool_calls from assistant msg before retrying without tools
+          const { tool_calls, ...rest } = fmsg;
+          messages.push(rest);
           return doFinalCall(false);
         }
         const fc2 = fmsg?.content?.trim() || "";
