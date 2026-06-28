@@ -616,23 +616,33 @@ export async function callDeepSeekWithTools(
 
     // If this was the last round, force final response without tools
     if (round === MAX_ROUNDS - 1) {
-      const finalBody: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
-      const fc = new AbortController();
-      const ft = setTimeout(() => fc.abort(), TIMEOUT_MS);
-      let fr;
-      try {
-        fr = await fetch(`${base}/chat/completions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify(finalBody),
-          signal: fc.signal,
-        });
-      } finally { clearTimeout(ft); }
-      if (!fr.ok) throw new Error(`AI engine error at final round: HTTP ${fr.status}`);
-      const fj = await fr.json();
-      const fc2 = (fj as any).choices?.[0]?.message?.content?.trim() || "";
-      if (fc2) await remember(userId, mode, user, fc2);
-      return fc2 || msg.content?.trim() || "";
+      const doFinalCall = async (withTools: boolean): Promise<string> => {
+        const fb: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
+        if (withTools) fb.tools = toolsPayload;
+        const fc = new AbortController();
+        const ft = setTimeout(() => fc.abort(), TIMEOUT_MS);
+        let fr;
+        try {
+          fr = await fetch(`${base}/chat/completions`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+            body: JSON.stringify(fb),
+            signal: fc.signal,
+          });
+        } finally { clearTimeout(ft); }
+        if (!fr.ok) throw new Error(`AI engine error at final round: HTTP ${fr.status}`);
+        const fj = await fr.json();
+        const fmsg = (fj as any).choices?.[0]?.message;
+        // If model STILL wants tools, retry once with empty tools to force summary
+        if (fmsg?.tool_calls?.length > 0 && withTools) {
+          messages.push(fmsg);
+          return doFinalCall(false); // recursive safety net
+        }
+        const fc2 = fmsg?.content?.trim() || "";
+        if (fc2) await remember(userId, mode, user, fc2);
+        return fc2 || msg.content?.trim() || "";
+      };
+      return doFinalCall(true);
     }
     // Continue to next round — tools are appended to messages, model will see them
   }
