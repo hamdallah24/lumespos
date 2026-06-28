@@ -545,7 +545,7 @@ export async function callDeepSeekWithTools(
         let args: Record<string, any> = {};
         try { args = JSON.parse(fn.arguments); } catch { args = {}; }
         const result = await executeToolCall(fn.name, args);
-        return { role: "tool", tool_call_id: tc.id, content: result.slice(0, 5000) };
+        return { role: "tool", tool_call_id: tc.id, content: result.slice(0, 2000) };
       }));
 
       // Feed tool results back to DeepSeek

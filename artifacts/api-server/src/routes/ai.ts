@@ -122,7 +122,7 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
         try { args = JSON.parse(tc.args); } catch { args = {}; }
         try {
           const result = await executeToolCall(tc.name, args);
-          return { role: "tool", tool_call_id: tc.id, content: (result || "(no output)").slice(0, 5000) };
+          return { role: "tool", tool_call_id: tc.id, content: (result || "(no output)").slice(0, 2000) };
         } catch (toolErr: any) {
           return { role: "tool", tool_call_id: tc.id, content: `Error: ${toolErr.message || "tool execution failed"}` };
         }
@@ -135,15 +135,18 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
       // Streaming follow-up — AI mikir + mungkin minta tool lagi
       const c2 = new AbortController();
       const t2 = setTimeout(() => c2.abort(), 35000);
+      const reqBody = JSON.stringify({ model, messages: followUpMessages, max_tokens: 3000, temperature: 0.7, stream: true, tools: toolsPayload });
       try {
         const resp2 = await fetch(`${base}/chat/completions`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({ model, messages: followUpMessages, max_tokens: 3000, temperature: 0.7, stream: true, tools: toolsPayload }),
+          body: reqBody,
           signal: c2.signal,
         });
         clearTimeout(t2);
         if (!resp2.ok) {
+          const errBody = await resp2.text().catch(() => "").then((t: any) => t.slice(0, 300));
+          console.error(`[ai] Follow-up HTTP ${resp2.status} (body: ${reqBody.length} chars, ${followUpMessages.length} msgs): ${errBody}`);
           sse({ delta: `\n⚠️ AI engine HTTP ${resp2.status} — mencoba lanjut tanpa tools...\n` });
           break;
         }
