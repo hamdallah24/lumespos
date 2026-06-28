@@ -61,6 +61,7 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
     const reader = resp.body!.getReader();
     const decoder = new TextDecoder();
     let buf = "", fullText = "", fullToolCalls: any[] = [];
+    let fullReasoning = "";
     let toolCallsDetected = false;
 
     while (true) {
@@ -77,6 +78,7 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
           const chunk = JSON.parse(payload);
           const delta = chunk.choices?.[0]?.delta;
           const finish = chunk.choices?.[0]?.finish_reason;
+          if (delta?.reasoning_content) fullReasoning += delta.reasoning_content;
           if (delta?.content) {
             fullText += delta.content;
             sse({ delta: delta.content });
@@ -98,6 +100,9 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
     }
     reader.releaseLock();
     clearTimeout(tid);
+
+    // Store reasoning from the assistant message that requested tools (needed by DeepSeek thinking mode)
+    let currentReasoning = fullReasoning;
 
     // ── REACT LOOP: tool → think → tool → think → final ──
     let allToolCalls = fullToolCalls;
@@ -127,9 +132,10 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
           return { role: "tool", tool_call_id: tc.id, content: `Error: ${toolErr.message || "tool execution failed"}` };
         }
       }));
-      const toolMsg = { role: "assistant", content: null, tool_calls: allToolCalls.map((tc: any) => ({
+      const toolMsg: any = { role: "assistant", content: null, tool_calls: allToolCalls.map((tc: any) => ({
         id: tc.id, type: "function", function: { name: tc.name, arguments: tc.args }
       })) };
+      if (currentReasoning) toolMsg.reasoning_content = currentReasoning;
       followUpMessages = [...followUpMessages, toolMsg, ...toolResults];
 
       // Streaming follow-up — AI mikir + mungkin minta tool lagi
@@ -154,6 +160,7 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
         const r2 = resp2.body!.getReader();
         const d2 = new TextDecoder();
         let b2 = "", nextToolCalls: any[] = [];
+        let nextReasoning = "";
         while (true) {
           if (aborted) break;
           const { done, value } = await r2.read();
@@ -169,6 +176,7 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
               const c = JSON.parse(p);
               const d = c.choices?.[0]?.delta;
               const f = c.choices?.[0]?.finish_reason;
+              if (d?.reasoning_content) nextReasoning += d.reasoning_content;
               if (d?.content) {
                 fullText += d.content;
                 sse({ delta: d.content });
@@ -189,6 +197,7 @@ async function streamBANGResponse(req: any, res: any, uid: number, clean: string
         }
         try { r2.releaseLock(); } catch {}
         allToolCalls = nextToolCalls;
+        currentReasoning = nextReasoning || currentReasoning;
       } catch (err: any) {
         clearTimeout(t2);
         if (err.name === "AbortError") {
