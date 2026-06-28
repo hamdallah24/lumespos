@@ -514,69 +514,130 @@ export async function callDeepSeekWithTools(
   for (const h of history) messages.push(h);
   messages.push({ role: "user", content: user.slice(0, 5000) });
 
-  const body: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
-  if (tools.length > 0) {
-    body.tools = tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
-  }
+  const toolsPayload = tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
 
-  try {
-    const controller1 = new AbortController();
-    const tid1 = setTimeout(() => controller1.abort(), 30000);
+  const MAX_ROUNDS = 3;
+  const TIMEOUT_MS = 30000;
+
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    // ── INPUT VALIDATION ──
+    for (let i = 0; i < messages.length; i++) {
+      const m = messages[i];
+      if (!m || typeof m !== "object") throw new Error(`Invalid message at index ${i}: not an object`);
+      if (!["user", "assistant", "system", "tool"].includes(m.role)) throw new Error(`Invalid role at index ${i}: "${m.role}"`);
+      if (m.content === undefined) throw new Error(`message[${i}].content is undefined (role=${m.role})`);
+      if (m.tool_calls) {
+        for (let j = 0; j < m.tool_calls.length; j++) {
+          const tc = m.tool_calls[j];
+          if (!tc.id) throw new Error(`message[${i}].tool_calls[${j}].id is empty`);
+          if (!tc.function?.name) throw new Error(`message[${i}].tool_calls[${j}].function.name is empty`);
+        }
+      }
+    }
+
+    const body: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
+    if (tools.length > 0) body.tools = toolsPayload;
+
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), TIMEOUT_MS);
     let resp;
     try {
       resp = await fetch(`${base}/chat/completions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
         body: JSON.stringify(body),
-        signal: controller1.signal,
+        signal: controller.signal,
       });
-    } finally { clearTimeout(tid1); }
-    if (!resp.ok) { console.error(`[ai] DeepSeek tools HTTP ${resp.status}: ${await resp.text().catch(() => "").then((t: any) => t.slice(0, 300))}`); return ""; }
+    } finally { clearTimeout(tid); }
+
+    if (!resp.ok) {
+      const errorBody = await resp.text().catch(() => "{}");
+      let parsedErr: any = {};
+      try { parsedErr = JSON.parse(errorBody); } catch { parsedErr = { raw: errorBody }; }
+      const logPayload = {
+        status: resp.status,
+        round,
+        msgCount: messages.length,
+        bodySize: JSON.stringify(body).length,
+        errorBody: parsedErr,
+        timestamp: new Date().toISOString(),
+      };
+      console.error("[ai] callDeepSeekWithTools HTTP error:", JSON.stringify(logPayload));
+      // Circuit breaker: if error after round 1, surface to frontend
+      if (round > 0) {
+        throw new Error(`AI engine error at round ${round + 1}/${MAX_ROUNDS}: HTTP ${resp.status}`);
+      }
+      // Round 0 with error: try without tools
+      delete body.tools;
+      const retryCtl = new AbortController();
+      const retryTid = setTimeout(() => retryCtl.abort(), TIMEOUT_MS);
+      let retryResp;
+      try {
+        retryResp = await fetch(`${base}/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify(body),
+          signal: retryCtl.signal,
+        });
+      } finally { clearTimeout(retryTid); }
+      if (!retryResp.ok) throw new Error(`AI engine error: HTTP ${resp.status}`);
+      const rj = await retryResp.json();
+      const rc = (rj as any).choices?.[0]?.message?.content?.trim() || "";
+      if (rc) await remember(userId, mode, user, rc);
+      return rc;
+    }
 
     const json = await resp.json();
     const msg = (json as any).choices?.[0]?.message;
     if (!msg) return "";
 
-    // Tool calls?
-    if (msg.tool_calls && msg.tool_calls.length > 0) {
-      // Execute all tools (parallel via Promise.all)
-      const toolResults: any[] = await Promise.all(msg.tool_calls.map(async (tc: any) => {
-        const fn = tc.function;
-        let args: Record<string, any> = {};
-        try { args = JSON.parse(fn.arguments); } catch { args = {}; }
-        const result = await executeToolCall(fn.name, args);
-        return { role: "tool", tool_call_id: tc.id, content: result.slice(0, 2000) };
-      }));
-
-      // Feed tool results back to DeepSeek
-      const followUp: any[] = [...messages, msg, ...toolResults];
-      const controller2 = new AbortController();
-      const tid2 = setTimeout(() => controller2.abort(), 30000);
-      let resp2;
-      try {
-        resp2 = await fetch(`${base}/chat/completions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({ model, messages: followUp, max_tokens: maxTokens, temperature: 0.7 }),
-          signal: controller2.signal,
-        });
-      } finally { clearTimeout(tid2); }
-      if (!resp2.ok) return msg.content || "";
-      const json2 = await resp2.json();
-      const finalContent = (json2 as any).choices?.[0]?.message?.content?.trim() || "";
-      if (finalContent) await remember(userId, mode, user, finalContent);
-      return finalContent || msg.content || "";
+    // No tool calls — final response
+    if (!msg.tool_calls || msg.tool_calls.length === 0) {
+      const content = msg.content?.trim() || "";
+      if (content) await remember(userId, mode, user, content);
+      return content;
     }
 
-    // No tool calls — normal text response
-    const content = msg.content?.trim() || "";
-    if (content) await remember(userId, mode, user, content);
-    return content;
-  } catch (err) {
-    if ((err as any)?.name === "AbortError") { console.error("[ai] callDeepSeekWithTools timeout"); return "ERROR: Layanan AI tidak merespon (timeout). Coba lagi."; }
-    console.error("[ai] callDeepSeekWithTools error:", err);
-    return `ERROR: ${(err as any)?.message || "Gagal memproses permintaan AI."}`;
+    // Execute tools in parallel
+    const toolResults: any[] = await Promise.all(msg.tool_calls.map(async (tc: any) => {
+      const fn = tc.function;
+      let args: Record<string, any> = {};
+      try { args = JSON.parse(fn.arguments); } catch { args = {}; }
+      try {
+        const r = await executeToolCall(fn.name, args);
+        return { role: "tool", tool_call_id: tc.id, content: String(r || "(no output)").slice(0, 2000) };
+      } catch (toolErr: any) {
+        return { role: "tool", tool_call_id: tc.id, content: `Error: ${toolErr.message || "tool failed"}` };
+      }
+    }));
+
+    // Append assistant msg + tool results for next round
+    messages.push(msg, ...toolResults);
+
+    // If this was the last round, force final response without tools
+    if (round === MAX_ROUNDS - 1) {
+      const finalBody: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
+      const fc = new AbortController();
+      const ft = setTimeout(() => fc.abort(), TIMEOUT_MS);
+      let fr;
+      try {
+        fr = await fetch(`${base}/chat/completions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+          body: JSON.stringify(finalBody),
+          signal: fc.signal,
+        });
+      } finally { clearTimeout(ft); }
+      if (!fr.ok) throw new Error(`AI engine error at final round: HTTP ${fr.status}`);
+      const fj = await fr.json();
+      const fc2 = (fj as any).choices?.[0]?.message?.content?.trim() || "";
+      if (fc2) await remember(userId, mode, user, fc2);
+      return fc2 || msg.content?.trim() || "";
+    }
+    // Continue to next round — tools are appended to messages, model will see them
   }
+
+  return "";
 }
 
 // ── RATE LIMITER (per-user sliding window) ──

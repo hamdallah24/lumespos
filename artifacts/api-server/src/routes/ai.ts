@@ -13,236 +13,17 @@ import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
-// ── CTO STREAMING HELPER (dengan tool support) ──
-async function streamBANGResponse(req: any, res: any, uid: number, clean: string) {
-  const key = process.env.DEEPSEEK_API_KEY;
-  const base = process.env.DEEPSEEK_BASE_URL;
-  const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
-  if (!key || !base) { res.json({ reply: "BANG sedang sibuk (API key belum diset)." }); return; }
-
-  const history = await getHistory(uid, "cto");
-  const messages: any[] = [{ role: "system", content: BANG_ORCHESTRATOR.slice(0, 4000) }];
-  for (const h of history) messages.push(h);
-  messages.push({ role: "user", content: clean.slice(0, 5000) });
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.flushHeaders();
-
-  let aborted = false;
-  req.on("close", () => { aborted = true; });
-
-  const sse = (data: any) => { if (!aborted) res.write(`data: ${JSON.stringify(data)}\n\n`); };
-
-  // Streaming call with tools
-  const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), 60000);
-
-  const toolsPayload = EXPLORE_TOOLS.map(t => ({
-    type: "function",
-    function: { name: t.name, description: t.description, parameters: t.parameters }
-  }));
-
-  try {
-    const resp = await fetch(`${base}/chat/completions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages, max_tokens: 3000, temperature: 0.7, stream: true, tools: toolsPayload }),
-      signal: controller.signal,
-    });
-    if (!resp.ok) {
-      const err = await resp.text().catch(() => "");
-      console.error(`[ai] BANG stream HTTP ${resp.status}: ${err.slice(0, 300)}`);
-      sse({ delta: "Maaf, BANG sedang sibuk. Coba lagi." }); sse({ done: true, finalText: "" });
-      return;
-    }
-
-    const reader = resp.body!.getReader();
-    const decoder = new TextDecoder();
-    let buf = "", fullText = "", fullToolCalls: any[] = [];
-    let fullReasoning = "";
-    let toolCallsDetected = false;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done || aborted || toolCallsDetected) break;
-      buf += decoder.decode(value, { stream: true });
-      const lines = buf.split("\n");
-      buf = lines.pop() || "";
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const payload = line.slice(6);
-        if (payload === "[DONE]") continue;
-        try {
-          const chunk = JSON.parse(payload);
-          const delta = chunk.choices?.[0]?.delta;
-          const finish = chunk.choices?.[0]?.finish_reason;
-          if (delta?.reasoning_content) fullReasoning += delta.reasoning_content;
-          if (delta?.content) {
-            fullText += delta.content;
-            sse({ delta: delta.content });
-          }
-          if (delta?.tool_calls) {
-            for (const tc of delta.tool_calls) {
-              const idx = tc.index;
-              if (!fullToolCalls[idx]) fullToolCalls[idx] = { id: "", name: "", args: "" };
-              if (tc.id) fullToolCalls[idx].id = tc.id;
-              if (tc.function?.name) fullToolCalls[idx].name = tc.function.name;
-              if (tc.function?.arguments) fullToolCalls[idx].args += tc.function.arguments;
-            }
-          }
-          if (finish === "tool_calls" && fullToolCalls.length > 0) {
-            toolCallsDetected = true;
-          }
-        } catch { /* skip */ }
-      }
-    }
-    reader.releaseLock();
-    clearTimeout(tid);
-
-    // Store reasoning from the assistant message that requested tools (needed by DeepSeek thinking mode)
-    let currentReasoning = fullReasoning;
-
-    // ── REACT LOOP: tool → think → tool → think → final ──
-    let allToolCalls = fullToolCalls;
-    let followUpMessages = [...messages];
-    let maxRounds = 10;
-    let roundNum = 0;
-    const totalRoundsEstimate = 10;
-
-    while (allToolCalls.length > 0 && maxRounds-- > 0) {
-      roundNum++;
-      // Kirim progress tool ke user dengan counter
-      const cmdList = allToolCalls.map((tc: any) => {
-        let brief = tc.name;
-        try { const a = JSON.parse(tc.args || "{}"); const v = Object.values(a)[0]; if (v) brief += `(${String(v).slice(0, 60)})`; } catch {}
-        return brief;
-      }).join(", ");
-      sse({ delta: `\n\n🔧 Round ${roundNum}/${totalRoundsEstimate}: ${cmdList}\n` });
-
-      // Execute tools (parallel, each with 30s internal timeout via tool itself)
-      const toolResults: any[] = await Promise.all(allToolCalls.map(async (tc: any) => {
-        let args: Record<string, any> = {};
-        try { args = JSON.parse(tc.args); } catch { args = {}; }
-        try {
-          const result = await executeToolCall(tc.name, args);
-          return { role: "tool", tool_call_id: tc.id, content: (result || "(no output)").slice(0, 2000) };
-        } catch (toolErr: any) {
-          return { role: "tool", tool_call_id: tc.id, content: `Error: ${toolErr.message || "tool execution failed"}` };
-        }
-      }));
-      const toolMsg: any = { role: "assistant", content: null, tool_calls: allToolCalls.map((tc: any) => ({
-        id: tc.id, type: "function", function: { name: tc.name, arguments: tc.args }
-      })) };
-      if (currentReasoning) toolMsg.reasoning_content = currentReasoning;
-      followUpMessages = [...followUpMessages, toolMsg, ...toolResults];
-
-      // Streaming follow-up — AI mikir + mungkin minta tool lagi
-      const c2 = new AbortController();
-      const t2 = setTimeout(() => c2.abort(), 35000);
-      const reqBody = JSON.stringify({ model, messages: followUpMessages, max_tokens: 3000, temperature: 0.7, stream: true, tools: toolsPayload });
-      try {
-        const resp2 = await fetch(`${base}/chat/completions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: reqBody,
-          signal: c2.signal,
-        });
-        clearTimeout(t2);
-        if (!resp2.ok) {
-          const errBody = await resp2.text().catch(() => "").then((t: any) => t.slice(0, 300));
-          console.error(`[ai] Follow-up HTTP ${resp2.status} (body: ${reqBody.length} chars, ${followUpMessages.length} msgs): ${errBody}`);
-          sse({ delta: `\n⚠️ AI engine HTTP ${resp2.status} — mencoba lanjut tanpa tools...\n` });
-          break;
-        }
-
-        const r2 = resp2.body!.getReader();
-        const d2 = new TextDecoder();
-        let b2 = "", nextToolCalls: any[] = [];
-        let nextReasoning = "";
-        while (true) {
-          if (aborted) break;
-          const { done, value } = await r2.read();
-          if (done) break;
-          b2 += d2.decode(value, { stream: true });
-          const lines = b2.split("\n");
-          b2 = lines.pop() || "";
-          for (const line of lines) {
-            if (!line.startsWith("data: ")) continue;
-            const p = line.slice(6);
-            if (p === "[DONE]") continue;
-            try {
-              const c = JSON.parse(p);
-              const d = c.choices?.[0]?.delta;
-              const f = c.choices?.[0]?.finish_reason;
-              if (d?.reasoning_content) nextReasoning += d.reasoning_content;
-              if (d?.content) {
-                fullText += d.content;
-                sse({ delta: d.content });
-              }
-              if (d?.tool_calls) {
-                for (const tc of d.tool_calls) {
-                  const idx = tc.index ?? nextToolCalls.length;
-                  if (!nextToolCalls[idx]) nextToolCalls[idx] = { id: "", name: "", args: "" };
-                  if (tc.id) nextToolCalls[idx].id = tc.id;
-                  if (tc.function?.name) nextToolCalls[idx].name = tc.function.name;
-                  if (tc.function?.arguments) nextToolCalls[idx].args = (nextToolCalls[idx].args || "") + tc.function.arguments;
-                }
-              }
-              if (f === "tool_calls") { break; }
-            } catch { /* skip */ }
-          }
-          if (nextToolCalls.length > 0) break;
-        }
-        try { r2.releaseLock(); } catch {}
-        allToolCalls = nextToolCalls;
-        currentReasoning = nextReasoning || currentReasoning;
-      } catch (err: any) {
-        clearTimeout(t2);
-        if (err.name === "AbortError") {
-          sse({ delta: `\n⏱️ Timeout 35s — AI engine terlalu lama merespon. Melanjutkan...\n` });
-        } else {
-          sse({ delta: `\n⚠️ Error koneksi: ${err.message?.slice(0, 80) || "unknown"}. Melanjutkan...\n` });
-        }
-        break;
-      }
-    }
-
-    // Jika loop habis tapi AI kehabisan putaran & belum final, paksa kesimpulan tanpa tools
-    if (!aborted && allToolCalls.length > 0) {
-      try {
-        const c3 = new AbortController();
-        setTimeout(() => c3.abort(), 30000);
-        const resp3 = await fetch(`${base}/chat/completions`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-          body: JSON.stringify({ model, messages: followUpMessages, max_tokens: 2000, temperature: 0.7 }),
-          signal: c3.signal,
-        });
-        if (resp3.ok) {
-          const json3 = await resp3.json();
-          const finalContent = (json3 as any).choices?.[0]?.message?.content;
-          if (finalContent) {
-            fullText += "\n\n" + finalContent;
-            sse({ delta: finalContent });
-          }
-        }
-      } catch {}
-    }
-
-    if (!aborted) {
-      sse({ done: true, finalText: fullText });
-      res.end();
-      if (fullText) {
-        await remember(uid, "cto", clean, fullText);
-        await saveSharedContext(uid, "cto", fullText.slice(0, 500));
-      }
-    }
-  } catch (e: any) {
-    console.error("[ai] BANG stream error:", e);
-    if (!aborted) { sse({ delta: "Maaf, terjadi kesalahan." }); sse({ done: true, finalText: "" }); res.end(); }
+// Fake stream — token-by-token dari final string, frontend gak berubah
+async function fakeStream(finalText: string, res: any, donePayload?: any) {
+  const CHUNK_SIZE = 4;
+  const DELAY_MS = 25;
+  for (let i = 0; i < finalText.length; i += CHUNK_SIZE) {
+    const chunk = finalText.slice(i, i + CHUNK_SIZE);
+    res.write(`data: ${JSON.stringify({ delta: chunk })}\n\n`);
+    await new Promise(r => setTimeout(r, DELAY_MS));
   }
+  res.write(`data: ${JSON.stringify({ done: true, finalText, ...(donePayload || {}) })}\n\n`);
+  res.end();
 }
 
 // ── ROUTER ──
@@ -467,22 +248,31 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
         bangContext = clean + manifestBlock;
 
-        // ── Pre-call: BANG explore repo with tools (separate memory) ──
+        // ── CallDeepSeekWithTools as SINGLE entry point (non-streaming, max 3 rounds) ──
         const sharedCtx = await getSharedContext(uid);
-        const exploreCtx = clean + manifestBlock + (sharedCtx ? `\n\n--- KONTEKS DARI AGENT LAIN ---\n${sharedCtx}` : "") + "\n\n⚠️ Fase eksplorasi: Kamu punya alat untuk BACA file (listDirectory, readFile, searchContent, getDependencies, fetchGitHubFile), EKSEKUSI command (execCommand), dan SSH ke VPS (sshExec). Gunakan alat yg relevan. JANGAN tulis/edit file. LAPORKAN hasil eksplorasi + jalankan perintah yg diminta user.";
-        const preResult = await callDeepSeekWithTools(
-          BANG_ORCHESTRATOR, exploreCtx, uid, "cto_tools", EXPLORE_TOOLS, 2000
-        );
-        if (preResult && preResult.startsWith("ERROR:")) {
-          bangContext += `\n\n⚠️ Eksplorasi file gagal: ${preResult.slice(6)}. BANG hanya punya file dari manifest.`;
-        } else if (preResult) {
-          bangContext += `\n\n--- HASIL EKSPLORASI ---\n${preResult}`;
-        } else {
-          bangContext += `\n\n⚠️ Eksplorasi file tidak menghasilkan data. BANG hanya punya file dari manifest.`;
-        }
+        const fullCtx = bangContext + (sharedCtx ? `\n\n--- KONTEKS DARI AGENT LAIN ---\n${sharedCtx}` : "");
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.flushHeaders();
 
-        // ── Main: streaming response (no tools, full format) ──
-        await streamBANGResponse(req, res, uid, bangContext);
+        try {
+          const finalText = await callDeepSeekWithTools(
+            BANG_ORCHESTRATOR, fullCtx, uid, "cto", EXPLORE_TOOLS, 3000
+          );
+          if (finalText.startsWith("ERROR:")) {
+            await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);
+          } else if (finalText) {
+            await fakeStream(finalText, res);
+            await remember(uid, "cto", clean, finalText);
+            await saveSharedContext(uid, "cto", finalText.slice(0, 500));
+          } else {
+            await fakeStream("Maaf, BANG tidak bisa memberi jawaban sekarang. Coba lagi.", res);
+          }
+        } catch (e: any) {
+          console.error("[ai] CTO error:", e);
+          await fakeStream(`Error: Tool calling gagal — ${e.message?.slice(0, 200) || "unknown"}`, res);
+        }
         return;
       }
 
