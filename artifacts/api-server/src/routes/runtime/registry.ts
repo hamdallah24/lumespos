@@ -9,6 +9,8 @@ import { logSystem } from "./logger";
 import { metricsSystem } from "./metrics";
 import { traceSystem } from "./trace";
 import { healthMonitor } from "./health-monitor";
+import { circuitBreakerSystem } from "./circuit-breaker";
+import { healthPolicy } from "./health-policy";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -117,6 +119,8 @@ register(logSystem);
 register(metricsSystem);
 register(traceSystem);
 register(healthMonitor);
+register(circuitBreakerSystem);
+register(healthPolicy);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

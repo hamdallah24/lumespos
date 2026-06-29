@@ -8,6 +8,8 @@ import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
 import { runMigration } from "./migrate";
+import { computeHealthScore, lastScore } from "./runtime/health-policy";
+import { registryStatus } from "./runtime/registry";
 import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
@@ -590,6 +592,18 @@ router.post("/ai/checklist/toggle", requireRole("owner"), async (req, res) => {
     await upsertChecklistItem(convId, itemKey, text || itemKey, checked);
     res.json({ ok: true });
   } catch { res.status(500).json({ error: "Gagal update checklist." }); }
+});
+
+// ── HEALTH API (Sprint 4) ──
+router.get("/ai/health", requireRole("owner"), async (_req, res) => {
+  const score = await computeHealthScore();
+  res.json({
+    score: score.total,
+    status: score.total >= 90 ? "healthy" : score.total >= 70 ? "degraded" : "unhealthy",
+    components: score.components,
+    registry: registryStatus(),
+    timestamp: score.timestamp,
+  });
 });
 
 // ── SHARED CONTEXT API (agent sync) ──
