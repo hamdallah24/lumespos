@@ -5,6 +5,9 @@ import { llmGateway } from "./llm-gateway";
 import { toolExecutor } from "./tool-executor";
 import { validator } from "./validator";
 import { eventSystem } from "./events";
+import { logSystem } from "./logger";
+import { metricsSystem } from "./metrics";
+import { traceSystem } from "./trace";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -109,6 +112,9 @@ register(llmGateway);
 register(toolExecutor);
 register(validator);
 register(eventSystem);
+register(logSystem);
+register(metricsSystem);
+register(traceSystem);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

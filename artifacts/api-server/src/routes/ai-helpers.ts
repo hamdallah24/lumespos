@@ -5,6 +5,10 @@ import { exec } from "child_process";
 import { existsSync } from "fs";
 // Sprint 3: Event system import
 import { emit, Events } from "./runtime/events";
+// Sprint 3.5: Observability
+import { ExecutionContext } from "./runtime/execution-context";
+import { finalize, errorTrace } from "./runtime/trace";
+import { logger } from "./runtime/logger";
 // Sprint 3: Validator functions (import + re-export)
 import { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse } from "./runtime/validator";
 export { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse };
@@ -589,15 +593,21 @@ export async function callDeepSeekWithTools(
   system: string, user: string, userId: number, mode: string, tools: ToolDef[], maxTokens = 2000,
   onProgress?: (msg: string) => void,
 ): Promise<string> {
+  const ctx = new ExecutionContext(userId, mode);
   const key = process.env.DEEPSEEK_API_KEY;
   const base = process.env.DEEPSEEK_BASE_URL;
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
   if (!key || !base) { console.error("[ai] DeepSeek key/base not set"); return ""; }
 
+  try {
+
   const history = await getHistory(userId, mode, 400);
   const filteredHistory = filterContamination(history);
   const messages: any[] = [{ role: "system", content: system.slice(0, 5000) }];
   for (const h of filteredHistory) messages.push(h);
+  ctx.step("MemoryBridge", "load", { historyCount: filteredHistory.length });
+  ctx.end("ok");
+  ctx.incMetric("roundCount");
   messages.push({ role: "user", content: user.slice(0, 5000) });
 
   const toolsPayload = tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
@@ -648,6 +658,7 @@ export async function callDeepSeekWithTools(
 
     const controller = new AbortController();
     const tid = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    ctx.step("LLMGateway", "fetch", { round: round + 1, msgCount: cleanMessages.length });
     let resp;
     try {
       resp = await fetch(`${base}/chat/completions`, {
@@ -729,7 +740,9 @@ export async function callDeepSeekWithTools(
       try {
         const t0 = Date.now();
         const r = await executeToolCall(fn.name, args);
-        emit(Events.ToolExecuted, { name: fn.name, durationMs: Date.now() - t0 });
+        const dur = Date.now() - t0;
+        emit(Events.ToolExecuted, { name: fn.name, durationMs: dur });
+        ctx.tool(fn.name, dur);
         toolResults.push({
           role: "tool",
           tool_call_id: tc.id,
@@ -799,6 +812,7 @@ export async function callDeepSeekWithTools(
     }
   }
 
+  finalize(ctx);
   return "";
 }
 
