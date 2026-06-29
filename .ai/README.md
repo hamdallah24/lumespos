@@ -53,6 +53,13 @@ When an AI agent initialises, it must process information in this exact sequence
 - AI **MUST NOT** invent APIs
 - AI **MUST NOT** invent databases
 - AI **MUST NOT** invent features
+- Roadmap provides direction.
+
+- Current Sprint provides execution.
+
+- Architecture provides design.
+
+- Constitution provides principles.
 
 **If uncertain → Ask. Never assume.**  
 This principle drastically reduces hallucination.
