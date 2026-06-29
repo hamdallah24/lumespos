@@ -1,3 +1,47 @@
+---
+id: constitution-v1
+title: Constitution of Lume's AI Ecosystem
+domain: foundation
+artifact_type: constitution
+owner: Founder
+status: Active
+version: 1.0.0
+stability: locked
+maturity: mature
+last_updated: 2026-06-29
+last_reviewed: 2026-06-29
+review_trigger:
+  - OnPolicyChange
+  - Quarterly
+knowledge_level: governing
+context_priority: critical
+depends_on:
+  - north-star-v1
+referenced_by:
+  - project-context-v1
+  - op-model-v1
+  - cto-directive-v1
+  - foundation-index-v1
+consumers:
+  - All AI Agents
+  - CTO
+  - COO
+  - CodeGenerator
+  - ReviewAgent
+  - GovernanceEngine
+loading_strategy: always
+tags:
+  - foundation
+  - governance
+  - principles
+  - law
+  - constitution
+purpose: |
+  The supreme source of principles, rules, and decision-making ethics
+  for every AI agent in the Lume's ecosystem. All agents must read,
+  understand, and obey this Constitution before performing any task.
+---
+
 Constitution of Lume's AI Ecosystem
 
 Version 1.0 · Effective: 2026-06-29

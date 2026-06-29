@@ -1,3 +1,45 @@
+---
+id: project-context-v1
+title: Project Context
+domain: foundation
+artifact_type: context
+owner: Founder & CTO
+status: Active
+version: 1.0.0
+stability: stable
+maturity: mature
+last_updated: 2026-06-29
+last_reviewed: 2026-06-29
+review_trigger:
+  - OnCodeChange
+  - Monthly
+knowledge_level: canonical
+context_priority: high
+depends_on:
+  - north-star-v1
+  - constitution-v1
+referenced_by:
+  - op-model-v1
+  - cto-directive-v1
+  - foundation-index-v1
+consumers:
+  - CTO
+  - ContextEngine
+  - RepositoryScanner
+  - MemoryEngine
+loading_strategy: conditional
+tags:
+  - foundation
+  - context
+  - status
+  - sprint
+  - roadmap
+purpose: |
+  Provide the operational context of the Lume's Everywhere AI project.
+  Current state, priorities, engineering direction, agent inventory,
+  challenges, and technology direction.
+---
+
 PROJECT_CONTEXT.md
 
 Lume's Everywhere AI — Project Context
