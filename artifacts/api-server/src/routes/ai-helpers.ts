@@ -3,6 +3,11 @@
 // ─────────────────────────────────────────────────────────────
 import { exec } from "child_process";
 import { existsSync } from "fs";
+// Sprint 3: Event system import
+import { emit, Events } from "./runtime/events";
+// Sprint 3: Validator functions (import + re-export)
+import { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse } from "./runtime/validator";
+export { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse };
 import { readdir, stat, readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname, resolve } from "path";
 import { promisify } from "util";
@@ -558,101 +563,6 @@ export async function executeToolCall(name: string, args: Record<string, any>): 
   }
 }
 
-// DSML parser — detect hallucinated tool call tags in model output
-function parseDSMLToolCalls(text: string): any[] | null {
-  if (!text?.includes("<｜｜DSML｜｜tool_calls>")) return null;
-  const toolCalls: any[] = [];
-  const invokeRegex = /<｜｜DSML｜｜invoke name="([^"]+)">([\s\S]*?)<\/｜｜DSML｜｜invoke>/g;
-  const paramRegex = /<｜｜DSML｜｜parameter name="([^"]+)"[^>]*>([\s\S]*?)<\/｜｜DSML｜｜parameter>/g;
-  let invokeMatch;
-  while ((invokeMatch = invokeRegex.exec(text)) !== null) {
-    const toolName = invokeMatch[1];
-    const paramBlock = invokeMatch[2];
-    const args: Record<string, string> = {};
-    let paramMatch;
-    while ((paramMatch = paramRegex.exec(paramBlock)) !== null) {
-      args[paramMatch[1]] = paramMatch[2].trim();
-    }
-    toolCalls.push({ id: `call_${Date.now()}_${toolCalls.length}`, type: "function", function: { name: toolName, arguments: JSON.stringify(args) } });
-  }
-  return toolCalls.length > 0 ? toolCalls : null;
-}
-
-function stripDSML(text: string): string {
-  return text.replace(/<｜｜DSML｜｜[\s\S]*?>/g, "").replace(/<\/｜｜DSML｜｜[\s\S]*?>/g, "").trim();
-}
-
-function validateMessageSequence(msgs: any[]) {
-  for (let i = 0; i < msgs.length; i++) {
-    const m = msgs[i];
-    if (m.role === "assistant" && m.tool_calls?.length > 0) {
-      const next = msgs[i + 1];
-      if (!next || next.role !== "tool") {
-        throw new Error(`Invalid sequence at index ${i}: assistant tool_calls not followed by tool message. Next role: ${next?.role ?? "nothing"}`);
-      }
-    }
-  }
-}
-
-// ── SPRINT 1: Validator — contamination detection + completion checks ──
-
-interface ValidationResult {
-  isValid: boolean;
-  cleanedText: string;
-  warnings: string[];
-}
-
-function validateResponse(text: string): ValidationResult {
-  if (!text) return { isValid: true, cleanedText: text, warnings: [] };
-  const warnings: string[] = [];
-  let cleaned = text;
-
-  // Contamination detection — shell commands leaking into response
-  const shellCommandLines = text.split("\n").filter(line =>
-    /^(cd |grep |wc |find |ls |cat |head |tail |pm2 |ssh |scp |sudo |pnpm |npm |git )/.test(line.trim()) ||
-    /\|(\||\s*)/.test(line.trim()) ||
-    /&&/.test(line.trim()) ||
-    /2>\/dev\/null/.test(line)
-  );
-
-  // Contamination detection — garbled/corrupted text patterns
-  const garbledPatterns = [
-    /(artifacts\w+\.\.\.\w+)/,  // path fragments merged (e.g., "artifactsplos-appmage")
-    /(\w+\|\w+\|\w+)/,            // pipe-separated fragments
-    /(\w+\\\.\\\.)/,              // escaped dots in text
-    /undefined(?=[a-z])/i,        // "undefined" merged with next word
-  ];
-
-  if (shellCommandLines.length > 0) {
-    warnings.push(`CONTAMINATION: ${shellCommandLines.length} shell command(s) detected in response`);
-    cleaned = cleaned.split("\n").filter(line => !shellCommandLines.includes(line)).join("\n");
-  }
-
-  for (const pattern of garbledPatterns) {
-    if (pattern.test(text)) {
-      warnings.push(`CONTAMINATION: garbled/corrupted text pattern detected`);
-      break;
-    }
-  }
-
-  // Completion check — response should be substantive
-  if (text.length < 20 && !/^(ok|ya|tidak|yes|no|done)$/i.test(text.trim())) {
-    warnings.push(`INCOMPLETE: response too short (${text.length} chars)`);
-  }
-
-  // DSML check — if stripDSML already ran but fragments remain
-  if (/<｜｜DSML｜｜/i.test(text) || /<\/｜｜DSML｜｜/i.test(text)) {
-    warnings.push("DSML_FRAGMENT: tool call tags still present in response");
-    cleaned = stripDSML(cleaned);
-  }
-
-  return {
-    isValid: warnings.length === 0 || warnings.every(w => !w.startsWith("DSML_FRAGMENT")),
-    cleanedText: cleaned.trim() || text.trim(),
-    warnings,
-  };
-}
-
 // ── SPRINT 1: Memory Bridge — history truncation + contamination filter ──
 
 function filterContamination(history: ChatMsg[]): ChatMsg[] {
@@ -696,17 +606,7 @@ export async function callDeepSeekWithTools(
   const TIMEOUT_MS = 30000;
 
   // ── SANITIZE ──
-  function sanitizeMessages(msgs: any[]): any[] {
-    return msgs
-      .filter(m => m !== null && m !== undefined && m.role)
-      .map(m => {
-        let content: string | null;
-        if (m.content === undefined) content = null;
-        else if (typeof m.content === "string") content = m.content;
-        else content = JSON.stringify(m.content);
-        return { ...m, content };
-      });
-  }
+  // (imported from runtime/validator.ts — see top of file)
 
   // ── DEBUG LOG ──
   const logPayload = (label: string, msgs: any[], r: number) => {
@@ -788,7 +688,9 @@ export async function callDeepSeekWithTools(
       if (!retryResp.ok) throw new Error(`AI engine error: HTTP ${resp.status}`);
       const rj = await retryResp.json();
       const rc = (rj as any).choices?.[0]?.message?.content?.trim() || "";
+      emit(Events.BeforeValidation, { textLength: rc.length });
       const validated = validateResponse(rc);
+      emit(Events.AfterValidation, { warnings: validated.warnings });
       if (validated.warnings.length > 0) console.warn("[Validator] Retry path warnings:", validated.warnings);
       if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
       return validated.cleanedText;
@@ -809,7 +711,7 @@ export async function callDeepSeekWithTools(
       } else {
         const content = stripDSML(rawContent);
         const validated = validateResponse(content);
-        if (validated.warnings.length > 0) console.warn("[Validator] Normal path warnings:", validated.warnings);
+        if (validated.warnings.length > 0) emit(Events.AfterValidation, { warnings: validated.warnings });
         if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
         return validated.cleanedText;
       }
@@ -825,7 +727,9 @@ export async function callDeepSeekWithTools(
       const label = getToolLabel(fn.name);
       if (onProgress) onProgress(label);
       try {
+        const t0 = Date.now();
         const r = await executeToolCall(fn.name, args);
+        emit(Events.ToolExecuted, { name: fn.name, durationMs: Date.now() - t0 });
         toolResults.push({
           role: "tool",
           tool_call_id: tc.id,
@@ -884,7 +788,10 @@ export async function callDeepSeekWithTools(
         const fallback = stripDSML(msg.content?.trim() || "");
         const finalContent = fc2 || fallback;
         const validated = validateResponse(finalContent);
-        if (validated.warnings.length > 0) console.warn("[Validator] Safety net warnings:", validated.warnings);
+        if (validated.warnings.length > 0) {
+          console.warn("[Validator] Safety net warnings:", validated.warnings);
+          emit(Events.AfterValidation, { warnings: validated.warnings });
+        }
         if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
         return validated.cleanedText;
       };
