@@ -40,14 +40,19 @@ export async function getOrCreateConversation(userId: number, mode: string): Pro
   return (result.rows[0] as any).id as number;
 }
 
-export async function getHistory(userId: number, mode: string): Promise<ChatMsg[]> {
+export async function getHistory(userId: number, mode: string, maxContentLength?: number): Promise<ChatMsg[]> {
   try {
     const convId = await getOrCreateConversation(userId, mode);
     const rows = await db.select().from(messagesTable)
       .where(eq(messagesTable.conversationId, convId))
       .orderBy(messagesTable.id)
       .limit(MAX_MEMORY * 2);
-    return rows.map(r => ({ role: r.role as "user" | "assistant", content: r.content }));
+    return rows.map(r => ({
+      role: r.role as "user" | "assistant",
+      content: maxContentLength && r.content.length > maxContentLength
+        ? r.content.slice(0, maxContentLength) + "…"
+        : r.content,
+    }));
   } catch (e) {
     console.error("[ai] DB getHistory error:", e);
     return [];
@@ -589,6 +594,87 @@ function validateMessageSequence(msgs: any[]) {
   }
 }
 
+// ── SPRINT 1: Validator — contamination detection + completion checks ──
+
+interface ValidationResult {
+  isValid: boolean;
+  cleanedText: string;
+  warnings: string[];
+}
+
+function validateResponse(text: string): ValidationResult {
+  if (!text) return { isValid: true, cleanedText: text, warnings: [] };
+  const warnings: string[] = [];
+  let cleaned = text;
+
+  // Contamination detection — shell commands leaking into response
+  const shellCommandLines = text.split("\n").filter(line =>
+    /^(cd |grep |wc |find |ls |cat |head |tail |pm2 |ssh |scp |sudo |pnpm |npm |git )/.test(line.trim()) ||
+    /\|(\||\s*)/.test(line.trim()) ||
+    /&&/.test(line.trim()) ||
+    /2>\/dev\/null/.test(line)
+  );
+
+  // Contamination detection — garbled/corrupted text patterns
+  const garbledPatterns = [
+    /(artifacts\w+\.\.\.\w+)/,  // path fragments merged (e.g., "artifactsplos-appmage")
+    /(\w+\|\w+\|\w+)/,            // pipe-separated fragments
+    /(\w+\\\.\\\.)/,              // escaped dots in text
+    /undefined(?=[a-z])/i,        // "undefined" merged with next word
+  ];
+
+  if (shellCommandLines.length > 0) {
+    warnings.push(`CONTAMINATION: ${shellCommandLines.length} shell command(s) detected in response`);
+    cleaned = cleaned.split("\n").filter(line => !shellCommandLines.includes(line)).join("\n");
+  }
+
+  for (const pattern of garbledPatterns) {
+    if (pattern.test(text)) {
+      warnings.push(`CONTAMINATION: garbled/corrupted text pattern detected`);
+      break;
+    }
+  }
+
+  // Completion check — response should be substantive
+  if (text.length < 20 && !/^(ok|ya|tidak|yes|no|done)$/i.test(text.trim())) {
+    warnings.push(`INCOMPLETE: response too short (${text.length} chars)`);
+  }
+
+  // DSML check — if stripDSML already ran but fragments remain
+  if (/<｜｜DSML｜｜/i.test(text) || /<\/｜｜DSML｜｜/i.test(text)) {
+    warnings.push("DSML_FRAGMENT: tool call tags still present in response");
+    cleaned = stripDSML(cleaned);
+  }
+
+  return {
+    isValid: warnings.length === 0 || warnings.every(w => !w.startsWith("DSML_FRAGMENT")),
+    cleanedText: cleaned.trim() || text.trim(),
+    warnings,
+  };
+}
+
+// ── SPRINT 1: Memory Bridge — history truncation + contamination filter ──
+
+function filterContamination(history: ChatMsg[]): ChatMsg[] {
+  const shellCmdRe = /^(cd |grep |wc |find |ls |cat |head |tail |pm2 |ssh |scp |sudo |pnpm |npm |git )/;
+
+  return history.map(msg => {
+    if (msg.role !== "assistant") return msg;
+    // Check if message contains execution commands as main content
+    const lines = msg.content.split("\n").filter(l => l.trim());
+    const cmdLineCount = lines.filter(l => shellCmdRe.test(l.trim())).length;
+    // If >30% of lines are shell commands, this is likely contamination
+    if (cmdLineCount > 0 && cmdLineCount / Math.max(lines.length, 1) > 0.3) {
+      return { ...msg, content: "[content filtered — contamination detected]" };
+    }
+    // Strip DSML fragments from history
+    if (typeof msg.content === "string" && /<｜｜DSML｜｜/i.test(msg.content)) {
+      return { ...msg, content: stripDSML(msg.content) };
+    }
+    return msg;
+  });
+}
+
 export async function callDeepSeekWithTools(
   system: string, user: string, userId: number, mode: string, tools: ToolDef[], maxTokens = 2000,
   onProgress?: (msg: string) => void,
@@ -598,9 +684,10 @@ export async function callDeepSeekWithTools(
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
   if (!key || !base) { console.error("[ai] DeepSeek key/base not set"); return ""; }
 
-  const history = await getHistory(userId, mode);
+  const history = await getHistory(userId, mode, 400);
+  const filteredHistory = filterContamination(history);
   const messages: any[] = [{ role: "system", content: system.slice(0, 5000) }];
-  for (const h of history) messages.push(h);
+  for (const h of filteredHistory) messages.push(h);
   messages.push({ role: "user", content: user.slice(0, 5000) });
 
   const toolsPayload = tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
@@ -701,8 +788,10 @@ export async function callDeepSeekWithTools(
       if (!retryResp.ok) throw new Error(`AI engine error: HTTP ${resp.status}`);
       const rj = await retryResp.json();
       const rc = (rj as any).choices?.[0]?.message?.content?.trim() || "";
-      if (rc) await remember(userId, mode, user, rc);
-      return rc;
+      const validated = validateResponse(rc);
+      if (validated.warnings.length > 0) console.warn("[Validator] Retry path warnings:", validated.warnings);
+      if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
+      return validated.cleanedText;
     }
 
     const json = await resp.json();
@@ -719,8 +808,10 @@ export async function callDeepSeekWithTools(
         // Fall through to tool execution
       } else {
         const content = stripDSML(rawContent);
-        if (content) await remember(userId, mode, user, content);
-        return content;
+        const validated = validateResponse(content);
+        if (validated.warnings.length > 0) console.warn("[Validator] Normal path warnings:", validated.warnings);
+        if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
+        return validated.cleanedText;
       }
     }
 
@@ -790,8 +881,12 @@ export async function callDeepSeekWithTools(
           return doFinalCall(false);
         }
         const fc2 = stripDSML(fmsg?.content?.trim() || "");
-        if (fc2) await remember(userId, mode, user, fc2);
-        return fc2 || stripDSML(msg.content?.trim() || "");
+        const fallback = stripDSML(msg.content?.trim() || "");
+        const finalContent = fc2 || fallback;
+        const validated = validateResponse(finalContent);
+        if (validated.warnings.length > 0) console.warn("[Validator] Safety net warnings:", validated.warnings);
+        if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
+        return validated.cleanedText;
       };
       return doFinalCall(true);
     }
