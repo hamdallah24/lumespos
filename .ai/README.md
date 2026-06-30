@@ -44,8 +44,8 @@ Every file here is a **Knowledge Asset**: a node in the Knowledge Graph with met
 
 1. Read `foundation/FOUNDATION_INDEX.md` for the reading order
 2. Read `foundation/NORTH_STAR.md` to understand why we exist
-3. Read `foundation/CONSTITUTION.md` to understand how to think
-4. Read `foundation/PROJECT_CONTEXT.md` to understand current state
+3. Read `CONSTITUTION.md` to understand how to think
+4. Read `PROJECT_CONTEXT.md` to understand current state
 5. Read `foundation/AI_OPERATING_MODEL.md` to understand how to work
 6. If you are CTO, read `foundation/CTO_EXECUTION_DIRECTIVE.md`
 

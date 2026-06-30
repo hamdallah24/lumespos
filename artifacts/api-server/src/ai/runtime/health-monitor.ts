@@ -149,26 +149,19 @@ addCheck("GitHub", async () => {
   }
 });
 
-// SSH alive? (lightweight check using exec from child_process directly)
+// SSH alive? Key-only auth for security (no password in process args)
 addCheck("SSH", async () => {
   const host = process.env.SSH_HOST;
   const user = process.env.SSH_USER;
+  const key = process.env.SSH_KEY_PATH;
   if (!host || !user) return { status: "degraded" as const, value: "not configured" };
+  if (!key) return { status: "degraded" as const, value: "no SSH key" };
   const t0 = Date.now();
   try {
     const { exec } = await import("child_process");
     const { promisify } = await import("util");
     const execP = promisify(exec);
-    const key = process.env.SSH_KEY_PATH;
-    const pass = process.env.SSH_PASSWORD;
-    let cmd: string;
-    if (key) {
-      cmd = `ssh -i ${key} -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes ${user}@${host} "echo ok"`;
-    } else if (pass) {
-      cmd = `SSHPASS='${pass}' sshpass -e ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ${user}@${host} "echo ok"`;
-    } else {
-      return { status: "degraded" as const, value: "no auth" };
-    }
+    const cmd = `ssh -i ${key} -o StrictHostKeyChecking=no -o ConnectTimeout=5 -o BatchMode=yes ${user}@${host} "echo ok"`;
     const { stdout } = await execP(cmd, { timeout: 10000 });
     const ms = Date.now() - t0;
     return stdout.trim() === "ok"

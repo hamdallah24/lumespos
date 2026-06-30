@@ -16,7 +16,7 @@ knowledge_level: reference
 context_priority: normal
 depends_on:
   - adr-007-runtime-components-v1
-  - sprint-3-proposal
+  - sprint-3-retrospective
 referenced_by: []
 consumers:
   - CTO

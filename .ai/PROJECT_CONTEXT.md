@@ -317,10 +317,6 @@ CONSTITUTION.md
 
 Defines how AI should think and behave.
 
-MASTER_PLAN_2030.md
-
-Defines the long-term strategic direction.
-
 ROADMAP.md
 
 Defines engineering milestones.
