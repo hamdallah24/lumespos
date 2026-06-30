@@ -116,7 +116,7 @@ addCheck("DeepSeek", async () => {
     const resp = await fetch(DEEPSEEK_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${DEEPSEEK_KEY}` },
-      body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
+      body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || "deepseek-chat", messages: [{ role: "user", content: "ping" }], max_tokens: 1 }),
       signal: ctl.signal,
     });
     clearTimeout(tid);
