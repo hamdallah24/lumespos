@@ -18,9 +18,7 @@ purpose: |
 
 # Engineering OS — Architecture
 
-> **Status: 🔒 LOCKED v1.0.0** — All 7 certification layers pass.
-> Frozen contracts: ExecutionSpecificationV1, IdentityV1, TrustV1, PolicyV1, EvidenceV1, KnowledgeGraphV1.
-> Changes require versioned proposal (v2, v3...), never direct edit.
+> **🔒 FROZEN v1.0.0** — 7-layer certification PASS | 46 components | 3 programs | 12 org nodes | 9 laws | 19 ADRs | 16.5 sprints
 
 ## 14 Layers
 
