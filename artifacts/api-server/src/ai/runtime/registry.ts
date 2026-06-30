@@ -27,7 +27,6 @@ import { knowledgeMetrics } from "./knowledge-metrics";
 import { intentClassifier } from "./intent-classifier";
 import { capabilityEngine } from "./capability-engine";
 import { productionReadiness } from "./production-readiness";
-import ctoAgent from "../agents/cto";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -154,7 +153,6 @@ register(knowledgeMetrics);
 register(intentClassifier);
 register(capabilityEngine);
 register(productionReadiness);
-register(ctoAgent);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

@@ -10,7 +10,8 @@ import { generateAndCommit } from "./ai-codegen";
 import { runMigration } from "./migrate";
 import { computeHealthScore, lastScore } from "../ai/runtime/health-policy";
 import { registryStatus } from "../ai/runtime/registry";
-import ctoAgent from "../ai/agents/cto";
+import { classifyIntent } from "../ai/runtime/intent-classifier";
+import { checkCapability } from "../ai/runtime/capability-engine";
 import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
@@ -276,21 +277,26 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         res.flushHeaders();
 
         try {
-          emitStatus(res, "⚙️ Menganalisis permintaan...");
-          const finalText = await ctoAgent.execute({
-            message: fullCtx,
-            userId: uid,
-            mode: "cto",
-            onProgress: (msg) => emitStatus(res, msg),
-          });
-          const responseText = finalText.text;
-          if (responseText.startsWith("ERROR:")) {
-            await fakeStream(`Maaf, terjadi kesalahan: ${responseText.slice(6)}`, res);
-          } else if (responseText) {
+          const intent = classifyIntent(clean);
+          const capability = checkCapability(intent);
+          const toolSet = intent.suggestedToolSet === "DEVOPS_TOOLS" ? DEVOPS_TOOLS
+            : intent.suggestedToolSet === "NONE" ? [] : READ_TOOLS;
+
+          emitStatus(res, intent.category === "greeting" ? "💡 Memproses..."
+            : intent.category === "devops_operation" ? "🖥️ Mode DevOps..."
+            : "⚙️ Menganalisis permintaan...");
+
+          const finalText = await callDeepSeekWithTools(
+            BANG_ORCHESTRATOR, fullCtx, uid, "cto", toolSet, 3000,
+            (msg) => emitStatus(res, msg)
+          );
+          if (finalText.startsWith("ERROR:")) {
+            await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);
+          } else if (finalText) {
             emitStatus(res, "✅ Menyusun jawaban...");
-            await fakeStream(responseText, res);
-            await remember(uid, "cto", clean, responseText);
-            await saveSharedContext(uid, "cto", responseText.slice(0, 500));
+            await fakeStream(finalText, res);
+            await remember(uid, "cto", clean, finalText);
+            await saveSharedContext(uid, "cto", finalText.slice(0, 500));
           } else {
             await fakeStream("Maaf, BANG tidak bisa memberi jawaban sekarang. Coba lagi.", res);
           }
