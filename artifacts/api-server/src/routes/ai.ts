@@ -6,7 +6,6 @@ import { requireRole } from "../middlewares/requireAuth";
 import { callDeepSeek, callDeepSeekWithTools, executeToolCall, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, READ_TOOLS, DEVOPS_TOOLS, ToolDef, mergeDeploy, getDependencies, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
-import { generateAndCommit } from "./ai-codegen";
 import { runMigration } from "./migrate";
 import { computeHealthScore, lastScore } from "../ai/runtime/health-policy";
 import { registryStatus } from "../ai/runtime/registry";
@@ -51,7 +50,7 @@ async function fakeStream(finalText: string, res: any) {
 // ── ROUTER ──
 router.post("/ai/chat", requireRole("owner"), async (req, res) => {
   try {
-    const { message, mode, generateNow } = req.body as { message?: string; mode?: string; generateNow?: boolean };
+    const { message, mode, action, proposalId } = req.body as { message?: string; mode?: string; action?: string; proposalId?: string };
     if (!message || typeof message !== "string" || !message.trim()) {
       res.status(400).json({ error: "Message is required" });
       return;
@@ -71,7 +70,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     }
 
     // Rate limit
-    const maxReqs = m === "cto" ? (generateNow ? 2 : 30) : (m === "vps" ? 30 : 20);
+    const maxReqs = m === "cto" ? 30 : (m === "vps" ? 30 : 20);
     const rl = checkRateLimit(uid, m, maxReqs);
     if (!rl.ok) {
       res.status(429).json({ error: `Terlalu banyak permintaan. Coba lagi ${rl.retryAfter} detik lagi.` });
@@ -90,9 +89,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
       // ── CTO ──
       case "cto": {
-        // Approval → generate kode langsung di backend
-        if (generateNow) {
-          // SSE streaming — kirim progress langkah demi langkah
+        // Phase 2: Proposal Execution — contract-driven, replaces generateNow
+        if (action === "approve_proposal" && proposalId) {
           res.setHeader("Content-Type", "text/event-stream");
           res.setHeader("Cache-Control", "no-cache");
           res.setHeader("Connection", "keep-alive");
@@ -106,95 +104,29 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           };
 
           try {
-            // Step 1: Cari konteks dari BANG + file repo
-          const history = await getHistory(uid, "cto");
-          const lastAssistant = [...history].reverse().find(h => h.role === "assistant");
-          let codegenInput = clean;
+            sse("start", "🔧 Menjalankan proposal melalui CTO Runtime...");
+            const { executeApprovedProposal } = await import("../ai/programs/proposal-executor");
+            const result = await executeApprovedProposal(proposalId, (msg) => {
+              if (!aborted) res.write(`data: ${JSON.stringify({ type: "status", message: msg })}\n\n`);
+            });
 
-          if (lastAssistant && lastAssistant.content.trim()) {
-            codegenInput += `\n\n--- ANALISIS BANG SEBELUMNYA ---\n${lastAssistant.content.slice(0, 4000)}`;
-            sse("search", "📄 Menemukan analisis BANG sebelumnya, melanjutkan generate...");
-          } else {
-            sse("search", "⚠️ Riwayat analisis BANG tidak ditemukan — generate berdasarkan permintaan langsung.");
-          }
-
-          sse("search", "🔍 Mencari file yg berkaitan di repo...");
-
-          // ── Layer 1: Parse BANG response — langsung fetch file yg disebut ──
-          const prefetched: Record<string, string> = {};
-
-          if (lastAssistant) {
-            const pathsFromBANG = (lastAssistant.content.match(/artifacts\/\S+\.[a-z]{2,4}/gi) || [])
-              .filter((p: string, i: number, arr: string[]) => arr.indexOf(p) === i);
-            const bangResults = await Promise.all(pathsFromBANG.slice(0, 3).map(p => fetchGitHubFile(p, "main")));
-            for (let i = 0; i < bangResults.length; i++) {
-              const r = bangResults[i];
-              if (r.content && r.content.length > 10) prefetched[pathsFromBANG[i]] = r.content;
-            }
-          }
-
-          // ── Layer 2: searchRepoFiles fallback untuk file tambahan ──
-          const searchQuery = lastAssistant ? clean + " " + lastAssistant.content.slice(0, 500) : clean;
-          const searchedPaths = await searchRepoFiles(searchQuery);
-          if (searchedPaths.length > 0) {
-            codegenInput += "\n\nFILE TERKAIT:\n" + searchedPaths.slice(0, 5).join("\n");
-            const need = 3 - Object.keys(prefetched).length;
-            if (need > 0) {
-              const searchResults = await Promise.all(
-                searchedPaths.filter(p => !prefetched[p]).slice(0, need).map(p => fetchGitHubFile(p, "main"))
-              );
-              for (let i = 0; i < searchResults.length; i++) {
-                const r = searchResults[i];
-                if (r.content && r.content.length > 10) prefetched[searchedPaths[i]] = r.content;
+            if (!aborted) {
+              if (result.success) {
+                sse("final", `✅ Proposal ${proposalId} berhasil dijalankan.\n${result.text}`);
+              } else {
+                sse("final", `❌ Gagal menjalankan proposal: ${result.text}`);
               }
+              res.end();
             }
-          }
-
-          // Progress
-          const n = Object.keys(prefetched).length;
-          if (n > 0) {
-            const first = Object.keys(prefetched)[0].split("/").pop();
-            sse("search", `📄 ${n} file relevan (utama: ${first}), lanjut generate...`);
-          } else {
-            sse("search", "⚠️ Tidak bisa membaca isi file — generate tetap dilanjutkan...");
-          }
-
-          const reply = await generateAndCommit(codegenInput, uid, (evt) => {
-            sse(evt.step, evt.detail);
-          }, prefetched);
-
-          // SSH pull ke VPS setelah commit sukses
-          const isSuccess = /✅|committed|sukses|berhasil/i.test(reply);
-          let finalReply = reply;
-          if (!aborted && isSuccess) {
-            sse("pull", "🔄 Menarik kode ke VPS...");
-            try {
-              const pullResult = await sshExec("cd ~/lumespos && git pull origin Staging");
-              sse("pull", pullResult.includes("Already up to date") || pullResult.includes("Updating")
-                ? `✅ VPS sudah sinkron dengan Staging.\n${pullResult.slice(0, 200)}`
-                : `⚠️ Hasil pull VPS:\n${pullResult.slice(0, 200)}`);
-            } catch {
-              sse("pull", "⚠️ Gagal SSH pull ke VPS. Lakukan manual: cd ~/lumespos && git pull origin Staging");
+          } catch (e: any) {
+            console.error("[ai] Proposal execution error:", e);
+            if (!aborted) {
+              sse("final", `❌ Gagal: ${(e?.message || String(e)).slice(0, 200)}`);
+              res.end();
             }
-            finalReply += `\n\n📋 **Langkah selanjutnya:**\n1. Merge Staging → main: \`git checkout main && git merge Staging && git push origin main\`\n2. Restart VPS: \`cd ~/lumespos && git pull origin main && pnpm --filter ./artifacts/api-server run build && pm2 restart pos-api\`\nAtau bilang "merge" biar saya eksekusi via tool.`;
-          }
-
-          // Final response
-          if (!aborted) {
-            res.write(`data: ${JSON.stringify({ step: "final", detail: finalReply })}\n\n`);
-            res.end();
-            await remember(uid, m, clean, finalReply);
-          }
-          return;
-        } catch (e: any) {
-          console.error("[ai] generateNow error:", e);
-          if (!aborted) {
-            sse("final", `❌ Gagal generate kode: ${(e?.message || String(e)).slice(0, 200)}`);
-            res.end();
           }
           return;
         }
-      }
 
       const lower = clean.toLowerCase();
 

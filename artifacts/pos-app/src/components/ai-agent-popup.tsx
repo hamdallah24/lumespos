@@ -333,7 +333,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() || "" },
-        body: JSON.stringify({ message: msg, mode: "cto", generateNow: true }),
+        body: JSON.stringify({ message: msg, mode: "cto", action: "approve_proposal", proposalId: `prop-${Date.now()}` }),
       });
       if (!resp.ok) {
         const errText = await resp.text().catch(() => "");

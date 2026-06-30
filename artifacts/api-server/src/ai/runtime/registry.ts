@@ -52,6 +52,7 @@ import { ceoRuntime } from "../programs/ceo-runtime";
 import { ctoProgram } from "../programs/cto-runtime";
 import { organizationGraph } from "../programs/organization-graph";
 import { missionRuntime } from "../programs/mission-runtime";
+import { proposalExecutor } from "../programs/proposal-executor";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -203,6 +204,7 @@ register(ceoRuntime);
 register(ctoProgram);
 register(organizationGraph);
 register(missionRuntime);
+register(proposalExecutor);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

@@ -31,7 +31,7 @@ export { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "../routes/ai-prompts
 
 // ── Business + Codegen ──
 export { executeOperation } from "../routes/ai-business";
-export { generateAndCommit } from "../routes/ai-codegen";
+// (generateAndCommit deprecated — see ADR-020, use proposalExecutor instead)
 
 // ── Migration ──
 export { runMigration } from "../routes/migrate";
