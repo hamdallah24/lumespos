@@ -646,7 +646,18 @@ router.get("/ai/readiness", requireRole("owner"), async (_req, res) => {
 router.get("/ai/readiness-public", async (_req, res) => {
   const { runAll } = await import("../ai/runtime/production-readiness");
   const result = runAll();
-  res.json({ ready: result.ready, passed: result.passed, failed: result.failed, total: result.total });
+  res.json({
+    ready: result.ready,
+    passed: result.passed,
+    failed: result.failed,
+    total: result.total,
+    details: result.suites.map(s => ({
+      suite: s.suite,
+      passed: s.passed,
+      failed: s.failed,
+      failures: s.results.filter(r => !r.passed).map(r => ({ name: r.name, detail: r.detail })),
+    })),
+  });
 });
 
 // ── SHARED CONTEXT API (agent sync) ──
