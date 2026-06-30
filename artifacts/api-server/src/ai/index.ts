@@ -13,6 +13,7 @@ export { deepseekProvider, getProvider, setProvider, LLMProvider } from "./secur
 
 // ── Runtime Components ──
 export * from "./runtime/registry";
+export { foundationLoader } from "./runtime/foundation-loader";
 export { computeHealthScore, lastScore, scoreReport } from "./runtime/health-policy";
 export { startHealthMonitor } from "./runtime/health-monitor";
 export { ExecutionContext } from "./runtime/execution-context";

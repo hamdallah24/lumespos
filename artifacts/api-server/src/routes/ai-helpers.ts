@@ -9,6 +9,8 @@ import { emit, Events } from "../ai/runtime/events";
 import { ExecutionContext } from "../ai/runtime/execution-context";
 import { finalize, errorTrace } from "../ai/runtime/trace";
 import { logger } from "../ai/runtime/logger";
+// Sprint 7.1: Foundation Loader
+import { foundationLoader } from "../ai/runtime/foundation-loader";
 // Sprint 3: Validator functions (import + re-export)
 import { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse } from "../ai/runtime/validator";
 export { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse };
@@ -601,7 +603,15 @@ export async function callDeepSeekWithTools(
 
   const history = await getHistory(userId, mode, 400);
   const filteredHistory = filterContamination(history);
-  const messages: any[] = [{ role: "system", content: system.slice(0, 5000) }];
+  // Foundation-driven system prompt (Sprint 7.1) — fallback to hardcoded if loader fails
+  let systemContent: string;
+  try {
+    const foundationPrompt = foundationLoader.getFoundationPrompt(4000);
+    systemContent = foundationPrompt || system.slice(0, 5000);
+  } catch {
+    systemContent = system.slice(0, 5000);
+  }
+  const messages: any[] = [{ role: "system", content: systemContent }];
   for (const h of filteredHistory) messages.push(h);
   ctx.step("MemoryBridge", "load", { historyCount: filteredHistory.length });
   ctx.end("ok");
