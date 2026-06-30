@@ -8,8 +8,8 @@ import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
 import { generateAndCommit } from "./ai-codegen";
 import { runMigration } from "./migrate";
-import { computeHealthScore, lastScore } from "./runtime/health-policy";
-import { registryStatus } from "./runtime/registry";
+import { computeHealthScore, lastScore } from "../ai/runtime/health-policy";
+import { registryStatus } from "../ai/runtime/registry";
 import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 

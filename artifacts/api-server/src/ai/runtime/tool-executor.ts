@@ -1,6 +1,6 @@
 // SPRINT 2: Tool Executor — tool dispatch and lifecycle
 // Re-export from ai-helpers.ts, add component metadata for registry
-import { executeToolCall as _executeToolCall } from "../ai-helpers";
+import { executeToolCall as _executeToolCall } from "../../routes/ai-helpers";
 
 export const TOOL_EXECUTOR_VERSION = "1.0.0";
 

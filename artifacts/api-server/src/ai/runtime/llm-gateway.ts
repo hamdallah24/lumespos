@@ -1,6 +1,6 @@
 // SPRINT 2: LLM Gateway — DeepSeek API abstraction
 // Extracted from ai-helpers.ts callDeepSeekWithTools
-import { callDeepSeekWithTools } from "../ai-helpers";
+import { callDeepSeekWithTools } from "../../routes/ai-helpers";
 
 export const LLM_GATEWAY_VERSION = "1.0.0";
 

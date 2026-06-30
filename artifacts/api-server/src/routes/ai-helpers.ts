@@ -4,13 +4,13 @@
 import { exec } from "child_process";
 import { existsSync } from "fs";
 // Sprint 3: Event system import
-import { emit, Events } from "./runtime/events";
+import { emit, Events } from "../ai/runtime/events";
 // Sprint 3.5: Observability
-import { ExecutionContext } from "./runtime/execution-context";
-import { finalize, errorTrace } from "./runtime/trace";
-import { logger } from "./runtime/logger";
+import { ExecutionContext } from "../ai/runtime/execution-context";
+import { finalize, errorTrace } from "../ai/runtime/trace";
+import { logger } from "../ai/runtime/logger";
 // Sprint 3: Validator functions (import + re-export)
-import { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse } from "./runtime/validator";
+import { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse } from "../ai/runtime/validator";
 export { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse };
 import { readdir, stat, readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname, resolve } from "path";

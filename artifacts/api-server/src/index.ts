@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { startHealthMonitor } from "./routes/runtime/health-monitor";
+import { startHealthMonitor } from "./ai/runtime/health-monitor";
 
 const rawPort = process.env["PORT"];
 
