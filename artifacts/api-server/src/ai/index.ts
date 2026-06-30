@@ -9,7 +9,8 @@ export { canSubmit as canSubmitBudget, record as recordBudget, report as budgetR
 
 // ── Security (Sprint 6) ──
 export { Classification, classifyContent, canSendToLLM, canAccess } from "./security/classification";
-export { deepseekProvider, getProvider, setProvider, LLMProvider } from "./security/llm-provider";
+export { deepseekProvider, getProvider, setProvider } from "./security/llm-provider";
+export type { LLMProvider } from "./security/llm-provider";
 
 // ── Runtime Components ──
 export * from "./runtime/registry";
@@ -36,5 +37,6 @@ export { generateAndCommit } from "../routes/ai-codegen";
 export { runMigration } from "../routes/migrate";
 
 // ── Tools ──
-export { READ_TOOLS, DEVOPS_TOOLS, EXPLORE_TOOLS, ToolDef } from "../routes/ai-helpers";
+export { READ_TOOLS, DEVOPS_TOOLS, EXPLORE_TOOLS } from "../routes/ai-helpers";
+export type { ToolDef } from "../routes/ai-helpers";
 export { mergeDeploy, fetchGitHubFile, readLocalFile, sshExec, getHistory, remember, clearMemory, searchRepoFiles, checkRateLimit, getChecklistItems, upsertChecklistItem, saveSharedContext, getSharedContext, getOrCreateConversation } from "../routes/ai-helpers";

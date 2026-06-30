@@ -4,7 +4,7 @@
 import { readFileSync, existsSync } from "fs";
 import { join, resolve } from "path";
 
-interface KnowledgeAsset {
+export interface KnowledgeAsset {
   id: string;
   title: string;
   domain: string;

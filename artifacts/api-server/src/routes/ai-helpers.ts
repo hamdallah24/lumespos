@@ -11,6 +11,8 @@ import { finalize, errorTrace } from "../ai/runtime/trace";
 import { logger } from "../ai/runtime/logger";
 // Sprint 7.1: Foundation Loader
 import { foundationLoader } from "../ai/runtime/foundation-loader";
+// Sprint 7.2: Context Builder
+import { buildFoundationContext, formatContextAsString } from "../ai/runtime/context-builder";
 // Sprint 3: Validator functions (import + re-export)
 import { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse } from "../ai/runtime/validator";
 export { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse };
@@ -603,11 +605,12 @@ export async function callDeepSeekWithTools(
 
   const history = await getHistory(userId, mode, 400);
   const filteredHistory = filterContamination(history);
-  // Foundation-driven system prompt (Sprint 7.1) — fallback to hardcoded if loader fails
+  // Foundation → Loader → Context Builder → System Prompt (Sprint 7.2)
   let systemContent: string;
   try {
-    const foundationPrompt = foundationLoader.getFoundationPrompt(4000);
-    systemContent = foundationPrompt || system.slice(0, 5000);
+    const assets = foundationLoader.load();
+    const ctxPkg = buildFoundationContext(assets, 4000);
+    systemContent = formatContextAsString(ctxPkg) || system.slice(0, 5000);
   } catch {
     systemContent = system.slice(0, 5000);
   }
