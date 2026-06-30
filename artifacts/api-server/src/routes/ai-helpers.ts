@@ -631,8 +631,8 @@ export async function callDeepSeekWithTools(
 
   const toolsPayload = tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
 
-  const MAX_ROUNDS = 3;
-  const TIMEOUT_MS = 30000;
+  const MAX_ROUNDS = 5;  // Was 3 — Foundation prompts need more thinking rounds
+  const TIMEOUT_MS = 45000; // Was 30s — Foundation prompts are larger, need more time
 
   // ── SANITIZE ──
   // (imported from runtime/validator.ts — see top of file)
