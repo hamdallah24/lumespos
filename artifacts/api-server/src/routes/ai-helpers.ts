@@ -6,7 +6,7 @@ import { existsSync } from "fs";
 // Sprint 3: Event system import
 import { emit, Events } from "../ai/runtime/events";
 // Sprint 3.5: Observability
-import { ExecutionContext } from "../ai/runtime/execution-context";
+import { ExecutionContext, RuntimeState } from "../ai/runtime/execution-context";
 import { finalize, errorTrace } from "../ai/runtime/trace";
 import { logger } from "../ai/runtime/logger";
 // Sprint 7.1: Foundation Loader
@@ -626,6 +626,7 @@ export async function callDeepSeekWithTools(
   for (const h of filteredHistory) messages.push(h);
   ctx.step("MemoryBridge", "load", { historyCount: filteredHistory.length });
   ctx.end("ok");
+  ctx.setState(RuntimeState.KNOWLEDGE_LOADING);
   ctx.incMetric("roundCount");
   messages.push({ role: "user", content: user.slice(0, 5000) });
 
@@ -718,11 +719,16 @@ export async function callDeepSeekWithTools(
       if (!retryResp.ok) throw new Error(`AI engine error: HTTP ${resp.status}`);
       const rj = await retryResp.json();
       const rc = (rj as any).choices?.[0]?.message?.content?.trim() || "";
+      ctx.setState(RuntimeState.REASONING);
       emit(Events.BeforeValidation, { textLength: rc.length });
+      // L1: Evidence — raw text before validation
+      ctx.addEvent({ state: RuntimeState.VALIDATION, phase: "raw", timestampMs: 0, metadata: { length: rc.length, preview: rc.slice(0, 120) } });
       const validated = validateResponse(rc);
+      // L2: Evidence — after validation
+      ctx.addEvent({ state: RuntimeState.VALIDATION, phase: "cleaned", timestampMs: 0, metadata: { rawLength: rc.length, cleanedLength: validated.cleanedText.length, warnings: validated.warnings.map(w => w.slice(0, 30)) } });
       emit(Events.AfterValidation, { warnings: validated.warnings });
       if (validated.warnings.length > 0) console.warn("[Validator] Retry path warnings:", validated.warnings);
-      if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
+      if (validated.cleanedText) { ctx.setState(RuntimeState.DELIVERY); ctx.addEvent({ state: RuntimeState.DELIVERY, phase: "remembered", timestampMs: 0, metadata: { length: validated.cleanedText.length, saved: true } }); await remember(userId, mode, user, validated.cleanedText); }
       return validated.cleanedText;
     }
 
@@ -740,14 +746,17 @@ export async function callDeepSeekWithTools(
         // Fall through to tool execution
       } else {
         const content = stripDSML(rawContent);
+        ctx.addEvent({ state: RuntimeState.VALIDATION, phase: "raw", timestampMs: 0, metadata: { length: content.length, preview: content.slice(0, 120) } });
         const validated = validateResponse(content);
+        ctx.addEvent({ state: RuntimeState.VALIDATION, phase: "cleaned", timestampMs: 0, metadata: { rawLength: content.length, cleanedLength: validated.cleanedText.length, warnings: validated.warnings.map(w => w.slice(0, 30)) } });
         if (validated.warnings.length > 0) emit(Events.AfterValidation, { warnings: validated.warnings });
-        if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
+        if (validated.cleanedText) { ctx.setState(RuntimeState.DELIVERY); ctx.addEvent({ state: RuntimeState.DELIVERY, phase: "remembered", timestampMs: 0, metadata: { length: validated.cleanedText.length, saved: true } }); await remember(userId, mode, user, validated.cleanedText); }
         return validated.cleanedText;
       }
     }
 
     // Execute tools — strict shape guaranteed
+    ctx.setState(RuntimeState.TOOL_EXECUTION);
     const toolResults: any[] = [];
     for (const tc of msg.tool_calls) {
       if (!tc.id) throw new Error(`tool_call_id missing for tool: ${tc.function?.name}`);
@@ -819,12 +828,14 @@ export async function callDeepSeekWithTools(
         const fc2 = stripDSML(fmsg?.content?.trim() || "");
         const fallback = stripDSML(msg.content?.trim() || "");
         const finalContent = fc2 || fallback;
+        ctx.addEvent({ state: RuntimeState.VALIDATION, phase: "raw", timestampMs: 0, metadata: { length: finalContent.length, preview: finalContent.slice(0, 120) } });
         const validated = validateResponse(finalContent);
+        ctx.addEvent({ state: RuntimeState.VALIDATION, phase: "cleaned", timestampMs: 0, metadata: { rawLength: finalContent.length, cleanedLength: validated.cleanedText.length, warnings: validated.warnings.map(w => w.slice(0, 30)) } });
         if (validated.warnings.length > 0) {
           console.warn("[Validator] Safety net warnings:", validated.warnings);
           emit(Events.AfterValidation, { warnings: validated.warnings });
         }
-        if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
+        if (validated.cleanedText) { ctx.setState(RuntimeState.DELIVERY); ctx.addEvent({ state: RuntimeState.DELIVERY, phase: "remembered", timestampMs: 0, metadata: { length: validated.cleanedText.length, saved: true } }); await remember(userId, mode, user, validated.cleanedText); }
         return validated.cleanedText;
       };
       return doFinalCall(true);

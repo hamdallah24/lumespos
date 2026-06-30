@@ -240,6 +240,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             (msg) => emitStatus(res, msg)
           );
           const isError = finalText.startsWith("ERROR:");
+          // L4: Evidence — what reached fakeStream
+          console.log(`[Telemetry L4] STREAMING | length:${finalText.length} | isError:${isError} | isEmpty:${!finalText} | preview:${finalText.slice(0, 120)}`);
           if (isError) {
             await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);
           } else if (finalText) {
