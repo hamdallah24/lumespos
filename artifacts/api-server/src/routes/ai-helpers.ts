@@ -599,8 +599,6 @@ export async function callDeepSeekWithTools(
   const model = process.env.DEEPSEEK_MODEL || "deepseek-chat";
   if (!key || !base) { console.error("[ai] DeepSeek key/base not set"); return ""; }
 
-  try {
-
   const history = await getHistory(userId, mode, 400);
   const filteredHistory = filterContamination(history);
   const messages: any[] = [{ role: "system", content: system.slice(0, 5000) }];
