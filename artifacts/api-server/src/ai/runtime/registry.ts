@@ -19,6 +19,7 @@ import { classificationSystem } from "../security/classification";
 import { llmProviderSystem } from "../security/llm-provider";
 import { foundationLoader } from "./foundation-loader";
 import { contextBuilder } from "./context-builder";
+import { promptAssembler } from "./prompt-assembler";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -137,6 +138,7 @@ register(classificationSystem);
 register(llmProviderSystem);
 register(foundationLoader);
 register(contextBuilder);
+register(promptAssembler);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
