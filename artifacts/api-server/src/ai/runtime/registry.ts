@@ -11,6 +11,12 @@ import { traceSystem } from "./trace";
 import { healthMonitor } from "./health-monitor";
 import { circuitBreakerSystem } from "./circuit-breaker";
 import { healthPolicy } from "./health-policy";
+import { authorityGate } from "../governance/authority-gate";
+import { constitutionalValidator } from "../governance/constitutional-validator";
+import { proposalLedger } from "../governance/proposal-ledger";
+import { evolutionBudget } from "../governance/evolution-budget";
+import { classificationSystem } from "../security/classification";
+import { llmProviderSystem } from "../security/llm-provider";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -121,6 +127,12 @@ register(traceSystem);
 register(healthMonitor);
 register(circuitBreakerSystem);
 register(healthPolicy);
+register(authorityGate);
+register(constitutionalValidator);
+register(proposalLedger);
+register(evolutionBudget);
+register(classificationSystem);
+register(llmProviderSystem);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

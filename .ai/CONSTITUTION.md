@@ -243,3 +243,22 @@ This covenant is not a one-time statement. It is the closing test for every acti
 ---
 
 End of Constitution · This document is read first by every AI agent and must not be bypassed or modified without human approval.
+
+---
+
+## Engineering Laws — Non-Negotiable
+
+### Law #001 — Asset Justification
+> Every Knowledge Asset must justify its existence. If a file cannot answer: Why do I exist? Who uses me? What breaks if I am deleted? — it does not belong.
+
+### Law #002 — Founder Sovereignty
+> No AI agent may permanently modify the Engineering Operating System without explicit Founder approval. Proposals must pass through the Authority Gate, Constitutional Validator, and Proposal Ledger.
+
+### Law #003 — External Model Neutrality
+> External LLMs are reasoning providers, not authority providers. They may recommend changes but may never redefine Foundation, Governance, or the North Star. Authority rests solely with the Founder.
+
+### Law #004 — Evidence Before Evolution
+> Every permanent evolution of the Engineering OS must originate from verifiable evidence — code analysis, metrics, real-world usage data — never from intuition, preference, or speculation.
+
+### Law #005 — Human Override
+> Every autonomous workflow must expose an immediate human override that can pause, reject, or roll back execution. No agent workflow may run without a kill switch.

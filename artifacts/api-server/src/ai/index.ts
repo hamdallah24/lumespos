@@ -1,6 +1,16 @@
 // AI Backend — single public entry point (Sprint 5)
 // All imports go through this module.
 
+// ── Governance (Sprint 6) ──
+export { submit as submitProposal, approve as approveProposal, reject as rejectProposal, pending as pendingProposals, GateResult } from "./governance/authority-gate";
+export { validate as validateConstitutional, checkpoint as constitutionalCheckpoint } from "./governance/constitutional-validator";
+export { record as recordProposal, history as proposalHistory } from "./governance/proposal-ledger";
+export { canSubmit as canSubmitBudget, record as recordBudget, report as budgetReport } from "./governance/evolution-budget";
+
+// ── Security (Sprint 6) ──
+export { Classification, classifyContent, canSendToLLM, canAccess } from "./security/classification";
+export { deepseekProvider, getProvider, setProvider, LLMProvider } from "./security/llm-provider";
+
 // ── Runtime Components ──
 export * from "./runtime/registry";
 export { computeHealthScore, lastScore, scoreReport } from "./runtime/health-policy";
