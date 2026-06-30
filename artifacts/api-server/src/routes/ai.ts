@@ -625,6 +625,7 @@ router.get("/ai/health", requireRole("owner"), async (_req, res) => {
 });
 
 // ── PRODUCTION READINESS (Sprint 10) ──
+// Owner-only: full test suite with component details
 router.get("/ai/readiness", requireRole("owner"), async (_req, res) => {
   const { runAll } = await import("../ai/runtime/production-readiness");
   const result = runAll();
@@ -639,6 +640,13 @@ router.get("/ai/readiness", requireRole("owner"), async (_req, res) => {
     })),
     summary: { passed: result.passed, failed: result.failed, total: result.total },
   });
+});
+
+// Public: lightweight readiness check for monitoring (no auth required)
+router.get("/ai/readiness-public", async (_req, res) => {
+  const { runAll } = await import("../ai/runtime/production-readiness");
+  const result = runAll();
+  res.json({ ready: result.ready, passed: result.passed, failed: result.failed, total: result.total });
 });
 
 // ── SHARED CONTEXT API (agent sync) ──
