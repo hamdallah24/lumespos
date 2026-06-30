@@ -49,6 +49,7 @@ import { orgMemory } from "./organizational-memory";
 import { missionScope } from "./mission-scope";
 import { engineeringCertification } from "./engineering-certification";
 import { ceoRuntime } from "../programs/ceo-runtime";
+import { ctoProgram } from "../programs/cto-runtime";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -197,6 +198,7 @@ register(orgMemory);
 register(missionScope);
 register(engineeringCertification);
 register(ceoRuntime);
+register(ctoProgram);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
