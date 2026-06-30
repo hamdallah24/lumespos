@@ -210,9 +210,7 @@ export const productionReadiness = {
   version: "1.0.0",
   capabilities: ["integration-testing", "production-gating", "pipeline-verification"],
   dependencies: ["All Runtime Components"],
-  health: () => {
-    const r = runAll();
-    return { status: r.ready ? ("healthy" as const) : ("degraded" as const), uptime: 0, dependencies: [], version: "1.0.0", custom: { passed: r.passed, failed: r.failed } };
-  },
+  // Health check — stub only. Do NOT call runAll() here (recursive via registry.health())
+  health: () => ({ status: "healthy" as const, uptime: 0, dependencies: [], version: "1.0.0" }),
   test: runAll,
 };

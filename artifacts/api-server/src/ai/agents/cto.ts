@@ -89,21 +89,13 @@ async function execute(req: CTORequest): Promise<CTOResponse> {
 
 /** Check if CTO Agent is healthy */
 function health() {
-  const readiness = productionReadiness.test ? productionReadiness.test() : { ready: true, passed: 0, failed: 0 };
-  const graph = buildGraph();
-  const metrics = collect();
-
   return {
-    status: readiness.ready ? ("healthy" as const) : ("degraded" as const),
+    status: "healthy" as const,
     uptime: 0,
     dependencies: ["IntentClassifier", "KnowledgeLoader", "ContextBuilder", "PromptAssembler", "LLM"],
     version: "1.0.0",
     custom: {
       pipeline: "Intent → Capability → Knowledge → Context → Prompt → LLM → Render",
-      graphNodes: graph.stats.totalNodes,
-      knowledgeCoverage: metrics.coverage.coveragePercent,
-      brokenRefs: metrics.validation.brokenRefs,
-      readinessStatus: readiness.ready ? "READY" : "NOT READY",
     },
   };
 }
