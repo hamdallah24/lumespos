@@ -699,6 +699,13 @@ router.get("/ai/readiness-public", async (_req, res) => {
   });
 });
 
+// ── ENGINEERING OS CERTIFICATION (Sprint 16.5) ──
+router.get("/ai/certify", requireRole("owner"), async (_req, res) => {
+  const { engineeringCertification } = await import("../ai/runtime/engineering-certification");
+  const cert = await engineeringCertification.run();
+  res.json(cert);
+});
+
 // ── SHARED CONTEXT API (agent sync) ──
 router.get("/ai/shared-context", requireRole("owner"), async (req, res) => {
   const ctx = await getSharedContext(req.user!.id, 10);
