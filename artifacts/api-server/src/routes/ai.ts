@@ -290,7 +290,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             BANG_ORCHESTRATOR, fullCtx, uid, "cto", toolSet, 3000,
             (msg) => emitStatus(res, msg)
           );
-          if (finalText.startsWith("ERROR:")) {
+          const isError = finalText.startsWith("ERROR:");
+          if (isError) {
             await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);
           } else if (finalText) {
             emitStatus(res, "✅ Menyusun jawaban...");

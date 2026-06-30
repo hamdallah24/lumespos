@@ -47,6 +47,8 @@ export function validateMessageSequence(msgs: any[]) {
 
 /** Sanitize messages — ensure content is string or null, never undefined */
 export function sanitizeMessages(msgs: any[]): any[] {
+  // TODO Sprint 10.x: Replace regex sanitizer with UTF-16 validator that preserves valid emoji
+  // .replace(/[\uD800-\uDFFF]/g, "") strips BOTH invalid surrogates and valid emoji
   return msgs
     .filter(m => m !== null && m !== undefined && m.role)
     .map(m => {
@@ -54,7 +56,7 @@ export function sanitizeMessages(msgs: any[]): any[] {
       if (m.content === undefined) content = null;
       else if (typeof m.content === "string") content = m.content;
       else content = JSON.stringify(m.content);
-      return { ...m, content };
+      return { ...m, content: content?.replace(/[\uD800-\uDFFF]/g, "") ?? null };
     });
 }
 
