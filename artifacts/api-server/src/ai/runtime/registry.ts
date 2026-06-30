@@ -40,6 +40,9 @@ import { evidenceCollector } from "./evidence-collector";
 import { knowledgeEvolution } from "./knowledge-evolution";
 import { proposalReview } from "./proposal-review";
 import { identityRuntime } from "./identity";
+import { organizationRuntime } from "./organization-runtime";
+import { trustRuntime } from "./trust-runtime";
+import { authorizationRuntime } from "./authorization";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -179,6 +182,9 @@ register(evidenceCollector);
 register(knowledgeEvolution);
 register(proposalReview);
 register(identityRuntime);
+register(organizationRuntime);
+register(trustRuntime);
+register(authorizationRuntime);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
