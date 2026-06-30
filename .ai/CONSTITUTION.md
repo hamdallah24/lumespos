@@ -268,3 +268,6 @@ End of Constitution · This document is read first by every AI agent and must no
 
 ### Law #007 — Production Gating
 > Every Runtime Milestone must produce a usable Agent before the next Runtime Milestone begins. No new capability may be built until the current capability is proven in production. Build → Test → Ship → Learn → Build again.
+
+### Law #008 — Semantic First
+> Engineering OS must never execute directly from natural language. Every Founder request must first be translated into a structured ExecutionSpecification before any planning, policy validation, or execution occurs. The LLM understands the human. The OS decides the action.
