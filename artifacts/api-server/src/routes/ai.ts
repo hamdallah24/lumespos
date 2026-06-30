@@ -10,8 +10,9 @@ import { generateAndCommit } from "./ai-codegen";
 import { runMigration } from "./migrate";
 import { computeHealthScore, lastScore } from "../ai/runtime/health-policy";
 import { registryStatus } from "../ai/runtime/registry";
-import { classifyIntent } from "../ai/runtime/intent-classifier";
-import { checkCapability } from "../ai/runtime/capability-engine";
+import { understand } from "../ai/runtime/semantic-engine";
+import { buildSpec } from "../ai/runtime/execution-spec";
+import { verify } from "../ai/runtime/verification-engine";
 import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
@@ -268,16 +269,23 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
         bangContext = clean + manifestBlock;
 
-        // Sprint 9.2: Classify intent BEFORE building context (policy controls manifest)
-        const intent = classifyIntent(clean);
-        const policy = intent.runtimePolicy;
+        // Sprint 9.3-9.5: Semantic Engine → Execution Spec → Verification
+        const contract = await understand(clean);
+        const spec = buildSpec(contract);
+        const verification = verify(spec);
 
-        // Apply policy: skip manifest + shared context for intents that don't need them
-        if (!policy.manifest) bangContext = clean;
-        if (!policy.sharedContext) bangContext = bangContext;
+        if (!verification.passed) {
+          res.setHeader("Content-Type", "text/event-stream");
+          res.setHeader("Cache-Control", "no-cache");
+          res.setHeader("Connection", "keep-alive");
+          res.flushHeaders();
+          await fakeStream(`❌ ${verification.stopReason}`, res);
+          return;
+        }
 
-        // ── CallDeepSeekWithTools as SINGLE entry point ──
-        const sharedCtx = policy.sharedContext ? await getSharedContext(uid) : "";
+        // Apply policy controls from spec
+        if (!spec.runtimePolicy.manifest) bangContext = clean;
+        const sharedCtx = spec.runtimePolicy.sharedContext ? await getSharedContext(uid) : "";
         const fullCtx = bangContext + (sharedCtx ? `\n\n--- KONTEKS DARI AGENT LAIN ---\n${sharedCtx}` : "");
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
@@ -285,12 +293,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         res.flushHeaders();
 
         try {
-          const capability = checkCapability(intent);
-          const toolSet = intent.suggestedToolSet === "DEVOPS_TOOLS" ? DEVOPS_TOOLS
-            : intent.suggestedToolSet === "NONE" ? [] : READ_TOOLS;
+          const toolSet = spec.toolSet === "DEVOPS_TOOLS" ? DEVOPS_TOOLS
+            : spec.toolSet === "NONE" ? [] : READ_TOOLS;
 
-          emitStatus(res, intent.category === "greeting" ? "💡 Memproses..."
-            : intent.category === "devops_operation" ? "🖥️ Mode DevOps..."
+          emitStatus(res, spec.intent === "greeting" ? "💡 Memproses..."
+            : spec.toolSet === "DEVOPS_TOOLS" ? "🖥️ Mode DevOps..."
             : "⚙️ Menganalisis permintaan...");
 
           const finalText = await callDeepSeekWithTools(

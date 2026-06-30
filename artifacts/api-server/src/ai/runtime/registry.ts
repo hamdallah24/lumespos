@@ -30,6 +30,9 @@ import { productionReadiness } from "./production-readiness";
 import { policyRegistry } from "./policy/registry";
 import { policyValidator } from "./policy/validator";
 import { runtimeReport } from "./reports/runtime-report";
+import { semanticEngine } from "./semantic-engine";
+import { executionSpec } from "./execution-spec";
+import { verificationEngine } from "./verification-engine";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -159,6 +162,9 @@ register(productionReadiness);
 register(policyRegistry);
 register(policyValidator);
 register(runtimeReport);
+register(semanticEngine);
+register(executionSpec);
+register(verificationEngine);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
