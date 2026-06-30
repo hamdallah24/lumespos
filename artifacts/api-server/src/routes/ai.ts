@@ -624,6 +624,23 @@ router.get("/ai/health", requireRole("owner"), async (_req, res) => {
   });
 });
 
+// ── PRODUCTION READINESS (Sprint 10) ──
+router.get("/ai/readiness", requireRole("owner"), async (_req, res) => {
+  const { runAll } = await import("../ai/runtime/production-readiness");
+  const result = runAll();
+  res.json({
+    ready: result.ready,
+    status: result.ready ? "CTO Agent v1.0 — READY FOR PRODUCTION" : "NOT READY",
+    suites: result.suites.map(s => ({
+      name: s.suite,
+      passed: s.passed,
+      failed: s.failed,
+      results: s.results.map(r => ({ name: r.name, passed: r.passed, detail: r.detail })),
+    })),
+    summary: { passed: result.passed, failed: result.failed, total: result.total },
+  });
+});
+
 // ── SHARED CONTEXT API (agent sync) ──
 router.get("/ai/shared-context", requireRole("owner"), async (req, res) => {
   const ctx = await getSharedContext(req.user!.id, 10);
