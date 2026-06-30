@@ -1,7 +1,7 @@
 // SPRINT 7.1: Foundation Loader — reads .ai/Foundation docs with metadata
 // Parses YAML frontmatter, resolves dependencies, builds ordered context
 
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, resolve } from "path";
 
 export interface KnowledgeAsset {
@@ -94,7 +94,6 @@ function loadAssetsFromDir(dir: string, domain: string): KnowledgeAsset[] {
   const assets: KnowledgeAsset[] = [];
   if (!existsSync(dir)) return assets;
 
-  const { readdirSync } = require("fs");
   const entries = readdirSync(dir, { withFileTypes: true });
 
   for (const entry of entries) {
