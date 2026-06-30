@@ -610,12 +610,17 @@ export async function callDeepSeekWithTools(
   const filteredHistory = filterContamination(history);
   // Knowledge Loader → Context Builder → Prompt Assembler (Sprint 8)
   let systemContent: string;
-  try {
-    const assets = loadKnowledgeWithContent({ strategy: "always" });
-    const pkg = buildFoundationContext(assets, mode, 4000);
-    systemContent = assembleSystemPrompt(pkg, mode) || system.slice(0, 5000);
-  } catch {
+  // If system prompt already Foundation-driven (from CTO Agent), use it directly
+  if (system.includes("[ASSET:")) {
     systemContent = system.slice(0, 5000);
+  } else {
+    try {
+      const assets = loadKnowledgeWithContent({ strategy: "always" });
+      const pkg = buildFoundationContext(assets, mode, 4000);
+      systemContent = assembleSystemPrompt(pkg, mode) || system.slice(0, 5000);
+    } catch {
+      systemContent = system.slice(0, 5000);
+    }
   }
   const messages: any[] = [{ role: "system", content: systemContent }];
   for (const h of filteredHistory) messages.push(h);
