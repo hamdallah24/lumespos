@@ -5,11 +5,11 @@ domain: foundation
 artifact_type: index
 owner: CTO
 status: Active
-version: 1.0.0
+version: 1.1.0
 stability: locked
 maturity: mature
-last_updated: 2026-06-29
-last_reviewed: 2026-06-29
+last_updated: 2026-06-30
+last_reviewed: 2026-06-30
 review_trigger:
   - OnFoundationChange
   - Quarterly
@@ -36,8 +36,8 @@ tags:
   - meta-document
 purpose: |
   Explain the relationship between all Foundation Knowledge Assets.
-  Serve as the entry point for understanding the Foundation as a system,
-  not as isolated documents.
+  Current: Engineering OS v1.0 FROZEN. Phase 2 Programs active.
+  Mission Runtime (MOAO), Organization Graph, CEO+CTO Programs on kernel.
 ---
 
 # Foundation Index
@@ -76,6 +76,14 @@ CTO_EXECUTION_DIRECTIVE (contract)
     ├── references → PLAYBOOKS
     └── cataloged → CATALOG
 ```
+
+## Current State
+
+Engineering OS v1.0 kernel FROZEN as of June 30, 2026:
+- **46 components** registered, 7-layer certification PASS
+- **3 Programs** on kernel: CEO Runtime (A), CTO Runtime (B), Mission Runtime
+- **Organization Graph**: 12 nodes, 3 active runtimes, dynamic team formation
+- **9 Engineering Laws**, 19 ADRs, 16.5 sprints completed
 
 ## Document Summaries
 

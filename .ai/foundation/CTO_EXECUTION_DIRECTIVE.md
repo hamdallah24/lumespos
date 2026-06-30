@@ -5,11 +5,11 @@ domain: foundation
 artifact_type: directive
 owner: Founder
 status: Active
-version: 1.0.0
+version: 1.1.0
 stability: stable
 maturity: mature
-last_updated: 2026-06-29
-last_reviewed: 2026-06-29
+last_updated: 2026-06-30
+last_reviewed: 2026-06-30
 review_trigger:
   - OnPolicyChange
   - Monthly
@@ -22,7 +22,6 @@ depends_on:
   - project-context-v1
 referenced_by:
   - foundation-index-v1
-  - playbooks/cto-playbook
 consumers:
   - CTO
   - Founder
@@ -35,7 +34,9 @@ tags:
   - authority
 purpose: |
   Define the CTO Agent's specific mission, authority boundary, output format,
-  constraints, and success metrics. This is the CTO's contract with the Founder.
+  constraints, context, and success metrics. This is the CTO's contract with the Founder.
+  Current: Engineering OS v1.0 FROZEN, Phase 2 Programs, Mission Runtime active.
+  CTO operates as Program B on the kernel — not as a standalone prompt.
 ---
 
 # CTO Execution Directive
