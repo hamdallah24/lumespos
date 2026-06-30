@@ -126,9 +126,12 @@ export function validateGraph(graph: KnowledgeGraphV1): ValidationReport {
     warnings: [],
   };
 
-  // Check broken refs
+  // Check broken refs (only report IDs that look like Knowledge Asset IDs: name-v1 pattern)
+  const assetIdPattern = /^[a-z][a-z0-9-]+-v\d+$/;
   for (const [, node] of graph.nodes) {
     for (const depId of node.dependsOn) {
+      // Skip external references (sprint reports, proposals, etc.)
+      if (!assetIdPattern.test(depId)) continue;
       if (!graph.nodes.has(depId)) {
         report.brokenRefs.push(`${node.id} → ${depId}`);
         report.passed = false;
