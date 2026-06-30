@@ -79,6 +79,8 @@ export function validateResponse(text: string): ValidationResult {
     /(\w+\|\w+\|\w+)/,
     /(\w+\\\.\\\.)/,
     /undefined(?=[a-z])/i,
+    /(\w+\/\w+\.\w+){3,}/,     // Path fragments concatenated without spaces (e.g., "artifacts/api-server/README.mdrtifacts/mockup")
+    /\w+\.(tsx?|md|json)\w+/i,  // File extensions merged with next word (e.g., "README.mdrtifacts")
   ];
 
   if (shellCommandLines.length > 0) {

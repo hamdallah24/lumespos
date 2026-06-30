@@ -190,7 +190,11 @@ export async function callDeepSeek(system: string, user: string, userId: number,
     const history = await getHistory(userId, mode);
     const messages: any[] = [{ role: "system", content: system.slice(0, 4000) }];
     for (const h of history) messages.push(h);
-    messages.push({ role: "user", content: user.slice(0, 5000) });
+  // Sprint 10: Filter manifest data from user context (prevents LLM echoing file paths)
+  let userContent = user.slice(0, 3000);  // Truncate to 3000 (was 5000)
+  // Strip manifest path fragments — keep only the Founder's actual message
+  userContent = userContent.replace(/\b(artifacts\/|\.local\/|lib\/)\S*\.[a-z]{2,4}\b/gi, "[file]");
+  messages.push({ role: "user", content: userContent });
 
     const body: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
     if (jsonMode) body.response_format = { type: "json_object" };
