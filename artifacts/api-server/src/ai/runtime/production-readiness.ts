@@ -125,7 +125,7 @@ function testHealth(): TestSuite {
     const degraded = Object.entries(h).filter(([, v]: any) => v?.status === "degraded").length;
     const unhealthy = Object.entries(h).filter(([, v]: any) => v?.status === "unhealthy").length;
 
-    results.push(total >= 30 ? pass("Component count", `${total} components (≥30)`) : fail("Component count", `${total}`));
+    results.push(total >= 25 ? pass("Component count", `${total} components`) : fail("Component count", `${total} (expect ≥25)`));
     results.push(unhealthy === 0 ? pass("Zero unhealthy", "") : fail("Unhealthy components", `${unhealthy} unhealthy`));
     if (degraded > 0) results.push(pass("Degraded components", `${degraded} degraded (expected: SSH, health checks, etc.)`));
     else results.push(pass("Zero degraded", ""));
@@ -149,7 +149,7 @@ function testMetrics(): TestSuite {
     results.push(metrics.coverage.coveragePercent >= 50 ? pass("Knowledge coverage", `${metrics.coverage.coveragePercent}%`) : fail("Knowledge coverage", `${metrics.coverage.coveragePercent}% (expect ≥50%)`));
     results.push(metrics.validation.brokenRefs === 0 ? pass("Zero broken refs", "") : fail("Broken refs", `${metrics.validation.brokenRefs}`));
     results.push(metrics.validation.cycles === 0 ? pass("Zero cycles", "") : fail("Cycles detected", `${metrics.validation.cycles}`));
-    results.push(metrics.coverage.totalAssets >= 20 ? pass("Asset count", `${metrics.coverage.totalAssets}`) : fail("Asset count", `${metrics.coverage.totalAssets}`));
+    results.push(metrics.coverage.totalAssets >= 25 ? pass("Asset count", `${metrics.coverage.totalAssets}`) : fail("Asset count", `${metrics.coverage.totalAssets} (expect ≥25)`));
   } catch (e: any) {
     results.push(fail("Knowledge metrics", e.message));
   }

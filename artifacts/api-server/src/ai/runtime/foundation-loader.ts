@@ -177,6 +177,12 @@ function loadFoundation(): KnowledgeAsset[] {
   const foundationDir = join(root, "foundation");
   allAssets.push(...loadAssetsFromDir(foundationDir, "foundation"));
 
+  // Load from runtime/ (blueprints, specs)
+  allAssets.push(...loadAssetsFromDir(join(root, "runtime"), "runtime"));
+
+  // Load from adr/ (architecture decision records)
+  allAssets.push(...loadAssetsFromDir(join(root, "adr"), "adr"));
+
   // Load root-level Foundation docs (CONSTITUTION, PROJECT_CONTEXT, README)
   const rootAssets = loadAssetsFromDir(root, "foundation");
   for (const a of rootAssets) {
