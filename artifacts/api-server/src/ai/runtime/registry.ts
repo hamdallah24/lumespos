@@ -24,6 +24,8 @@ import { knowledgeGraph } from "./knowledge-graph";
 import { knowledgeRepository } from "./knowledge-repository";
 import { knowledgeLoader } from "./knowledge-loader";
 import { knowledgeMetrics } from "./knowledge-metrics";
+import { intentClassifier } from "./intent-classifier";
+import { capabilityEngine } from "./capability-engine";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -147,6 +149,8 @@ register(knowledgeGraph);
 register(knowledgeRepository);
 register(knowledgeLoader);
 register(knowledgeMetrics);
+register(intentClassifier);
+register(capabilityEngine);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

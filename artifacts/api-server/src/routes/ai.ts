@@ -10,6 +10,8 @@ import { generateAndCommit } from "./ai-codegen";
 import { runMigration } from "./migrate";
 import { computeHealthScore, lastScore } from "../ai/runtime/health-policy";
 import { registryStatus } from "../ai/runtime/registry";
+import { classifyIntent } from "../ai/runtime/intent-classifier";
+import { checkCapability } from "../ai/runtime/capability-engine";
 import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
@@ -275,14 +277,30 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         res.flushHeaders();
 
         try {
-          // Intent-based tool selection: DevOps keywords → SSH/execCommand allowed
-          const devopsKeywords = ["vps", "server", "ssh", "deploy", "pm2", "nginx", "restart", "pull", "merge", "build", "error log", "cek server", "cek vps", "status server", "uptime", "git pull", "git merge", "install", "pnpm", "log"];
-          const needsDevOps = devopsKeywords.some(k => clean.toLowerCase().includes(k));
-          const activeTools = needsDevOps ? DEVOPS_TOOLS : READ_TOOLS;
-          console.log("[Tool Set]", { needsDevOps, tools: activeTools.map(t => t.name) });
-          emitStatus(res, needsDevOps ? "⚙️ Menganalisis (mode DevOps)..." : "⚙️ Menganalisis permintaan...");
+          // Sprint 9: Intent Classifier replaces needsDevOps keyword check
+          const intent = classifyIntent(clean);
+          const capability = checkCapability(intent);
+          const toolSet = intent.suggestedToolSet === "READ_TOOLS" ? READ_TOOLS
+            : intent.suggestedToolSet === "DEVOPS_TOOLS" ? DEVOPS_TOOLS
+            : intent.suggestedToolSet === "NONE" ? [] : READ_TOOLS;
+
+          console.log("[Intent]", {
+            category: intent.category,
+            confidence: intent.confidence,
+            complexity: intent.complexity,
+            toolSet: intent.suggestedToolSet,
+            toolsBlocked: capability.blockedTools,
+            reason: intent.reason,
+          });
+
+          emitStatus(res, intent.complexity === "simple"
+            ? "💡 Memproses langsung..."
+            : intent.category === "devops_operation"
+              ? "🖥️ Mode DevOps..."
+              : "⚙️ Menganalisis permintaan...");
+
           const finalText = await callDeepSeekWithTools(
-            BANG_ORCHESTRATOR, fullCtx, uid, "cto", activeTools, 3000,
+            BANG_ORCHESTRATOR, fullCtx, uid, "cto", toolSet, 3000,
             (msg) => emitStatus(res, msg)
           );
           if (finalText.startsWith("ERROR:")) {
