@@ -2,7 +2,7 @@
 // Law #008: Stop before execution if contract fails validation.
 // Confidence too low? Domain unknown? Capability mismatch? STOP.
 
-import type { ExecutionSpec } from "./execution-spec";
+import type { ExecutionSpecificationV1 } from "./execution-spec";
 
 interface VerificationResult {
   passed: boolean;
@@ -11,7 +11,7 @@ interface VerificationResult {
 }
 
 /** Verify the ExecutionSpec before any planning or execution occurs */
-export function verify(spec: ExecutionSpec): VerificationResult {
+export function verify(spec: ExecutionSpecificationV1): VerificationResult {
   const warnings: string[] = [];
 
   // Gate 1: Confidence threshold
@@ -29,18 +29,20 @@ export function verify(spec: ExecutionSpec): VerificationResult {
   }
 
   // Gate 3: Missing context?
-  if (spec.missingContext.length > 2) {
-    warnings.push(`${spec.missingContext.length} items of missing context. Response may be incomplete.`);
+  if (spec.entities.length === 0 && spec.intent !== "greeting") {
+    warnings.push("No entities extracted. Response may lack specificity.");
   }
 
   // Gate 4: Greetings with tools?
-  if (spec.intent === "greeting" && spec.toolSet !== "NONE") {
-    return { passed: false, stopReason: "Greeting should not trigger tools.", warnings };
+  if (spec.intent === "greeting" && spec.executionMode !== "direct") {
+    return { passed: false, stopReason: "Greeting should not trigger tools or complex execution.", warnings };
   }
 
   // Gate 5: DevOps without approval?
-  if (spec.toolSet === "DEVOPS_TOOLS" && !spec.needsApproval) {
-    return { passed: false, stopReason: "DevOps operations require Founder approval.", warnings };
+  if (spec.executionMode === "approved" && spec.intent === "devops_operation") {
+    if (!spec.approvalRequired) {
+      return { passed: false, stopReason: "DevOps operations require Founder approval.", warnings };
+    }
   }
 
   return { passed: true, warnings };

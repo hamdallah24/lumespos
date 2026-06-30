@@ -11,8 +11,9 @@ import { runMigration } from "./migrate";
 import { computeHealthScore, lastScore } from "../ai/runtime/health-policy";
 import { registryStatus } from "../ai/runtime/registry";
 import { understand } from "../ai/runtime/semantic-engine";
-import { buildSpec } from "../ai/runtime/execution-spec";
+import { buildSpecV1 } from "../ai/runtime/execution-spec";
 import { verify } from "../ai/runtime/verification-engine";
+import { augmentWithMemory } from "../ai/runtime/semantic-memory";
 import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
@@ -269,9 +270,10 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
         bangContext = clean + manifestBlock;
 
-        // Sprint 9.3-9.5: Semantic Engine → Execution Spec → Verification
-        const contract = await understand(clean);
-        const spec = buildSpec(contract);
+        // Sprint 10: Semantic Memory → Semantic Engine → ExecutionSpecV1 → Verification
+        const augmentedMessage = augmentWithMemory(clean);
+        const contract = await understand(augmentedMessage);
+        const spec = buildSpecV1(contract);
         const verification = verify(spec);
 
         if (!verification.passed) {
@@ -293,11 +295,12 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         res.flushHeaders();
 
         try {
-          const toolSet = spec.toolSet === "DEVOPS_TOOLS" ? DEVOPS_TOOLS
-            : spec.toolSet === "NONE" ? [] : READ_TOOLS;
+          const isDevOps = spec.requiredTools.some(t => t === "execCommand" || t === "sshExec");
+          const toolSet = isDevOps ? DEVOPS_TOOLS
+            : spec.intent === "greeting" ? [] : READ_TOOLS;
 
           emitStatus(res, spec.intent === "greeting" ? "💡 Memproses..."
-            : spec.toolSet === "DEVOPS_TOOLS" ? "🖥️ Mode DevOps..."
+            : isDevOps ? "🖥️ Mode DevOps..."
             : "⚙️ Menganalisis permintaan...");
 
           const finalText = await callDeepSeekWithTools(

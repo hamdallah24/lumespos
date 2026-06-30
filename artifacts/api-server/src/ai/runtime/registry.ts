@@ -31,8 +31,9 @@ import { policyRegistry } from "./policy/registry";
 import { policyValidator } from "./policy/validator";
 import { runtimeReport } from "./reports/runtime-report";
 import { semanticEngine } from "./semantic-engine";
-import { executionSpec } from "./execution-spec";
+import { executionSpecV1 } from "./execution-spec";
 import { verificationEngine } from "./verification-engine";
+import { semanticMemory } from "./semantic-memory";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -163,8 +164,9 @@ register(policyRegistry);
 register(policyValidator);
 register(runtimeReport);
 register(semanticEngine);
-register(executionSpec);
+register(executionSpecV1);
 register(verificationEngine);
+register(semanticMemory);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
