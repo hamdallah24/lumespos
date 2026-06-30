@@ -268,8 +268,16 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         }
         bangContext = clean + manifestBlock;
 
-        // ── CallDeepSeekWithTools as SINGLE entry point (non-streaming, max 3 rounds) ──
-        const sharedCtx = await getSharedContext(uid);
+        // Sprint 9.2: Classify intent BEFORE building context (policy controls manifest)
+        const intent = classifyIntent(clean);
+        const policy = intent.runtimePolicy;
+
+        // Apply policy: skip manifest + shared context for intents that don't need them
+        if (!policy.manifest) bangContext = clean;
+        if (!policy.sharedContext) bangContext = bangContext;
+
+        // ── CallDeepSeekWithTools as SINGLE entry point ──
+        const sharedCtx = policy.sharedContext ? await getSharedContext(uid) : "";
         const fullCtx = bangContext + (sharedCtx ? `\n\n--- KONTEKS DARI AGENT LAIN ---\n${sharedCtx}` : "");
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
@@ -277,7 +285,6 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         res.flushHeaders();
 
         try {
-          const intent = classifyIntent(clean);
           const capability = checkCapability(intent);
           const toolSet = intent.suggestedToolSet === "DEVOPS_TOOLS" ? DEVOPS_TOOLS
             : intent.suggestedToolSet === "NONE" ? [] : READ_TOOLS;

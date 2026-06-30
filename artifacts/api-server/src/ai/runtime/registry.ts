@@ -27,6 +27,9 @@ import { knowledgeMetrics } from "./knowledge-metrics";
 import { intentClassifier } from "./intent-classifier";
 import { capabilityEngine } from "./capability-engine";
 import { productionReadiness } from "./production-readiness";
+import { policyRegistry } from "./policy/registry";
+import { policyValidator } from "./policy/validator";
+import { runtimeReport } from "./reports/runtime-report";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -153,6 +156,9 @@ register(knowledgeMetrics);
 register(intentClassifier);
 register(capabilityEngine);
 register(productionReadiness);
+register(policyRegistry);
+register(policyValidator);
+register(runtimeReport);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

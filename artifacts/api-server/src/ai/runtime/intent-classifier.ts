@@ -1,5 +1,6 @@
-// SPRINT 9: Intent Classifier — what does the Founder actually want?
-// Replaces needsDevOps keyword matching with structured intent detection.
+// SPRINT 9: Intent Classifier + Sprint 9.2 Policy Runtime
+import type { RuntimePolicy } from "./policy/types";
+import { PolicyRegistry } from "./policy/registry";
 
 export type IntentCategory =
   | "analyze_code"       // Read/analyze files, find bugs, explain code
@@ -11,21 +12,7 @@ export type IntentCategory =
   | "approval"           // "SETUJU", "approve", "merge"
   ;
 
-export interface IntentResult {
-  category: IntentCategory;
-  confidence: number;         // 0-100
-  complexity: "simple" | "medium" | "complex";
-  requiresTools: boolean;
-  suggestedToolSet: "READ_TOOLS" | "DEVOPS_TOOLS" | "NONE" | "BUSINESS";
-  needsApproval: boolean;
-  mode: "cto" | "bisnis" | "chat";
-  extracted: {
-    filePaths: string[];      // File paths mentioned in request
-    keywords: string[];       // Key technical terms
-    actions: string[];        // Requested actions: "analyze", "fix", "deploy", etc.
-  };
-  reason: string;             // Human-readable explanation
-}
+export type IntentResult = import("./policy/types").IntentResult;
 
 /** Classify user intent from message */
 export function classifyIntent(message: string): IntentResult {
@@ -129,7 +116,9 @@ function buildResult(
   mode: "cto" | "bisnis" | "chat", extracted: any, reason: string,
 ): IntentResult {
   return { category, confidence: Math.min(confidence, 100), complexity, requiresTools: toolSet !== "NONE",
-    suggestedToolSet: toolSet, needsApproval, mode, extracted, reason };
+    suggestedToolSet: toolSet, needsApproval, mode, extracted, reason,
+    runtimePolicy: PolicyRegistry.get(category),
+  };
 }
 
 // Component metadata
