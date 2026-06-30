@@ -16,6 +16,7 @@ import ShiftPage from "./pages/shift";
 import PengeluaranPage from "./pages/pengeluaran";
 import AuditsPage from "./pages/audits";
 import EngineeringOSDashboard from "./pages/eng-os";
+import ExecutiveWorkspace from "./pages/executive";
 import NotFound from "@/pages/not-found";
 import { useGetMe } from "@workspace/api-client-react";
 import { BranchProvider } from "@/lib/branch";
@@ -554,6 +555,7 @@ function ProtectedApp() {
           {role === "owner" && <Route path="/branches" component={BranchesPage} />}
           {role === "owner" && <Route path="/users" component={UsersPage} />}
           {role === "owner" && <Route path="/eng-os" component={EngineeringOSDashboard} />}
+          {role === "owner" && <Route path="/executive" component={ExecutiveWorkspace} />}
           {role !== "owner" && <Route path="/branches">{() => <Redirect to="/" />}</Route>}
           {role !== "owner" && <Route path="/users">{() => <Redirect to="/" />}</Route>}
           {!canManage && <Route path="/inventory">{() => <Redirect to="/" />}</Route>}
@@ -581,6 +583,7 @@ function AppRoutes() {
       <Route path="/branches" component={ProtectedApp} />
       <Route path="/users" component={ProtectedApp} />
       <Route path="/eng-os" component={ProtectedApp} />
+      <Route path="/executive" component={ProtectedApp} />
       <Route path="/sign-in" component={() => <LoginForm mode="signin" />} />
       <Route path="/sign-up" component={() => <LoginForm mode="signup" />} />
       <Route path="/reset-password" component={ResetPasswordPage} />

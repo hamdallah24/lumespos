@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutGrid, ShoppingBag, PieChart, Store, Users, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, LogOut, Menu, X, User, Package, Home, Plus, Receipt, Carrot, UserPlus, Sun, Moon, Wallet, Sparkles } from "lucide-react";
+import { LayoutGrid, ShoppingBag, PieChart, Store, Users, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, LogOut, Menu, X, User, Package, Home, Plus, Receipt, Carrot, UserPlus, Sun, Moon, Wallet, Sparkles, Zap } from "lucide-react";
 import { AiAgentPopup } from "@/components/ai-agent-popup";
 import type { AppUser } from "@workspace/api-client-react";
 import { useBranch } from "@/lib/branch";
@@ -89,6 +89,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
     { href: "/branches", label: "Cabang", icon: Store, show: isOwner },
     { href: "/users", label: "Pengguna", icon: Users, show: isOwner },
     { href: "/eng-os", label: "EngOS", icon: Sparkles, show: isOwner },
+    { href: "/executive", label: "Executive", icon: Zap, show: isOwner },
   ].filter((i) => i.show);
 
   const fabActions = [
