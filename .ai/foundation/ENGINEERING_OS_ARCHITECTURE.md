@@ -10,14 +10,17 @@ stability: locked
 last_updated: 2026-06-30
 knowledge_level: foundational
 loading_strategy: always
-tags: [foundation, architecture, blueprint, permanent]
+tags: [foundation, architecture, blueprint, permanent, locked]
 purpose: |
   Permanent architecture blueprint for the Engineering Operating System.
-  This document defines every layer and its responsibility.
-  All future agents, sprints, and components must align with this architecture.
+  This document is FROZEN as of v1.0.0. All changes require v2 via proposal.
 ---
 
 # Engineering OS — Architecture
+
+> **Status: 🔒 LOCKED v1.0.0** — All 7 certification layers pass.
+> Frozen contracts: ExecutionSpecificationV1, IdentityV1, TrustV1, PolicyV1, EvidenceV1, KnowledgeGraphV1.
+> Changes require versioned proposal (v2, v3...), never direct edit.
 
 ## 14 Layers
 
