@@ -15,6 +15,7 @@ import InventoryPage from "./pages/inventory";
 import ShiftPage from "./pages/shift";
 import PengeluaranPage from "./pages/pengeluaran";
 import AuditsPage from "./pages/audits";
+import EngineeringOSDashboard from "./pages/eng-os";
 import NotFound from "@/pages/not-found";
 import { useGetMe } from "@workspace/api-client-react";
 import { BranchProvider } from "@/lib/branch";
@@ -552,6 +553,7 @@ function ProtectedApp() {
           {canManage && <Route path="/dashboard" component={DashboardPage} />}
           {role === "owner" && <Route path="/branches" component={BranchesPage} />}
           {role === "owner" && <Route path="/users" component={UsersPage} />}
+          {role === "owner" && <Route path="/eng-os" component={EngineeringOSDashboard} />}
           {role !== "owner" && <Route path="/branches">{() => <Redirect to="/" />}</Route>}
           {role !== "owner" && <Route path="/users">{() => <Redirect to="/" />}</Route>}
           {!canManage && <Route path="/inventory">{() => <Redirect to="/" />}</Route>}

@@ -88,6 +88,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
     { href: "/audits", label: "Audit Shift", icon: ClipboardCheck, show: canManage },
     { href: "/branches", label: "Cabang", icon: Store, show: isOwner },
     { href: "/users", label: "Pengguna", icon: Users, show: isOwner },
+    { href: "/eng-os", label: "EngOS", icon: Sparkles, show: isOwner },
   ].filter((i) => i.show);
 
   const fabActions = [

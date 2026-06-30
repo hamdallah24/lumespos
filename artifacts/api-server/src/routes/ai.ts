@@ -606,6 +606,40 @@ router.get("/ai/health", requireRole("owner"), async (_req, res) => {
 });
 
 // ── PRODUCTION READINESS (Sprint 10) ──
+// Public: no-auth readiness check for monitoring
+router.get("/ai/readiness-public", async (_req, res) => {
+  const { runAll } = await import("../ai/runtime/production-readiness");
+  const result = runAll();
+  res.json({
+    ready: result.ready,
+    passed: result.passed,
+    failed: result.failed,
+    total: result.total,
+    details: result.suites.map(s => ({
+      suite: s.suite,
+      passed: s.passed,
+      failed: s.failed,
+      failures: s.results.filter(r => !r.passed).map(r => ({ name: r.name, detail: r.detail })),
+    })),
+  });
+});
+
+// ── AGENT REGISTRY (Sprint 10.5) ──
+// Returns registered agents with capabilities, health, dependencies
+router.get("/ai/agents", async (_req, res) => {
+  const { list, health } = await import("../ai/runtime/registry");
+  const componentList = list();
+  const healthData = health();
+
+  const agents = componentList.map(c => ({
+    name: c.name,
+    version: c.version,
+    health: healthData[c.name] || { status: "unknown" },
+  }));
+
+  res.json({ agents, total: agents.length });
+});
+
 // Owner-only: full test suite with component details
 router.get("/ai/readiness", requireRole("owner"), async (_req, res) => {
   const { runAll } = await import("../ai/runtime/production-readiness");

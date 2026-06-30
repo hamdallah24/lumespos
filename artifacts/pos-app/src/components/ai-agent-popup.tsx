@@ -1,6 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Bot, User, Briefcase, MessageSquare, Code, Copy, Check } from "lucide-react";
+import { X, Send, Bot, User, Briefcase, MessageSquare, Code, Copy, Check, Activity } from "lucide-react";
 import { apiFetch, getCsrfToken } from "@/lib/csrf";
 
 type Mode = "bisnis" | "chat" | "cto";
@@ -11,6 +11,12 @@ type Message = {
   showApproval?: boolean;
   approvalContext?: string;
   showMerge?: boolean;
+};
+
+type AgentInfo = {
+  name: string;
+  version: string;
+  health: { status: string; custom?: Record<string, any> };
 };
 
 const MODE_TABS: { key: Mode; label: string; icon: React.ElementType }[] = [
@@ -147,8 +153,19 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [statusMsg, setStatusMsg] = React.useState("");
+  const [readiness, setReadiness] = React.useState<{ ready: boolean; passed: number; failed: number } | null>(null);
+  const [agents, setAgents] = React.useState<AgentInfo[]>([]);
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
   const [checkedMap, setCheckedMap] = React.useState<Record<string, boolean>>({});
+
+  // Fetch Engineering OS readiness + agents on open
+  React.useEffect(() => {
+    if (!open) return;
+    fetch("/api/ai/readiness-public", { credentials: "include" })
+      .then(r => r.json()).then(d => setReadiness(d)).catch(() => {});
+    fetch("/api/ai/agents", { credentials: "include" })
+      .then(r => r.json()).then(d => setAgents(d.agents || [])).catch(() => {});
+  }, [open]);
 
   // Load checklist dari DB
   React.useEffect(() => {
@@ -492,6 +509,20 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                 );
               })}
             </div>
+
+            {/* Engineering OS Health Bar (Sprint 10.5) */}
+            {readiness && (
+              <div className="px-5 py-1.5 border-b border-[#1565FF]/5">
+                <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                  <span className={`w-1.5 h-1.5 rounded-full ${readiness.ready ? "bg-green-500" : "bg-red-500"}`} />
+                  <span>EngOS {readiness.ready ? "Healthy" : "Degraded"}</span>
+                  <span className="opacity-50">·</span>
+                  <span>{readiness.passed}/{readiness.total} tests</span>
+                  <span className="opacity-50">·</span>
+                  <span>{agents.length} agents</span>
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3 min-h-0">
               {statusMsg && (
