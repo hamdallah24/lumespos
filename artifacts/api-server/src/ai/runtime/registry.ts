@@ -43,6 +43,7 @@ import { identityRuntime } from "./identity";
 import { organizationRuntime } from "./organization-runtime";
 import { trustRuntime } from "./trust-runtime";
 import { authorizationRuntime } from "./authorization";
+import { collaborationRuntime } from "./collaboration-runtime";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -185,6 +186,7 @@ register(identityRuntime);
 register(organizationRuntime);
 register(trustRuntime);
 register(authorizationRuntime);
+register(collaborationRuntime);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
