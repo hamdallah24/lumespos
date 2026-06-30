@@ -3,7 +3,7 @@
 
 import type { ExecutionSpecificationV1 } from "./execution-spec";
 
-interface ExecutionReport {
+export interface ExecutionReport {
   specId: string;
   objectiveAchieved: boolean;
   confidence: number;
@@ -18,7 +18,7 @@ interface ExecutionReport {
   recommendation: string;
 }
 
-interface KnowledgeGap {
+export interface KnowledgeGap {
   domain: string;
   description: string;
   severity: "low" | "medium" | "high";

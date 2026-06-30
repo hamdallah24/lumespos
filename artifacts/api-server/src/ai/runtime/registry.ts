@@ -36,6 +36,8 @@ import { verificationEngine } from "./verification-engine";
 import { semanticMemory } from "./semantic-memory";
 import { planner } from "./planner";
 import { reflectionEngine } from "./reflection-engine";
+import { evidenceCollector } from "./evidence-collector";
+import { knowledgeEvolution } from "./knowledge-evolution";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -171,6 +173,8 @@ register(verificationEngine);
 register(semanticMemory);
 register(planner);
 register(reflectionEngine);
+register(evidenceCollector);
+register(knowledgeEvolution);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
