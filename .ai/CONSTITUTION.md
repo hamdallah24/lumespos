@@ -262,3 +262,6 @@ End of Constitution · This document is read first by every AI agent and must no
 
 ### Law #005 — Human Override
 > Every autonomous workflow must expose an immediate human override that can pause, reject, or roll back execution. No agent workflow may run without a kill switch.
+
+### Law #006 — Runtime Sovereignty
+> The Engineering OS owns reasoning, orchestration, governance, and decision flow. External LLMs are inference engines responsible only for generating outputs from structured context. No external model may define system behavior. The OS decides what to do. The LLM decides how to say it.
