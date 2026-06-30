@@ -34,6 +34,8 @@ import { semanticEngine } from "./semantic-engine";
 import { executionSpecV1 } from "./execution-spec";
 import { verificationEngine } from "./verification-engine";
 import { semanticMemory } from "./semantic-memory";
+import { planner } from "./planner";
+import { reflectionEngine } from "./reflection-engine";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -167,6 +169,8 @@ register(semanticEngine);
 register(executionSpecV1);
 register(verificationEngine);
 register(semanticMemory);
+register(planner);
+register(reflectionEngine);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
