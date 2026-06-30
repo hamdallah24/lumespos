@@ -265,3 +265,6 @@ End of Constitution · This document is read first by every AI agent and must no
 
 ### Law #006 — Runtime Sovereignty
 > The Engineering OS owns reasoning, orchestration, governance, and decision flow. External LLMs are inference engines responsible only for generating outputs from structured context. No external model may define system behavior. The OS decides what to do. The LLM decides how to say it.
+
+### Law #007 — Production Gating
+> Every Runtime Milestone must produce a usable Agent before the next Runtime Milestone begins. No new capability may be built until the current capability is proven in production. Build → Test → Ship → Learn → Build again.
