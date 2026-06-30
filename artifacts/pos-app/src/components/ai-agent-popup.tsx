@@ -517,7 +517,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                   <span className={`w-1.5 h-1.5 rounded-full ${readiness.ready ? "bg-green-500" : "bg-red-500"}`} />
                   <span>EngOS {readiness.ready ? "Healthy" : "Degraded"}</span>
                   <span className="opacity-50">·</span>
-                  <span>{readiness.passed}/{readiness.total} tests</span>
+                  <span>{readiness.passed}/{readiness.passed + readiness.failed} tests</span>
                   <span className="opacity-50">·</span>
                   <span>{agents.length} agents</span>
                 </div>
