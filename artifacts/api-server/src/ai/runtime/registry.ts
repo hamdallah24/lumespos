@@ -38,6 +38,8 @@ import { planner } from "./planner";
 import { reflectionEngine } from "./reflection-engine";
 import { evidenceCollector } from "./evidence-collector";
 import { knowledgeEvolution } from "./knowledge-evolution";
+import { proposalReview } from "./proposal-review";
+import { identityRuntime } from "./identity";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -175,6 +177,8 @@ register(planner);
 register(reflectionEngine);
 register(evidenceCollector);
 register(knowledgeEvolution);
+register(proposalReview);
+register(identityRuntime);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
