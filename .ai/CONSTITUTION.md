@@ -271,3 +271,6 @@ End of Constitution · This document is read first by every AI agent and must no
 
 ### Law #008 — Semantic First
 > Engineering OS must never execute directly from natural language. Every Founder request must first be translated into a structured ExecutionSpecification before any planning, policy validation, or execution occurs. The LLM understands the human. The OS decides the action.
+
+### Law #009 — Kernel Purity
+> Business requirements MUST NOT modify the Engineering OS kernel. New business functionality SHALL be implemented as Role Runtime or Program modules unless it demonstrably requires a new generic kernel service. The kernel provides services. Programs consume them.

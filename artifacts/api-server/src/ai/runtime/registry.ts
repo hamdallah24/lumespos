@@ -48,6 +48,7 @@ import { multiTrustRuntime } from "./multi-trust";
 import { orgMemory } from "./organizational-memory";
 import { missionScope } from "./mission-scope";
 import { engineeringCertification } from "./engineering-certification";
+import { ceoRuntime } from "../programs/ceo-runtime";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -195,6 +196,7 @@ register(multiTrustRuntime);
 register(orgMemory);
 register(missionScope);
 register(engineeringCertification);
+register(ceoRuntime);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

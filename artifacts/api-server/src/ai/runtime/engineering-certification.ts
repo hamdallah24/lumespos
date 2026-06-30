@@ -58,7 +58,7 @@ async function checkConstitution(): Promise<CertCheck> {
       priority: "normal" as const, approvalRequired: false,
       requiredKnowledge: [], requiredCapabilities: [], requiredTools: [],
       executionMode: "direct" as const, estimatedComplexity: "simple" as const,
-      estimatedTokens: 500, confidence: 85, semanticReasoning: "test",
+      estimatedTokens: 500, semanticReasoning: "test",
       runtimePolicyName: "DefaultPolicy",
       runtimePolicy: {
         approval: false, tools: "read_only", classification: "internal",
@@ -66,7 +66,7 @@ async function checkConstitution(): Promise<CertCheck> {
         manifest: false, sharedContext: false, maxTokens: 2000,
       },
     };
-    const v = verify(testSpec);
+    const v = verify(testSpec as any);
     return {
       layer: "Constitution",
       status: "PASS",
