@@ -51,6 +51,7 @@ import { engineeringCertification } from "./engineering-certification";
 import { ceoRuntime } from "../programs/ceo-runtime";
 import { ctoProgram } from "../programs/cto-runtime";
 import { organizationGraph } from "../programs/organization-graph";
+import { missionRuntime } from "../programs/mission-runtime";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -201,6 +202,7 @@ register(engineeringCertification);
 register(ceoRuntime);
 register(ctoProgram);
 register(organizationGraph);
+register(missionRuntime);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
