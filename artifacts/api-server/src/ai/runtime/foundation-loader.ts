@@ -22,14 +22,14 @@ export interface KnowledgeAsset {
 
 /** Parse YAML frontmatter from markdown — lightweight, no dependency */
 function parseMetadata(content: string): { metadata: Record<string, any>; body: string } {
-  const match = content.match(/^---\n([\s\S]*?)\n---\n?/);
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
   if (!match) return { metadata: {}, body: content };
   const yamlBlock = match[1];
   const body = content.slice(match[0].length);
 
   const metadata: Record<string, any> = {};
   let currentKey = "";
-  const lines = yamlBlock.split("\n");
+  const lines = yamlBlock.split(/\r?\n/);
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
