@@ -186,6 +186,34 @@ function loadFoundation(): KnowledgeAsset[] {
     }
   }
 
+  // Fallback: explicit load for critical Foundation files that YAML parser might miss
+  const criticalRootFiles = ["CONSTITUTION.md", "PROJECT_CONTEXT.md"];
+  for (const fileName of criticalRootFiles) {
+    const filePath = join(root, fileName);
+    if (!existsSync(filePath)) continue;
+    try {
+      const raw = readFileSync(filePath, "utf-8");
+      const { metadata, body } = parseMetadata(raw);
+      if (metadata.id && !allAssets.find(a => a.id === metadata.id)) {
+        allAssets.push({
+          id: metadata.id,
+          title: metadata.title || fileName,
+          domain: metadata.domain || "foundation",
+          artifact_type: metadata.artifact_type || "unknown",
+          knowledge_level: metadata.knowledge_level || "governing",
+          context_priority: metadata.context_priority || "critical",
+          loading_strategy: metadata.loading_strategy || "always",
+          depends_on: Array.isArray(metadata.depends_on) ? metadata.depends_on : [],
+          consumers: Array.isArray(metadata.consumers) ? metadata.consumers : [],
+          stability: metadata.stability || "locked",
+          version: metadata.version || "1.0.0",
+          content: body.trim(),
+          metadataRaw: raw.slice(0, 500),
+        });
+      }
+    } catch { /* skip */ }
+  }
+
   return resolveDependencies(allAssets);
 }
 

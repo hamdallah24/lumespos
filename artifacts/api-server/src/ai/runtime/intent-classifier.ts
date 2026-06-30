@@ -53,7 +53,7 @@ export function classifyIntent(message: string): IntentResult {
   const devopsHits = devopsSignals.filter(r => r.test(lower)).length;
 
   if (devopsHits >= 1) {
-    return buildResult("devops_operation", 80 + devopsHits * 5, "medium", true, "DEVOPS_TOOLS", false, "cto", extracted,
+    return buildResult("devops_operation", 80 + devopsHits * 5, "medium", "DEVOPS_TOOLS", false, "cto", extracted,
       `DevOps signals detected: ${devopsHits} matches`);
   }
 
@@ -67,7 +67,7 @@ export function classifyIntent(message: string): IntentResult {
     /\b(order|pesan|transaksi)\b/,
   ];
   if (businessSignals.some(r => r.test(lower))) {
-    return buildResult("business_action", 85, "medium", true, "BUSINESS", false, "bisnis", extracted,
+    return buildResult("business_action", 85, "medium", "BUSINESS", false, "bisnis", extracted,
       "Business operation detected");
   }
 
@@ -80,7 +80,7 @@ export function classifyIntent(message: string): IntentResult {
     extracted.filePaths.length > 0 && !/\b(fix|perbaiki|ubah|ganti|tambah|buat|generate)\b/.test(lower),
   ];
   if (analysisSignals.some(r => typeof r === "boolean" ? r : r.test(lower))) {
-    return buildResult("analyze_code", 82, "medium", true, "READ_TOOLS", false, "cto", extracted,
+    return buildResult("analyze_code", 82, "medium", "READ_TOOLS", false, "cto", extracted,
       "Code analysis requested — read-only tools sufficient");
   }
 
@@ -91,7 +91,7 @@ export function classifyIntent(message: string): IntentResult {
   ];
   if (implementationSignals.some(r => r.test(lower))) {
     const needsApproval = /\b(foundation|constitution|governance|security|database|schema)\b/.test(lower);
-    return buildResult("implement_change", 80, "complex", true, "READ_TOOLS", needsApproval, "cto", extracted,
+    return buildResult("implement_change", 80, "complex", "READ_TOOLS", needsApproval, "cto", extracted,
       "Implementation requested" + (needsApproval ? " — touches Foundation/security" : ""));
   }
 
@@ -102,12 +102,12 @@ export function classifyIntent(message: string): IntentResult {
     /\b(best.practice|best.practice|rekomendasi|recommendation)\b/,
   ];
   if (knowledgeSignals.some(r => r.test(lower))) {
-    return buildResult("knowledge_query", 85, "simple", false, "NONE", false, "cto", extracted,
+    return buildResult("knowledge_query", 85, "simple", "NONE", false, "cto", extracted,
       "Knowledge query — answerable from Foundation docs");
   }
 
   // Default: analyze (conservative — read-only, assume intent is to understand)
-  return buildResult("analyze_code", 60, "medium", true, "READ_TOOLS", false, "cto", extracted,
+  return buildResult("analyze_code", 60, "medium", "READ_TOOLS", false, "cto", extracted,
     "Default: assume code analysis with read-only tools");
 }
 
