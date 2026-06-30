@@ -580,6 +580,7 @@ function AppRoutes() {
       <Route path="/dashboard" component={ProtectedApp} />
       <Route path="/branches" component={ProtectedApp} />
       <Route path="/users" component={ProtectedApp} />
+      <Route path="/eng-os" component={ProtectedApp} />
       <Route path="/sign-in" component={() => <LoginForm mode="signin" />} />
       <Route path="/sign-up" component={() => <LoginForm mode="signup" />} />
       <Route path="/reset-password" component={ResetPasswordPage} />
