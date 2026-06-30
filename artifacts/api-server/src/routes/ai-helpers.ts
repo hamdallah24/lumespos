@@ -14,6 +14,8 @@ import { foundationLoader } from "../ai/runtime/foundation-loader";
 // Sprint 7.2-7.3: Context Builder → Prompt Assembler
 import { buildFoundationContext } from "../ai/runtime/context-builder";
 import { assembleSystemPrompt } from "../ai/runtime/prompt-assembler";
+// Sprint 8: Knowledge Loader as single entry point
+import { loadKnowledgeWithContent } from "../ai/runtime/knowledge-loader";
 // Sprint 3: Validator functions (import + re-export)
 import { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse } from "../ai/runtime/validator";
 export { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse };
@@ -606,10 +608,10 @@ export async function callDeepSeekWithTools(
 
   const history = await getHistory(userId, mode, 400);
   const filteredHistory = filterContamination(history);
-  // Foundation → Loader → Context Builder → Prompt Assembler (Sprint 7.3)
+  // Knowledge Loader → Context Builder → Prompt Assembler (Sprint 8)
   let systemContent: string;
   try {
-    const assets = foundationLoader.load();
+    const assets = loadKnowledgeWithContent({ strategy: "always" });
     const pkg = buildFoundationContext(assets, mode, 4000);
     systemContent = assembleSystemPrompt(pkg, mode) || system.slice(0, 5000);
   } catch {

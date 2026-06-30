@@ -20,6 +20,10 @@ import { llmProviderSystem } from "../security/llm-provider";
 import { foundationLoader } from "./foundation-loader";
 import { contextBuilder } from "./context-builder";
 import { promptAssembler } from "./prompt-assembler";
+import { knowledgeGraph } from "./knowledge-graph";
+import { knowledgeRepository } from "./knowledge-repository";
+import { knowledgeLoader } from "./knowledge-loader";
+import { knowledgeMetrics } from "./knowledge-metrics";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -139,6 +143,10 @@ register(llmProviderSystem);
 register(foundationLoader);
 register(contextBuilder);
 register(promptAssembler);
+register(knowledgeGraph);
+register(knowledgeRepository);
+register(knowledgeLoader);
+register(knowledgeMetrics);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
