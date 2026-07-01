@@ -99,39 +99,25 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         res.flushHeaders();
 
         try {
-          emitStatus(res, "💼 CEO menganalisis permintaan...");
-          
-          const augmentedMessage = augmentWithMemory(clean);
-          const contract = await understand(augmentedMessage);
-          const spec = buildSpecV1(contract);
-          const verification = verify(spec);
+          emitStatus(res, "💼 CEO Runtime menganalisis...");
 
-          if (!verification.passed) {
-            await fakeStream(`❌ ${verification.stopReason}`, res);
-            return;
-          }
+          const { ceoRuntime } = await import("../ai/programs/ceo-runtime");
+          const result = await ceoRuntime.execute({
+            message: clean,
+            userId: uid,
+            onProgress: (msg) => emitStatus(res, msg),
+            onTool: (ev) => emitToolEvent(res, "CEO", "ToolExecutor", ev.status, ev.name, ev.durationMs),
+            onState: (state) => emitStateEvent(res, "CEO", state),
+          });
 
-          // Route to CTO via Organization Runtime
-          const { organizationEngine } = await import("../ai/runtime/organization-engine");
-          const delegation = organizationEngine.delegate(clean);
-          emitStatus(res, delegation ? `➡️ Didelegasikan ke ${delegation.runtime}` : "⚙️ Memproses langsung...");
-          if (delegation) emitRuntimeEvent(res, "CEO", RuntimeEventType.DELEGATED, { to: delegation.runtime, reason: delegation.reason });
-
-          const finalText = await callDeepSeekWithTools(
-            BANG_ORCHESTRATOR, clean, uid, "ceo", READ_TOOLS, 3000,
-            (msg) => emitStatus(res, msg)
-          );
-
-          if (finalText && !finalText.startsWith("ERROR:")) {
-            const ceoResponse = `## Executive Report\n\n${finalText}\n\n> — CEO Runtime · ${delegation ? `Didelegasikan ke ${delegation.runtime}` : "Direct"}`;
-            emitStatus(res, "📋 Menyusun Executive Report...");
-            await replayExecution({ events: [], responseText: ceoResponse, res, delayMs: 15, chunkSize: 5 });
-            await remember(uid, "ceo", clean, ceoResponse);
-            await saveSharedContext(uid, "ceo", ceoResponse.slice(0, 500));
-          } else if (finalText.startsWith("ERROR:")) {
-            await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);
+          if (result.success && result.text) {
+            await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 });
+            await remember(uid, "ceo", clean, result.text);
+            await saveSharedContext(uid, "ceo", result.text.slice(0, 500));
+          } else if (result.text) {
+            await fakeStream(result.text, res);
           } else {
-            await fakeStream("Maaf, CEO tidak bisa memberi jawaban sekarang. Coba lagi.", res);
+            await fakeStream("Maaf, CEO Runtime tidak bisa memberi jawaban sekarang. Coba lagi.", res);
           }
         } catch (e: any) {
           console.error("[ai] CEO error:", e);
