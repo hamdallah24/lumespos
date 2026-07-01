@@ -32,6 +32,11 @@ export default function ExecutiveWorkspace() {
     fetch("/api/ai/agents").then(r => r.json()).then(d => setAgents(d.agents || []));
     fetch("/api/ai/org-public").then(r => r.json()).then(setOrgData).catch(() => {});
     fetch("/api/ai/missions").then(r => r.json()).then(setMissionData).catch(() => {});
+    // Load conversation history
+    fetch("/api/ai/history?mode=ceo", { credentials: "include" })
+      .then(r => r.json()).then(d => {
+        if (d.messages) setReports(d.messages.map((m: any) => ({ role: m.role === "user" ? "CEO" : "CEO" as const, text: m.content, timestamp: new Date().toISOString() })));
+      }).catch(() => {});
   }, []);
 
   React.useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [reports]);
@@ -50,7 +55,7 @@ export default function ExecutiveWorkspace() {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() || "" },
-        body: JSON.stringify({ message: cmd, mode: "cto" }),
+        body: JSON.stringify({ message: cmd, mode: "ceo" }),
       });
       if (!resp.ok) throw new Error("Server error");
 

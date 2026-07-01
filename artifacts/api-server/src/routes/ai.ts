@@ -87,6 +87,58 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         return;
       }
 
+      // ── CEO ──
+      case "ceo": {
+        const augmentedMessage = augmentWithMemory(clean);
+        const contract = await understand(augmentedMessage);
+        const spec = buildSpecV1(contract);
+        const verification = verify(spec);
+
+        if (!verification.passed) {
+          res.setHeader("Content-Type", "text/event-stream");
+          res.setHeader("Cache-Control", "no-cache");
+          res.setHeader("Connection", "keep-alive");
+          res.flushHeaders();
+          await fakeStream(`❌ ${verification.stopReason}`, res);
+          return;
+        }
+
+        // Route to CTO via Organization Runtime
+        const { organizationEngine } = await import("../ai/runtime/organization-engine");
+        const delegation = organizationEngine.delegate(clean);
+
+        res.setHeader("Content-Type", "text/event-stream");
+        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Connection", "keep-alive");
+        res.flushHeaders();
+
+        try {
+          emitStatus(res, "💼 CEO menganalisis permintaan...");
+          emitStatus(res, delegation ? `➡️ Didelegasikan ke ${delegation.runtime}` : "⚙️ Memproses langsung...");
+
+          const finalText = await callDeepSeekWithTools(
+            BANG_ORCHESTRATOR, clean, uid, "ceo", READ_TOOLS, 3000,
+            (msg) => emitStatus(res, msg)
+          );
+
+          if (finalText && !finalText.startsWith("ERROR:")) {
+            const ceoResponse = `## Executive Report\n\n${finalText}\n\n> — CEO Runtime · ${delegation ? `Didelegasikan ke ${delegation.runtime}` : "Direct"}`;
+            emitStatus(res, "📋 Menyusun Executive Report...");
+            await fakeStream(ceoResponse, res);
+            await remember(uid, "ceo", clean, ceoResponse);
+            await saveSharedContext(uid, "ceo", ceoResponse.slice(0, 500));
+          } else if (finalText.startsWith("ERROR:")) {
+            await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);
+          } else {
+            await fakeStream("Maaf, CEO tidak bisa memberi jawaban sekarang. Coba lagi.", res);
+          }
+        } catch (e: any) {
+          console.error("[ai] CEO error:", e);
+          await fakeStream(`Error: ${e.message?.slice(0, 200) || "unknown"}`, res);
+        }
+        return;
+      }
+
       // ── CTO ──
       case "cto": {
         // Phase 2: Proposal Execution — contract-driven, replaces generateNow
@@ -638,6 +690,14 @@ router.get("/ai/certify", requireRole("owner"), async (_req, res) => {
   const { engineeringCertification } = await import("../ai/runtime/engineering-certification");
   const cert = await engineeringCertification.run();
   res.json(cert);
+});
+
+// ── HISTORY API (Sprint B) ──
+router.get("/ai/history", requireAuth, async (req, res) => {
+  const mode = (req.query.mode as string) || "cto";
+  const { getHistory } = await import("./ai-helpers");
+  const history = await getHistory(req.user!.id, mode);
+  res.json({ messages: history.map(h => ({ role: h.role, content: h.content })) });
 });
 
 // ── EXECUTIVE WORKSPACE API (Phase II Wave 3) ──
