@@ -664,6 +664,14 @@ router.post("/ai/mission", requireRole("owner"), async (req, res) => {
   res.json({ mission: report?.mission, delegation: report?.orgDelegation });
 });
 
+// Public: no-auth for dashboard display
+router.get("/ai/org-public", async (_req, res) => {
+  const { organizationEngine } = await import("../ai/runtime/organization-engine");
+  const tree = organizationEngine.getTree();
+  const health = organizationEngine.healthReport();
+  res.json({ tree: tree.map(n => ({ runtime: n.runtime, unit: n.unit, level: n.level, health: n.health, maturity: n.maturity })), health });
+});
+
 // ── SHARED CONTEXT API (agent sync) ──
 router.get("/ai/shared-context", requireRole("owner"), async (req, res) => {
   const ctx = await getSharedContext(req.user!.id, 10);
