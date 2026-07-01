@@ -54,6 +54,7 @@ import { organizationGraph } from "../programs/organization-graph";
 import { missionRuntime } from "../programs/mission-runtime";
 import { proposalExecutor } from "../programs/proposal-executor";
 import { organizationEngine } from "./organization-engine";
+import { missionEngineComponent } from "./mission-engine";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -207,6 +208,7 @@ register(organizationGraph);
 register(missionRuntime);
 register(proposalExecutor);
 register(organizationEngine);
+register(missionEngineComponent);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };
