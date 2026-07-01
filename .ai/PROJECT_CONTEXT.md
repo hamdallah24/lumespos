@@ -186,20 +186,20 @@ Future scope includes:
 
 Existing AI Agents
 
-Current AI ecosystem consists of agents with clearly defined responsibilities.
+Current AI ecosystem consists of Runtimes with defined lifecycle and maturity.
 
-Current agents include:
+Active Runtimes:
+- CEO (L2 — Strategic Director, delegates to Directors)
+- CTO (L2 — Technical execution, code, architecture, devops)
 
-- CTO Agent (Program B — built on kernel, 13-stage pipeline)
-- CEO Agent (Program A — Mission Director)
-- Organization Graph (12 nodes, 3 runtimes)
+Planned Runtimes:
+- COO (L0 — Operations), CFO (L0 — Finance)
+- QA (L0), DevOps (L0), Research (L0)
+- Inventory (L0), Sales (L0), Warehouse (L0)
+- Accounting (L0), Budget (L0), Audit (L0)
 
-Planned agents include:
-
-- COO Agent (Program C)
-- CFO Agent (Program D)
-- Research Agent
-- QA Agent (auto-assigned by Mission Runtime)
+All Runtimes follow the RUNTIME_ORGANIZATION_STANDARD.md
+and are registered in runtime/registry/RUNTIME_REGISTRY.md
 
 Every agent must specialize in its own domain while collaborating through shared context.
 

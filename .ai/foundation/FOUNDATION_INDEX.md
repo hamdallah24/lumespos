@@ -84,8 +84,10 @@ CTO_EXECUTION_DIRECTIVE (contract)
 Engineering OS v1.0 kernel FROZEN as of June 30, 2026:
 - **46 components** registered, 7-layer certification PASS
 - **3 Programs** on kernel: CEO Runtime (A), CTO Runtime (B), Mission Runtime
-- **Organization Graph**: 12 nodes, 3 active runtimes, dynamic team formation
+- **Organization Graph**: 13 runtimes in RUNTIME_REGISTRY.md, 3 active (Level A: CEO, Level B: CTO, COO)
 - **9 Engineering Laws**, 19 ADRs, 16.5 sprints completed
+- **Foundation Governance Hierarchy**: 11-level priority chain with Extension Rule
+- **Runtime Organization Standard**: 6-layer lifecycle, L0-L5 maturity model
 
 ## Document Summaries
 
@@ -130,6 +132,12 @@ Engineering OS v1.0 kernel FROZEN as of June 30, 2026:
 **When to read:** Only if you are the CTO Agent. Others: reference only.
 **Stability:** Stable. Changes on policy update.
 **Keywords:** cto, directive, authority, contract, constraints
+
+### CEO_EXECUTION_DIRECTIVE.md — `ceo-directive-v1`
+**What:** CEO's contract: Strategic Director. Delegates to CTO/COO/CFO. Never executes tools.
+**When to read:** Only if you are the CEO Agent. Others: reference only.
+**Stability:** Stable. Changes on policy update.
+**Keywords:** ceo, directive, authority, delegation, strategic
 
 ## Foundation Lifecycle
 

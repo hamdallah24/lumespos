@@ -20,7 +20,17 @@ purpose: |
 
 # Engineering OS — Architecture
 
-> **🔒 FROZEN v1.0.0** — 7-layer certification PASS | 46 components | 3 programs | 12 org nodes | 9 laws | 19 ADRs | 16.5 sprints
+> **🔒 FROZEN v1.0.0** — 7-layer certification PASS | 46 components | 3 programs | 13 runtimes in registry | 9 laws | 19 ADRs | 16.5 sprints
+
+## Runtime Lifecycle
+
+Every Runtime follows the 6-layer Runtime Organization Standard:
+
+```
+Identity → Governance → Capability → Operation → Observation → Evolution
+```
+
+Maturity: L0 (Identity) → L1 (Governed) → L2 (Operational) → L3 (Observable) → L4 (Learning) → L5 (Autonomous)
 
 ## 14 Layers
 
