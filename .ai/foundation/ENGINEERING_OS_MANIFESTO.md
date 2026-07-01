@@ -10,6 +10,8 @@ stability: locked
 last_updated: 2026-06-30
 knowledge_level: foundational
 loading_strategy: always
+depends_on:
+  - founder-philosophy-v1
 tags: [foundation, manifesto, philosophy, permanent, locked]
 purpose: |
   Philosophical compass for the Engineering OS.

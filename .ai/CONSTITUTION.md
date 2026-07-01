@@ -17,6 +17,7 @@ knowledge_level: governing
 context_priority: critical
 depends_on:
   - north-star-v1
+  - founder-philosophy-v1
 referenced_by:
   - project-context-v1
   - op-model-v1
@@ -41,6 +42,8 @@ purpose: |
   for every AI agent in the Lume's ecosystem. All agents must read,
   understand, and obey this Constitution before performing any task.
 ---
+
+> This Constitution derives its authority from the Founder Philosophy. All rules, principles, and governance frameworks defined herein must remain consistent with the eight Principles established in FOUNDER_PHILOSOPHY.md. In case of ambiguity, the Philosophy prevails.
 
 Constitution of Lume's AI Ecosystem
 

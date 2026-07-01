@@ -16,7 +16,8 @@ review_trigger:
   - Annually
 knowledge_level: foundational
 context_priority: critical
-depends_on: []
+depends_on: 
+  - founder-philosophy-v1
 referenced_by:
   - constitution-v1
   - project-context-v1

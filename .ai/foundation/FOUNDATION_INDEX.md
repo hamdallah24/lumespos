@@ -16,6 +16,7 @@ review_trigger:
 knowledge_level: foundational
 context_priority: critical
 depends_on:
+  - founder-philosophy-v1
   - north-star-v1
   - constitution-v1
   - project-context-v1
@@ -86,6 +87,12 @@ Engineering OS v1.0 kernel FROZEN as of June 30, 2026:
 - **9 Engineering Laws**, 19 ADRs, 16.5 sprints completed
 
 ## Document Summaries
+
+### FOUNDER_PHILOSOPHY.md — `founder-philosophy-v1`
+**What:** The Root Foundation — 8 immutable principles, decision matrix, Foundation hierarchy.
+**When to read:** Before everything else. This is the root of all Engineering OS decisions.
+**Stability:** Immutable. Only Founder may modify.
+**Keywords:** root, immutable, philosophy, principles, legacy
 
 ### NORTH_STAR.md — `north-star-v1`
 **What:** The permanent, unchanging mission. Why Lume's exists.

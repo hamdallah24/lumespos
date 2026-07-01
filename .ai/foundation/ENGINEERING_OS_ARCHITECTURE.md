@@ -10,6 +10,8 @@ stability: locked
 last_updated: 2026-06-30
 knowledge_level: foundational
 loading_strategy: always
+depends_on:
+  - founder-philosophy-v1
 tags: [foundation, architecture, blueprint, permanent, locked]
 purpose: |
   Permanent architecture blueprint for the Engineering Operating System.
