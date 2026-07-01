@@ -640,6 +640,30 @@ router.get("/ai/certify", requireRole("owner"), async (_req, res) => {
   res.json(cert);
 });
 
+// ── EXECUTIVE WORKSPACE API (Phase II Wave 3) ──
+router.get("/ai/org", requireRole("owner"), async (_req, res) => {
+  const { organizationEngine } = await import("../ai/runtime/organization-engine");
+  const tree = organizationEngine.getTree();
+  const health = organizationEngine.healthReport();
+  res.json({ tree, health });
+});
+
+router.get("/ai/missions", requireRole("owner"), async (_req, res) => {
+  const { missionEngineComponent } = await import("../ai/runtime/mission-engine");
+  const active = missionEngineComponent.active();
+  const report = missionEngineComponent.report();
+  res.json({ active, report });
+});
+
+router.post("/ai/mission", requireRole("owner"), async (req, res) => {
+  const { title, objective, domains, priority } = req.body as { title: string; objective: string; domains: string[]; priority?: string };
+  if (!title || !domains) { res.status(400).json({ error: "title and domains required" }); return; }
+  const { missionEngineComponent } = await import("../ai/runtime/mission-engine");
+  const mission = missionEngineComponent.create(title, objective, domains, priority as any);
+  const report = missionEngineComponent.delegate(mission.id);
+  res.json({ mission: report?.mission, delegation: report?.orgDelegation });
+});
+
 // ── SHARED CONTEXT API (agent sync) ──
 router.get("/ai/shared-context", requireRole("owner"), async (req, res) => {
   const ctx = await getSharedContext(req.user!.id, 10);

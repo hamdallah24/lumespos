@@ -18,6 +18,8 @@ type ExecutiveReport = {
 export default function ExecutiveWorkspace() {
   const [readiness, setReadiness] = React.useState<ReadinessData | null>(null);
   const [agents, setAgents] = React.useState<AgentInfo[]>([]);
+  const [orgData, setOrgData] = React.useState<any>(null);
+  const [missionData, setMissionData] = React.useState<any>(null);
   const [reports, setReports] = React.useState<ExecutiveReport[]>([]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -27,6 +29,8 @@ export default function ExecutiveWorkspace() {
   React.useEffect(() => {
     fetch("/api/ai/readiness-public").then(r => r.json()).then(setReadiness);
     fetch("/api/ai/agents").then(r => r.json()).then(d => setAgents(d.agents || []));
+    fetch("/api/ai/org").then(r => r.json()).then(setOrgData).catch(() => {});
+    fetch("/api/ai/missions").then(r => r.json()).then(setMissionData).catch(() => {});
   }, []);
 
   React.useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [reports]);
