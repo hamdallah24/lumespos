@@ -604,6 +604,8 @@ export async function callDeepSeekWithTools(
   system: string, user: string, userId: number, mode: string, tools: ToolDef[], maxTokens = 2000,
   onProgress?: (msg: string) => void,
   onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void,
+  stream = false,
+  onToken?: (token: string) => void,
 ): Promise<string> {
   const ctx = new ExecutionContext(userId, mode);
   const key = process.env.DEEPSEEK_API_KEY;
@@ -678,7 +680,7 @@ export async function callDeepSeekWithTools(
     validateMessageSequence(cleanMessages);
     logPayload("Request", cleanMessages, round);
 
-    const body: any = { model, messages: cleanMessages, max_tokens: maxTokens, temperature: 0.7 };
+    const body: any = { model, messages: cleanMessages, max_tokens: maxTokens, temperature: 0.7, stream };
     if (tools.length > 0) body.tools = toolsPayload;
 
     const controller = new AbortController();

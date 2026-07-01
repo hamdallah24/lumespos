@@ -14,6 +14,7 @@ import { buildSpecV1 } from "../ai/runtime/execution-spec";
 import { verify } from "../ai/runtime/verification-engine";
 import { augmentWithMemory } from "../ai/runtime/semantic-memory";
 import { emitToolEvent, emitStateEvent, emitRuntimeEvent } from "../ai/runtime/execution-stream";
+import { replayExecution } from "../ai/runtime/replay-engine";
 import { RuntimeImportance, RuntimeEventType } from "../ai/runtime/runtime-event";
 import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
@@ -300,7 +301,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             await fakeStream(`Maaf, terjadi kesalahan: ${finalText.slice(6)}`, res);
           } else if (finalText) {
             emitStatus(res, "✅ Menyusun jawaban...");
-            await fakeStream(finalText, res);
+            // ECP-015 Phase 4: Execution Replay replaces fakeStream
+            await replayExecution({ events: [], responseText: finalText, res, delayMs: 15, chunkSize: 5 });
             await remember(uid, "cto", clean, finalText);
             await saveSharedContext(uid, "cto", finalText.slice(0, 500));
           } else {
