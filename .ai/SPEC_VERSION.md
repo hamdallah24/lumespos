@@ -17,15 +17,15 @@ Sprints Completed:  16.5
 ECPs Completed:     14
 ```
 
-## Production Roadmap
+## Phase II — Runtime Implementation
 
 ```
-Sprint 17 → Organization Runtime (code)
-Sprint 18 → Mission Runtime (code)
-Sprint 19 → Executive Workspace (integration)
-Sprint 20 → Background Mission Engine
-Sprint 21 → Capability Engine
-Sprint 22 → Trust & Knowledge Evolution
+Wave 1  → Organization Runtime     (code)
+Wave 2  → Mission Runtime          (code)
+Wave 3  → Executive Workspace      (integration)
+Wave 4  → Mission Engine           (background)
+Wave 5  → Capability Engine        (code)
+Wave 6  → Trust Runtime + Knowledge Evolution
 ```
 
 ## Foundation Documents (frozen)
