@@ -29,7 +29,7 @@ export default function ExecutiveWorkspace() {
   React.useEffect(() => {
     fetch("/api/ai/readiness-public").then(r => r.json()).then(setReadiness);
     fetch("/api/ai/agents").then(r => r.json()).then(d => setAgents(d.agents || []));
-    fetch("/api/ai/org").then(r => r.json()).then(setOrgData).catch(() => {});
+    fetch("/api/ai/org-public").then(r => r.json()).then(setOrgData).catch(() => {});
     fetch("/api/ai/missions").then(r => r.json()).then(setMissionData).catch(() => {});
   }, []);
 
@@ -160,10 +160,12 @@ export default function ExecutiveWorkspace() {
         {/* Right: Dashboard */}
         <div className="hidden lg:flex w-80 border-l border-[#1565FF]/10 flex-col overflow-y-auto p-5 space-y-5">
           <Section title="Organization" icon={GitBranch}>
-            <OrgMiniGraph />
+            {orgData?.tree ? <OrgMiniGraph nodes={orgData.tree} /> : <p className="text-xs text-slate-400">Loading...</p>}
           </Section>
           <Section title="Active Missions" icon={Target}>
-            <p className="text-xs text-slate-400">Belum ada mission aktif</p>
+            {missionData?.active?.length > 0
+              ? <p className="text-xs text-green-600 font-medium">{missionData.active.length} active</p>
+              : <p className="text-xs text-slate-400">Belum ada mission aktif</p>}
           </Section>
           <Section title="Pending Approvals" icon={FileText}>
             <p className="text-xs text-slate-400">Tidak ada proposal pending</p>
@@ -172,13 +174,20 @@ export default function ExecutiveWorkspace() {
             <p className="text-xs text-slate-400">Tidak ada gap terdeteksi</p>
           </Section>
           <Section title="Runtime Status" icon={Activity}>
-            <div className="space-y-1.5 text-xs">
-              <StatusRow label="Foundation" value="100%" color="green" />
-              <StatusRow label="Runtime" value="78%" color="blue" />
-              <StatusRow label="Knowledge" value="70%" color="blue" />
-              <StatusRow label="Governance" value="80%" color="green" />
-              <StatusRow label="Security" value="70%" color="blue" />
-            </div>
+            {orgData?.health ? (
+              <div className="space-y-1.5 text-xs">
+                <StatusRow label="Healthy" value={`${orgData.health.healthy}/${orgData.health.total}`} color="green" />
+                <StatusRow label="Busy" value={`${orgData.health.busy}`} color="yellow" />
+                <StatusRow label="Planned" value={`${orgData.health.planned}`} color="blue" />
+                <StatusRow label="Offline" value={`${orgData.health.offline}`} color="red" />
+              </div>
+            ) : (
+              <div className="space-y-1.5 text-xs">
+                <StatusRow label="Foundation" value="100%" color="green" />
+                <StatusRow label="Runtime" value="78%" color="blue" />
+                <StatusRow label="Knowledge" value="70%" color="blue" />
+              </div>
+            )}
           </Section>
         </div>
       </div>
@@ -251,22 +260,18 @@ function ExecutiveCard({ report }: { report: ExecutiveReport }) {
   );
 }
 
-function OrgMiniGraph() {
-  const nodes = [
-    { role: "Founder", level: 0 },
-    { role: "CEO", level: 1 },
-    { role: "CTO", level: 2 }, { role: "COO", level: 2 }, { role: "CFO", level: 2 },
-    { role: "QA", level: 3 }, { role: "DevOps", level: 3 }, { role: "Research", level: 3 },
-    { role: "Inventory", level: 3 }, { role: "Sales", level: 3 }, { role: "Warehouse", level: 3 },
-    { role: "Accounting", level: 3 },
-  ];
+function OrgMiniGraph({ nodes }: { nodes: any[] }) {
+  const levelMap: Record<string, number> = { A: 1, B: 2, C: 3 };
+  const healthColor = (h: string) => h === "Healthy" ? "bg-green-400" : h === "Busy" ? "bg-yellow-400" : "bg-slate-300";
 
   return (
     <div className="text-[10px] space-y-0.5">
+      <div key="Founder" className="flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green-400" /><span className="text-slate-500">Founder</span></div>
       {nodes.map(n => (
-        <div key={n.role} className="flex items-center gap-1.5" style={{ paddingLeft: n.level * 12 }}>
-          <span className={`w-1.5 h-1.5 rounded-full ${n.role === "CEO" || n.role === "CTO" || n.role === "COO" ? "bg-green-400" : "bg-slate-300"}`} />
-          <span className="text-slate-500">{n.role}</span>
+        <div key={n.runtime} className="flex items-center gap-1.5" style={{ paddingLeft: (levelMap[n.level] || 1) * 12 }}>
+          <span className={`w-1.5 h-1.5 rounded-full ${healthColor(n.health)}`} />
+          <span className="text-slate-500">{n.runtime}</span>
+          <span className="text-slate-300">{n.maturity}</span>
         </div>
       ))}
     </div>
