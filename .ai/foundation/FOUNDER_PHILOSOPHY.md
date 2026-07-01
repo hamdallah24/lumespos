@@ -12,6 +12,7 @@ context_priority: critical
 loading_strategy: always
 depends_on: []
 referenced_by:
+  - founder-covenant-v1
   - north-star-v1
   - constitution-v1
   - manifesto-v1
@@ -108,7 +109,9 @@ Human life is temporary. Knowledge should not be. The Engineering OS shall prese
 ## Foundation Hierarchy
 
 ```
-Founder Philosophy          ← Root. Immutable. This document.
+Founder Philosophy          ← Root. Why we build.
+    ↓
+Founder Covenant            ← Immutable promise. What we never break.
     ↓
 North Star                  ← Derived mission and vision.
     ↓

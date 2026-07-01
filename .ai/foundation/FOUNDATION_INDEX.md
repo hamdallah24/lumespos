@@ -17,6 +17,7 @@ knowledge_level: foundational
 context_priority: critical
 depends_on:
   - founder-philosophy-v1
+  - founder-covenant-v1
   - north-star-v1
   - constitution-v1
   - project-context-v1
@@ -93,6 +94,12 @@ Engineering OS v1.0 kernel FROZEN as of June 30, 2026:
 **When to read:** Before everything else. This is the root of all Engineering OS decisions.
 **Stability:** Immutable. Only Founder may modify.
 **Keywords:** root, immutable, philosophy, principles, legacy
+
+### FOUNDER_COVENANT.md — `founder-covenant-v1`
+**What:** The Immutable Promise — 8 Covenants, "what promises shall never be broken."
+**When to read:** After Philosophy, before North Star. Every proposal must pass Covenant check.
+**Stability:** Immutable. Only Founder may modify.
+**Keywords:** covenant, promise, immutable, humanity, governance
 
 ### NORTH_STAR.md — `north-star-v1`
 **What:** The permanent, unchanging mission. Why Lume's exists.
