@@ -603,6 +603,7 @@ function filterContamination(history: ChatMsg[]): ChatMsg[] {
 export async function callDeepSeekWithTools(
   system: string, user: string, userId: number, mode: string, tools: ToolDef[], maxTokens = 2000,
   onProgress?: (msg: string) => void,
+  onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void,
 ): Promise<string> {
   const ctx = new ExecutionContext(userId, mode);
   const key = process.env.DEEPSEEK_API_KEY;
@@ -769,11 +770,13 @@ export async function callDeepSeekWithTools(
       try { args = JSON.parse(fn.arguments); } catch { args = {}; }
       const label = getToolLabel(fn.name);
       if (onProgress) onProgress(label);
+      if (onTool) onTool({ name: fn.name, status: "started" });
       try {
         const t0 = Date.now();
         const r = await executeToolCall(fn.name, args);
         const dur = Date.now() - t0;
         emit(Events.ToolExecuted, { name: fn.name, durationMs: dur });
+        if (onTool) onTool({ name: fn.name, status: "completed", durationMs: dur });
         ctx.tool(fn.name, dur);
         toolResults.push({
           role: "tool",

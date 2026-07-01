@@ -21,6 +21,9 @@ export default function ExecutiveWorkspace() {
   const [agents, setAgents] = React.useState<AgentInfo[]>([]);
   const [orgData, setOrgData] = React.useState<any>(null);
   const [missionData, setMissionData] = React.useState<any>(null);
+  const [pipelineState, setPipelineState] = React.useState<string>("");
+  const [toolEvents, setToolEvents] = React.useState<{ name: string; status: string; durationMs?: number }[]>([]);
+  const [statusMsg, setStatusMsg] = React.useState<string>("");
   const [reports, setReports] = React.useState<ExecutiveReport[]>([]);
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
@@ -78,10 +81,26 @@ export default function ExecutiveWorkspace() {
             if (!line.startsWith("data: ")) continue;
             try {
               const data = JSON.parse(line.slice(6));
+              // Type: delta → accumulate text
               if (data.type === "delta") accumulated += data.delta;
               if (data.type === "done") accumulated = data.finalText || accumulated;
-              if (data.delta) accumulated += data.delta;
-              if (data.done) accumulated = data.finalText || accumulated;
+              // Legacy format
+              if (data.delta && !data.type) accumulated += data.delta;
+              if (data.done && !data.type) accumulated = data.finalText || accumulated;
+              // ECP-015: Tool events
+              if (data.type === "tool") {
+                setToolEvents(prev => [...prev.slice(-10), { name: data.payload?.name || data.event, status: data.event, durationMs: data.durationMs }]);
+              }
+              // ECP-015: Pipeline state
+              if (data.type === "system") {
+                setPipelineState(data.payload?.state || "");
+              }
+              // ECP-015: Runtime events (delegation)
+              if (data.type === "runtime") {
+                setPipelineState(`${data.runtime}: ${data.event} → ${data.payload?.to || ""}`);
+              }
+              // Status remains as-is
+              if (data.type === "status") setStatusMsg(data.message);
             } catch {}
           }
         }
@@ -122,6 +141,28 @@ export default function ExecutiveWorkspace() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+            {/* ECP-015: Pipeline state + tool events */}
+            {(pipelineState || toolEvents.length > 0) && (
+              <div className="space-y-2">
+                {pipelineState && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 text-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                    <span className="text-blue-700 dark:text-blue-300 font-medium">{pipelineState}</span>
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-1">
+                  {toolEvents.slice(-5).map((t, i) => (
+                    <span key={i} className={`inline-block px-2 py-1 rounded-lg text-[10px] font-medium ${
+                      t.status === "completed" ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300" : 
+                      t.status === "started" ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300" :
+                      "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300"
+                    }`}>
+                      {t.status === "completed" ? "✅" : t.status === "started" ? "🔧" : "❌"} {t.name}{t.durationMs ? ` ${t.durationMs}ms` : ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
             {reports.length === 0 && !loading && (
               <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
                 <Zap className="w-12 h-12 mb-3 opacity-20" />

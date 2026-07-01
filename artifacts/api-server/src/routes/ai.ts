@@ -13,6 +13,8 @@ import { understand } from "../ai/runtime/semantic-engine";
 import { buildSpecV1 } from "../ai/runtime/execution-spec";
 import { verify } from "../ai/runtime/verification-engine";
 import { augmentWithMemory } from "../ai/runtime/semantic-memory";
+import { emitToolEvent, emitStateEvent, emitRuntimeEvent } from "../ai/runtime/execution-stream";
+import { RuntimeImportance, RuntimeEventType } from "../ai/runtime/runtime-event";
 import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
@@ -112,6 +114,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           const { organizationEngine } = await import("../ai/runtime/organization-engine");
           const delegation = organizationEngine.delegate(clean);
           emitStatus(res, delegation ? `➡️ Didelegasikan ke ${delegation.runtime}` : "⚙️ Memproses langsung...");
+          if (delegation) emitRuntimeEvent(res, "CEO", RuntimeEventType.DELEGATED, { to: delegation.runtime, reason: delegation.reason });
 
           const finalText = await callDeepSeekWithTools(
             BANG_ORCHESTRATOR, clean, uid, "ceo", READ_TOOLS, 3000,
@@ -284,9 +287,11 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             : isDevOps ? "🖥️ Mode DevOps..."
             : "⚙️ Menganalisis permintaan...");
 
+          emitStateEvent(res, "CTO", "REASONING");
           const finalText = await callDeepSeekWithTools(
             BANG_ORCHESTRATOR, fullCtx, uid, "cto", toolSet, 3000,
-            (msg) => emitStatus(res, msg)
+            (msg) => emitStatus(res, msg),
+            (ev) => emitToolEvent(res, "CTO", "ToolExecutor", ev.status, ev.name, ev.durationMs),
           );
           const isError = finalText.startsWith("ERROR:");
           // L4: Evidence — what reached fakeStream
