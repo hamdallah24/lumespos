@@ -55,6 +55,7 @@ import { missionRuntime } from "../programs/mission-runtime";
 import { proposalExecutor } from "../programs/proposal-executor";
 import { organizationEngine } from "./organization-engine";
 import { missionEngineComponent } from "./mission-engine";
+import { missionBackgroundEngine } from "./mission-background-engine";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -209,6 +210,7 @@ register(missionRuntime);
 register(proposalExecutor);
 register(organizationEngine);
 register(missionEngineComponent);
+register(missionBackgroundEngine);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

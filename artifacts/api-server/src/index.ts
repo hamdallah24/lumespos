@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { startHealthMonitor } from "./ai/runtime/health-monitor";
+import { missionEngine } from "./ai/runtime/mission-background-engine";
 
 const rawPort = process.env["PORT"];
 
@@ -24,4 +25,5 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   startHealthMonitor();
+  missionEngine.start();
 });
