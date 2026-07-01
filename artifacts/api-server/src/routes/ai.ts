@@ -125,7 +125,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           if (finalText && !finalText.startsWith("ERROR:")) {
             const ceoResponse = `## Executive Report\n\n${finalText}\n\n> — CEO Runtime · ${delegation ? `Didelegasikan ke ${delegation.runtime}` : "Direct"}`;
             emitStatus(res, "📋 Menyusun Executive Report...");
-            await fakeStream(ceoResponse, res);
+            await replayExecution({ events: [], responseText: ceoResponse, res, delayMs: 15, chunkSize: 5 });
             await remember(uid, "ceo", clean, ceoResponse);
             await saveSharedContext(uid, "ceo", ceoResponse.slice(0, 500));
           } else if (finalText.startsWith("ERROR:")) {
