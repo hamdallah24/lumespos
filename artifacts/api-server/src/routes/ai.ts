@@ -89,24 +89,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
       // ── CEO ──
       case "ceo": {
-        const augmentedMessage = augmentWithMemory(clean);
-        const contract = await understand(augmentedMessage);
-        const spec = buildSpecV1(contract);
-        const verification = verify(spec);
-
-        if (!verification.passed) {
-          res.setHeader("Content-Type", "text/event-stream");
-          res.setHeader("Cache-Control", "no-cache");
-          res.setHeader("Connection", "keep-alive");
-          res.flushHeaders();
-          await fakeStream(`❌ ${verification.stopReason}`, res);
-          return;
-        }
-
-        // Route to CTO via Organization Runtime
-        const { organizationEngine } = await import("../ai/runtime/organization-engine");
-        const delegation = organizationEngine.delegate(clean);
-
+        // Set SSE headers FIRST — nginx needs response within 60s
         res.setHeader("Content-Type", "text/event-stream");
         res.setHeader("Cache-Control", "no-cache");
         res.setHeader("Connection", "keep-alive");
@@ -114,6 +97,20 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
         try {
           emitStatus(res, "💼 CEO menganalisis permintaan...");
+          
+          const augmentedMessage = augmentWithMemory(clean);
+          const contract = await understand(augmentedMessage);
+          const spec = buildSpecV1(contract);
+          const verification = verify(spec);
+
+          if (!verification.passed) {
+            await fakeStream(`❌ ${verification.stopReason}`, res);
+            return;
+          }
+
+          // Route to CTO via Organization Runtime
+          const { organizationEngine } = await import("../ai/runtime/organization-engine");
+          const delegation = organizationEngine.delegate(clean);
           emitStatus(res, delegation ? `➡️ Didelegasikan ke ${delegation.runtime}` : "⚙️ Memproses langsung...");
 
           const finalText = await callDeepSeekWithTools(
