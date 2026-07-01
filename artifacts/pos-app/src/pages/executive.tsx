@@ -100,8 +100,8 @@ export default function ExecutiveWorkspace() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-[#0A1F44] dark:to-[#071426]">
-      <div className="flex h-screen">
+    <div className="flex-1 overflow-hidden bg-gradient-to-b from-slate-50 to-white dark:from-[#0A1F44] dark:to-[#071426]">
+      <div className="flex h-full">
         {/* Left: Executive Reports */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Header */}
