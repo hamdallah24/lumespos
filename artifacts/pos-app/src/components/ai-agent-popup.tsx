@@ -39,6 +39,7 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
   const [input, setInput] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [statusMsg, setStatusMsg] = React.useState("");
+  const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
   const [readiness, setReadiness] = React.useState<{ ready: boolean; passed: number; failed: number } | null>(null);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
@@ -180,10 +181,6 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                 </div>
               )}
               {messages.map((m, i) => {
-                const [copied, setCopied] = React.useState(false);
-                const copy = (text: string) => {
-                  navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); });
-                };
                 const isUser = m.role === "user";
 
                 return (
@@ -201,8 +198,8 @@ export function AiAgentPopup({ open, onClose }: { open: boolean; onClose: () => 
                   }`}>
                     <p className="whitespace-pre-wrap leading-relaxed pr-6">{m.text || (loading && i === messages.length - 1 ? "..." : "")}</p>
                     {m.text && m.text.length > 0 && (
-                      <button onClick={() => copy(m.text)} className={`absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all active:scale-90 ${isUser ? "text-white/50 hover:text-white/80" : "text-slate-300 hover:text-slate-500"}`}>
-                        {copied ? <Check size={13} /> : <Copy size={13} />}
+                      <button onClick={() => { navigator.clipboard?.writeText(m.text); setCopiedIndex(i); setTimeout(() => setCopiedIndex(null), 1500); }} className={`absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all active:scale-90 ${isUser ? "text-white/50 hover:text-white/80" : "text-slate-300 hover:text-slate-500"}`}>
+                        {copiedIndex === i ? <Check size={13} /> : <Copy size={13} />}
                       </button>
                     )}
                   </div>
