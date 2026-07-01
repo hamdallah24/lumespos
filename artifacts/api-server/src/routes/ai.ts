@@ -2,7 +2,7 @@
 // AI ROUTER — Smart Backend: Bisnis / Chat / CTO / VPS
 // ─────────────────────────────────────────────────────────────
 import { Router } from "express";
-import { requireRole } from "../middlewares/requireAuth";
+import { requireRole, requireAuth } from "../middlewares/requireAuth";
 import { callDeepSeek, callDeepSeekWithTools, executeToolCall, fetchGitHubFile, readLocalFile, listLocalDir, searchLocalContent, sshExec, getHistory, remember, clearMemory, searchRepoFiles, READ_TOOLS, DEVOPS_TOOLS, ToolDef, mergeDeploy, getDependencies, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation } from "./ai-helpers";
 import { executeOperation } from "./ai-business";
 import { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "./ai-prompts";
