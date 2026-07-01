@@ -2,7 +2,8 @@
 // Frontend never calls LLM directly. Always through CEO Runtime → Kernel.
 
 import React from "react";
-import { Activity, CheckCircle2, Clock, Users, Shield, Brain, Layers, GitBranch, Zap, ArrowRight, Send, Target, FileText, AlertTriangle } from "lucide-react";
+import { Activity, CheckCircle2, Clock, Users, Shield, Brain, Layers, GitBranch, Zap, ArrowRight, Send, Target, FileText, AlertTriangle, Copy, Check } from "lucide-react";
+import { getCsrfToken } from "@/lib/csrf";
 
 type ReadinessData = { ready: boolean; passed: number; failed: number; details: any[] };
 type AgentInfo = { name: string; version: string; health: { status: string } };
@@ -48,7 +49,7 @@ export default function ExecutiveWorkspace() {
       const resp = await fetch("/api/ai/chat", {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": getCsrfToken() || "" },
         body: JSON.stringify({ message: cmd, mode: "cto" }),
       });
       if (!resp.ok) throw new Error("Server error");
@@ -232,30 +233,36 @@ function StatusRow({ label, value, color }: { label: string; value: string; colo
 }
 
 function ExecutiveCard({ report }: { report: ExecutiveReport }) {
+  const [copied, setCopied] = React.useState(false);
+
+  const copy = (text: string) => {
+    navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); });
+  };
+
+  const isUser = report.role === "CEO";
+
   return (
-    <div className={`flex gap-3 ${report.role === "CEO" ? "justify-end" : ""}`}>
-      {report.role !== "CEO" && (
-        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#1565FF] to-[#0A4CD0] flex items-center justify-center shrink-0">
-          <Brain className="w-4 h-4 text-white" />
-        </div>
-      )}
-      <div className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm ${
-        report.role === "CEO"
+    <div className={`flex flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}>
+      {/* Icon + timestamp on top */}
+      <div className={`flex items-center gap-1.5 text-[10px] text-slate-400 ${isUser ? "flex-row-reverse" : ""}`}>
+        {isUser ? <Zap className="w-3 h-3 text-[#1565FF]" /> : <Brain className="w-3 h-3 text-[#1565FF]" />}
+        <span>{report.role}</span>
+        <span>·</span>
+        <span>{new Date(report.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
+      </div>
+
+      {/* Wide bubble */}
+      <div className={`relative max-w-[90%] rounded-2xl px-4 py-3 text-sm ${
+        isUser
           ? "bg-[#1565FF] text-white rounded-br-sm"
           : "bg-white dark:bg-white/[0.05] border border-[#1565FF]/10 text-slate-700 dark:text-white rounded-bl-sm"
       }`}>
-        <p className="whitespace-pre-wrap leading-relaxed">{report.text}</p>
-        <p className={`text-[10px] mt-1.5 ${report.role === "CEO" ? "text-white/50" : "text-slate-400"}`}>
-          {new Date(report.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
-          {report.missionId && ` · Mission ${report.missionId}`}
-          {report.status && ` · ${report.status}`}
-        </p>
+        <p className="whitespace-pre-wrap leading-relaxed pr-6">{report.text}</p>
+        {/* Copy button */}
+        <button onClick={() => copy(report.text)} className={`absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all active:scale-90 ${isUser ? "text-white/50 hover:text-white/80" : "text-slate-300 hover:text-slate-500"}`}>
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+        </button>
       </div>
-      {report.role === "CEO" && (
-        <div className="w-8 h-8 rounded-lg bg-[#1565FF]/10 flex items-center justify-center shrink-0">
-          <Zap className="w-4 h-4 text-[#1565FF]" />
-        </div>
-      )}
     </div>
   );
 }

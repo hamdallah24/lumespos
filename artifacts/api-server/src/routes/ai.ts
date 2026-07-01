@@ -37,7 +37,7 @@ function emitStatus(res: any, message: string) {
 // Fake stream — typed events: status → delta → done
 async function fakeStream(finalText: string, res: any) {
   const CHUNK_SIZE = 4;
-  const DELAY_MS = 25;
+  const DELAY_MS = 15;
   for (let i = 0; i < finalText.length; i += CHUNK_SIZE) {
     const chunk = finalText.slice(i, i + CHUNK_SIZE);
     res.write(`data: ${JSON.stringify({ type: "delta", delta: chunk })}\n\n`);
