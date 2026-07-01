@@ -49,9 +49,11 @@ Layer 11  Reflection Runtime       — Objective check, gap detection
 Layer 12  Evidence Collector       — Proof gathering
 Layer 13  Knowledge Evolution      — Proposal → Approval → Evolve
 Layer 14  Proposal Review          — Duplicate, constitutional, ADR
+Layer 15  Organization Runtime     — Graph, delegation, health, capability
+Layer 16  Mission Runtime          — Lifecycle, registry, evidence, archive
 ```
 
-## Engineering Laws (8)
+## Engineering Laws (9)
 
 ```
 #001 Asset Justification     — Every Knowledge Asset must justify its existence
