@@ -93,6 +93,7 @@ interface CTOTask {
   userId: number;
   onProgress?: (msg: string) => void;
   onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void;
+  onExecutionEvent?: (snapshot: import("../runtime/execution/execution-manifest").ExecutionSnapshot) => void;
 }
 
 interface CTOResult {
@@ -181,6 +182,7 @@ async function execute(task: CTOTask): Promise<CTOResult> {
     responseText = await callDeepSeekWithTools(
       systemPrompt, task.message, task.userId, "cto", toolSet,
       spec.runtimePolicy.maxTokens, task.onProgress, task.onTool,
+      false, undefined, task.onExecutionEvent,
     );
     pipeline.push("LLM");
   } catch (e: any) {

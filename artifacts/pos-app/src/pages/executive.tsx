@@ -4,6 +4,7 @@
 import React from "react";
 import { Activity, CheckCircle2, Clock, Users, Shield, Brain, Layers, GitBranch, Zap, ArrowRight, Send, Target, FileText, AlertTriangle, Copy, Check } from "lucide-react";
 import { getCsrfToken } from "@/lib/csrf";
+import { RuntimeProgressCard } from "@/components/runtime-progress-card";
 
 type ReadinessData = { ready: boolean; passed: number; failed: number; details: any[] };
 type AgentInfo = { name: string; version: string; health: { status: string } };
@@ -23,6 +24,7 @@ export default function ExecutiveWorkspace() {
   const [missionData, setMissionData] = React.useState<any>(null);
   const [pipelineState, setPipelineState] = React.useState<string>("");
   const [toolEvents, setToolEvents] = React.useState<{ name: string; status: string; durationMs?: number }[]>([]);
+  const [execSnapshot, setExecSnapshot] = React.useState<any>(null);
   const [statusMsg, setStatusMsg] = React.useState<string>("");
   const [reports, setReports] = React.useState<ExecutiveReport[]>([]);
   const [input, setInput] = React.useState("");
@@ -101,6 +103,10 @@ export default function ExecutiveWorkspace() {
               }
               // Status remains as-is
               if (data.type === "status") setStatusMsg(data.message);
+              // ECP-020: Execution progress updates
+              if (data.type === "execution_update") {
+                setExecSnapshot(data);
+              }
             } catch {}
           }
         }
@@ -141,27 +147,16 @@ export default function ExecutiveWorkspace() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-            {/* ECP-015: Pipeline state + tool events */}
-            {(pipelineState || toolEvents.length > 0) && (
-              <div className="space-y-2">
-                {pipelineState && (
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 text-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
-                    <span className="text-blue-700 dark:text-blue-300 font-medium">{pipelineState}</span>
-                  </div>
-                )}
-                <div className="flex flex-wrap gap-1">
-                  {toolEvents.slice(-5).map((t, i) => (
-                    <span key={i} className={`inline-block px-2 py-1 rounded-lg text-[10px] font-medium ${
-                      t.status === "completed" ? "bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300" : 
-                      t.status === "started" ? "bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300" :
-                      "bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300"
-                    }`}>
-                      {t.status === "completed" ? "✅" : t.status === "started" ? "🔧" : "❌"} {t.name}{t.durationMs ? ` ${t.durationMs}ms` : ""}
-                    </span>
-                  ))}
-                </div>
-              </div>
+            {/* ECP-020: Runtime Progress Card — replaces old pipeline + tool chips */}
+            {execSnapshot && (
+              <RuntimeProgressCard
+                snapshot={execSnapshot}
+                variant="full"
+                toolEvents={toolEvents.map(t => ({ name: t.name, status: t.status as "started" | "completed", durationMs: t.durationMs }))}
+              />
+            )}
+            {!execSnapshot && loading && (
+              <RuntimeProgressCard snapshot={null} variant="full" />
             )}
             {reports.length === 0 && !loading && (
               <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">

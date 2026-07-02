@@ -40,6 +40,7 @@ export interface CEOContext {
   onProgress?: (msg: string) => void;
   onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void;
   onState?: (state: string) => void;
+  onExecutionEvent?: (snapshot: import("../runtime/execution/execution-manifest").ExecutionSnapshot) => void;
 }
 
 export interface CEOResult {
@@ -113,6 +114,7 @@ async function execute(ctx: CEOContext): Promise<CEOResult> {
         systemPrompt, ctx.message, ctx.userId, "ceo", READ_TOOLS, 6000,
         (msg) => ctx.onProgress?.(msg),
         (ev) => ctx.onTool?.(ev),
+        false, undefined, ctx.onExecutionEvent,
       );
     } catch {
       rawText = "CEO Runtime sedang sibuk. Coba lagi.";

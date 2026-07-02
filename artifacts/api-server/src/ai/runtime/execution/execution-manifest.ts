@@ -121,3 +121,32 @@ export interface ExecutionManifest {
   };
   cycles: JournalEntry[];
 }
+
+// ECP-020: ExecutionSnapshot — per-cycle snapshot for frontend progress
+export interface TimelineSummary {
+  completed: number;
+  running: number;
+  pending: number;
+  total: number;
+}
+
+export interface ExecutionSnapshot {
+  version: 1;
+  executionId: string;
+  timestamp: number;
+  progress: { assignment: number; execution: number; overall: number };
+  stage: ObjectiveState;
+  currentGoal: { label: string; status: string } | null;
+  owner: string;
+  strategy: ExecutionStrategy;
+  elapsedMs: number;
+  timelineSummary: TimelineSummary;
+  metrics: {
+    evidenceQuality: number;
+    confidence: number;
+    decisionStability: number;
+    cyclesExecuted: number;
+    toolDiversity: number;
+    explorationDepth: number;
+  };
+}

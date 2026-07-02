@@ -2,7 +2,7 @@
 // Frozen. Delegates all decisions to 4 engines.
 // Engines never call each other. Governor is the only coordinator.
 
-import type { ObjectiveState, ExecutionStrategy, ExecutionManifest, StopReason, JournalEntry, GoalNode } from "./execution-manifest";
+import type { ObjectiveState, ExecutionStrategy, ExecutionManifest, StopReason, JournalEntry, GoalNode, ExecutionSnapshot } from "./execution-manifest";
 import { ObjectiveTracker } from "./objective-tracker";
 import { GoalTree } from "./goal-tree";
 import { CompletionPolicy } from "./completion-policy";
@@ -23,8 +23,10 @@ class ExecutionGovernor {
 
   private _stopReason: StopReason = "OBJECTIVE_COMPLETED";
   private _cycle: number = 0;
+  private _onEvent?: (snapshot: ExecutionSnapshot) => void;
 
-  constructor(complexity: string, domain: string, entities: string[], objective: string) {
+  constructor(complexity: string, domain: string, entities: string[], objective: string, onExecutionEvent?: (snapshot: ExecutionSnapshot) => void) {
+    this._onEvent = onExecutionEvent;
     this.budget = new ExecutionBudget(complexity);
     this.strategyEngine.setComplexity(complexity);
     this.goalTree.build(domain, entities, objective);
@@ -141,6 +143,30 @@ class ExecutionGovernor {
     } else if (result.status === "BLOCKED" && !this.tracker.isBlocked()) {
       this.tracker.transition("BLOCKED");
     }
+
+    // ECP-020: Emit execution snapshot for frontend
+    this._onEvent?.({
+      version: 1 as const,
+      executionId: this.journal.id,
+      timestamp: Date.now(),
+      progress: {
+        assignment: this.goalTree.assignmentProgress(),
+        execution: this.goalTree.progress(),
+        overall: Math.round(this.goalTree.progress() * 0.7 + this.goalTree.assignmentProgress() * 0.3),
+      },
+      stage: this.tracker.state,
+      currentGoal: this.goalTree.pending()[0] ? { label: this.goalTree.pending()[0].label, status: this.goalTree.pending()[0].status } : null,
+      owner: this.goalTree.pending()[0]?.owner || "Self",
+      strategy: this.strategyEngine.strategy,
+      elapsedMs: this.tracker.elapsedMs,
+      timelineSummary: {
+        completed: this.goalTree.countByStatus(["COMPLETED"]),
+        running: this.goalTree.countByStatus(["ASSIGNED", "IN_PROGRESS"]),
+        pending: this.goalTree.countByStatus(["PENDING"]),
+        total: this.goalTree.total(),
+      },
+      metrics: this.metrics.snapshot(),
+    });
   }
 
   getStrategyDirective(): string {

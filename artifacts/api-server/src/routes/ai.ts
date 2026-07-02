@@ -102,6 +102,9 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             onProgress: (msg) => emitStatus(res, msg),
             onTool: (ev) => emitToolEvent(res, "CEO", "ToolExecutor", ev.status, ev.name, ev.durationMs),
             onState: (state) => emitStateEvent(res, "CEO", state),
+            onExecutionEvent: (snapshot) => {
+              res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`);
+            },
           });
 
           if (result.success && result.text) {
@@ -189,6 +192,9 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
             onProgress: (msg: string) => emitStatus(res, msg),
             onTool: (ev: { name: string; status: string; durationMs?: number }) => 
               emitToolEvent(res, "CTO", "ToolExecutor", ev.status as "started" | "completed", ev.name, ev.durationMs),
+            onExecutionEvent: (snapshot) => {
+              res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`);
+            },
           });
 
           if (result.success && result.text) {

@@ -608,6 +608,7 @@ export async function callDeepSeekWithTools(
   onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void,
   stream = false,
   onToken?: (token: string) => void,
+  onExecutionEvent?: (snapshot: import("../ai/runtime/execution/execution-manifest").ExecutionSnapshot) => void,
 ): Promise<string> {
   const ctx = new ExecutionContext(userId, mode);
   const key = process.env.DEEPSEEK_API_KEY;
@@ -647,6 +648,7 @@ export async function callDeepSeekWithTools(
   // ECP-019: Execution Governor replaces fixed MAX_ROUNDS loop
   const governor = new ExecutionGovernor(
     "medium", "general", [], user.slice(0, 100),
+    onExecutionEvent,
   );
 
   // ── DEBUG LOG ──
