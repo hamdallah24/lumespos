@@ -3,7 +3,7 @@
 
 export interface AgentIdentity {
   id: string;
-  role: "CTO" | "COO" | "CEO" | "CFO" | "Researcher" | "Founder";
+  role: "CTO" | "COO" | "CEO" | "CFO" | "Researcher" | "Founder" | "Chat";
   authority: "full" | "limited" | "readonly" | "none";
   capabilities: string[];        // What this agent CAN do
   scope: string[];               // Domains this agent operates in
@@ -57,6 +57,17 @@ export const IDENTITIES: Record<string, AgentIdentity> = {
     knowledgeDomains: ["all"],
     trustScore: 100,
     memoryScope: "organization",
+    approvalRequired: false,
+  },
+  Chat: {
+    id: "chat-v1",
+    role: "Chat",
+    authority: "readonly",
+    capabilities: ["conversation"],
+    scope: ["general"],
+    knowledgeDomains: [],
+    trustScore: 100,
+    memoryScope: "session",
     approvalRequired: false,
   },
 };

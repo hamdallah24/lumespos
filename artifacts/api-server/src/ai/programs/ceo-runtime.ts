@@ -11,8 +11,19 @@ import { verify } from "../runtime/verification-engine";
 import { organizationEngine } from "../runtime/organization-engine";
 import { callDeepSeekWithTools, READ_TOOLS } from "../../routes/ai-helpers";
 import { foundationLoader } from "../runtime/foundation-loader";
+import { assemble } from "../runtime/prompt-assembler";
+import { EXECUTIVE_OUTPUT_SCHEMA, TOOL_RULES } from "../../routes/ai-prompts";
 
 const CEO_IDENTITY = getIdentity("CEO")!;
+
+let _cachedDirective: string | null = null;
+function getDirective(): string {
+  if (_cachedDirective) return _cachedDirective;
+  const assets = foundationLoader.load();
+  const directive = assets.find(a => a.id === "ceo-directive-v1");
+  _cachedDirective = directive?.content || "";
+  return _cachedDirective;
+}
 
 export interface ExecutiveDecision {
   goal: string;
@@ -38,27 +49,6 @@ export interface CEOResult {
   pipeline: string[];
 }
 
-function buildCEOPrompt(directiveContent: string, message: string, delegationSummary: string): string {
-  return `Kamu adalah CEO Runtime Engineering OS — Executive Director Lume's Everywhere.
-
-## Executive Directive
-${directiveContent.slice(0, 2000)}
-
-## Current Session
-Founder: ${message}
-Delegation Plan: ${delegationSummary}
-
-## Instructions
-1. Analisis permintaan Founder berdasarkan directive di atas.
-2. Jika perlu delegasi, sebutkan ke Runtime mana dan kenapa.
-3. Berikan Executive Report: Ringkasan → Delegasi → Analisis → Rekomendasi.
-4. Bahasa Indonesia profesional. Format terstruktur.
-5. JANGAN menulis kode.
-6. JANGAN menjalankan inventory.
-7. JANGAN menyebut dirimu Claude, Anthropic, atau AI lain.
-8. Kamu adalah CEO Engineering OS — bukan AI generik.`;
-}
-
 async function execute(ctx: CEOContext): Promise<CEOResult> {
   const pipeline: string[] = [];
 
@@ -66,16 +56,9 @@ async function execute(ctx: CEOContext): Promise<CEOResult> {
   pipeline.push("Identity");
   ctx.onProgress?.("💼 CEO Runtime booting...");
 
-  // Stage 2: Load Executive Directive from Foundation
+  // Stage 2: Load Executive Directive from Foundation (cached)
   pipeline.push("DirectiveLoad");
-  let directiveContent = "";
-  try {
-    const assets = foundationLoader.load();
-    const directive = assets.find(a => a.id === "ceo-directive-v1");
-    if (directive) {
-      directiveContent = directive.content;
-    }
-  } catch { /* Continue without directive — use identity baseline */ }
+  const directiveContent = getDirective();
 
   // Stage 3: Semantic Understanding
   pipeline.push("SemanticEngine");
@@ -114,8 +97,16 @@ async function execute(ctx: CEOContext): Promise<CEOResult> {
   } else if (contract.intent === "greeting") {
     rawText = "Halo. Ada yang bisa CEO Runtime bantu?";
   } else {
-    pipeline.push("LLMEngine");
-    const systemPrompt = buildCEOPrompt(directiveContent, ctx.message, delegationSummary);
+    pipeline.push("PromptAssembly");
+    const systemPrompt = assemble({
+      identity: CEO_IDENTITY,
+      directive: directiveContent,
+      decision,
+      outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
+      toolRules: TOOL_RULES,
+      maxTokens: 6000,
+      mode: "ceo",
+    });
     ctx.onProgress?.("🧠 CEO Runtime menganalisis...");
     try {
       rawText = await callDeepSeekWithTools(
