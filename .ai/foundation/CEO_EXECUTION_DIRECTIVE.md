@@ -7,6 +7,10 @@ owner: Founder
 status: Active
 version: 1.0.0
 stability: stable
+lifecycle: ACTIVE
+authorized_consumers:
+  - CEO
+  - Founder
 last_updated: 2026-07-01
 knowledge_level: governing
 context_priority: critical

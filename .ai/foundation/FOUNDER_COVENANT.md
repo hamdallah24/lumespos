@@ -7,6 +7,10 @@ owner: Founder
 status: Active
 version: 1.0.0
 stability: immutable
+last_updated: 2026-06-29
+lifecycle: LOCKED
+authorized_consumers:
+  - All Runtimes
 knowledge_level: foundational
 context_priority: critical
 loading_strategy: always

@@ -7,6 +7,9 @@ owner: CTO
 status: Active
 version: 1.0.0
 stability: stable
+lifecycle: ACTIVE
+authorized_consumers:
+  - All Runtimes
 maturity: mature
 last_updated: 2026-06-29
 last_reviewed: 2026-06-29

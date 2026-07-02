@@ -7,6 +7,11 @@ owner: Founder
 status: Active
 version: 1.1.0
 stability: stable
+lifecycle: ACTIVE
+authorized_consumers:
+  - CTO
+  - CEO
+  - Founder
 maturity: mature
 last_updated: 2026-06-30
 last_reviewed: 2026-06-30

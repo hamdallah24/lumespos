@@ -7,6 +7,9 @@ owner: CTO
 status: Active
 version: 1.0.0
 stability: locked
+lifecycle: LOCKED
+authorized_consumers:
+  - All Runtimes
 last_updated: 2026-06-30
 knowledge_level: foundational
 loading_strategy: always
