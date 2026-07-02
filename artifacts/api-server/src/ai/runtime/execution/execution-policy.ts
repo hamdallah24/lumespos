@@ -45,7 +45,12 @@ export function getAntiLoopThreshold(complexity: string): number {
   return antiLoop[complexity] || antiLoop.medium;
 }
 
+export const evidenceThresholds: Record<string, number> = {
+  simple: 1, medium: 2, complex: 3, critical: 4,
+};
+
 export const executionPolicy = {
   resolveBudget, getAntiLoopThreshold,
   budgetMatrix, globalSafety, antiLoop, schedulerWeights, schedulerConstraints, completionWeights,
+  evidenceThresholds,
 };

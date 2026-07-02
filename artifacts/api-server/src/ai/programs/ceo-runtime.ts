@@ -115,6 +115,7 @@ async function execute(ctx: CEOContext): Promise<CEOResult> {
         (msg) => ctx.onProgress?.(msg),
         (ev) => ctx.onTool?.(ev),
         false, undefined, ctx.onExecutionEvent,
+        { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective },
       );
     } catch {
       rawText = "CEO Runtime sedang sibuk. Coba lagi.";

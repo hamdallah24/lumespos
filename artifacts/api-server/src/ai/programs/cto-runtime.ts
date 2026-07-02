@@ -183,6 +183,7 @@ async function execute(task: CTOTask): Promise<CTOResult> {
       systemPrompt, task.message, task.userId, "cto", toolSet,
       spec.runtimePolicy.maxTokens, task.onProgress, task.onTool,
       false, undefined, task.onExecutionEvent,
+      { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective },
     );
     pipeline.push("LLM");
   } catch (e: any) {

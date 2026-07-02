@@ -609,6 +609,7 @@ export async function callDeepSeekWithTools(
   stream = false,
   onToken?: (token: string) => void,
   onExecutionEvent?: (snapshot: import("../ai/runtime/execution/execution-manifest").ExecutionSnapshot) => void,
+  executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string },
 ): Promise<string> {
   const ctx = new ExecutionContext(userId, mode);
   const key = process.env.DEEPSEEK_API_KEY;
@@ -647,7 +648,10 @@ export async function callDeepSeekWithTools(
 
   // ECP-019: Execution Governor replaces fixed MAX_ROUNDS loop
   const governor = new ExecutionGovernor(
-    "medium", "general", [], user.slice(0, 100),
+    executionSpec?.complexity || "medium",
+    executionSpec?.domain || "general",
+    executionSpec?.entities || [],
+    executionSpec?.objective || user.slice(0, 100),
     onExecutionEvent,
   );
 
@@ -743,8 +747,10 @@ export async function callDeepSeekWithTools(
       ctx.addEvent({ state: RuntimeState.VALIDATION, phase: "cleaned", timestampMs: 0, metadata: { rawLength: rc.length, cleanedLength: validated.cleanedText.length, warnings: validated.warnings.map(w => w.slice(0, 30)) } });
       emit(Events.AfterValidation, { warnings: validated.warnings });
       if (validated.warnings.length > 0) console.warn("[Validator] Retry path warnings:", validated.warnings);
-      if (validated.cleanedText) { ctx.setState(RuntimeState.DELIVERY); ctx.addEvent({ state: RuntimeState.DELIVERY, phase: "remembered", timestampMs: 0, metadata: { length: validated.cleanedText.length, saved: true } }); await remember(userId, mode, user, validated.cleanedText); }
-      return validated.cleanedText;
+        if (validated.cleanedText) { ctx.setState(RuntimeState.DELIVERY); ctx.addEvent({ state: RuntimeState.DELIVERY, phase: "remembered", timestampMs: 0, metadata: { length: validated.cleanedText.length, saved: true } }); await remember(userId, mode, user, validated.cleanedText); }
+        // ECP-020: Notify Governor of final cycle
+        governor.afterCycle(false, [], maxTokens);
+        return validated.cleanedText;
     }
 
     const json = await resp.json();
@@ -805,7 +811,8 @@ export async function callDeepSeekWithTools(
     messages.push(msg, ...toolResults);
 
     // ECP-019: Governor cycle tracking
-    governor.afterCycle(true, msg.tool_calls.map((tc: any) => ({
+    const actuallyHasTools = !!(msg.tool_calls && msg.tool_calls.length > 0);
+    governor.afterCycle(actuallyHasTools, msg.tool_calls.map((tc: any) => ({
       name: tc.function?.name || "unknown",
       durationMs: 0,
     })), 500);

@@ -41,16 +41,19 @@ class ExecutionGovernor {
       this._stopReason = "OBJECTIVE_COMPLETED"; return false;
     }
 
+    // Strategy terminal states
+    if (this.strategyEngine.strategy === "CONCLUDE") {
+      this._stopReason = "OBJECTIVE_COMPLETED"; return false;
+    }
+    if (this.strategyEngine.strategy === "ESCALATE") {
+      this._stopReason = "OBJECTIVE_BLOCKED"; return false;
+    }
+
     // Safety boundary: budget exceeded
     const budgetCheck = this.budget.isExceeded();
     if (budgetCheck.exceeded) {
       this._stopReason = (budgetCheck.reason as StopReason) || "BUDGET_EXCEEDED";
       return false;
-    }
-
-    // Strategy escalated
-    if (this.strategyEngine.strategy === "ESCALATE") {
-      this._stopReason = "OBJECTIVE_BLOCKED"; return false;
     }
 
     return true;
