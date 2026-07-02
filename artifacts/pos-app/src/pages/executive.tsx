@@ -147,14 +147,7 @@ export default function ExecutiveWorkspace() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-            {/* ECP-020: Runtime Progress Card — replaces old pipeline + tool chips */}
-            {execSnapshot && (
-              <RuntimeProgressCard
-                snapshot={execSnapshot}
-                variant="full"
-                toolEvents={toolEvents.map(t => ({ name: t.name, status: t.status as "started" | "completed", durationMs: t.durationMs }))}
-              />
-            )}
+            {/* ECP-020: Progress Card now inside bubble — see ExecutiveCard */}
             {!execSnapshot && loading && (
               <RuntimeProgressCard snapshot={null} variant="full" />
             )}
@@ -170,9 +163,17 @@ export default function ExecutiveWorkspace() {
                 </div>
               </div>
             )}
-            {reports.map((r, i) => (
-              <ExecutiveCard key={i} report={r} />
-            ))}
+            {reports.map((r, i) => {
+              const isLastAssistant = i === reports.length - 1 && r.role !== "CEO";
+              return (
+                <ExecutiveCard
+                  key={i}
+                  report={r}
+                  execSnapshot={isLastAssistant && execSnapshot ? execSnapshot : null}
+                  toolEvents={isLastAssistant ? toolEvents.map(t => ({ name: t.name, status: t.status as "started" | "completed", durationMs: t.durationMs })) : undefined}
+                />
+              );
+            })}
             {loading && (
               <div className="flex items-center gap-2 text-xs text-slate-400 animate-pulse px-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-[#1565FF]" /> Memproses...
@@ -273,7 +274,7 @@ function StatusRow({ label, value, color }: { label: string; value: string; colo
   );
 }
 
-function ExecutiveCard({ report }: { report: ExecutiveReport }) {
+function ExecutiveCard({ report, execSnapshot, toolEvents }: { report: ExecutiveReport; execSnapshot?: any; toolEvents?: { name: string; status: string; durationMs?: number }[] }) {
   const [copied, setCopied] = React.useState(false);
 
   const copy = (text: string) => {
@@ -298,6 +299,16 @@ function ExecutiveCard({ report }: { report: ExecutiveReport }) {
           ? "bg-[#1565FF] text-white rounded-br-sm"
           : "bg-white dark:bg-white/[0.05] border border-[#1565FF]/10 text-slate-700 dark:text-white rounded-bl-sm"
       }`}>
+        {/* ECP-020: Progress Card INSIDE bubble, above response text */}
+        {execSnapshot && (
+          <div className="mb-3">
+            <RuntimeProgressCard
+              snapshot={execSnapshot}
+              variant={toolEvents ? "full" : "compact"}
+              toolEvents={toolEvents}
+            />
+          </div>
+        )}
         <p className="whitespace-pre-wrap leading-relaxed pr-6">{report.text}</p>
         {/* Copy button */}
         <button onClick={() => copy(report.text)} className={`absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all active:scale-90 ${isUser ? "text-white/50 hover:text-white/80" : "text-slate-300 hover:text-slate-500"}`}>
