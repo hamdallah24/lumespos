@@ -19,6 +19,8 @@ import { loadKnowledgeWithContent } from "../ai/runtime/knowledge-loader";
 // Sprint 3: Validator functions (import + re-export)
 import { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse } from "../ai/runtime/validator";
 export { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse };
+// ECP-019: Execution Governor — replaces fixed MAX_ROUNDS loop
+import { ExecutionGovernor } from "../ai/runtime/execution/execution-governor";
 import { readdir, stat, readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname, resolve } from "path";
 import { promisify } from "util";
@@ -639,16 +641,18 @@ export async function callDeepSeekWithTools(
 
   const toolsPayload = tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
 
-  const MAX_ROUNDS = 5;  // Was 3 — Foundation prompts need more thinking rounds
-  const TIMEOUT_MS = 45000; // Was 30s — Foundation prompts are larger, need more time
+  const TIMEOUT_MS = 45000;
+  const MAX_ROUNDS_LEGACY = 5; // kept for error messages only
 
-  // ── SANITIZE ──
-  // (imported from runtime/validator.ts — see top of file)
+  // ECP-019: Execution Governor replaces fixed MAX_ROUNDS loop
+  const governor = new ExecutionGovernor(
+    "medium", "general", [], user.slice(0, 100),
+  );
 
   // ── DEBUG LOG ──
   const logPayload = (label: string, msgs: any[], r: number) => {
     console.log(`[DeepSeek ${label}]`, JSON.stringify({
-      round: r + 1, totalRounds: MAX_ROUNDS,
+      cycle: r,
       messageCount: msgs.length,
       messages: msgs.map(m => ({
         role: m.role,
@@ -660,7 +664,9 @@ export async function callDeepSeekWithTools(
     }, null, 2));
   };
 
-  for (let round = 0; round < MAX_ROUNDS; round++) {
+  let round = 0;
+  while (governor.shouldContinue()) {
+    round = governor.beforeCycle();
     // ── INPUT VALIDATION ──
     for (let i = 0; i < messages.length; i++) {
       const m = messages[i];
@@ -708,7 +714,7 @@ export async function callDeepSeekWithTools(
         lastMessage: messages[messages.length - 1],
       }, null, 2));
       if (round > 0) {
-        throw new Error(`AI engine error at round ${round + 1}/${MAX_ROUNDS}: HTTP ${resp.status}`);
+        throw new Error(`AI engine error at round ${round}/${MAX_ROUNDS_LEGACY}: HTTP ${resp.status}`);
       }
       // Round 0 error: retry without tools
       delete body.tools;
@@ -796,12 +802,18 @@ export async function callDeepSeekWithTools(
 
     messages.push(msg, ...toolResults);
 
-    // Final round: safety net force text
-    if (round === MAX_ROUNDS - 1) {
+    // ECP-019: Governor cycle tracking
+    governor.afterCycle(true, msg.tool_calls.map((tc: any) => ({
+      name: tc.function?.name || "unknown",
+      durationMs: 0,
+    })), 500);
+
+    // Safety net: force final call when governor says stop
+    if (!governor.shouldContinue()) {
       const doFinalCall = async (withTools: boolean): Promise<string> => {
         const clean = sanitizeMessages(messages);
         validateMessageSequence(clean);
-        logPayload("FinalCall", clean, MAX_ROUNDS - 1);
+        logPayload("FinalCall", clean, MAX_ROUNDS_LEGACY - 1);
         const fb: any = { model, messages: clean, max_tokens: 8000, temperature: 0.7 };
         if (withTools) fb.tools = toolsPayload;
         const fc = new AbortController();
