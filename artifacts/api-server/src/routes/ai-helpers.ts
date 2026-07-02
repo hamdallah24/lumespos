@@ -671,8 +671,29 @@ export async function callDeepSeekWithTools(
   };
 
   let round = 0;
+  let _prevStrategy = "";
+
+  // ECP-020: Execution directives — injected only when strategy changes
+  const EXECUTION_INSTRUCTION: Record<string, string> = {
+    EXPLORE: "Continue exploring. Find all relevant files first before analyzing.",
+    INVESTIGATE: "Stop exploring. Read the files you found. Do not search again unless necessary.",
+    ANALYZE: "Analyze what you have. Only call tools if critical new information is needed.",
+    CONCLUDE: "Time to conclude. Provide your final response now. No more tools.",
+    ESCALATE: "Cannot proceed with current resources. Report findings and stop.",
+  };
+
   while (governor.shouldContinue()) {
     round = governor.beforeCycle();
+
+    // ECP-020 Phase 4: Inject strategy directive when it changes
+    const currentStrategy = governor.strategyEngine.strategy;
+    if (currentStrategy !== _prevStrategy) {
+      _prevStrategy = currentStrategy;
+      const instruction = EXECUTION_INSTRUCTION[currentStrategy];
+      if (instruction) {
+        messages.push({ role: "user", content: `[GOVERNOR] ${instruction}` });
+      }
+    }
     // ── INPUT VALIDATION ──
     for (let i = 0; i < messages.length; i++) {
       const m = messages[i];

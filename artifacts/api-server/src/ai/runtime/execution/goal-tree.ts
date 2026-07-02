@@ -68,6 +68,17 @@ class GoalTree {
     return null;
   }
 
+  /** Mark goal complete by ID — evidence-based (no string matching) */
+  markCompleteById(goalId: string): GoalNode | null {
+    const node = this.nodes.get(goalId);
+    if (!node || node.id === "root" || node.status === "COMPLETED") return null;
+    node.status = "COMPLETED";
+    node.completedAt = new Date().toISOString();
+    node.evidence = `Evidence collected over cycles`;
+    this.checkRootCompletion();
+    return node;
+  }
+
   /** Assign ownership to a goal */
   assign(goalId: string, owner: string): boolean {
     const node = this.nodes.get(goalId);

@@ -11,6 +11,7 @@ import { ExecutionBudget } from "./execution-budget";
 import { ExecutionMetrics } from "./execution-metrics";
 import { ExecutionJournal } from "./execution-journal";
 import { delegationEngine } from "./delegation-engine";
+import { executionPolicy } from "./execution-policy";
 
 class ExecutionGovernor {
   readonly tracker = new ObjectiveTracker();
@@ -24,6 +25,9 @@ class ExecutionGovernor {
   private _stopReason: StopReason = "OBJECTIVE_COMPLETED";
   private _cycle: number = 0;
   private _onEvent?: (snapshot: ExecutionSnapshot) => void;
+  private _goalEvidenceCycles = new Map<string, number>();
+  private _currentGoalId: string | null = null;
+  private _evidenceThreshold: number = 2;
 
   constructor(complexity: string, domain: string, entities: string[], objective: string, onExecutionEvent?: (snapshot: ExecutionSnapshot) => void) {
     this._onEvent = onExecutionEvent;
@@ -31,6 +35,7 @@ class ExecutionGovernor {
     this.strategyEngine.setComplexity(complexity);
     this.goalTree.build(domain, entities, objective);
     this.journal.start(objective, complexity, this.budget.allocation);
+    this._evidenceThreshold = executionPolicy.evidenceThresholds[complexity] || 2;
   }
 
   get stopReason(): StopReason { return this._stopReason; }
@@ -95,11 +100,37 @@ class ExecutionGovernor {
 
     // Strategy inference
     const strategyResult = this.strategyEngine.infer(toolCalls, this.tracker.state);
-    if (strategyResult.changed && strategyResult.strategy !== this.strategyEngine.strategy) {
-      // Governor will inject directive in next cycle
+
+    // ECP-020 Phase 6: Evidence-based goal completion
+    if (hasToolCalls) {
+      const pendingGoals = this.goalTree.pending();
+      if (pendingGoals.length > 0) {
+        const goal = pendingGoals[0];
+        this._currentGoalId = goal.id;
+
+        if (goal.status === "PENDING") {
+          goal.status = "IN_PROGRESS";
+        }
+
+        const cycles = (this._goalEvidenceCycles.get(goal.id) || 0) + 1;
+        this._goalEvidenceCycles.set(goal.id, cycles);
+
+        if (cycles >= this._evidenceThreshold) {
+          this.goalTree.markCompleteById(goal.id);
+          this._goalEvidenceCycles.set(goal.id, 0);
+        }
+      }
     }
 
-    // Goal tracking
+    // Also mark goal complete when strategy advances past investigation
+    if (strategyResult.changed && this.strategyEngine.strategy === "ANALYZE" && this._currentGoalId) {
+      const goal = this.goalTree.get(this._currentGoalId);
+      if (goal && goal.status !== "COMPLETED" && goal.status !== "SKIPPED") {
+        this.goalTree.markCompleteById(this._currentGoalId);
+      }
+    }
+
+    // Legacy path: markComplete still works if matchedPath is provided
     if (matchedPath) this.goalTree.markComplete(matchedPath);
 
     // Metrics

@@ -44,6 +44,7 @@ class DelegationEngine {
   /** Quick delegation for single-runtime execution (current mode) */
   assignToCurrentRuntime(goal: GoalNode): DelegationResult {
     goal.status = "ASSIGNED";
+    goal.owner = "CTO";
     return {
       goalId: goal.id,
       capability: goal.requiredCapability || "GENERAL",
