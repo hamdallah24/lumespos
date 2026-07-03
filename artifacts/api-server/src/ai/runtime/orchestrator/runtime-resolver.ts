@@ -6,7 +6,9 @@ import { classifyIntent } from "../intent-classifier";
 
 const intentRuntimeMap: Record<string, string> = {
   greeting:          "Chat",
-  knowledge_query:   "Consultant",
+  knowledge_query:   "Consultant",  // ECP-037: Consultant has no execute() in orchestrator.
+                                    // Falls through to Layer 3 → CEO. Will be wired properly
+                                    // when Consultant becomes a request-handler (future ECP).
   business_action:   "COO",
   analyze_code:      "CTO",
   implement_change:  "CTO",

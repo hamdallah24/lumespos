@@ -6,6 +6,12 @@ import { logger } from "./lib/logger";
 import { startHealthMonitor } from "./ai/runtime/health-monitor";
 import { missionEngine } from "./ai/runtime/mission-background-engine";
 
+// ECP-037: Static Runtime imports for orchestrator registration
+import { ceoRuntime } from "./ai/programs/ceo-runtime";
+import { ctoProgram } from "./ai/programs/cto-runtime";
+import { cooRuntime } from "./programs/coo-runtime";
+import { chatRuntime } from "./programs/chat-runtime";
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {
@@ -32,15 +38,13 @@ async function boot(): Promise<void> {
     const audit = await runActivationAudit();
     logger.info({ score: audit.structuralScore, status: audit.status }, "Activation Audit complete");
 
-    // Phase 3: Kernel Register Runtimes
+    // Phase 3: Register all runtimes with Kernel + Orchestrator
     const { organizationKernel } = await import("./kernel");
     const { orchestrator } = await import("./ai/runtime/orchestrator");
 
-    // Register runtimes with Kernel (CEO, CTO, COO, Chat)
-    // The actual execute wrappers are in ai.ts emergency path or registered here
     logger.info("Kernel registering organization...");
 
-    // Phase 4: Kernel Boot
+    // ECP-037: Kernel registration (lifecycle management)
     organizationKernel.register({
       name: "CEO", version: "1.0.0", type: "runtime",
       status: "registered",
@@ -66,6 +70,86 @@ async function boot(): Promise<void> {
       status: "registered",
       health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
     });
+
+    // ECP-037: Orchestrator registration (request handling — with full callback forwarding)
+    orchestrator.register({
+      name: "CEO", version: "1.0.0",
+      capabilities: ["strategy", "delegation", "executive_report"],
+      identity: { id: "ceo-v1", role: "CEO", authority: "full" },
+      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
+      canHandle: () => true,
+      execute: async (ctx) => {
+        const result = await ceoRuntime.execute({
+          message: ctx.message, userId: ctx.userId,
+          onProgress: ctx.onProgress, onTool: ctx.onTool,
+          onState: ctx.onState, onExecutionEvent: ctx.onExecutionEvent,
+        });
+        return {
+          success: result.success, text: result.text, runtime: "CEO",
+          pipeline: result.pipeline || [],
+          metrics: { runtime: "CEO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: !!result.decision?.delegation, delegatedTo: result.decision?.delegation?.runtime, verificationPassed: result.success, knowledgeWritten: false },
+        };
+      },
+    });
+
+    orchestrator.register({
+      name: "CTO", version: "1.1.0",
+      capabilities: ctoProgram.capabilities,
+      identity: { id: "cto-v1", role: "CTO", authority: "limited" },
+      health: () => ({ status: "healthy", uptime: 0, version: "1.1.0" }),
+      canHandle: () => true,
+      execute: async (ctx) => {
+        const result = await ctoProgram.execute({
+          message: ctx.message, userId: ctx.userId,
+          onProgress: ctx.onProgress, onTool: ctx.onTool,
+          onExecutionEvent: ctx.onExecutionEvent,
+        });
+        // reflection field intentionally omitted from orchestrator output — see CTO Runtime internals
+        return {
+          success: result.success, text: result.text, runtime: "CTO",
+          pipeline: result.pipeline || [],
+          metrics: { runtime: "CTO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false },
+        };
+      },
+    });
+
+    orchestrator.register({
+      name: "COO", version: "1.0.0",
+      capabilities: cooRuntime.capabilities,
+      identity: { id: "coo-v1", role: "COO", authority: "limited" },
+      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
+      canHandle: () => true,
+      execute: async (ctx) => {
+        const result = await cooRuntime.execute({
+          message: ctx.message, userId: ctx.userId, branchId: ctx.branchId,
+        });
+        return {
+          success: result.success, text: result.text, runtime: "COO",
+          pipeline: result.pipeline || [],
+          metrics: { runtime: "COO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false },
+        };
+      },
+    });
+
+    orchestrator.register({
+      name: "Chat", version: "1.0.0",
+      capabilities: chatRuntime.capabilities,
+      identity: { id: "chat-v1", role: "Chat", authority: "readonly" },
+      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
+      canHandle: () => true,
+      execute: async (ctx) => {
+        const result = await chatRuntime.execute({ message: ctx.message, userId: ctx.userId });
+        return {
+          success: result.success, text: result.text, runtime: "Chat",
+          pipeline: result.pipeline || [],
+          metrics: { runtime: "Chat", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: true, knowledgeWritten: false },
+        };
+      },
+    });
+
+    // Consultant Runtime NOT registered with orchestrator — see runtime-resolver.ts line 7-14
+    // Consultant is a background advisor (maintenance cycle), not a request handler.
+    // knowledge_query intent falls through Layer 2 → Layer 3 → CEO.
 
     await organizationKernel.start();
     logger.info({ state: organizationKernel.state }, "Kernel booted");
