@@ -249,10 +249,21 @@ router.get("/ai/missions", requireRole("owner"), async (_req, res) => {
 router.post("/ai/mission", requireRole("owner"), async (req, res) => {
   const { title, objective, domains, priority } = req.body as { title: string; objective: string; domains: string[]; priority?: string };
   if (!title || !domains) { res.status(400).json({ error: "title and domains required" }); return; }
-  const { missionEngineComponent } = await import("../ai/runtime/mission-engine");
-  const mission = missionEngineComponent.create(title, objective, domains, priority as any);
-  const report = missionEngineComponent.delegate(mission.id);
-  res.json({ mission: report?.mission, delegation: report?.orgDelegation });
+  // ECP-037 P1: Route through Mission Authority — no direct missionEngineComponent calls
+  const { missionAuthority } = await import("../ai/runtime/mission-authority");
+  const result = missionAuthority.submit({
+    title, description: objective || title, type: "strategic",
+    proposedBy: "Founder", strategicObjective: "general",
+    dependencies: [], estimatedTokens: 5000, estimatedDuration: "1 sprint",
+    requiredCapabilities: [],
+  });
+  if (!result.success) {
+    res.status(400).json({ error: result.error || "Mission creation failed" });
+    return;
+  }
+  // Auto-activate: Authority validates → activates via Mission Engine
+  const activation = await missionAuthority.activate((result.data as any)?.proposal?.id, "CEO");
+  res.json({ mission: (activation.data as any)?.mission, authority: result.data });
 });
 
 // Public: no-auth for dashboard display

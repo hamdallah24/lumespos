@@ -154,6 +154,35 @@ async function boot(): Promise<void> {
     await organizationKernel.start();
     logger.info({ state: organizationKernel.state }, "Kernel booted");
 
+    // ECP-037 P1: Activate Knowledge Pipeline
+    const { knowledgeManager } = await import("./ai/runtime/knowledge/knowledge-manager");
+    knowledgeManager.start();
+    logger.info("Knowledge Manager started — queue subscriber active");
+
+    // ECP-037 P1: Schedule Learning Cycle (daily)
+    const { kernelScheduler } = await import("./kernel/kernel-scheduler");
+    kernelScheduler.schedule("learning-cycle", 86400000, async () => {
+      try {
+        const { learningEngine } = await import("./ai/runtime/learning/learning-engine");
+        const result = learningEngine.cycle();
+        logger.info({ decisions: result.decisionsAnalyzed, patterns: result.patternsDetected }, "Learning cycle complete");
+      } catch {}
+    });
+    logger.info("Learning cycle scheduled — daily at boot time + 24h");
+
+    // ECP-037 P1: Subscribe Telemetry to event bus
+    const { eventBus } = await import("./ai/runtime/observability/event-bus");
+    eventBus.subscribe("trace_started", (event) => {
+      logger.info({ traceId: event.payload }, "Telemetry: trace started");
+    });
+    eventBus.subscribe("trace_completed", (event) => {
+      logger.info({ traceId: event.payload }, "Telemetry: trace completed");
+    });
+    eventBus.subscribe("decision_made", (event) => {
+      logger.info({ decision: event.payload }, "Telemetry: decision recorded");
+    });
+    logger.info("Telemetry subscribers active");
+
     // Phase 5: Wave 8 — Integrity Check
     const { checkIntegrity } = await import("./ai/runtime/orchestrator/integrity-check");
     const integrity = await checkIntegrity();
