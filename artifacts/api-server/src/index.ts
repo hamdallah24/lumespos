@@ -10,7 +10,6 @@ import { missionEngine } from "./ai/runtime/mission-background-engine";
 import { ceoRuntime } from "./ai/programs/ceo-runtime";
 import { ctoProgram } from "./ai/programs/cto-runtime";
 import { cooRuntime } from "./programs/coo-runtime";
-import { chatRuntime } from "./programs/chat-runtime";
 
 const rawPort = process.env["PORT"];
 
@@ -57,11 +56,6 @@ async function boot(): Promise<void> {
     });
     organizationKernel.register({
       name: "COO", version: "1.0.0", type: "runtime",
-      status: "registered",
-      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-    });
-    organizationKernel.register({
-      name: "Chat", version: "1.0.0", type: "runtime",
       status: "registered",
       health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
     });
@@ -131,23 +125,7 @@ async function boot(): Promise<void> {
       },
     });
 
-    orchestrator.register({
-      name: "Chat", version: "1.0.0",
-      capabilities: chatRuntime.capabilities,
-      identity: { id: "chat-v1", role: "Chat", authority: "readonly" },
-      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-      canHandle: () => true,
-      execute: async (ctx) => {
-        const result = await chatRuntime.execute({ message: ctx.message, userId: ctx.userId });
-        return {
-          success: result.success, text: result.text, runtime: "Chat",
-          pipeline: result.pipeline || [],
-          metrics: { runtime: "Chat", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: true, knowledgeWritten: false },
-        };
-      },
-    });
-
-    // Consultant Runtime NOT registered with orchestrator — see runtime-resolver.ts line 7-14
+        // Consultant Runtime NOT registered with orchestrator — see runtime-resolver.ts line 7-14
     // Consultant is a background advisor (maintenance cycle), not a request handler.
     // knowledge_query intent falls through Layer 2 → Layer 3 → CEO.
 

@@ -71,7 +71,8 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       return;
     }
 
-        const isSSE = m === "ceo" || m === "cto" || m === "chat";
+    // ECP-038: COO (bisnis) = JSON. All others = SSE through CEO orchestrator.
+    const isSSE = m !== "bisnis";
     if (isSSE) {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");
@@ -80,7 +81,21 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       res.flushHeaders();
     }
     try {
-      const result = await orchestrator.execute({ message: clean, userId: uid, mode: m, branchId: defaultBranchId });
+      const result = await orchestrator.execute({
+        message: clean, userId: uid, mode: m, branchId: defaultBranchId,
+        onExecutionEvent: (snapshot: any) => {
+          if (isSSE) res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`);
+        },
+        onTool: (ev: any) => {
+          if (isSSE) emitToolEvent(res, "CEO", "ToolExecutor", ev.status, ev.name, ev.durationMs);
+        },
+        onState: (state: string) => {
+          if (isSSE) emitStateEvent(res, "CEO", state);
+        },
+        onProgress: (msg: string) => {
+          if (isSSE) emitStatus(res, msg);
+        },
+      });
       if (result.success && result.text) {
         // ECP-037 P3: events:[] — pipeline events streamed LIVE via onExecutionEvent SSE
         if (isSSE) { await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 }); }
