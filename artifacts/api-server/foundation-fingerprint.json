@@ -1,17 +1,21 @@
 {
-  "fingerprint": "e000119935d9526d",
-  "generated_at": "2026-07-03 03:25:37",
-  "document_count": 10,
+  "fingerprint": "985deec2b50ce622",
+  "generated_at": "2026-07-03 03:37:39",
+  "document_count": 14,
   "id_list": [
     "ceo-directive-v1",
     "coo-directive-v1",
     "cto-directive-v1",
+    "delegation-policy-v1",
     "engineering-os-architecture-v1",
     "engineering-os-manifesto-v1",
+    "execution-governance-policy-v1",
     "foundation-index-v1",
     "founder-covenant-v1",
     "founder-philosophy-v1",
     "north-star-v1",
-    "op-model-v1"
+    "op-model-v1",
+    "trust-policy-v1",
+    "verification-policy-v1"
   ]
 }
