@@ -40,7 +40,7 @@ Rules:
 - If confidence < 70, mark as knowledge_query and flag missingContext`;
 
 /** Understand Founder's natural language → structured contract */
-export async function understand(message: string): Promise<SemanticContract> {
+export async function understand(message: string, userId = 1): Promise<SemanticContract> {
   // Fast path: greetings don't need LLM
   if (/^(halo|hai|hi|hey|test|ok|ya|p)$/i.test(message.trim())) {
     return {
@@ -50,7 +50,7 @@ export async function understand(message: string): Promise<SemanticContract> {
   }
 
   try {
-    const raw = await callDeepSeek(SEMANTIC_PROMPT, message, 0, "cto", 300);
+    const raw = await callDeepSeek(SEMANTIC_PROMPT, message, userId, "semantic", 300);
     const parsed = JSON.parse(raw.trim());
     return {
       intent: parsed.intent || "analyze_code",

@@ -60,7 +60,7 @@ async function execute(ctx: CEOContext): Promise<CEOResult> {
 
   // Stage 3: Semantic Understanding
   pipeline.push("SemanticEngine");
-  const contract = await understand(ctx.message);
+  const contract = await understand(ctx.message, ctx.userId);
 
   // Stage 4: Execution Specification
   pipeline.push("ExecutionSpec");

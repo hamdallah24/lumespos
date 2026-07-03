@@ -7,3 +7,5 @@ export { checkSystemHealth, getLastHealth } from "./runtime-health";
 export type { IRuntime, RuntimeContext } from "./runtime-interface";
 export type { RuntimeResult, RuntimeMetrics } from "./runtime-result";
 export { createResult, withMetrics } from "./runtime-result";
+export { createContext, cloneContext, getUserId, getMode } from "./runtime-context";
+export type { RuntimeSource, RuntimeRole } from "./runtime-context";

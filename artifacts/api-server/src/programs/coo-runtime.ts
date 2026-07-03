@@ -102,7 +102,7 @@ async function execute(task: COOTask): Promise<COOResult> {
 
   // Stage 3: Semantic Understanding
   pipeline.push("SemanticEngine");
-  const contract = await understand(task.message);
+  const contract = await understand(task.message, task.userId);
 
   // Stage 4: Execution Specification
   pipeline.push("ExecutionSpec");

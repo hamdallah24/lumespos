@@ -125,7 +125,7 @@ async function execute(task: CTOTask): Promise<CTOResult> {
   pipeline.push("MissionScope");
 
   // Stage 5: Semantic Understanding
-  const contract = await understand(task.message);
+  const contract = await understand(task.message, task.userId);
   pipeline.push("SemanticEngine");
 
   // Stage 6: Execution Specification
