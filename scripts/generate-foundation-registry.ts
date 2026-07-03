@@ -274,7 +274,7 @@ function main(): void {
     process.exit(1);
   }
 
-  const files = readdirSync(FOUNDATION_DIR).filter(f => f.endsWith(".md"));
+  const files = readdirSync(FOUNDATION_DIR).filter(f => f.endsWith(".md") && f !== "FOUNDATION_REGISTRY.md");
   const docs: DocMeta[] = [];
   const allErrors: ValidationError[] = [];
   const generatedAt = new Date().toISOString().slice(0, 19).replace("T", " ");

@@ -1,6 +1,6 @@
 # Foundation Canonical Registry
 
-Generated: 2026-07-02 16:13:01
+Generated: 2026-07-03 03:25:37
 Source: metadata from 10 documents in .ai/foundation/
 
 ## Active Documents
