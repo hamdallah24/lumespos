@@ -1,0 +1,89 @@
+// ECP-034: Mission API — public interface for Mission Authority
+// Frozen. All mission operations go through this API.
+
+import type { MissionProposal, MissionEntry, MissionBoard } from "./mission-types";
+import { proposalRegistry } from "./proposal-registry";
+import { conflictDetector } from "./conflict-detector";
+import { alignmentEngine } from "./alignment-engine";
+import { priorityEngine } from "./priority-engine";
+import { approvalPolicy } from "./approval-policy";
+import { missionBoard } from "./mission-board";
+
+interface MissionAPIResult {
+  success: boolean;
+  data?: unknown;
+  error?: string;
+}
+
+class MissionAPI {
+  /** Submit a proposal */
+  submitProposal(proposal: {
+    title: string; description: string; type: MissionProposal["type"];
+    proposedBy: string; strategicObjective: string; dependencies: string[];
+    estimatedTokens: number; estimatedDuration: string; requiredCapabilities: string[];
+  }): MissionAPIResult {
+    // 1. Detect conflicts
+    const conflictResult = conflictDetector.detect(proposal as any);
+    if (conflictResult.hasConflict) {
+      return { success: false, error: `Conflict detected: ${conflictResult.conflicts.map(c => c.reason).join("; ")}` };
+    }
+
+    // 2. Validate alignment
+    const alignment = alignmentEngine.validate(proposal as any);
+    if (!alignment.passed) {
+      return { success: false, error: `Alignment failed: ${alignment.failures.join("; ")}` };
+    }
+
+    // 3. Score priority
+    const priority = priorityEngine.score(proposal as any);
+
+    // 4. Register the proposal
+    const registered = proposalRegistry.register({ ...proposal, priority: priority.score } as any);
+    registered.alignmentScore = alignment.score;
+
+    // 5. Check approval
+    const approval = approvalPolicy.decide(registered);
+
+    return {
+      success: true,
+      data: { proposal: registered, priority: priority.score, approval, alignment: alignment.score },
+    };
+  }
+
+  /** Activate a proposal as a mission */
+  activateMission(proposalId: string, assignedTo: string): MissionAPIResult {
+    const proposal = proposalRegistry.getProposal(proposalId);
+    if (!proposal) return { success: false, error: "Proposal not found" };
+
+    const approval = approvalPolicy.decide(proposal);
+    if (!approval.approved && !approval.autoApproved) {
+      return { success: false, error: `Requires ${approval.requiredApprover} approval` };
+    }
+
+    const mission = proposalRegistry.promote(proposalId, assignedTo);
+    if (!mission) return { success: false, error: "Failed to promote proposal" };
+
+    return { success: true, data: { mission } };
+  }
+
+  /** Get the mission board */
+  getBoard(): MissionBoard { return missionBoard.build(); }
+
+  /** Get all proposals */
+  getProposals(): MissionProposal[] { return proposalRegistry.getAllProposals(); }
+
+  /** Get all active missions */
+  getActiveMissions(): MissionEntry[] {
+    return proposalRegistry.getAllMissions().filter(m => m.status === "ACTIVE");
+  }
+
+  /** Cancel a proposal */
+  cancelProposal(proposalId: string): MissionAPIResult {
+    const proposal = proposalRegistry.getProposal(proposalId);
+    if (!proposal) return { success: false, error: "Proposal not found" };
+    proposal.status = "ARCHIVED";
+    return { success: true };
+  }
+}
+
+export const missionAPI = new MissionAPI();
