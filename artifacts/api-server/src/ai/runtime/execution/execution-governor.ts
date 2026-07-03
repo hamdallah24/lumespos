@@ -2,7 +2,7 @@
 // Frozen. Delegates all decisions to 4 engines.
 // Engines never call each other. Governor is the only coordinator.
 
-import type { ObjectiveState, ExecutionStrategy, ExecutionManifest, StopReason, JournalEntry, GoalNode, ExecutionSnapshot } from "./execution-manifest";
+import type { ObjectiveState, ExecutionStrategy, ExecutionManifest, StopReason, JournalEntry, GoalNode, ExecutionSnapshot, ExecutionContract } from "./execution-manifest";
 import { ObjectiveTracker } from "./objective-tracker";
 import { GoalTree } from "./goal-tree";
 import { CompletionPolicy } from "./completion-policy";
@@ -225,6 +225,79 @@ class ExecutionGovernor {
     return this.journal.finalize(
       completion, this._stopReason, this.budget.usage,
       goals, this.metrics.snapshot(),
+      { totalDelegated: 0, fallbacks: 0, byRole: {} },
+    );
+  }
+
+  // ── ECP-039: Governor Lifecycle API ──
+
+  /** Generate ExecutionContract — Governor is the sole policy owner */
+  planExecution(role: string, spec: { intent?: string; domain?: string; complexity?: string; objective?: string; entities?: string[] }): ExecutionContract {
+    const { getDefaultCapabilities } = require("./execution-capabilities");
+    const { resolveTools } = require("./tool-registry");
+    const capabilities = getDefaultCapabilities(role);
+    const isEmpty = capabilities.length === 0;
+
+    return {
+      role: role as "CEO" | "CTO",
+      mission: spec.intent || "Analyze",
+      objective: spec.objective || spec.intent || "Complete task",
+      mode: isEmpty ? "REASONING" : "EXECUTION",
+      strategy: isEmpty ? undefined : "INVESTIGATE",
+      capabilities,
+      allowedTools: resolveTools(capabilities, require("./execution-capabilities").CAPABILITY_TOOLS),
+      budget: {
+        tokens: isEmpty ? 4000 : "adaptive",
+        tools: isEmpty ? 0 : "adaptive",
+        timeMs: isEmpty ? 30000 : "adaptive",
+      },
+      exitPolicy: isEmpty ? "IMMEDIATE" : "OBJECTIVE_COMPLETED",
+      telemetryPolicy: isEmpty ? "SUMMARY_ONLY" : "FULL_TRACE",
+      verificationPolicy: isEmpty ? "LIGHT" : "STRICT",
+    };
+  }
+
+  /** Begin execution — trace + telemetry setup */
+  beginExecution(_contract: ExecutionContract): void {
+    this.tracker.transition("UNDERSTANDING");
+  }
+
+  /** Observe — collect facts, emit snapshot. NO decisions. */
+  observe(
+    _hasToolCalls: boolean,
+    toolCalls: { name: string; durationMs: number }[],
+    tokensUsed: number,
+  ): void {
+    this.budget.recordTokens(tokensUsed);
+    this.metrics.recordCycle(this._cycle, toolCalls);
+  }
+
+  /** Evaluate — make decisions based on verification. NO hardcoded numbers. */
+  evaluate(contract: ExecutionContract, verification?: { completed?: boolean; confident?: boolean; needsMoreEvidence?: boolean; passed?: boolean }): { action: "STOP" | "CONTINUE" | "CONCLUDE"; reason: string } {
+    if (contract.exitPolicy === "IMMEDIATE") return { action: "STOP", reason: "IMMEDIATE" };
+
+    const budgetCheck = this.budget.isExceeded();
+    if (budgetCheck.exceeded) return { action: "STOP", reason: "BUDGET_EXHAUSTED" };
+
+    if (contract.verificationPolicy === "STRICT" && verification) {
+      if (verification.completed && verification.confident) return { action: "CONCLUDE", reason: "Verification: completed + confident" };
+      if (!verification.needsMoreEvidence && verification.completed) return { action: "CONCLUDE", reason: "Verification: evidence sufficient" };
+    }
+
+    if (contract.verificationPolicy === "LIGHT") return { action: "STOP", reason: "LIGHT — no verification needed" };
+
+    if (this.strategyEngine.strategy === "CONCLUDE") return { action: "STOP", reason: "CONCLUDE" };
+
+    return { action: "CONTINUE", reason: "Ongoing" };
+  }
+
+  /** Finish execution — journal + telemetry finalize */
+  finishExecution(_contract: ExecutionContract): void {
+    const completion = this.completion.assess(this.tracker.state, this.strategyEngine.strategy, this.goalTree, this.metrics.evidenceQuality);
+    this.journal.finalize(
+      completion, this._stopReason, this.budget.usage,
+      { total: 1, assigned: 1, completed: 1, blocked: 0 },
+      this.metrics.snapshot(),
       { totalDelegated: 0, fallbacks: 0, byRole: {} },
     );
   }

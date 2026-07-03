@@ -18,6 +18,7 @@ import { getIdentity } from "../runtime/identity";
 import { authorization as auth } from "../runtime/authorization";
 import { withinScope } from "../runtime/mission-scope";
 import { getMultiTrust, rateDimension } from "../runtime/multi-trust";
+import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 import { callDeepSeekWithTools, fetchGitHubFile, searchRepoFiles, getDependencies } from "../../routes/ai-helpers";
 import { READ_TOOLS, DEVOPS_TOOLS } from "../../routes/ai-helpers";
 import { getFoundationProvider } from "../runtime/foundation";
@@ -100,7 +101,7 @@ interface CTOResult {
   reflection: string;
 }
 
-async function execute(task: CTOTask): Promise<CTOResult> {
+async function execute(task: CTOTask, execContract?: ExecutionContract): Promise<CTOResult> {
   const pipeline: string[] = [];
   const t0 = Date.now();
 

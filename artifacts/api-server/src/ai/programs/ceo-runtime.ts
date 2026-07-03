@@ -1,18 +1,17 @@
-// ECP-018: CEO Runtime — Executive Director
-// Foundation v2.0 compliant. Single source of truth for CEO.
-// Loads CEO_EXECUTIVE_DIRECTIVE.md, CEO_PLAYBOOK.md, CEO_CAPABILITY.md.
-// Pipeline: Identity → Semantic → Spec → Verify → Organization → Delegation → LLM → Report
-// CEO NEVER writes code, NEVER executes inventory, NEVER deploys.
+// ECP-039: CEO Runtime — REASONING mode. Pure executor.
+// NO tools. NO tool rules. NO execution decisions.
+// Governor owns all policy. Contract governs behavior.
 
 import { getIdentity } from "../runtime/identity";
 import { understand } from "../runtime/semantic-engine";
 import { buildSpecV1 } from "../runtime/execution-spec";
 import { verify } from "../runtime/verification-engine";
 import { organizationEngine } from "../runtime/organization-engine";
-import { callDeepSeekWithTools, READ_TOOLS } from "../../routes/ai-helpers";
+import { callDeepSeek } from "../../routes/ai-helpers";
 import { getFoundationProvider } from "../runtime/foundation";
 import { assemble } from "../runtime/prompt-assembler";
-import { EXECUTIVE_OUTPUT_SCHEMA, TOOL_RULES } from "../../routes/ai-prompts";
+import { EXECUTIVE_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
+import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 
 const CEO_IDENTITY = getIdentity("CEO")!;
 
@@ -47,7 +46,7 @@ export interface CEOResult {
   pipeline: string[];
 }
 
-async function execute(ctx: CEOContext): Promise<CEOResult> {
+async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promise<CEOResult> {
   const pipeline: string[] = [];
 
   // Stage 1: Identity
@@ -96,23 +95,21 @@ async function execute(ctx: CEOContext): Promise<CEOResult> {
     rawText = "Halo. Ada yang bisa CEO Runtime bantu?";
   } else {
     pipeline.push("PromptAssembly");
+    // ECP-039: NO toolRules — CEO is REASONING mode. No tools.
     const systemPrompt = assemble({
       identity: CEO_IDENTITY,
       directive: directiveContent,
       decision,
       outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
-      toolRules: TOOL_RULES,
-      maxTokens: 6000,
+      maxTokens: 4000,
       mode: "ceo",
     });
-    ctx.onProgress?.("🧠 CEO Runtime menganalisis...");
+    ctx.onProgress?.("💼 CEO Runtime menganalisis...");
     try {
-      rawText = await callDeepSeekWithTools(
-        systemPrompt, ctx.message, ctx.userId, "ceo", READ_TOOLS, 6000,
-        (msg) => ctx.onProgress?.(msg),
-        (ev) => ctx.onTool?.(ev),
-        false, undefined, ctx.onExecutionEvent,
-        { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective },
+      // ECP-039: CEO uses callDeepSeek (single call, no Governor loop).
+      // CEO is REASONING mode — never executes tools.
+      rawText = await callDeepSeek(
+        systemPrompt, ctx.message, ctx.userId, "ceo", 4000,
       );
     } catch {
       rawText = "CEO Runtime sedang sibuk. Coba lagi.";
