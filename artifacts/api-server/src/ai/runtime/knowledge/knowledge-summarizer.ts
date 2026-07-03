@@ -4,7 +4,6 @@
 
 import type { KnowledgeSummary, KnowledgeArtifact, DetectedPattern } from "./knowledge-types";
 import { knowledgeManager } from "./knowledge-manager";
-import { getFoundationProvider } from "../foundation";
 
 function extractKeyInsights(artifacts: KnowledgeArtifact[], patterns: DetectedPattern[]): string[] {
   const insights: string[] = [];
@@ -49,7 +48,6 @@ export function generateSummary(): KnowledgeSummary {
   const artifacts = knowledgeManager.getArtifacts(100);
   const patterns = knowledgeManager.getPatterns();
   const drifts = knowledgeManager.getDrifts();
-  const provider = getFoundationProvider();
 
   const keyInsights = extractKeyInsights(artifacts, patterns);
 

@@ -1,30 +1,51 @@
-// ECP-029: Knowledge Manager — ingestion, pattern detection, drift analysis
-// Frozen. Accepts mission outputs and produces structured knowledge.
-// Works in the background. Consultant consumes its output.
+// ECP-029: Knowledge Manager — consumes Mission Events via Knowledge Queue
+// Frozen. Subscribes to KnowledgeQueue, processes mission outputs into knowledge.
+// Consultant Runtime consumes the indexed output.
 
 import type {
   KnowledgeArtifact, DetectedPattern, ArchitectureDrift,
   PolicyConflict, KnowledgeKPI,
 } from "./knowledge-types";
+import { knowledgeQueue, KnowledgeQueue } from "./knowledge-queue";
+import { isCompletedEvent, isFailedEvent } from "./mission-event";
 
 class KnowledgeManager {
   private _artifacts: KnowledgeArtifact[] = [];
   private _patterns: DetectedPattern[] = [];
   private _drifts: ArchitectureDrift[] = [];
+  private _started = false;
 
-  /** Ingest a new knowledge artifact (from mission, ADR, lesson) */
-  ingest(artifact: KnowledgeArtifact): void {
+  /** Start listening to Mission Events from the queue */
+  start(): void {
+    if (this._started) return;
+    this._started = true;
+
+    knowledgeQueue.subscribe((event) => {
+      if (isCompletedEvent(event)) {
+        const artifacts = KnowledgeQueue.toArtifacts(event);
+        for (const a of artifacts) this.ingest(a);
+      }
+      if (isFailedEvent(event)) {
+        const artifact = KnowledgeQueue.toFailureArtifact(event);
+        this.ingest(artifact);
+      }
+      // MISSION_TIMEOUT, MISSION_ABORTED, MISSION_DELEGATED, MISSION_RETRIED
+      // are logged but not converted to artifacts (yet)
+    });
+  }
+
+  /** Ingest a knowledge artifact into the system */
+  private ingest(artifact: KnowledgeArtifact): void {
     this._artifacts.push(artifact);
-    if (this._artifacts.length > 500) this._artifacts.shift();
+    if (this._artifacts.length > 500) this._artifacts.splice(0, 100);
     this.detectPatterns();
   }
 
   /** Detect recurring patterns from ingested artifacts */
   private detectPatterns(): void {
     const recent = this._artifacts.slice(-100);
-
-    // Detect recurring failures
     const failureTags = new Map<string, number>();
+
     for (const a of recent) {
       if (a.type === "failure" || a.type === "lesson") {
         for (const tag of a.tags) {
@@ -51,30 +72,23 @@ class KnowledgeManager {
       }
     }
 
-    // Clean old patterns
     if (this._patterns.length > 100) this._patterns.splice(0, 50);
   }
 
-  /** Detect architecture drift between Foundation spec and implementation */
+  /** Detect architecture drift */
   detectDrift(domain: string, expected: string, actual: string): ArchitectureDrift | null {
-    const driftLevel = expected === actual ? "none"
-      : actual.includes(expected) ? "minor"
-      : expected.length - actual.length > 100 ? "critical"
-      : "significant";
-
-    if (driftLevel === "none") return null;
-
+    if (expected === actual) return null;
     const drift: ArchitectureDrift = {
       domain, expected: expected.slice(0, 500), actual: actual.slice(0, 500),
-      driftLevel, detectedAt: new Date().toISOString(), evidenceId: `drift-${Date.now()}`,
+      driftLevel: actual.includes(expected) ? "minor"
+        : expected.length - actual.length > 100 ? "critical" : "significant",
+      detectedAt: new Date().toISOString(), evidenceId: `drift-${Date.now()}`,
     };
-
     this._drifts.push(drift);
     if (this._drifts.length > 50) this._drifts.shift();
     return drift;
   }
 
-  /** Detect conflicts between policies */
   detectPolicyConflict(policyId1: string, policyId2: string, conflict: string): PolicyConflict {
     return {
       policy1: policyId1, policy2: policyId2, conflict,
@@ -87,30 +101,21 @@ class KnowledgeManager {
     return this._artifacts.slice(-limit).reverse();
   }
 
-  getPatterns(): DetectedPattern[] {
-    return this._patterns;
-  }
-
-  getDrifts(): ArchitectureDrift[] {
-    return this._drifts;
-  }
+  getPatterns(): DetectedPattern[] { return this._patterns; }
+  getDrifts(): ArchitectureDrift[] { return this._drifts; }
 
   computeKPI(): KnowledgeKPI {
-    const totalArtifacts = this._artifacts.length;
-    const duplicateCount = this._patterns.filter(p => p.type === "duplicate").length;
-    const driftCount = this._drifts.filter(d => d.driftLevel !== "none").length;
+    const total = this._artifacts.length;
+    const dupes = this._patterns.filter(p => p.type === "duplicate").length;
+    const drifts = this._drifts.filter(d => d.driftLevel !== "none").length;
 
     return {
-      architectureDriftDetection: totalArtifacts > 0
-        ? Math.round((1 - driftCount / Math.max(totalArtifacts, 1)) * 100)
-        : 100,
-      duplicatePolicyRate: totalArtifacts > 0
-        ? Math.round((duplicateCount / totalArtifacts) * 100)
-        : 0,
-      compressionRatio: totalArtifacts > 0 ? Math.max(5, Math.round(totalArtifacts / 5)) : 20,
-      governanceCompliance: 100 - Math.min(driftCount * 5, 30),
+      architectureDriftDetection: total > 0 ? Math.round((1 - drifts / Math.max(total, 1)) * 100) : 100,
+      duplicatePolicyRate: total > 0 ? Math.round((dupes / total) * 100) : 0,
+      compressionRatio: total > 0 ? Math.max(5, Math.round(total / 5)) : 20,
+      governanceCompliance: 100 - Math.min(drifts * 5, 30),
       patternCoverage: this._patterns.length > 0 ? Math.min(100, this._patterns.length * 10) : 80,
-      avgTimeToDetect: totalArtifacts > 0 ? 150 : 50,
+      avgTimeToDetect: total > 0 ? 150 : 50,
     };
   }
 }
