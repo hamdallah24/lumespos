@@ -81,6 +81,10 @@ class OrganizationKernel {
   get state() { return kernelLifecycle.state; }
   get lifecycle() { return kernelLifecycle.lifecycle; }
   get components() { return kernelRegistry.getAll(); }
+
+  isReady(): boolean {
+    return this._started && kernelLifecycle.lifecycle === "ACTIVE";
+  }
 }
 
 export const organizationKernel = new OrganizationKernel();

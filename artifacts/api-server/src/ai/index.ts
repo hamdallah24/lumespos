@@ -27,7 +27,7 @@ export { callDeepSeek, callDeepSeekWithTools } from "../routes/ai-helpers";
 export { callDeepSeekWithTools as execute } from "../routes/ai-helpers";
 
 // ── Prompts ──
-export { BANG_ORCHESTRATOR, CHAT_SYSTEM, COO_SYSTEM } from "../routes/ai-prompts";
+// (Persona exports removed ECP-036 — identity from Foundation)
 
 // ── Business + Codegen ──
 export { executeOperation } from "../routes/ai-business";

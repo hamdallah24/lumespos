@@ -51,7 +51,7 @@ class MissionAPI {
   }
 
   /** Activate a proposal as a mission */
-  activateMission(proposalId: string, assignedTo: string): MissionAPIResult {
+  async activateMission(proposalId: string, assignedTo: string): Promise<MissionAPIResult> {
     const proposal = proposalRegistry.getProposal(proposalId);
     if (!proposal) return { success: false, error: "Proposal not found" };
 
@@ -62,6 +62,13 @@ class MissionAPI {
 
     const mission = proposalRegistry.promote(proposalId, assignedTo);
     if (!mission) return { success: false, error: "Failed to promote proposal" };
+
+    // ECP-036: Create actual mission via Mission Engine
+    try {
+      const { missionEngineComponent } = await import("../mission-engine");
+      const created = missionEngineComponent.create(mission.title, proposal.description, [proposal.title], proposal.priority > 80 ? "high" : "normal");
+      missionEngineComponent.delegate(created.id);
+    } catch { /* Mission Engine call is best-effort */ }
 
     return { success: true, data: { mission } };
   }

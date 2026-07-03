@@ -16,104 +16,29 @@ import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
-// ECP-031: Register all Runtimes with Orchestrator at boot
+// ECP-036: Emergency fallback — Kernel handles normal bootstrap in index.ts
 (async () => {
-  // CEO Runtime
-  const { ceoRuntime } = await import("../ai/programs/ceo-runtime");
-  orchestrator.register({
-    name: "CEO", version: "1.0.0",
-    capabilities: ["strategy", "delegation", "executive_report"],
-    identity: { id: "ceo-v1", role: "CEO", authority: "full" },
-    health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-    canHandle: () => true,
-    execute: async (ctx) => {
-      const result = await (ceoRuntime as any).execute({
-        message: ctx.message, userId: ctx.userId,
-        onProgress: ctx.onProgress, onTool: ctx.onTool, onState: ctx.onState,
-        onExecutionEvent: ctx.onExecutionEvent,
-      });
-      return { success: result.success, text: result.text, runtime: "CEO", pipeline: result.pipeline || [], metrics: { runtime: "CEO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: !!result.decision?.delegation, delegatedTo: result.decision?.delegation?.runtime, verificationPassed: result.success, knowledgeWritten: false } };
-    },
-  });
-
-  // CTO Runtime
-  const { ctoProgram } = await import("../ai/programs/cto-runtime");
-  orchestrator.register({
-    name: "CTO", version: "1.1.0",
-    capabilities: ctoProgram.capabilities,
-    identity: { id: "cto-v1", role: "CTO", authority: "limited" },
-    health: () => ({ status: "healthy", uptime: 0, version: "1.1.0" }),
-    canHandle: () => true,
-    execute: async (ctx) => {
-      const result = await ctoProgram.execute({
-        message: ctx.message, userId: ctx.userId,
-        onProgress: ctx.onProgress as any, onTool: ctx.onTool as any,
-        onExecutionEvent: ctx.onExecutionEvent as any,
-      });
-      return { success: result.success, text: result.text, runtime: "CTO", pipeline: result.pipeline || [], metrics: { runtime: "CTO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false } };
-    },
-  });
-
-  // COO Runtime
-  const { cooRuntime } = await import("../programs/coo-runtime");
-  orchestrator.register({
-    name: "COO", version: "1.0.0",
-    capabilities: cooRuntime.capabilities,
-    identity: { id: "coo-v1", role: "COO", authority: "limited" },
-    health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-    canHandle: () => true,
-    execute: async (ctx) => {
-      const result = await cooRuntime.execute({
-        message: ctx.message, userId: ctx.userId, branchId: ctx.branchId,
-      });
-      return { success: result.success, text: result.text, runtime: "COO", pipeline: result.pipeline || [], metrics: { runtime: "COO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false } };
-    },
-  });
-
-  // Chat Runtime
-  const { chatRuntime } = await import("../programs/chat-runtime");
-  orchestrator.register({
-    name: "Chat", version: "1.0.0",
-    capabilities: chatRuntime.capabilities,
-    identity: { id: "chat-v1", role: "Chat", authority: "readonly" },
-    health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-    canHandle: () => true,
-    execute: async (ctx) => {
-      const result = await chatRuntime.execute({ message: ctx.message, userId: ctx.userId });
-      return { success: result.success, text: result.text, runtime: "Chat", pipeline: result.pipeline || [], metrics: { runtime: "Chat", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: true, knowledgeWritten: false } };
-    },
-  });
-
-  console.log("[Orchestrator] 4 runtimes registered: CEO, CTO, COO, Chat");
+  const { organizationKernel } = await import("../kernel");
+  if (!organizationKernel.isReady()) {
+    console.warn("[Gateway] Kernel not ready — emergency bootstrap");
+    const { ceoRuntime } = await import("../ai/programs/ceo-runtime");
+    orchestrator.register({
+      name: "CEO", version: "1.0.0",
+      capabilities: ["strategy", "delegation"],
+      identity: { id: "ceo-v1", role: "CEO", authority: "full" },
+      health: () => ({ status: "degraded", uptime: 0, version: "1.0.0" }),
+      canHandle: () => true,
+      execute: async (ctx) => {
+        const result = await (ceoRuntime as any).execute({ message: ctx.message, userId: ctx.userId });
+        return { success: result.success, text: result.text, runtime: "CEO", pipeline: [], metrics: { runtime: "CEO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false } };
+      },
+    });
+    console.log("[Gateway] Emergency bootstrap: CEO only. Consultant, Council, Learning OFFLINE.");
+  }
 })();
-
-// Tool labels for status bar
-const toolLabels: Record<string, string> = {
-  searchContent:  "🔎 Mencari di codebase...",
-  readFile:       "📄 Membaca file...",
-  fetchGitHubFile:"📂 Mengambil dari GitHub...",
-  fetchGitHubDir: "📁 List folder GitHub...",
-  listDirectory:  "📁 Melihat struktur folder...",
-  getDependencies:"🔗 Cek dependency...",
-  execCommand:    "⚙️  Menjalankan perintah...",
-  sshExec:        "🖥️  SSH ke VPS...",
-};
 
 function emitStatus(res: any, message: string) {
   res.write(`data: ${JSON.stringify({ type: "status", message })}\n\n`);
-}
-
-// Fake stream — typed events: status → delta → done
-async function fakeStream(finalText: string, res: any) {
-  const CHUNK_SIZE = 4;
-  const DELAY_MS = 15;
-  for (let i = 0; i < finalText.length; i += CHUNK_SIZE) {
-    const chunk = finalText.slice(i, i + CHUNK_SIZE);
-    res.write(`data: ${JSON.stringify({ type: "delta", delta: chunk })}\n\n`);
-    await new Promise(r => setTimeout(r, DELAY_MS));
-  }
-  res.write(`data: ${JSON.stringify({ type: "done", finalText })}\n\n`);
-  res.end();
 }
 
 // ── ROUTER ──
@@ -161,14 +86,14 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         await remember(uid, m, clean, result.text);
         if (result.text.length > 20) await saveSharedContext(uid, m, result.text.slice(0, 500));
       } else if (result.text) {
-        if (isSSE) { await fakeStream(result.text, res); } else { res.json({ reply: result.text }); }
+        if (isSSE) { await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 }); } else { res.json({ reply: result.text }); }
       } else {
-        if (isSSE) { await fakeStream("Runtime tidak bisa menjawab.", res); }
+        if (isSSE) { await replayExecution({ events: [], responseText: "Runtime tidak bisa menjawab.", res, delayMs: 15, chunkSize: 5 }); }
         else { res.json({ reply: "Runtime tidak bisa menjawab." }); }
       }
     } catch (e: any) {
       console.error("[ai] Orchestrator error:", e);
-      if (isSSE) { await fakeStream("Error: " + ((e)?.message?.slice(0, 200) || "unknown"), res); }
+      if (isSSE) { await replayExecution({ events: [], responseText: `Error: ${e.message?.slice(0, 200) || "unknown"}`, res, delayMs: 15, chunkSize: 5 }); }
       else { if (!res.headersSent) res.status(500).json({ error: "Internal server error" }); }
     }
 
@@ -287,24 +212,6 @@ router.get("/ai/readiness", requireRole("owner"), async (_req, res) => {
       results: s.results.map(r => ({ name: r.name, passed: r.passed, detail: r.detail })),
     })),
     summary: { passed: result.passed, failed: result.failed, total: result.total },
-  });
-});
-
-// Public: lightweight readiness check for monitoring (no auth required)
-router.get("/ai/readiness-public", async (_req, res) => {
-  const { runAll } = await import("../ai/runtime/production-readiness");
-  const result = runAll();
-  res.json({
-    ready: result.ready,
-    passed: result.passed,
-    failed: result.failed,
-    total: result.total,
-    details: result.suites.map(s => ({
-      suite: s.suite,
-      passed: s.passed,
-      failed: s.failed,
-      failures: s.results.filter(r => !r.passed).map(r => ({ name: r.name, detail: r.detail })),
-    })),
   });
 });
 
