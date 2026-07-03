@@ -184,9 +184,11 @@ class ExecutionGovernor {
       executionId: this.journal.id,
       timestamp: Date.now(),
       progress: {
-        assignment: this.goalTree.assignmentProgress(),
-        execution: this.goalTree.progress(),
-        overall: Math.round(this.goalTree.progress() * 0.7 + this.goalTree.assignmentProgress() * 0.3),
+        // ECP-037 P2: Use execution-based progress (metrics) instead of goal-based (goalTree)
+        // GoalTree has 1 goal = user message — never completes. Metrics reflect actual work done.
+        assignment: 100,  // Single-runtime mode: always assigned
+        execution: Math.min(100, this.metrics.cyclesExecuted * 10 + Math.round(this.metrics.evidenceQuality * 40)),
+        overall: Math.min(95, this.metrics.cyclesExecuted * 8 + Math.round(this.metrics.evidenceQuality * 35)),
       },
       stage: this.tracker.state,
       currentGoal: this.goalTree.pending()[0] ? { label: this.goalTree.pending()[0].label, status: this.goalTree.pending()[0].status } : null,

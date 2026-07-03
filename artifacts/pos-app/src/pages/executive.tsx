@@ -115,7 +115,7 @@ export default function ExecutiveWorkspace() {
         }
       }
     } catch {
-      setReports(prev => [...prev, { role: "CTO", text: "Sedang memproses. Silakan coba lagi.", timestamp: new Date().toISOString() }]);
+      setReports(prev => [...prev, { role: "CTO", text: "Respons sedang diproses. Hasil akan muncul setelah refresh halaman.", timestamp: new Date().toISOString() }]);
     }
     setLoading(false);
   };

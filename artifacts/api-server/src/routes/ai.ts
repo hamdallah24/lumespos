@@ -82,6 +82,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     try {
       const result = await orchestrator.execute({ message: clean, userId: uid, mode: m, branchId: defaultBranchId });
       if (result.success && result.text) {
+        // ECP-037 P3: events:[] — pipeline events streamed LIVE via onExecutionEvent SSE
         if (isSSE) { await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 }); }
         else { res.json({ reply: result.text }); }
         await remember(uid, m, clean, result.text);
