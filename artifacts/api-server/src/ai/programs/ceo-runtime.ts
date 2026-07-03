@@ -10,19 +10,16 @@ import { buildSpecV1 } from "../runtime/execution-spec";
 import { verify } from "../runtime/verification-engine";
 import { organizationEngine } from "../runtime/organization-engine";
 import { callDeepSeekWithTools, READ_TOOLS } from "../../routes/ai-helpers";
-import { foundationLoader } from "../runtime/foundation-loader";
+import { getFoundationProvider } from "../runtime/foundation";
 import { assemble } from "../runtime/prompt-assembler";
 import { EXECUTIVE_OUTPUT_SCHEMA, TOOL_RULES } from "../../routes/ai-prompts";
 
 const CEO_IDENTITY = getIdentity("CEO")!;
 
-let _cachedDirective: string | null = null;
 function getDirective(): string {
-  if (_cachedDirective) return _cachedDirective;
-  const assets = foundationLoader.load();
-  const directive = assets.find(a => a.id === "ceo-directive-v1");
-  _cachedDirective = directive?.content || "";
-  return _cachedDirective;
+  const provider = getFoundationProvider();
+  const content = provider.getDirective("CEO");
+  return content || "";
 }
 
 export interface ExecutiveDecision {

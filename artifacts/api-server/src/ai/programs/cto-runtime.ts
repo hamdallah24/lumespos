@@ -20,18 +20,15 @@ import { withinScope } from "../runtime/mission-scope";
 import { getMultiTrust, rateDimension } from "../runtime/multi-trust";
 import { callDeepSeekWithTools, fetchGitHubFile, searchRepoFiles, getDependencies } from "../../routes/ai-helpers";
 import { READ_TOOLS, DEVOPS_TOOLS } from "../../routes/ai-helpers";
-import { foundationLoader } from "../runtime/foundation-loader";
+import { getFoundationProvider } from "../runtime/foundation";
 import { CTO_OUTPUT_SCHEMA, TOOL_RULES } from "../../routes/ai-prompts";
 
 const ctoIdentity = getIdentity("CTO")!;
 
-let _cachedDirective: string | null = null;
 function getDirective(): string {
-  if (_cachedDirective) return _cachedDirective;
-  const assets = foundationLoader.load();
-  const directive = assets.find(a => a.id === "cto-directive-v1");
-  _cachedDirective = directive?.content || "";
-  return _cachedDirective;
+  const provider = getFoundationProvider();
+  const content = provider.getDirective("CTO");
+  return content || "";
 }
 
 /** Auto-fetch relevant files from the repository for context */

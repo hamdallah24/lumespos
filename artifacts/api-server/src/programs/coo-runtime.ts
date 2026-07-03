@@ -6,7 +6,7 @@ import { getIdentity } from "../ai/runtime/identity";
 import { understand } from "../ai/runtime/semantic-engine";
 import { buildSpecV1 } from "../ai/runtime/execution-spec";
 import { verify } from "../ai/runtime/verification-engine";
-import { foundationLoader } from "../ai/runtime/foundation-loader";
+import { getFoundationProvider } from "../ai/runtime/foundation";
 import { assemble } from "../ai/runtime/prompt-assembler";
 import { JSON_OUTPUT_SCHEMA } from "../routes/ai-prompts";
 import { callDeepSeek } from "../routes/ai-helpers";
@@ -14,13 +14,10 @@ import { executeOperation } from "../routes/ai-business";
 
 const COO_IDENTITY = getIdentity("COO")!;
 
-let _cachedDirective: string | null = null;
 function getDirective(): string {
-  if (_cachedDirective) return _cachedDirective;
-  const assets = foundationLoader.load();
-  const directive = assets.find(a => a.id === "coo-directive-v1");
-  _cachedDirective = directive?.content || "";
-  return _cachedDirective;
+  const provider = getFoundationProvider();
+  const content = provider.getDirective("COO");
+  return content || "";
 }
 
 interface COOTask {

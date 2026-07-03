@@ -1,8 +1,9 @@
 // SPRINT 9.5: Verification Runtime
 // Law #008: Stop before execution if contract fails validation.
-// Confidence too low? Domain unknown? Capability mismatch? STOP.
+// ECP-026: Confidence gates + domains from Foundation Provider.
 
 import type { ExecutionSpecificationV1 } from "./execution-spec";
+import { getFoundationProvider } from "./foundation";
 
 interface VerificationResult {
   passed: boolean;
@@ -13,17 +14,19 @@ interface VerificationResult {
 /** Verify the ExecutionSpec before any planning or execution occurs */
 export function verify(spec: ExecutionSpecificationV1): VerificationResult {
   const warnings: string[] = [];
+  const provider = getFoundationProvider();
+  const gates = provider.governance().getConfidenceGates();
+  const validDomains = provider.verification().allDomains();
 
-  // Gate 1: Confidence threshold
-  if (spec.confidence < 40) {
+  // Gate 1: Confidence threshold (from Foundation)
+  if (spec.confidence < gates.stop) {
     return { passed: false, stopReason: `Confidence too low (${spec.confidence}%). Ask Founder for clarification.`, warnings };
   }
-  if (spec.confidence < 60) {
+  if (spec.confidence < gates.warn) {
     warnings.push(`Low confidence (${spec.confidence}%). Proceeding but results may be imprecise.`);
   }
 
-  // Gate 2: Known domain?
-  const validDomains = ["inventory", "products", "architecture", "devops", "business", "knowledge", "general"];
+  // Gate 2: Known domain? (from Foundation)
   if (!validDomains.includes(spec.domain)) {
     warnings.push(`Unknown domain "${spec.domain}". Treating as general.`);
   }
