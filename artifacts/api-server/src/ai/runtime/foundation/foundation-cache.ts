@@ -3,11 +3,11 @@
 // Cache invalidated when fingerprint changes.
 
 import { foundationLoader } from "../foundation-loader";
-import type { FoundationCache as FCache } from "./types/foundation-types";
+import type { FoundationCache } from "./types/foundation-types";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 
-let _cache: FCache | null = null;
+let _cache: FoundationCache | null = null;
 
 function loadFingerprint(): { fingerprint: string; generatedAt: string; documentCount: number } | null {
   const candidates = [
@@ -26,7 +26,7 @@ function loadFingerprint(): { fingerprint: string; generatedAt: string; document
   return null;
 }
 
-export function getCache(): FCache {
+export function getCache(): FoundationCache {
   const fp = loadFingerprint();
   const currentFingerprint = fp?.fingerprint || "unknown";
 
@@ -64,7 +64,7 @@ export function invalidateCache(): void {
   _cache = null;
 }
 
-export function getAsset(id: string) {
+export function getAsset(id: string): import("./types/foundation-types").DocumentMeta | undefined {
   const cache = getCache();
   return cache.documents.find(d => d.id === id);
 }

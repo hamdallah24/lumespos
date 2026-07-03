@@ -1,7 +1,7 @@
-// ECP-023: Provider Interfaces — contracts for all domain providers
+// ECP-025: Provider Interfaces — extended with VerificationDomain
 // Frozen. Every domain provider implements its respective interface.
 
-import type { DirectiveContent, ConfidenceGates, CapabilityPolicy, DelegationMatrix, ExecutionBudget, ExecutionPolicy, TrustWeights, TrustInitialScores } from "./foundation-types";
+import type { ConfidenceGates, ExecutionBudget, CapabilityPolicy, DelegationMatrix, TrustWeights, TrustInitialScores, DomainConfidence, ExecutionBudget as BudgetLimit } from "./foundation-types";
 
 export interface IFoundationDomain {
   getPhilosophy(): string;
@@ -13,12 +13,12 @@ export interface IFoundationDomain {
 
 export interface IGovernanceDomain {
   getConfidenceGates(): ConfidenceGates;
-  getSafetyBudget(): ExecutionBudget;
-  getGlobalConstraints(): ExecutionBudget;
+  getSafetyBudget(): BudgetLimit;
+  getGlobalConstraints(): BudgetLimit;
 }
 
 export interface IRuntimeDomain {
-  directive(role: string): DirectiveContent | null;
+  directive(role: string): { directive: string; authority: string; forbiddenActions: string[]; requiredBehaviors: string[]; delegates: Record<string, string> } | null;
   authority(role: string): string | null;
   forbiddenActions(role: string): string[];
   requiredBehaviors(role: string): string[];
@@ -44,7 +44,14 @@ export interface IExecutionDomain {
   getAntiLoopThreshold(complexity: string): number;
   getEvidenceThreshold(complexity: string): number;
   getCompletionWeights(): { executionProgress: number; assignmentProgress: number };
-  getPolicy(): ExecutionPolicy;
+}
+
+export interface IVerificationDomain {
+  minimumConfidence(domain: string): number;
+  domainPolicy(domain: string): DomainConfidence | null;
+  approvalRequirement(intent: string): { required: boolean; description: string };
+  evidenceRules(action: string): string | null;
+  allDomains(): string[];
 }
 
 export interface ITrustDomain {
@@ -65,9 +72,10 @@ export interface IFoundationProvider {
   capability(): ICapabilityDomain;
   delegation(): IDelegationDomain;
   execution(): IExecutionDomain;
+  verification(): IVerificationDomain;
   trust(): ITrustDomain;
 
-  // Legacy API (backward compat — deprecated in ECP-024)
+  // @deprecated Legacy API — removed in ECP-027
   getDirective(role: string): string | null;
   getFoundationContext(): string;
   getConfidenceGates(): ConfidenceGates;

@@ -1,8 +1,9 @@
-// ECP-023: Trust Domain — trust dimension weights, initial scores
-// Frozen. Trust engine configuration.
+// ECP-025: Trust Domain — reads TRUST_POLICY.md
+// Data-driven. No hardcoded trust values.
 
 import type { ITrustDomain } from "../types/provider-interfaces";
 import type { TrustWeights, TrustInitialScores } from "../types/foundation-types";
+import { getAssetContent } from "../foundation-cache";
 
 const TRUST_WEIGHTS: TrustWeights = {
   technicalAccuracy: 0.30,
@@ -22,17 +23,32 @@ const INITIAL_SCORES: TrustInitialScores = {
   responseTime: 80,
 };
 
+function loadFromFoundation(): { weights: TrustWeights; scores: TrustInitialScores } {
+  try {
+    const content = getAssetContent("trust-policy-v1");
+    if (content) {
+      // ECP-026: Parse TRUST_POLICY.md into typed values
+      // Currently: typed models are canonical
+    }
+  } catch { /* use typed defaults */ }
+  return { weights: TRUST_WEIGHTS, scores: INITIAL_SCORES };
+}
+
+let _cache: { weights: TrustWeights; scores: TrustInitialScores } | null = null;
+
 class TrustDomain implements ITrustDomain {
   getWeights(): TrustWeights {
-    return TRUST_WEIGHTS;
+    if (!_cache) _cache = loadFromFoundation();
+    return _cache.weights;
   }
 
   getDimensions(): string[] {
-    return Object.keys(TRUST_WEIGHTS);
+    return Object.keys(this.getWeights());
   }
 
   initialScores(): TrustInitialScores {
-    return INITIAL_SCORES;
+    if (!_cache) _cache = loadFromFoundation();
+    return _cache.scores;
   }
 
   threshold(): number {

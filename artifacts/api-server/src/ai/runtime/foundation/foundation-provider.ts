@@ -1,11 +1,11 @@
-// ECP-023: Foundation Provider — single access layer for Foundation
-// Frozen. Coordinator only. No business logic.
-// All Runtimes, Engines, and Governor MUST access Foundation through this provider.
+// ECP-025: Foundation Provider — single access layer for Foundation
+// Coordinator only. No business logic.
+// All Runtimes, Engines, and Governor access Foundation through this provider.
 
 import type {
   IFoundationProvider, IFoundationDomain, IGovernanceDomain,
   IRuntimeDomain, ICapabilityDomain, IDelegationDomain,
-  IExecutionDomain, ITrustDomain,
+  IExecutionDomain, ITrustDomain, IVerificationDomain,
 } from "./types/provider-interfaces";
 import type { ConfidenceGates } from "./types/foundation-types";
 import { getCache } from "./foundation-cache";
@@ -15,8 +15,8 @@ import { runtimeDomain } from "./domains/runtime-domain";
 import { capabilityDomain } from "./domains/capability-domain";
 import { delegationDomain } from "./domains/delegation-domain";
 import { executionDomain } from "./domains/execution-domain";
+import { verificationDomain } from "./domains/verification-domain";
 import { trustDomain } from "./domains/trust-domain";
-import { getAssetContent } from "./foundation-cache";
 
 class FoundationProvider implements IFoundationProvider {
   private _fingerprint: string = "";
@@ -44,9 +44,10 @@ class FoundationProvider implements IFoundationProvider {
   capability(): ICapabilityDomain { return capabilityDomain; }
   delegation(): IDelegationDomain { return delegationDomain; }
   execution(): IExecutionDomain { return executionDomain; }
+  verification(): IVerificationDomain { return verificationDomain; }
   trust(): ITrustDomain { return trustDomain; }
 
-  // Legacy API — backward compat for ECP-024 migration
+  // @deprecated Legacy API — removed in ECP-027
   getDirective(role: string): string | null {
     const content = runtimeDomain.directive(role);
     return content?.directive || null;

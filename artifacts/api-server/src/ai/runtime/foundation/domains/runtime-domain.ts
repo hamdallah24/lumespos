@@ -1,8 +1,7 @@
 // ECP-023: Runtime Domain — per-runtime directives (CEO, CTO, COO)
-// Frozen. Returns directive content, authority, forbidden actions.
+// ECP-025: Typed. Reads from Foundation documents.
 
 import type { IRuntimeDomain } from "../types/provider-interfaces";
-import type { DirectiveContent } from "../types/foundation-types";
 import { getAssetContent, getAsset } from "../foundation-cache";
 
 const ROLE_DIRECTIVE_MAP: Record<string, string> = {
@@ -20,7 +19,7 @@ class RuntimeDomain implements IRuntimeDomain {
     return consumers.includes(role) || consumers.includes("All Runtimes");
   }
 
-  directive(role: string): DirectiveContent | null {
+  directive(role: string): { directive: string; authority: string; forbiddenActions: string[]; requiredBehaviors: string[]; delegates: Record<string, string> } | null {
     const docId = ROLE_DIRECTIVE_MAP[role.toUpperCase()];
     if (!docId) return null;
     if (!this._authorize(role, docId)) return null;

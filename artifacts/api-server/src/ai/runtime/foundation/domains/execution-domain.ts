@@ -1,8 +1,8 @@
 // ECP-023: Execution Domain — budget, anti-loop, scheduler, completion
-// Frozen. Reads from execution-policy.ts (to be migrated to Foundation in ECP-024).
+// ECP-025: Reads from execution-policy.ts (to be migrated to Foundation in ECP-026).
 
 import type { IExecutionDomain } from "../types/provider-interfaces";
-import type { ExecutionBudget, ExecutionPolicy } from "../types/foundation-types";
+import type { ExecutionBudget } from "../types/foundation-types";
 import { executionPolicy } from "../../execution/execution-policy";
 
 class ExecutionDomain implements IExecutionDomain {
@@ -20,18 +20,6 @@ class ExecutionDomain implements IExecutionDomain {
 
   getCompletionWeights(): { executionProgress: number; assignmentProgress: number } {
     return executionPolicy.completionWeights;
-  }
-
-  getPolicy(): ExecutionPolicy {
-    return {
-      budgetMatrix: executionPolicy.budgetMatrix,
-      globalSafety: executionPolicy.globalSafety,
-      antiLoop: executionPolicy.antiLoop,
-      evidenceThresholds: executionPolicy.evidenceThresholds,
-      completionWeights: executionPolicy.completionWeights,
-      schedulerWeights: executionPolicy.schedulerWeights,
-      schedulerConstraints: executionPolicy.schedulerConstraints,
-    };
   }
 }
 

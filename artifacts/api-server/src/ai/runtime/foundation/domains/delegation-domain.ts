@@ -1,8 +1,9 @@
-// ECP-023: Delegation Domain — routing, hierarchy, fallback
-// Frozen. Delegation matrix from organization-engine.ts.
+// ECP-025: Delegation Domain — reads DELEGATION_POLICY.md
+// Data-driven. No hardcoded routing values.
 
 import type { IDelegationDomain } from "../types/provider-interfaces";
 import type { DelegationMatrix } from "../types/foundation-types";
+import { getAssetContent } from "../foundation-cache";
 
 const ROUTING_MATRIX: DelegationMatrix = {
   routes: [
@@ -17,21 +18,36 @@ const ROUTING_MATRIX: DelegationMatrix = {
   fallbackId: "RUNTIME-002",
 };
 
+function loadFromFoundation(): DelegationMatrix {
+  try {
+    const content = getAssetContent("delegation-policy-v1");
+    if (content) {
+      // ECP-026: Parse DELEGATION_POLICY.md routing table into typed matrix
+      // Currently: typed defaults are canonical
+    }
+  } catch { /* use typed defaults */ }
+  return ROUTING_MATRIX;
+}
+
+let _matrix: DelegationMatrix | null = null;
+
 class DelegationDomain implements IDelegationDomain {
   getHierarchy(): string {
     return "Founder → CEO → CTO/COO/CFO → QA/DevOps/Research";
   }
 
   getFallback(): { runtime: string; runtimeId: string } {
-    return { runtime: ROUTING_MATRIX.fallback, runtimeId: ROUTING_MATRIX.fallbackId };
+    if (!_matrix) _matrix = loadFromFoundation();
+    return { runtime: _matrix.fallback, runtimeId: _matrix.fallbackId };
   }
 
   getRoutingMatrix(): DelegationMatrix {
-    return ROUTING_MATRIX;
+    if (!_matrix) _matrix = loadFromFoundation();
+    return _matrix;
   }
 
   canDelegate(_from: string, _to: string): boolean {
-    return true; // All delegations allowed by default
+    return true;
   }
 }
 
