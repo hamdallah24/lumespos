@@ -20,9 +20,10 @@ import { withinScope } from "../runtime/mission-scope";
 import { getMultiTrust, rateDimension } from "../runtime/multi-trust";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 import { callDeepSeekWithTools, fetchGitHubFile, searchRepoFiles, getDependencies } from "../../routes/ai-helpers";
-import { READ_TOOLS, DEVOPS_TOOLS } from "../../routes/ai-helpers";
 import { getFoundationProvider } from "../runtime/foundation";
-import { CTO_OUTPUT_SCHEMA, TOOL_RULES } from "../../routes/ai-prompts";
+import { CTO_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
+import { resolveTools, READ_TOOLS, DEVOPS_TOOLS } from "../runtime/execution/tool-registry";
+import { CAPABILITY_TOOLS, getDefaultCapabilities } from "../runtime/execution/execution-capabilities";
 
 const ctoIdentity = getIdentity("CTO")!;
 
@@ -158,22 +159,27 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     : [];
   pipeline.push("KnowledgeLoader");
 
-  // Stage 11: Prompt Assembly (PromptAssembler — NO persona)
+  // ECP-039: NO toolRules — Governor provides strategy via ExecutionContract
   const systemPrompt = assemble({
     identity: ctoIdentity,
     directive: directiveContent,
     outputSchema: CTO_OUTPUT_SCHEMA,
-    toolRules: TOOL_RULES,
     context: fileContext,
     maxTokens: spec.runtimePolicy.maxTokens + 2000,
     mode: "cto",
   });
   pipeline.push("PromptAssembly");
 
-  // Stage 12: LLM Execution
+  // ECP-039 Sprint 2: Tools from Governor Contract. No hardcoded decisions.
+  // Contract resolved via: capabilities (Governor) → Tool Registry → ToolDef[]
   const isDevOps = spec.intent === "devops_operation";
-  const toolSet = isDevOps ? DEVOPS_TOOLS
-    : spec.intent === "greeting" ? [] : READ_TOOLS;
+  const isGreeting = spec.intent === "greeting";
+  const toolSet = isGreeting ? []
+    : execContract?.allowedTools?.length
+      ? execContract.allowedTools as any[]
+      : isDevOps
+        ? resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS)
+        : resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS);
 
   let responseText: string;
   try {
