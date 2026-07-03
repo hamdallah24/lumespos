@@ -1,8 +1,9 @@
-// ECP-018: AI Gateway — transport layer only
-// No Runtime logic. No business logic. No prompt construction.
+// ECP-031: AI Gateway — transport layer + Orchestrator dispatch
+// No Runtime logic. All dispatch through RuntimeOrchestrator.
 import { Router } from "express";
 import { requireRole, requireAuth } from "../middlewares/requireAuth";
 import { READ_TOOLS, DEVOPS_TOOLS, mergeDeploy, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation, remember, clearMemory } from "./ai-helpers";
+import { orchestrator } from "../ai/runtime/orchestrator";
 import { executeOperation } from "./ai-business";
 import { runMigration } from "./migrate";
 import { computeHealthScore, lastScore } from "../ai/runtime/health-policy";
@@ -14,6 +15,77 @@ import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shi
 import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
 const router = Router();
+
+// ECP-031: Register all Runtimes with Orchestrator at boot
+(async () => {
+  // CEO Runtime
+  const { ceoRuntime } = await import("../ai/programs/ceo-runtime");
+  orchestrator.register({
+    name: "CEO", version: "1.0.0",
+    capabilities: ["strategy", "delegation", "executive_report"],
+    identity: { id: "ceo-v1", role: "CEO", authority: "full" },
+    health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
+    canHandle: () => true,
+    execute: async (ctx) => {
+      const result = await (ceoRuntime as any).execute({
+        message: ctx.message, userId: ctx.userId,
+        onProgress: ctx.onProgress, onTool: ctx.onTool, onState: ctx.onState,
+        onExecutionEvent: ctx.onExecutionEvent,
+      });
+      return { success: result.success, text: result.text, runtime: "CEO", pipeline: result.pipeline || [], metrics: { runtime: "CEO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: !!result.decision?.delegation, delegatedTo: result.decision?.delegation?.runtime, verificationPassed: result.success, knowledgeWritten: false } };
+    },
+  });
+
+  // CTO Runtime
+  const { ctoProgram } = await import("../ai/programs/cto-runtime");
+  orchestrator.register({
+    name: "CTO", version: "1.1.0",
+    capabilities: ctoProgram.capabilities,
+    identity: { id: "cto-v1", role: "CTO", authority: "limited" },
+    health: () => ({ status: "healthy", uptime: 0, version: "1.1.0" }),
+    canHandle: () => true,
+    execute: async (ctx) => {
+      const result = await ctoProgram.execute({
+        message: ctx.message, userId: ctx.userId,
+        onProgress: ctx.onProgress as any, onTool: ctx.onTool as any,
+        onExecutionEvent: ctx.onExecutionEvent as any,
+      });
+      return { success: result.success, text: result.text, runtime: "CTO", pipeline: result.pipeline || [], metrics: { runtime: "CTO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false } };
+    },
+  });
+
+  // COO Runtime
+  const { cooRuntime } = await import("../programs/coo-runtime");
+  orchestrator.register({
+    name: "COO", version: "1.0.0",
+    capabilities: cooRuntime.capabilities,
+    identity: { id: "coo-v1", role: "COO", authority: "limited" },
+    health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
+    canHandle: () => true,
+    execute: async (ctx) => {
+      const result = await cooRuntime.execute({
+        message: ctx.message, userId: ctx.userId, branchId: ctx.branchId,
+      });
+      return { success: result.success, text: result.text, runtime: "COO", pipeline: result.pipeline || [], metrics: { runtime: "COO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false } };
+    },
+  });
+
+  // Chat Runtime
+  const { chatRuntime } = await import("../programs/chat-runtime");
+  orchestrator.register({
+    name: "Chat", version: "1.0.0",
+    capabilities: chatRuntime.capabilities,
+    identity: { id: "chat-v1", role: "Chat", authority: "readonly" },
+    health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
+    canHandle: () => true,
+    execute: async (ctx) => {
+      const result = await chatRuntime.execute({ message: ctx.message, userId: ctx.userId });
+      return { success: result.success, text: result.text, runtime: "Chat", pipeline: result.pipeline || [], metrics: { runtime: "Chat", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: true, knowledgeWritten: false } };
+    },
+  });
+
+  console.log("[Orchestrator] 4 runtimes registered: CEO, CTO, COO, Chat");
+})();
 
 // Tool labels for status bar
 const toolLabels: Record<string, string> = {
@@ -74,161 +146,32 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       return;
     }
 
-    switch (m) {
-
-      // ── CHAT ──
-      case "chat": {
-        const { chatRuntime } = await import("../programs/chat-runtime");
-        const result = await chatRuntime.execute({ message: clean, userId: uid });
-        res.json({ reply: result.text || "Chat sedang sibuk, coba lagi ya bos." });
-        return;
-      }
-
-      // ── CEO ──
-      case "ceo": {
-        // Set SSE headers FIRST — nginx needs response within 60s
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-        res.flushHeaders();
-
-        try {
-          emitStatus(res, "💼 CEO Runtime menganalisis...");
-
-          const { ceoRuntime } = await import("../ai/programs/ceo-runtime");
-          const result = await ceoRuntime.execute({
-            message: clean,
-            userId: uid,
-            onProgress: (msg) => emitStatus(res, msg),
-            onTool: (ev) => emitToolEvent(res, "CEO", "ToolExecutor", ev.status, ev.name, ev.durationMs),
-            onState: (state) => emitStateEvent(res, "CEO", state),
-            onExecutionEvent: (snapshot) => {
-              res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`);
-            },
-          });
-
-          if (result.success && result.text) {
-            await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 });
-            await remember(uid, "ceo", clean, result.text);
-            await saveSharedContext(uid, "ceo", result.text.slice(0, 500));
-          } else if (result.text) {
-            await fakeStream(result.text, res);
-          } else {
-            await fakeStream("Maaf, CEO Runtime tidak bisa memberi jawaban sekarang. Coba lagi.", res);
-          }
-        } catch (e: any) {
-          console.error("[ai] CEO error:", e);
-          await fakeStream(`Error: ${e.message?.slice(0, 200) || "unknown"}`, res);
-        }
-        return;
-      }
-
-      // ── CTO ──
-      case "cto": {
-        // Phase 2: Proposal Execution — contract-driven, replaces generateNow
-        if (action === "approve_proposal" && proposalId) {
-          res.setHeader("Content-Type", "text/event-stream");
-          res.setHeader("Cache-Control", "no-cache");
-          res.setHeader("Connection", "keep-alive");
-          res.flushHeaders();
-
-          let aborted = false;
-          req.on("close", () => { aborted = true; });
-
-          const sse = (step: string, detail: string) => {
-            if (!aborted) res.write(`data: ${JSON.stringify({ step, detail })}\n\n`);
-          };
-
-          try {
-            sse("start", "🔧 Menjalankan proposal melalui CTO Runtime...");
-            const { executeApprovedProposal } = await import("../ai/programs/proposal-executor");
-            const result = await executeApprovedProposal(proposalId, (msg) => {
-              if (!aborted) res.write(`data: ${JSON.stringify({ type: "status", message: msg })}\n\n`);
-            });
-
-            if (!aborted) {
-              if (result.success) {
-                sse("final", `✅ Proposal ${proposalId} berhasil dijalankan.\n${result.text}`);
-              } else {
-                sse("final", `❌ Gagal menjalankan proposal: ${result.text}`);
-              }
-              res.end();
-            }
-          } catch (e: any) {
-            console.error("[ai] Proposal execution error:", e);
-            if (!aborted) {
-              sse("final", `❌ Gagal: ${(e?.message || String(e)).slice(0, 200)}`);
-              res.end();
-            }
-          }
-          return;
-        }
-
-      const lower = clean.toLowerCase();
-
-      // Approval flow — manual type
-        if (/^setuju/i.test(lower)) {
-          res.json({ reply: "Balas dengan klik tombol SETUJU di bawah proposal ya bos." });
-          return;
-        }
-        if (/^tidak\s*setuju/i.test(lower) || /^batal/i.test(lower)) {
-          res.json({ reply: "Baik bos, generate kode dibatalkan. Ada hal lain yg bisa dibantu?" });
-          return;
-        }
-
-        // ECP-018: Dispatch to CTO Runtime (not inline)
-        res.setHeader("Content-Type", "text/event-stream");
-        res.setHeader("Cache-Control", "no-cache");
-        res.setHeader("Connection", "keep-alive");
-        res.flushHeaders();
-
-        try {
-          const { ctoProgram } = await import("../ai/programs/cto-runtime");
-          emitStatus(res, "⚙️ CTO Runtime menganalisis...");
-          emitStateEvent(res, "CTO", "REASONING");
-
-          const result = await ctoProgram.execute({
-            message: clean, userId: uid,
-            onProgress: (msg: string) => emitStatus(res, msg),
-            onTool: (ev: { name: string; status: string; durationMs?: number }) => 
-              emitToolEvent(res, "CTO", "ToolExecutor", ev.status as "started" | "completed", ev.name, ev.durationMs),
-            onExecutionEvent: (snapshot) => {
-              res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`);
-            },
-          });
-
-          if (result.success && result.text) {
-            await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 });
-            await remember(uid, "cto", clean, result.text);
-            await saveSharedContext(uid, "cto", result.text.slice(0, 500));
-          } else if (result.text) {
-            await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 });
-          } else {
-            await fakeStream("Maaf, CTO tidak bisa memberi jawaban sekarang. Coba lagi.", res);
-          }
-        } catch (e: any) {
-          console.error("[ai] CTO error:", e);
-          await fakeStream(`Error: ${e.message?.slice(0, 200) || "unknown"}`, res);
-        }
-        return;
-      }
-
-      // ── BISNIS (COO Runtime dispatch) ──
-      case "bisnis":
-      default: {
-        try {
-          const { cooRuntime } = await import("../programs/coo-runtime");
-          const result = await cooRuntime.execute({ message: clean, userId: uid, branchId: defaultBranchId });
-          let reply = result.text;
-          if (!reply || reply.startsWith("ERROR:")) { reply = "COO sedang sibuk. Coba lagi, bos."; }
-          res.json({ reply });
-          if (reply && reply.length > 20) await saveSharedContext(uid, "bisnis", reply.slice(0, 500));
-        } catch {
-          res.json({ reply: "COO sedang sibuk. Coba lagi, bos." });
-        }
-        return;
-      }
+        const isSSE = m === "ceo" || m === "cto" || m === "chat";
+    if (isSSE) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.setHeader("Cache-Control", "no-cache");
+      res.setHeader("Connection", "keep-alive");
+      res.flushHeaders();
     }
+    try {
+      const result = await orchestrator.execute({ message: clean, userId: uid, mode: m, branchId: defaultBranchId });
+      if (result.success && result.text) {
+        if (isSSE) { await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 }); }
+        else { res.json({ reply: result.text }); }
+        await remember(uid, m, clean, result.text);
+        if (result.text.length > 20) await saveSharedContext(uid, m, result.text.slice(0, 500));
+      } else if (result.text) {
+        if (isSSE) { await fakeStream(result.text, res); } else { res.json({ reply: result.text }); }
+      } else {
+        if (isSSE) { await fakeStream("Runtime tidak bisa menjawab.", res); }
+        else { res.json({ reply: "Runtime tidak bisa menjawab." }); }
+      }
+    } catch (e: any) {
+      console.error("[ai] Orchestrator error:", e);
+      if (isSSE) { await fakeStream("Error: " + ((e)?.message?.slice(0, 200) || "unknown"), res); }
+      else { if (!res.headersSent) res.status(500).json({ error: "Internal server error" }); }
+    }
+
   } catch (err) {
     console.error("[ai] Route error:", err);
     if (res.headersSent) {
