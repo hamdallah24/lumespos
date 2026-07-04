@@ -51,13 +51,6 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     const m = mode || "bisnis";
     const uid = user.id;
 
-    // Reset memory
-    if (/reset|hapus\s*riwayat|mulai\s*baru|clear/i.test(clean.toLowerCase())) {
-      await clearMemory(uid, m);
-      res.json({ reply: "✅ Riwayat percakapan sudah di-reset. Silakan tanya lagi." });
-      return;
-    }
-
     // Rate limit
     const maxReqs = m === "cto" ? 30 : (m === "vps" ? 30 : 20);
     const rl = checkRateLimit(uid, m, maxReqs);

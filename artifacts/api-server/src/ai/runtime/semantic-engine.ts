@@ -41,14 +41,6 @@ Rules:
 
 /** Understand Founder's natural language → structured contract */
 export async function understand(message: string, userId = 1): Promise<SemanticContract> {
-  // Fast path: greetings don't need LLM
-  if (/^(halo|hai|hi|hey|test|ok|ya|p)$/i.test(message.trim())) {
-    return {
-      intent: "greeting", problem: "greeting", domain: "general", entities: [],
-      confidence: 99, risk: "low", requiredCapabilities: ["none"], missingContext: [],
-    };
-  }
-
   try {
     const raw = await callDeepSeek(SEMANTIC_PROMPT, message, userId, "semantic", 300);
     const parsed = JSON.parse(raw.trim());
