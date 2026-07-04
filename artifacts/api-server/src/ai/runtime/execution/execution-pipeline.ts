@@ -1,10 +1,7 @@
-// ECP-040: Execution Pipeline — Single entry point for all execution
-// Menerima ExecutionSpecification, membuat contract via Governor,
-// membuat Context, membuat Driver, menjalankan lifecycle, mengembalikan result.
-// Setelah ECP-040, semua Runtime menggunakan pipeline ini.
+// ECP-040 Sprint 5: Execution Pipeline — Single entry point for all execution
+// Creates Driver, delegates to driver.run(), returns result.
 
-import { ExecutionGovernor } from "./execution-governor";
-import { ExecutionDriver, type ExecuteFn } from "./execution-driver";
+import { ExecutionDriver } from "./execution-driver";
 import { PipelineContext } from "./execution-context";
 import type { ExecutionContract } from "./execution-manifest";
 
@@ -31,40 +28,37 @@ export interface PipelineResult {
 }
 
 export class ExecutionPipeline {
-  private readonly governor: ExecutionGovernor;
-
-  constructor(complexity: string = "medium", domain: string = "general", entities: string[] = [], objective: string = "Execute") {
-    this.governor = new ExecutionGovernor(complexity, domain, entities, objective);
-  }
-
-  /** Execute with a custom executor function */
-  async execute(
+  /** Execute with messages array — full lifecycle loop */
+  static async execute(
     spec: PipelineSpec,
-    executeFn: ExecuteFn,
+    messages: any[],
+    tools: { name: string; description: string; parameters: Record<string, any> }[],
+    maxTokens: number,
+    userId: number,
+    mode: string,
+    user: string,
     callbacks?: PipelineCallback,
+    executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string },
   ): Promise<PipelineResult> {
-    const driver = new ExecutionDriver(this.governor);
+    const driver = new ExecutionDriver(
+      executionSpec?.complexity || "medium",
+      executionSpec?.domain || "general",
+      executionSpec?.entities || [],
+      executionSpec?.objective || user.slice(0, 100),
+      callbacks,
+    );
 
-    // Stage 1: PLAN — Governor creates contract
     const context = driver.plan(spec.role, {
       intent: spec.intent,
-      domain: spec.domain,
-      complexity: spec.complexity,
-      objective: spec.objective,
-      entities: spec.entities,
+      domain: spec.domain || executionSpec?.domain,
+      complexity: spec.complexity || executionSpec?.complexity,
+      objective: spec.objective || executionSpec?.objective,
+      entities: spec.entities || executionSpec?.entities,
     });
 
-    // Wire callbacks
-    if (callbacks) {
-      context.onProgress = callbacks.onProgress;
-      context.onTool = callbacks.onTool;
-      context.onExecutionEvent = callbacks.onExecutionEvent;
-    }
-
     try {
-      // Stage 2-6: BEGIN → EXECUTE → OBSERVE → EVALUATE → FINISH
-      await driver.run(context, executeFn);
-      return { success: true, text: context.result, contract: context.contract, context };
+      const text = await driver.run(context, messages, tools, maxTokens, userId, mode, user);
+      return { success: true, text, contract: context.contract, context };
     } catch (e: any) {
       context.state = "FAILED";
       return { success: false, text: e.message || "Pipeline failed", contract: context.contract, context };

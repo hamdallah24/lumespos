@@ -1,11 +1,13 @@
-// ECP-040: Execution Driver — Lifecycle controller
-// Menggantikan while(governor.shouldContinue()) di ai-helpers.
-// Driver TIDAK membuat keputusan. Driver HANYA menjalankan lifecycle.
-// Semua keputusan berasal dari Governor.
+// ECP-040 Sprint 5: Execution Driver — Full Lifecycle Controller
+// SINGLE source of execution loop. Governor created here ONLY.
+// NO other file may create ExecutionGovernor.
 
-import { PipelineContext } from "./execution-context";
-import type { ToolResult } from "./execution-context";
 import { ExecutionGovernor } from "./execution-governor";
+import { PipelineContext } from "./execution-context";
+import { callLLMWithTools } from "../../llm/llm-adapter";
+import { executeToolCall, getToolLabel } from "../../tools/tool-adapter";
+import { remember } from "../../../routes/ai-helpers";
+import { stripDSML, sanitizeMessages, validateMessageSequence, validateResponse } from "../validator";
 
 export const EXECUTION_INSTRUCTION: Record<string, string> = {
   EXPLORE: "Continue exploring. Find all relevant files first before analyzing.",
@@ -15,91 +17,166 @@ export const EXECUTION_INSTRUCTION: Record<string, string> = {
   ESCALATE: "Cannot proceed with current resources. Report findings and stop.",
 };
 
-const TIMEOUT_MS = 45000;
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat";
-const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
-const DEEPSEEK_BASE = process.env.DEEPSEEK_BASE_URL;
-
-export type ExecuteFn = (
-  systemPrompt: string,
-  userMessage: string,
-  tools: any[],
-  context: PipelineContext,
-) => Promise<{
-  text: string;
-  hasToolCalls: boolean;
-  toolCalls: { name: string; durationMs: number }[];
-  tokensUsed: number;
-}>;
-
-export type InjectStrategyFn = (strategy: string, prevStrategy: string) => string | null;
+export interface DriverCallbacks {
+  onProgress?: (msg: string) => void;
+  onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void;
+  onExecutionEvent?: (snapshot: import("./execution-manifest").ExecutionSnapshot) => void;
+}
 
 export class ExecutionDriver {
   readonly governor: ExecutionGovernor;
-  private readonly injectStrategy: InjectStrategyFn;
+  private readonly callbacks: DriverCallbacks;
 
-  constructor(governor: ExecutionGovernor, injectStrategy?: InjectStrategyFn) {
-    this.governor = governor;
-    this.injectStrategy = injectStrategy || this.defaultStrategyInjection;
+  /** Only place in the codebase where ExecutionGovernor is instantiated. */
+  constructor(
+    complexity: string, domain: string, entities: string[], objective: string,
+    callbacks?: DriverCallbacks,
+  ) {
+    this.governor = new ExecutionGovernor(complexity, domain, entities, objective, callbacks?.onExecutionEvent);
+    this.callbacks = callbacks || {};
   }
 
   /** PLAN — Governor generates ExecutionContract */
   plan(role: string, spec: { intent?: string; domain?: string; complexity?: string; objective?: string; entities?: string[] }): PipelineContext {
     const contract = this.governor.planExecution(role, spec);
-    return new PipelineContext(contract);
+    const ctx = new PipelineContext(contract);
+    ctx.onProgress = this.callbacks.onProgress;
+    ctx.onTool = this.callbacks.onTool;
+    ctx.onExecutionEvent = this.callbacks.onExecutionEvent;
+    return ctx;
   }
 
-  /** BEGIN — Governor starts telemetry + transition */
-  begin(context: PipelineContext): void {
-    context.state = "EXECUTING";
+  /**
+   * Full lifecycle loop. Runs:
+   *   plan → begin → loop(injectStrategy → LLM → tools → observe → evaluate) → finalCall → finish
+   * Returns the final text response.
+   */
+  async run(
+    context: PipelineContext,
+    messages: any[],
+    tools: { name: string; description: string; parameters: Record<string, any> }[],
+    maxTokens: number,
+    userId: number,
+    mode: string,
+    user: string,
+  ): Promise<string> {
     this.governor.beginExecution(context.contract);
-  }
+    context.state = "EXECUTING";
 
-  /** Run the full lifecycle loop: EXECUTE → OBSERVE → EVALUATE → repeat */
-  async run(context: PipelineContext, executeFn: ExecuteFn): Promise<void> {
-    this.begin(context);
+    let _prevStrategy = "";
 
     while (this.governor.shouldContinue()) {
       context.cycle = this.governor.beforeCycle();
 
-      // Strategy directive injection
-      const currentStrategy = this.governor.strategyEngine.strategy;
-      const instruction = this.injectStrategy(currentStrategy, context.prevStrategy);
-      if (instruction) {
-        context.prevStrategy = currentStrategy;
+      // ── Strategy Injection ──
+      const strategy = this.governor.strategyEngine.strategy;
+      if (strategy !== _prevStrategy) {
+        _prevStrategy = strategy;
+        const instruction = EXECUTION_INSTRUCTION[strategy];
+        if (instruction) messages.push({ role: "user", content: `[GOVERNOR] ${instruction}` });
       }
 
-      // EXECUTE: delegate to caller (Runtime handles LLM)
-      const result = await executeFn(
-        instruction || "",  // strategy directive (injected into messages by caller)
-        "",                  // user message embedded in the loop logic
-        context.contract.allowedTools || [],
-        context,
-      );
+      // ── Validate messages ──
+      for (let i = 0; i < messages.length; i++) {
+        const m = messages[i];
+        if (!m || typeof m !== "object") throw new Error(`Invalid message at index ${i}`);
+        if (!["user", "assistant", "system", "tool"].includes(m.role)) throw new Error(`Invalid role at ${i}: "${m.role}"`);
+      }
 
-      // OBSERVE: Governor records metrics
-      context.currentToolCalls = result.toolCalls.map(tc => ({
-        name: tc.name,
-        durationMs: tc.durationMs,
-        status: "ok" as const,
-      }));
-      this.governor.observe(result.hasToolCalls, result.toolCalls, result.tokensUsed);
+      // ── LLM Call ──
+      const result = await callLLMWithTools(messages, tools, maxTokens, false);
+      const tokensThisCycle = result.tokensUsed;
 
-      // EVALUATE: Governor decides stop/continue/conclude
-      const decision = this.governor.evaluate(context.contract);
-      if (decision.action !== "CONTINUE") {
-        break;
+      // ── Error: round > 0 → throw; round 0 → retry without tools ──
+      if (result.status === "error") {
+        if (context.cycle > 0) throw new Error(`AI engine error at round ${context.cycle}: HTTP ${result.errorStatus}`);
+        const retry = await callLLMWithTools(messages, [], maxTokens, false);
+        const text = stripDSML(retry.content || "");
+        const validated = validateResponse(text);
+        if (validated.cleanedText) {
+          await remember(userId, mode, user, validated.cleanedText);
+          context.result = validated.cleanedText;
+        }
+        this.governor.afterCycle(false, [], tokensThisCycle);
+        if (validated.cleanedText) return validated.cleanedText;
+        this.governor.finishExecution(context.contract);
+        return "";
+      }
+
+      // ── No tool calls → text response → validate + remember + return ──
+      if (result.status === "ok") {
+        const content = stripDSML(result.content);
+        const validated = validateResponse(content);
+        if (validated.cleanedText) {
+          await remember(userId, mode, user, validated.cleanedText);
+          context.result = validated.cleanedText;
+        }
+        this.governor.afterCycle(false, [], tokensThisCycle);
+        return validated.cleanedText;
+      }
+
+      // ── Execute tool calls ──
+      const toolResults: any[] = [];
+      for (const tc of result.toolCalls) {
+        const label = getToolLabel(tc.name);
+        this.callbacks.onProgress?.(label);
+        this.callbacks.onTool?.({ name: tc.name, status: "started" });
+        try {
+          const t0 = Date.now();
+          const r = await executeToolCall(tc.name, tc.args);
+          const dur = Date.now() - t0;
+          this.callbacks.onTool?.({ name: tc.name, status: "completed", durationMs: dur });
+          toolResults.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: String(r || "(no output)").slice(0, 2000),
+          });
+        } catch (toolErr: any) {
+          toolResults.push({
+            role: "tool",
+            tool_call_id: tc.id,
+            content: `Error: ${toolErr.message || "tool failed"}`,
+          });
+        }
+      }
+
+      messages.push(result.message, ...toolResults);
+
+      // ── Observe ──
+      const toolNames = result.toolCalls.map(tc => ({ name: tc.name, durationMs: 0 }));
+      this.governor.afterCycle(true, toolNames, tokensThisCycle);
+
+      // ── Evaluate → safety net final call ──
+      if (!this.governor.shouldContinue()) {
+        const finalText = await this.doFinalCall(messages, tools, maxTokens, userId, mode, user, result.message);
+        context.result = finalText;
+        this.governor.finishExecution(context.contract);
+        return finalText;
       }
     }
 
-    // FINISH: Governor finalizes journal + telemetry
-    context.state = "FINISHED";
     this.governor.finishExecution(context.contract);
+    return "";
   }
 
-  /** Default strategy directive injection — mirrors existing behavior */
-  private defaultStrategyInjection(currentStrategy: string, prevStrategy: string): string | null {
-    if (currentStrategy === prevStrategy) return null;
-    return EXECUTION_INSTRUCTION[currentStrategy] || null;
+  /** Final summarization call when Governor signals stop. Retries without tools if model keeps calling them. */
+  private async doFinalCall(
+    messages: any[], tools: { name: string; description: string; parameters: Record<string, any> }[],
+    maxTokens: number, userId: number, mode: string, user: string, lastMsg: any,
+  ): Promise<string> {
+    const doCall = async (withTools: boolean): Promise<string> => {
+      const clean = sanitizeMessages([...messages]);
+      const result = await callLLMWithTools(clean, withTools ? tools : [], 8000, false);
+      if (result.status === "tool_calls" && withTools) {
+        const { tool_calls, ...rest } = result.message;
+        messages.push(rest);
+        return doCall(false);
+      }
+      const content = stripDSML(result.content || lastMsg?.content?.trim() || "");
+      const validated = validateResponse(content);
+      if (validated.cleanedText) await remember(userId, mode, user, validated.cleanedText);
+      return validated.cleanedText;
+    };
+    return doCall(true);
   }
 }
