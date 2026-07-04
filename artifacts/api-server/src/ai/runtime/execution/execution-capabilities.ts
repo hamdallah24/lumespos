@@ -9,11 +9,12 @@ export const CAPABILITY_TOOLS: Record<string, string[]> = {
   ANALYZE_DEPENDENCY:   ["getDependencies"],
   INSPECT_RUNTIME:      ["listDirectory", "fetchGitHubDir"],
   EXECUTE_COMMAND:      ["execCommand", "sshExec"],
+  WRITE_SOURCE:         ["writeFile", "editFile"],
 };
 
 export const ROLE_DEFAULT_CAPABILITIES: Record<string, string[]> = {
   CEO:  [],
-  CTO:  ["READ_SOURCE", "SEARCH_SOURCE", "ANALYZE_DEPENDENCY", "INSPECT_RUNTIME", "EXECUTE_COMMAND"],
+  CTO:  ["READ_SOURCE", "SEARCH_SOURCE", "ANALYZE_DEPENDENCY", "INSPECT_RUNTIME", "EXECUTE_COMMAND", "WRITE_SOURCE"],
   COO:  [],
   CFO:  [],
   CMO:  [],

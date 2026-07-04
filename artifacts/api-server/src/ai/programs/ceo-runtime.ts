@@ -72,9 +72,10 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
 
   // Stage 6: Delegation via Organization Engine
   pipeline.push("OrganizationEngine");
-  const executives = organizationEngine.delegateAll(ctx.message);
-  const shouldDispatch = executives.length > 1
-    || (executives.length === 1 && !executives[0].fallback);
+  const executives = organizationEngine.delegateBySpec(spec);
+  
+  // Smart Dispatch: CEO handles greetings directly. Everything else is delegated.
+  const shouldDispatch = spec.intent !== "greeting" && executives.length > 0;
 
   if (shouldDispatch) {
     ctx.onState?.(`Dispatching: ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`);

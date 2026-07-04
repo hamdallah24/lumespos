@@ -257,6 +257,50 @@ class OrganizationRuntime {
     return results;
   }
 
+  /** AI-Driven capability matching: routes by semantic specification rather than regex string */
+  delegateBySpec(spec: any): DelegationResult[] {
+    if (!this.loaded) this.load();
+
+    const results: DelegationResult[] = [];
+    const seen = new Set<string>();
+
+    for (const [id, node] of this.nodes.entries()) {
+      if (node.health === "Offline") continue;
+      if (node.maturity === "L0") continue; // L0 cannot execute
+      
+      // Smart matching
+      const hasCapabilityMatch = spec.requiredCapabilities?.some((cap: string) => node.capabilities.includes(cap));
+      const lowerDomain = spec.domain?.toLowerCase() || "";
+      const isDomainMatch = 
+        (node.runtime === "CTO" && ["architecture", "code", "devops", "codebase", "backend", "frontend", "system"].includes(lowerDomain)) || 
+        (node.runtime === "COO" && ["inventory", "sales", "business", "operations", "hr"].includes(lowerDomain)) ||
+        (node.runtime === "CFO" && ["budget", "finance", "accounting", "audit", "money"].includes(lowerDomain));
+
+      if (hasCapabilityMatch || isDomainMatch) {
+        seen.add(id);
+        results.push({
+          runtimeId: id,
+          runtime: node.runtime,
+          reason: `AI Match: capability/domain aligned with ${node.runtime}`,
+          fallback: false,
+        });
+      }
+    }
+
+    // Default Fallback to CTO if no smart match found
+    if (results.length === 0) {
+      const cto = this.nodes.get("RUNTIME-002");
+      if (cto) {
+        results.push({
+          runtimeId: "RUNTIME-002", runtime: "CTO",
+          reason: "No smart match — default to CTO for technical execution", fallback: true,
+        });
+      }
+    }
+
+    return results;
+  }
+
   /** Check if runtime can accept tasks */
   canAccept(id: string): boolean {
     const node = this.nodes.get(id);
@@ -289,6 +333,7 @@ export const organizationEngine = {
   find: (id: string) => orgRuntime.find(id),
   delegate: (task: string) => orgRuntime.delegate(task),
   delegateAll: (task: string) => orgRuntime.delegateAll(task),
+  delegateBySpec: (spec: any) => orgRuntime.delegateBySpec(spec),
   healthReport: () => orgRuntime.healthReport(),
   chain: (id: string) => orgRuntime.chain(id),
   subordinates: (id: string) => orgRuntime.subordinates(id),
