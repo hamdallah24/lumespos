@@ -1,3 +1,4 @@
+// FOUNDATION FILE — Modification Policy: Only bug fixes. ADR Required. Owner: CTO.
 // ECP-019: Execution Manifest — type definitions
 // Frozen. Shared across all Execution Plane components.
 

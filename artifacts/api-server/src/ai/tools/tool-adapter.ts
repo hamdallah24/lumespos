@@ -1,3 +1,4 @@
+// FOUNDATION FILE — Modification Policy: Only bug fixes and extensions. ADR Required. Owner: CTO.
 // ECP-040: Tool Adapter — Stateless tool execution
 // Responsibilities: tool dispatch, tool implementations, tool definitions
 // No Governor. No lifecycle. No policy. No LLM communication.
@@ -355,5 +356,36 @@ export async function executeToolCall(name: string, args: Record<string, any>): 
       return r || "Error: SSH command gagal atau tidak ada output.";
     }
     default: return `Error: Unknown tool "${name}"`;
+  }
+}
+
+// ADR-009 Phase 1: Structured ToolResult with status.
+// Extension only — executeToolCall preserved for backward compat.
+// Roadmap: Release N+1 migrate all callers → N+2 delete executeToolCall.
+
+export interface ToolResult {
+  name: string;
+  output: string;
+  status: "ok" | "error";
+  durationMs: number;
+}
+
+export async function executeToolWithResult(name: string, args: Record<string, any>): Promise<ToolResult> {
+  const t0 = Date.now();
+  try {
+    const output = await executeToolCall(name, args);
+    return {
+      name,
+      output: String(output || "(no output)").slice(0, 2000),
+      status: output.startsWith("Error:") ? "error" : "ok",
+      durationMs: Date.now() - t0,
+    };
+  } catch (e: any) {
+    return {
+      name,
+      output: `Error: ${e?.message || "tool failed"}`,
+      status: "error",
+      durationMs: Date.now() - t0,
+    };
   }
 }

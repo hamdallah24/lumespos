@@ -1,3 +1,4 @@
+// FOUNDATION FILE — Modification Policy: Only bug fixes. ADR Required. Owner: CTO.
 // ECP-040 Sprint 5: Execution Driver — Full Lifecycle Controller
 // SINGLE source of execution loop. Governor created here ONLY.
 // NO other file may create ExecutionGovernor.
@@ -5,7 +6,7 @@
 import { ExecutionGovernor } from "./execution-governor";
 import { PipelineContext } from "./execution-context";
 import { callLLMWithTools } from "../../llm/llm-adapter";
-import { executeToolCall, getToolLabel } from "../../tools/tool-adapter";
+import { executeToolCall, executeToolWithResult, getToolLabel } from "../../tools/tool-adapter";
 import { remember } from "../../../services/ai-memory-service";
 import { stripDSML, sanitizeMessages, validateMessageSequence, validateResponse } from "../validator";
 
@@ -118,34 +119,21 @@ export class ExecutionDriver {
 
       // ── Execute tool calls ──
       const toolResults: any[] = [];
+      const toolStatuses: { name: string; durationMs: number; status: "ok" | "error" }[] = [];
       for (const tc of result.toolCalls) {
         const label = getToolLabel(tc.name);
         this.callbacks.onProgress?.(label);
         this.callbacks.onTool?.({ name: tc.name, status: "started" });
-        try {
-          const t0 = Date.now();
-          const r = await executeToolCall(tc.name, tc.args);
-          const dur = Date.now() - t0;
-          this.callbacks.onTool?.({ name: tc.name, status: "completed", durationMs: dur });
-          toolResults.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: String(r || "(no output)").slice(0, 2000),
-          });
-        } catch (toolErr: any) {
-          toolResults.push({
-            role: "tool",
-            tool_call_id: tc.id,
-            content: `Error: ${toolErr.message || "tool failed"}`,
-          });
-        }
+        const tr = await executeToolWithResult(tc.name, tc.args);
+        this.callbacks.onTool?.({ name: tc.name, status: "completed", durationMs: tr.durationMs });
+        toolResults.push({ role: "tool", tool_call_id: tc.id, content: tr.output });
+        toolStatuses.push({ name: tr.name, durationMs: tr.durationMs, status: tr.status });
       }
 
       messages.push(result.message, ...toolResults);
 
       // ── Observe ──
-      const toolNames = result.toolCalls.map(tc => ({ name: tc.name, durationMs: 0 }));
-      this.governor.afterCycle(true, toolNames, tokensThisCycle);
+      this.governor.afterCycle(true, toolStatuses, tokensThisCycle);
 
       // ── Evaluate → safety net final call ──
       if (!this.governor.shouldContinue()) {

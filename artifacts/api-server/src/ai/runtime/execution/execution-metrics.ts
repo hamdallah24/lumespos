@@ -21,7 +21,7 @@ class ExecutionMetrics {
   private _allToolNames: string[] = [];
   private _allPaths: string[] = [];
 
-  recordCycle(cycleNum: number, toolCalls: { name: string }[], responseText?: string): void {
+  recordCycle(cycleNum: number, toolCalls: { name: string; status?: "ok" | "error" }[], responseText?: string): void {
     this.cyclesExecuted = cycleNum;
 
     // Tool diversity
@@ -56,9 +56,27 @@ class ExecutionMetrics {
 
     this.stability.stable = this.stability.flipCount === 0;
 
-    // Evidence quality (heuristic: files read + unique tools)
-    this.evidenceQuality = Math.min(1, cycleNum * 0.15);
-    this.confidence = Math.min(100, cycleNum * 12);
+    // ADR-009 Phase 1: Evidence quality — real data, not cycle counter
+    // Comment intent: "heuristic: files read + unique tools"
+    // Bug fix: formula now uses collected data instead of placeholder cycleNum*0.15
+    const uniqueFiles = new Set(this._allPaths).size;
+    const totalTools = this._allToolNames.length;
+    const failedTools = toolCalls.filter(tc => tc.status === "error").length;
+    const successRate = totalTools > 0 ? (totalTools - failedTools) / totalTools : 0.5;
+
+    this.evidenceQuality = Math.max(0.05, Math.min(1,
+      (uniqueFiles * 0.12) +
+      (this.toolDiversityScore * 0.35) +
+      (this.explorationDepth * 0.05) +
+      (successRate * 0.15)
+    ));
+
+    // ADR-009 Phase 1: Confidence — composite of evidence + tool success + diversity
+    this.confidence = Math.min(100, Math.round(
+      (this.evidenceQuality * 50) +
+      (successRate * 30) +
+      (this.toolDiversityScore * 20)
+    ));
     this.sourceDiversity = this.toolDiversityScore;
   }
 

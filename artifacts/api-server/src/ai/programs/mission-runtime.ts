@@ -1,3 +1,7 @@
+// @deprecated — ADR-009. Scheduled for deletion in ECP-050.
+// Replaced by src/mission/ domain. 0 external references confirmed.
+// DO NOT ADD NEW REFERENCES TO THIS FILE.
+//
 // Phase 2: Mission Runtime — missions are first-class citizens
 // Organization works on missions, not on chat messages.
 // CEO manages mission portfolios. Agents execute work packages.

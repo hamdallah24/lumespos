@@ -1,3 +1,4 @@
+// FOUNDATION FILE — Modification Policy: Only bug fixes. ADR Required. Owner: CTO.
 // ECP-040: LLM Adapter — Stateless LLM communication
 // Responsibilities: callDeepSeek, callDeepSeekWithTools (compat wrapper),
 // callLLMWithTools (stateless single request).

@@ -134,6 +134,7 @@ export class ExecutiveCollaboration {
     }
 
     // Parallel dispatch — each runtime runs its own Pipeline/Driver/Governor lifecycle
+    const toolEvents: { name: string; durationMs: number; status: "ok" | "error" }[] = [];
     const results = await Promise.all(
       dispatchList.map(async ({ exec, task, runtime }) => {
         const t0 = Date.now();
@@ -142,7 +143,10 @@ export class ExecutiveCollaboration {
             ...ctx,
             message: `[Executive Task: ${exec.runtime}] ${objective}`,
             onProgress: (msg) => ctx.onProgress?.(`[${exec.runtime}] ${msg}`),
-            onTool: (ev) => ctx.onTool?.({ ...ev, name: `[${exec.runtime}] ${ev.name}` }),
+            onTool: (ev) => {
+              toolEvents.push({ name: ev.name || "unknown", durationMs: ev.durationMs || 0, status: ev.status === "completed" ? "ok" : "error" });
+              ctx.onTool?.({ ...ev, name: `[${exec.runtime}] ${ev.name}` });
+            },
             onState: (state) => ctx.onState?.((`${exec.runtime}: ${state}`) as any),
           };
           const runtimeResult = await runtime.execute(execCtx);
@@ -212,6 +216,45 @@ export class ExecutiveCollaboration {
     try {
       const { governanceEngine } = await import("../governance/governance-engine");
       governanceEngine.health();
+    } catch {}
+
+    // ADR-009: Metrics — Evidence + Mission Progress
+    try {
+      const { buildArtifacts } = await import("../metrics/ArtifactBuilder");
+      const { artifactRepository } = await import("../metrics/ArtifactRepository");
+      const { evidenceEngine } = await import("../metrics/EvidenceEngine");
+      const { missionProgressEngine } = await import("../metrics/MissionProgressEngine");
+      const { createMission } = await import("../mission/MissionFactory");
+
+      // Build artifacts from collected tool events
+      if (toolEvents.length > 0) {
+        const artifacts = buildArtifacts(toolEvents);
+        artifactRepository.appendAll(artifacts);
+      }
+
+      const mission = createMission({
+        objective,
+        subObjectives: [objective],
+        createdBy: "CEO" as any,
+        assignedTo: executives.map(e => e.runtime) as any,
+      });
+      mission.state = "COMPLETED";
+
+      const evidence = evidenceEngine.evaluate();
+      const progress = missionProgressEngine.compute(mission.contract);
+
+      // Emit evidence + mission via callback
+      ctx.onExecutionEvent?.({
+        type: "evidence_update", schemaVersion: 1,
+        timestamp: new Date().toISOString(), missionId: session.id,
+        payload: evidence,
+      } as any);
+
+      ctx.onExecutionEvent?.({
+        type: "mission_update", schemaVersion: 1,
+        timestamp: new Date().toISOString(), missionId: session.id,
+        payload: progress,
+      } as any);
     } catch {}
 
     // Build synthesis context

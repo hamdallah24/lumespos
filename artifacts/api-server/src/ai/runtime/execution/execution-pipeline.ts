@@ -1,3 +1,4 @@
+// FOUNDATION FILE — Modification Policy: Only bug fixes. ADR Required. Owner: CTO.
 // ECP-040 Sprint 5: Execution Pipeline — Single entry point for all execution
 // Creates Driver, delegates to driver.run(), returns result.
 

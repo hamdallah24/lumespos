@@ -37,6 +37,10 @@ export default function ExecutiveWorkspace() {
   const [timeline, setTimeline] = React.useState<{ time: string; text: string }[]>([]);
   const [synthesis, setSynthesis] = React.useState<{ active: boolean; execCount: number; evidenceCount: number }>({ active: false, execCount: 0, evidenceCount: 0 });
 
+  // ADR-009: Evidence + Mission store
+  const [evidenceScore, setEvidenceScore] = React.useState<any>(null);
+  const [missionProgress, setMissionProgress] = React.useState<any>(null);
+
   // Fetch org status on mount
   React.useEffect(() => {
     fetch("/api/ai/readiness-public").then(r => r.json()).then(setReadiness);
@@ -156,6 +160,14 @@ export default function ExecutiveWorkspace() {
                   time: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
                   text: `⚙️ ${data.payload?.name || data.event}`,
                 }]);
+              }
+              // ADR-009: Evidence update from metrics layer
+              if (data.type === "evidence_update") {
+                setEvidenceScore(data.payload);
+              }
+              // ADR-009: Mission progress from metrics layer
+              if (data.type === "mission_update") {
+                setMissionProgress(data.payload);
               }
             } catch {}
           }

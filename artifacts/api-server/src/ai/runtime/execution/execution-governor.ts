@@ -1,3 +1,4 @@
+// FOUNDATION FILE — Modification Policy: Only bug fixes. ADR Required. Owner: CTO.
 // ECP-019: Execution Governor — orchestrator only, NO logic
 // Frozen. Delegates all decisions to 4 engines.
 // Engines never call each other. Governor is the only coordinator.
