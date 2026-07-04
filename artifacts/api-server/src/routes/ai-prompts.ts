@@ -4,30 +4,6 @@
 // Runtime uses PromptAssembler — NOT these fragments directly.
 // ─────────────────────────────────────────────────────────────
 
-export const TOOL_RULES = `## Tool Calling Rules
-
-ONLY call tools when the user request explicitly requires:
-- Reading a specific file to check code, debug, or analyze
-- Searching the codebase for a pattern, function, or class
-- Fetching file structure or directory listing
-- Running SSH commands to check VPS status
-- Any action that needs real data from the project files
-
-Do NOT call any tools for:
-- Greetings ("halo", "test", "ok", "thanks", "p")
-- Simple confirmations or one-word replies
-- General questions answerable from context
-- Anything that does not require reading a file
-
-Gather ALL files needed via tools BEFORE writing your response.
-Never call a tool mid-response — front-load all data gathering first.
-
-Prioritas: readFile > searchContent > listDirectory
-ALAT YANG TERSEDIA: listDirectory, readFile, searchContent, execCommand, getDependencies, fetchGitHubFile, fetchGitHubDir, sshExec
-
-readFile/searchContent/listDirectory/getDependencies → boleh SELALU
-execCommand/sshExec → HANYA jika user minta: deploy, restart, cek VPS, git pull, build`;
-
 export const CTO_OUTPUT_SCHEMA = `## Output Format
 
 FORMAT JAWABAN (WAJIB):

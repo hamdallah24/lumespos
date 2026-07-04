@@ -22,7 +22,7 @@ import type { ExecutionContract } from "../runtime/execution/execution-manifest"
 import { callDeepSeekWithTools, fetchGitHubFile, searchRepoFiles, getDependencies } from "../../routes/ai-helpers";
 import { getFoundationProvider } from "../runtime/foundation";
 import { CTO_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
-import { resolveTools, READ_TOOLS, DEVOPS_TOOLS } from "../runtime/execution/tool-registry";
+import { resolveTools } from "../runtime/execution/tool-registry";
 import { CAPABILITY_TOOLS, getDefaultCapabilities } from "../runtime/execution/execution-capabilities";
 
 const ctoIdentity = getIdentity("CTO")!;

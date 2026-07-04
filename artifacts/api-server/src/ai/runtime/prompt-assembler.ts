@@ -8,7 +8,7 @@ import type { KnowledgeAsset } from "./foundation-loader";
 import { foundationLoader } from "./foundation-loader";
 import { buildFoundationContext } from "./context-builder";
 import type { ContextPackageV1 } from "./context-builder";
-import { TOOL_RULES, STREAM_POLICY, ERROR_POLICY, EXECUTIVE_OUTPUT_SCHEMA, CTO_OUTPUT_SCHEMA, JSON_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
+import { STREAM_POLICY, ERROR_POLICY } from "../../routes/ai-prompts";
 
 export interface PromptAssemblyInput {
   identity: AgentIdentity;

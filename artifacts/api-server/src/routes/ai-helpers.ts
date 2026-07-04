@@ -481,28 +481,7 @@ export const LOCAL_TOOLS: ToolDef[] = [
   { name: "execCommand", description: "Execute a safe shell command. Allowed: git, pnpm, npm, pm2, node, tsc, npx, ls, cat, echo, uptime. Max 30s timeout.", parameters: { type: "object", properties: { command: { type: "string", description: "Command to run, e.g., git status, pnpm build, pm2 restart pos-api" } }, required: ["command"] } },
 ];
 
-// READ_TOOLS — file analysis only, no SSH, no execCommand
-export const READ_TOOLS: ToolDef[] = [
-  ...LOCAL_TOOLS.filter(t =>
-    ["listDirectory", "readFile", "searchContent", "getDependencies"].includes(t.name)
-  ),
-  { name: "fetchGitHubFile", description: "Fetch file from GitHub (fallback only — use readFile for local first).", parameters: { type: "object", properties: { path: { type: "string", description: "Path relative to repo root" }, branch: { type: "string", description: "Branch (default: main)" } }, required: ["path"] } },
-  { name: "fetchGitHubDir", description: "List directory from GitHub (fallback only).", parameters: { type: "object", properties: { path: { type: "string" }, branch: { type: "string" } }, required: ["path"] } },
-];
 
-// DEVOPS_TOOLS — includes SSH + execCommand for VPS operations
-export const DEVOPS_TOOLS: ToolDef[] = [
-  ...READ_TOOLS,
-  LOCAL_TOOLS.find(t => t.name === "execCommand")!,
-  {
-    name: "sshExec",
-    description: "Run shell command on VPS via SSH. Only for: pm2 status/logs, git pull/merge, deploy, nginx, systemctl, server ops.",
-    parameters: { type: "object", properties: { command: { type: "string", description: "e.g., pm2 status, cd ~/lumespos && git pull, free -m" } }, required: ["command"] }
-  },
-];
-
-// Backward compat
-export const EXPLORE_TOOLS = READ_TOOLS;
 
 // Tool labels for progress status
 const toolLabelMap: Record<string, string> = {
