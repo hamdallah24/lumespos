@@ -1,33 +1,11 @@
 // ─────────────────────────────────────────────────────────────
-// AI HELPERS — DeepSeek, memory, GitHub, SSH, Local Tools
+// AI HELPERS — Compatibility barrel for backward compat
+// ECP-040: All logic moved to llm/ and tools/. This file only
+// re-exports + DB-backed memory functions.
 // ─────────────────────────────────────────────────────────────
-import { exec } from "child_process";
-import { existsSync } from "fs";
-// Sprint 3: Event system import
-import { emit, Events } from "../ai/runtime/events";
-// Sprint 3.5: Observability
-import { ExecutionContext, RuntimeState } from "../ai/runtime/execution-context";
-import { finalize, errorTrace } from "../ai/runtime/trace";
-import { logger } from "../ai/runtime/logger";
-// Sprint 7.1: Foundation Loader
-import { foundationLoader } from "../ai/runtime/foundation-loader";
-// Sprint 7.2-7.3: Context Builder → Prompt Assembler
-import { buildFoundationContext } from "../ai/runtime/context-builder";
-import { assembleSystemPrompt } from "../ai/runtime/prompt-assembler";
-// Sprint 8: Knowledge Loader as single entry point
-import { loadKnowledgeWithContent } from "../ai/runtime/knowledge-loader";
-// Sprint 3: Validator functions (import + re-export)
-import { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse } from "../ai/runtime/validator";
-export { stripDSML, parseDSMLToolCalls, validateMessageSequence, sanitizeMessages, validateResponse };
-// ECP-019: Execution Governor — replaces fixed MAX_ROUNDS loop
-import { ExecutionGovernor } from "../ai/runtime/execution/execution-governor";
-import { readdir, stat, readFile, writeFile, mkdir } from "fs/promises";
-import { join, dirname, resolve } from "path";
-import { promisify } from "util";
-const execP = promisify(exec);
-import { execSync } from "child_process";
+import { stripDSML } from "../ai/runtime/validator";
 import { db, conversationsTable, messagesTable, sharedContextTable, checklistItemsTable } from "@workspace/db";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 
 // ── DEEPSEEK / SUMOPOD ──
 export { callDeepSeek } from "../ai/llm/llm-adapter";

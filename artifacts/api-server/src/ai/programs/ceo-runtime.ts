@@ -7,7 +7,7 @@ import { understand } from "../runtime/semantic-engine";
 import { buildSpecV1 } from "../runtime/execution-spec";
 import { verify } from "../runtime/verification-engine";
 import { organizationEngine } from "../runtime/organization-engine";
-import { callDeepSeek } from "../../routes/ai-helpers";
+import { callDeepSeek } from "../llm/llm-adapter";
 import { getFoundationProvider } from "../runtime/foundation";
 import { assemble } from "../runtime/prompt-assembler";
 import { EXECUTIVE_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
