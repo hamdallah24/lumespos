@@ -1,10 +1,13 @@
 // ECP-042: Executive Collaboration — Session lifecycle + task distribution + result collection
 // Engine TIDAK melakukan reasoning. Engine HANYA mendistribusi dan mengumpulkan.
 // CEO melakukan sintesis akhir. Organization Engine adalah dispatcher tunggal.
+// ECP-047: executeMission() — multi-executive parallel dispatch + collect.
 
 import { executiveBoard } from "./executive-board";
 import type { BoardExecutive } from "./executive-board";
+import { createTask } from "./executive-task";
 import type { ExecutiveRole, ExecutiveTask, ExecutiveResult } from "./executive-task";
+import type { IRuntime, RuntimeContext } from "../ai/runtime/orchestrator/runtime-interface";
 
 export type CollaborationState = "CREATED" | "RUNNING" | "COLLECTING" | "COMPLETED" | "FAILED";
 
@@ -15,6 +18,13 @@ export interface CollaborationSession {
   results: ExecutiveResult[];
   createdAt: string;
   completedAt?: string;
+}
+
+interface DelegationEntry {
+  runtimeId: string;
+  runtime: string;
+  reason: string;
+  fallback: boolean;
 }
 
 let _sessionCounter = 0;
@@ -81,6 +91,138 @@ export class ExecutiveCollaboration {
   /** Get session by ID */
   getSession(id: string): CollaborationSession | null {
     return this.sessions.get(id) || null;
+  }
+
+  /**
+   * ECP-047: Execute a multi-executive mission.
+   * Creates session, dispatches runtimes in parallel, collects results,
+   * triggers learning/collective/governance, returns synthesis context.
+   * Executive Collaboration NEVER synthesizes — CEO does.
+   */
+  async executeMission(
+    executives: DelegationEntry[],
+    ctx: RuntimeContext,
+    objective: string,
+  ): Promise<{ executiveResults: ExecutiveResult[]; synthesisContext: string }> {
+    const session = this.createSession();
+    session.state = "RUNNING";
+
+    // Create tasks and resolve runtimes
+    const dispatchList: { exec: DelegationEntry; task: ExecutiveTask; runtime: IRuntime }[] = [];
+
+    for (const exec of executives) {
+      const task = createTask(
+        `Executive Analysis: ${objective.slice(0, 60)}`,
+        objective,
+        "CEO",
+        [exec.runtime as ExecutiveRole],
+        "HIGH",
+      );
+      this.assignTask(session, task);
+
+      // Resolve runtime from SSOT registry (internal dispatch, NOT resolver)
+      const { orchestrator } = await import("../ai/runtime/orchestrator");
+      const runtime = orchestrator.getRuntime(exec.runtime);
+      if (runtime) {
+        dispatchList.push({ exec, task, runtime });
+      }
+    }
+
+    if (dispatchList.length === 0) {
+      session.state = "FAILED";
+      return { executiveResults: [], synthesisContext: "" };
+    }
+
+    // Parallel dispatch — each runtime runs its own Pipeline/Driver/Governor lifecycle
+    const results = await Promise.all(
+      dispatchList.map(async ({ exec, task, runtime }) => {
+        const t0 = Date.now();
+        try {
+          const execCtx: RuntimeContext = {
+            ...ctx,
+            message: `[Executive Task: ${exec.runtime}] ${objective}`,
+            onProgress: (msg) => ctx.onProgress?.(`[${exec.runtime}] ${msg}`),
+            onTool: (ev) => ctx.onTool?.({ ...ev, name: `[${exec.runtime}] ${ev.name}` }),
+            onState: (state) => ctx.onState?.((`${exec.runtime}: ${state}`) as any),
+          };
+          const runtimeResult = await runtime.execute(execCtx);
+          const execResult: ExecutiveResult = {
+            taskId: task.id,
+            executive: exec.runtime as ExecutiveRole,
+            status: runtimeResult.success ? "COMPLETED" : "FAILED",
+            content: runtimeResult.text?.slice(0, 3000) || "",
+            confidence: 70,
+            durationMs: Date.now() - t0,
+          };
+          this.submitResult(session, execResult);
+          return execResult;
+        } catch (e: any) {
+          const execResult: ExecutiveResult = {
+            taskId: task.id,
+            executive: exec.runtime as ExecutiveRole,
+            status: "FAILED",
+            content: `Error: ${e?.message?.slice(0, 500) || "unknown"}`,
+            confidence: 0,
+            durationMs: Date.now() - t0,
+            error: e?.message,
+          };
+          this.submitResult(session, execResult);
+          return execResult;
+        }
+      }),
+    );
+
+    // Collect
+    this.collectResults(session);
+
+    // Learning
+    try {
+      const { learningEngine } = await import("../learning/learning-engine");
+      for (const r of results) {
+        learningEngine.cycle(
+          session.id,
+          objective,
+          r.executive as any,
+          `exec-${r.executive}`,
+          {
+            success: r.status === "COMPLETED",
+            duration: r.durationMs,
+            tokenUsage: 0,
+            toolUsage: 0,
+            confidence: r.confidence,
+            lessons: [],
+          },
+        );
+      }
+    } catch {}
+
+    // Collective Intelligence
+    try {
+      const { organizationIntelligence } = await import("../intelligence/organization-intelligence");
+      organizationIntelligence.onLearningComplete(
+        ("CEO") as any,
+        session.id,
+        results.every(r => r.status === "COMPLETED") ? "SUCCESS" : "PARTIAL",
+        "general",
+        [],
+      );
+    } catch {}
+
+    // Governance
+    try {
+      const { governanceEngine } = await import("../governance/governance-engine");
+      governanceEngine.health();
+    } catch {}
+
+    // Build synthesis context
+    const contextParts = results.map(r =>
+      `## ${r.executive} Report\nConfidence: ${r.confidence}%\n\n${r.content}`
+    );
+
+    return {
+      executiveResults: results,
+      synthesisContext: contextParts.join("\n\n---\n\n"),
+    };
   }
 }
 

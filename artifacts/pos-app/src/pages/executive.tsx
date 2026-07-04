@@ -31,6 +31,12 @@ export default function ExecutiveWorkspace() {
   const [loading, setLoading] = React.useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
 
+  // ECP-047: Executive Workspace state
+  const [missionPhase, setMissionPhase] = React.useState<string>("idle");
+  const [execCards, setExecCards] = React.useState<{ executive: string; status: string; progress: number; duration: number }[]>([]);
+  const [timeline, setTimeline] = React.useState<{ time: string; text: string }[]>([]);
+  const [synthesis, setSynthesis] = React.useState<{ active: boolean; execCount: number; evidenceCount: number }>({ active: false, execCount: 0, evidenceCount: 0 });
+
   // Fetch org status on mount
   React.useEffect(() => {
     fetch("/api/ai/readiness-public").then(r => r.json()).then(setReadiness);
@@ -102,10 +108,54 @@ export default function ExecutiveWorkspace() {
                 setPipelineState(`${data.runtime}: ${data.event} → ${data.payload?.to || ""}`);
               }
               // Status remains as-is
-              if (data.type === "status") setStatusMsg(data.message);
+              if (data.type === "status") {
+                setStatusMsg(data.message);
+                // ECP-047: Detect execution lifecycle phases from status messages
+                const msg = data.message || String(data.state || "");
+                if (msg.includes("Dispatching") || msg.includes("Mendelegasikan")) {
+                  setMissionPhase("dispatching");
+                } else if (msg.includes("Synthesizing")) {
+                  setSynthesis(s => ({ ...s, active: true }));
+                } else if (msg.includes(":") && !msg.startsWith("[")) {
+                  // Per-executive status: "CTO: Executing"
+                }
+              }
+              // ECP-047: Per-executive state updates (prefixed: "CTO: Running")
+              if (data.type === "status" && data.state) {
+                const st = String(data.state);
+                const colonIdx = st.indexOf(":");
+                if (colonIdx > 1) {
+                  const execName = st.slice(0, colonIdx).trim();
+                  const execState = st.slice(colonIdx + 1).trim();
+                  setExecCards(prev => {
+                    const existing = prev.findIndex(c => c.executive === execName);
+                    if (existing >= 0) {
+                      const copy = [...prev];
+                      copy[existing] = { ...copy[existing], status: execState };
+                      return copy;
+                    }
+                    return [...prev, { executive: execName, status: execState, progress: 0, duration: 0 }];
+                  });
+                  setTimeline(prev => [...prev.slice(-19), { time: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }), text: `${execName}: ${execState}` }]);
+                }
+              }
               // ECP-020: Execution progress updates
               if (data.type === "execution_update") {
                 setExecSnapshot(data);
+                setMissionPhase("executing");
+                // Update executive card progress
+                if (data.owner && data.owner !== "Self") {
+                  setExecCards(prev => prev.map(c =>
+                    c.executive === data.owner ? { ...c, progress: data.progress?.execution || 0 } : c
+                  ));
+                }
+              }
+              // Tool events → timeline
+              if (data.type === "tool") {
+                setTimeline(prev => [...prev.slice(-19), {
+                  time: new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+                  text: `⚙️ ${data.payload?.name || data.event}`,
+                }]);
               }
             } catch {}
           }
@@ -113,6 +163,10 @@ export default function ExecutiveWorkspace() {
         if (accumulated) {
           setReports(prev => [...prev, { role: "CTO", text: accumulated, timestamp: new Date().toISOString() }]);
         }
+        // ECP-047: Synthesis complete — collapse card after delay
+        setSynthesis(s => ({ ...s, active: false }));
+        setMissionPhase("completed");
+        setTimeout(() => { setExecCards([]); setMissionPhase("idle"); }, 3000);
       }
     } catch {
       setReports(prev => [...prev, { role: "CTO", text: "Respons sedang diproses. Hasil akan muncul setelah refresh halaman.", timestamp: new Date().toISOString() }]);
@@ -144,6 +198,75 @@ export default function ExecutiveWorkspace() {
               <StatusBadge icon={Activity} label="Health" value="96" color="green" />
             </div>
           </header>
+
+          {/* ECP-047: Executive Workspace — Mission + Board + Timeline + Synthesis */}
+          {(missionPhase !== "idle" || execCards.length > 0) && (
+            <div className="px-6 py-3 space-y-3 border-b border-[#1565FF]/10 bg-white/50 dark:bg-white/[0.02]">
+              {/* Mission Card */}
+              {missionPhase !== "idle" && (
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="font-semibold text-slate-600 dark:text-slate-300">
+                    Mission · <span className="text-[#1565FF]">{missionPhase}</span>
+                  </span>
+                  {execSnapshot?.progress && (
+                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden max-w-[200px]">
+                      <div className="h-full bg-[#1565FF] rounded-full transition-all duration-500" style={{ width: `${execSnapshot.progress.overall || 0}%` }} />
+                    </div>
+                  )}
+                  <span className="text-slate-400">{execSnapshot?.progress?.overall || 0}%</span>
+                </div>
+              )}
+
+              {/* Executive Board */}
+              {execCards.length > 0 && (
+                <div className="flex flex-wrap gap-3">
+                  {execCards.map(c => (
+                    <div key={c.executive} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs ${
+                      c.status === "Running" || c.status === "Executing" || c.status.includes("Dispatching")
+                        ? "border-[#1565FF]/30 bg-[#1565FF]/5"
+                        : c.status === "Completed" || c.status === "Selesai"
+                          ? "border-green-200 bg-green-50 dark:bg-green-950/30"
+                          : "border-slate-200 bg-slate-50 dark:bg-slate-800/50"
+                    }`}>
+                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: c.status.includes("Run") || c.status.includes("Exec") ? "#1565FF" : c.status.includes("Complet") || c.status.includes("Selesai") ? "#22c55e" : "#94a3b8" }} />
+                      <span className="font-medium text-slate-600 dark:text-slate-300">{c.executive}</span>
+                      <span className="text-slate-400">{c.status}</span>
+                      {c.progress > 0 && (
+                        <div className="w-12 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                          <div className="h-full bg-[#1565FF] rounded-full" style={{ width: `${c.progress}%` }} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Execution Timeline */}
+              {timeline.length > 0 && (
+                <details className="text-xs">
+                  <summary className="text-slate-400 cursor-pointer hover:text-slate-600">Timeline ({timeline.length})</summary>
+                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                    {timeline.map((t, i) => (
+                      <div key={i} className="flex gap-2 text-slate-500">
+                        <span className="text-slate-300 shrink-0">{t.time}</span>
+                        <span>{t.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+
+              {/* CEO Synthesis Card */}
+              {synthesis.active && (
+                <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 text-xs">
+                  <Brain className="w-4 h-4 text-amber-500" />
+                  <span className="font-medium text-amber-700 dark:text-amber-300">CEO Synthesis</span>
+                  <span className="text-amber-500">Synthesizing...</span>
+                  <span className="ml-auto text-amber-400 animate-pulse">●●●</span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">

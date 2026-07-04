@@ -7,6 +7,7 @@ import { understand } from "../runtime/semantic-engine";
 import { buildSpecV1 } from "../runtime/execution-spec";
 import { verify } from "../runtime/verification-engine";
 import { organizationEngine } from "../runtime/organization-engine";
+import { executiveCollaboration } from "../../organization/executive-collaboration";
 import { callDeepSeek } from "../llm/llm-adapter";
 import { getFoundationProvider } from "../runtime/foundation";
 import { assemble } from "../runtime/prompt-assembler";
@@ -71,16 +72,23 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
 
   // Stage 6: Delegation via Organization Engine
   pipeline.push("OrganizationEngine");
-  const delegation = organizationEngine.delegate(ctx.message);
-  ctx.onState?.(delegation ? `Didelegasikan ke ${delegation.runtime}` : "Direct");
-  const delegationSummary = delegation
-    ? `Didelegasikan ke ${delegation.runtime} — ${delegation.reason}`
-    : "Diproses langsung oleh CEO Runtime";
+  const executives = organizationEngine.delegateAll(ctx.message);
+  const shouldDispatch = executives.length > 1
+    || (executives.length === 1 && !executives[0].fallback);
+
+  if (shouldDispatch) {
+    ctx.onState?.(`Dispatching: ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`);
+    ctx.onProgress?.(`📋 Mendelegasikan ke ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`);
+  }
 
   // Stage 7: Decision
   const decision: ExecutiveDecision = {
     goal: spec.objective,
-    delegation: delegation ? { runtime: delegation.runtime, reason: delegation.reason } : null,
+    delegation: shouldDispatch
+      ? { runtime: executives.map((e: { runtime: string }) => e.runtime).join(", "), reason: "Multi-executive dispatch" }
+      : executives.length > 0
+        ? { runtime: executives[0].runtime, reason: executives[0].reason }
+        : null,
     priority: spec.risk === "high" ? "critical" : "normal",
     risk: spec.risk as "low" | "medium" | "high",
     reasoning: spec.semanticReasoning,
@@ -93,6 +101,29 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     rawText = `❌ ${verification.stopReason}`;
   } else if (contract.intent === "greeting") {
     rawText = "Halo. Ada yang bisa CEO Runtime bantu?";
+  } else if (shouldDispatch) {
+    // ECP-047: Multi-executive dispatch → collect → CEO synthesis
+    pipeline.push("ExecutiveCollaboration");
+    const result = await executiveCollaboration.executeMission(
+      executives, ctx, spec.objective,
+    );
+
+    pipeline.push("CEOSynthesis");
+    ctx.onState?.("Synthesizing");
+    const synthesisPrompt = assemble({
+      identity: CEO_IDENTITY,
+      directive: directiveContent,
+      decision: { ...decision, executiveResults: result.executiveResults },
+      outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
+      context: result.synthesisContext,
+      maxTokens: 4000,
+      mode: "ceo",
+    });
+    try {
+      rawText = await callDeepSeek(synthesisPrompt, ctx.message, ctx.userId, "ceo", 4000);
+    } catch {
+      rawText = "CEO Runtime sedang sibuk. Coba lagi.";
+    }
   } else {
     pipeline.push("PromptAssembly");
     // ECP-039: NO toolRules — CEO is REASONING mode. No tools.
@@ -118,9 +149,11 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
 
   // Stage 9: Executive Report
   pipeline.push("ExecutiveReport");
-  const delegationLine = delegation
-    ? `\n> — CEO Runtime · Didelegasikan ke ${delegation.runtime}`
-    : "\n> — CEO Runtime · Direct";
+  const delegationLine = shouldDispatch
+    ? `\n> — CEO Runtime · Didispatch ke ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`
+    : executives.length > 0
+      ? `\n> — CEO Runtime · Didelegasikan ke ${executives[0].runtime}`
+      : "\n> — CEO Runtime · Direct";
   const text = `## Executive Report\n\n${rawText}\n${delegationLine}`;
 
   return {

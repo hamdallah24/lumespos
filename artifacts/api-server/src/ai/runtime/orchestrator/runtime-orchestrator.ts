@@ -1,6 +1,7 @@
 // ECP-031: Runtime Orchestrator — single entry point for all AI requests
 // Frozen. No request bypasses this. Every request flows through:
 // Health → Resolve → Execute → Result → Knowledge Queue → Response
+// ECP-047: SSOT runtime registry. Internal dispatch via getRuntime().
 
 import type { IRuntime, RuntimeContext } from "./runtime-interface";
 import type { RuntimeResult } from "./runtime-result";
@@ -12,8 +13,21 @@ import { createResult } from "./runtime-result";
 class RuntimeOrchestrator {
   private _initialized = false;
 
+  /** ECP-047: SSOT runtime registry — single source of truth */
+  readonly runtimeRegistry = new Map<string, IRuntime>();
+
+  constructor() {
+    resolver.setRef(this.runtimeRegistry);
+  }
+
   register(runtime: IRuntime): void {
+    this.runtimeRegistry.set(runtime.name, runtime);
     resolver.register(runtime);
+  }
+
+  /** ECP-047: Internal dispatch — resolves runtime by name. Bypasses resolver. */
+  getRuntime(name: string): IRuntime | null {
+    return this.runtimeRegistry.get(name) ?? null;
   }
 
   async execute(ctx: RuntimeContext): Promise<RuntimeResult> {

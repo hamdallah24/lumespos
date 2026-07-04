@@ -209,6 +209,54 @@ class OrganizationRuntime {
     return null;
   }
 
+  /** ECP-047: Route delegation to ALL matching runtimes (multi-executive dispatch) */
+  delegateAll(task: string): DelegationResult[] {
+    if (!this.loaded) this.load();
+
+    const lower = task.toLowerCase();
+    const results: DelegationResult[] = [];
+    const seen = new Set<string>();
+
+    const domainMap: Record<string, string> = {
+      "code|bug|deploy|ssh|architecture|refactor|server|vps": "RUNTIME-002",
+      "inventory|sales|ops|warehouse": "RUNTIME-003",
+      "budget|accounting|audit|finance": "RUNTIME-004",
+      "test|verify|qa|quality": "RUNTIME-005",
+      "deploy|ci|pipeline": "RUNTIME-006",
+      "research|investigation|analysis|study": "RUNTIME-007",
+    };
+
+    for (const [pattern, targetId] of Object.entries(domainMap)) {
+      const keywords = pattern.split("|");
+      if (keywords.some(kw => lower.includes(kw))) {
+        if (seen.has(targetId)) continue;
+        const target = this.nodes.get(targetId);
+        if (!target) continue;
+        if (target.health === "Offline") continue;
+        if (target.maturity === "L0" && !lower.includes("plan")) continue;
+        seen.add(targetId);
+        results.push({
+          runtimeId: targetId,
+          runtime: target.runtime,
+          reason: `Domain match: ${keywords.filter(kw => lower.includes(kw)).join(", ")}`,
+          fallback: false,
+        });
+      }
+    }
+
+    if (results.length === 0) {
+      const cto = this.nodes.get("RUNTIME-002");
+      if (cto) {
+        results.push({
+          runtimeId: "RUNTIME-002", runtime: "CTO",
+          reason: "No domain match — default to CTO", fallback: true,
+        });
+      }
+    }
+
+    return results;
+  }
+
   /** Check if runtime can accept tasks */
   canAccept(id: string): boolean {
     const node = this.nodes.get(id);
@@ -240,6 +288,7 @@ export const organizationEngine = {
   getTree: () => orgRuntime.getTree(),
   find: (id: string) => orgRuntime.find(id),
   delegate: (task: string) => orgRuntime.delegate(task),
+  delegateAll: (task: string) => orgRuntime.delegateAll(task),
   healthReport: () => orgRuntime.healthReport(),
   chain: (id: string) => orgRuntime.chain(id),
   subordinates: (id: string) => orgRuntime.subordinates(id),
