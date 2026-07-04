@@ -1,6 +1,6 @@
-// ECP-018: COO Runtime — Chief Operations Officer
-// Foundation v2.0 compliant. BusinessPlanner first, LLM fallback.
-// COO NEVER makes engineering decisions.
+// ECP-041: COO Runtime — Chief Operations Officer
+// Foundation v2.0. ExecutionPipeline-driven. Governor owns all policy.
+// COO NEVER makes engineering decisions. COO NEVER picks tools.
 
 import { getIdentity } from "../ai/runtime/identity";
 import { understand } from "../ai/runtime/semantic-engine";
@@ -9,7 +9,8 @@ import { verify } from "../ai/runtime/verification-engine";
 import { getFoundationProvider } from "../ai/runtime/foundation";
 import { assemble } from "../ai/runtime/prompt-assembler";
 import { JSON_OUTPUT_SCHEMA } from "../routes/ai-prompts";
-import { callDeepSeek } from "../routes/ai-helpers";
+import { ExecutionPipeline } from "../ai/runtime/execution/execution-pipeline";
+import type { ExecutionContract } from "../ai/runtime/execution/execution-manifest";
 import { executeOperation } from "../routes/ai-business";
 
 const COO_IDENTITY = getIdentity("COO")!;
@@ -89,7 +90,7 @@ function plan(message: string): BusinessPlan | null {
   return null;
 }
 
-async function execute(task: COOTask): Promise<COOResult> {
+async function execute(task: COOTask, execContract?: ExecutionContract): Promise<COOResult> {
   const pipeline: string[] = [];
   const branchId = task.branchId || 1;
 
@@ -121,12 +122,12 @@ async function execute(task: COOTask): Promise<COOResult> {
 
   let result = "";
   if (businessPlan && businessPlan.confidence >= 80) {
-    // High confidence — execute directly
+    // High confidence — execute directly (no LLM needed)
     pipeline.push("ExecuteOperation");
     result = await executeOperation(businessPlan.action, businessPlan.params, branchId);
   } else if (businessPlan) {
-    // Low confidence — LLM fallback
-    pipeline.push("LLMEngine");
+    // Low confidence — LLM fallback via ExecutionPipeline (Governor-owned)
+    pipeline.push("PipelineLLM");
     const systemPrompt = assemble({
       identity: COO_IDENTITY,
       directive: directiveContent,
@@ -135,15 +136,21 @@ async function execute(task: COOTask): Promise<COOResult> {
       maxTokens: 800,
       mode: "bisnis",
     });
-    const raw = await callDeepSeek(systemPrompt, task.message, task.userId, "bisnis", 800, true);
+    const messages = [{ role: "system", content: systemPrompt }, { role: "user", content: task.message }];
+    const execResult = await ExecutionPipeline.execute(
+      { role: "COO" },
+      messages, [], 800, task.userId, "bisnis", task.message, true,
+      { onProgress: task.onProgress },
+      { complexity: "simple", domain: "inventory", objective: spec.objective },
+    );
     pipeline.push("ExecuteOperation");
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(execResult.text);
       result = await executeOperation(parsed.action, parsed.params, branchId);
-    } catch { result = raw; }
+    } catch { result = execResult.text || "Gagal memproses operasi."; }
   } else {
-    // No rule match — LLM full generation
-    pipeline.push("LLMEngine");
+    // No rule match — full LLM generation via ExecutionPipeline (Governor-owned)
+    pipeline.push("PipelineLLM");
     const systemPrompt = assemble({
       identity: COO_IDENTITY,
       directive: directiveContent,
@@ -151,12 +158,18 @@ async function execute(task: COOTask): Promise<COOResult> {
       maxTokens: 800,
       mode: "bisnis",
     });
-    const raw = await callDeepSeek(systemPrompt, task.message, task.userId, "bisnis", 800, true);
+    const messages = [{ role: "system", content: systemPrompt }, { role: "user", content: task.message }];
+    const execResult = await ExecutionPipeline.execute(
+      { role: "COO" },
+      messages, [], 800, task.userId, "bisnis", task.message, true,
+      { onProgress: task.onProgress },
+      { complexity: "simple", domain: "inventory", objective: spec.objective },
+    );
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = JSON.parse(execResult.text);
       pipeline.push("ExecuteOperation");
       result = await executeOperation(parsed.action, parsed.params, branchId);
-    } catch { result = raw; }
+    } catch { result = execResult.text || "Gagal memproses operasi."; }
   }
 
   pipeline.push("BusinessResult");
@@ -176,9 +189,9 @@ function health() {
 
 export const cooRuntime = {
   name: "COORuntime",
-  version: "1.0.0",
+  version: "2.0.0",
   capabilities: ["inventory-management", "sales-tracking", "product-management", "branch-operations"],
-  dependencies: ["FoundationLoader", "SemanticEngine", "BusinessPlanner", "LLM"],
+  dependencies: ["FoundationLoader", "SemanticEngine", "BusinessPlanner", "ExecutionPipeline"],
   health,
   execute,
 };

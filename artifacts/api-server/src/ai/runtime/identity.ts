@@ -3,7 +3,7 @@
 
 export interface AgentIdentity {
   id: string;
-  role: "CTO" | "COO" | "CEO" | "CFO" | "Researcher" | "Founder" | "Chat";
+  role: "CTO" | "COO" | "CEO" | "CFO" | "CMO" | "CHRO" | "CIO" | "Researcher" | "Founder" | "Chat";
   authority: "full" | "limited" | "readonly" | "none";
   capabilities: string[];        // What this agent CAN do
   scope: string[];               // Domains this agent operates in
@@ -69,6 +69,50 @@ export const IDENTITIES: Record<string, AgentIdentity> = {
     trustScore: 100,
     memoryScope: "session",
     approvalRequired: false,
+  },
+  CFO: {
+    id: "cfo-v1",
+    role: "CFO",
+    authority: "limited",
+    capabilities: ["viewReports", "manageBudget", "auditTransactions", "generateFinanceReport"],
+    scope: ["finance", "accounting", "budget", "audit"],
+    knowledgeDomains: ["foundation", "business", "finance"],
+    trustScore: 70,
+    memoryScope: "project",
+    approvalRequired: true,
+  },
+  CMO: {
+    id: "cmo-v1",
+    role: "CMO",
+    authority: "limited",
+    capabilities: ["viewAnalytics", "generateMarketingReport", "customerInsight"],
+    scope: ["marketing", "analytics", "customers"],
+    knowledgeDomains: ["foundation", "business"],
+    trustScore: 65,
+    memoryScope: "project",
+    approvalRequired: true,
+  },
+  CHRO: {
+    id: "chro-v1",
+    role: "CHRO",
+    authority: "limited",
+    capabilities: ["viewPersonnel", "scheduleShift", "generateHRReport"],
+    scope: ["hr", "personnel", "scheduling"],
+    knowledgeDomains: ["foundation", "business"],
+    trustScore: 65,
+    memoryScope: "project",
+    approvalRequired: true,
+  },
+  CIO: {
+    id: "cio-v1",
+    role: "CIO",
+    authority: "limited",
+    capabilities: ["systemHealth", "securityAudit", "infrastructureReport"],
+    scope: ["infrastructure", "security", "systems"],
+    knowledgeDomains: ["foundation", "architecture", "devops"],
+    trustScore: 75,
+    memoryScope: "project",
+    approvalRequired: true,
   },
 };
 

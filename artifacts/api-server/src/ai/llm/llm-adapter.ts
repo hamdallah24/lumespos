@@ -53,6 +53,7 @@ export async function callLLMWithTools(
   tools: { name: string; description: string; parameters: Record<string, any> }[],
   maxTokens = 2000,
   stream = false,
+  jsonMode = false,
   onToken?: (token: string) => void,
 ): Promise<LLMResult> {
   const key = DEEPSEEK_KEY;
@@ -69,6 +70,7 @@ export async function callLLMWithTools(
   }));
 
   const body: any = { model, messages: clean, max_tokens: maxTokens, temperature: 0.7, stream };
+  if (jsonMode) body.response_format = { type: "json_object" };
   if (tools.length > 0) body.tools = toolsPayload;
 
   const controller = new AbortController();
@@ -209,6 +211,7 @@ export async function callDeepSeekWithTools(
   const result = await ExecutionPipeline.execute(
     { role: "CTO" },
     messages, tools, maxTokens, userId, mode, user,
+    false,
     { onProgress, onTool, onExecutionEvent },
     executionSpec,
   );

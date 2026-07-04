@@ -239,7 +239,7 @@ class ExecutionGovernor {
     const isEmpty = capabilities.length === 0;
 
     return {
-      role: role as "CEO" | "CTO",
+      role: role as "CEO" | "CTO" | "COO",
       mission: spec.intent || "Analyze",
       objective: spec.objective || spec.intent || "Complete task",
       mode: isEmpty ? "REASONING" : "EXECUTION",

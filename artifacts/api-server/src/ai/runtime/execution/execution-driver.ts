@@ -59,6 +59,7 @@ export class ExecutionDriver {
     userId: number,
     mode: string,
     user: string,
+    jsonMode = false,
   ): Promise<string> {
     this.governor.beginExecution(context.contract);
     context.state = "EXECUTING";
@@ -84,13 +85,13 @@ export class ExecutionDriver {
       }
 
       // ── LLM Call ──
-      const result = await callLLMWithTools(messages, tools, maxTokens, false);
+      const result = await callLLMWithTools(messages, tools, maxTokens, false, jsonMode);
       const tokensThisCycle = result.tokensUsed;
 
       // ── Error: round > 0 → throw; round 0 → retry without tools ──
       if (result.status === "error") {
         if (context.cycle > 0) throw new Error(`AI engine error at round ${context.cycle}: HTTP ${result.errorStatus}`);
-        const retry = await callLLMWithTools(messages, [], maxTokens, false);
+        const retry = await callLLMWithTools(messages, [], maxTokens, false, jsonMode);
         const text = stripDSML(retry.content || "");
         const validated = validateResponse(text);
         if (validated.cleanedText) {
@@ -148,7 +149,7 @@ export class ExecutionDriver {
 
       // ── Evaluate → safety net final call ──
       if (!this.governor.shouldContinue()) {
-        const finalText = await this.doFinalCall(messages, tools, maxTokens, userId, mode, user, result.message);
+        const finalText = await this.doFinalCall(messages, tools, maxTokens, userId, mode, user, result.message, jsonMode);
         context.result = finalText;
         this.governor.finishExecution(context.contract);
         return finalText;
@@ -162,11 +163,11 @@ export class ExecutionDriver {
   /** Final summarization call when Governor signals stop. Retries without tools if model keeps calling them. */
   private async doFinalCall(
     messages: any[], tools: { name: string; description: string; parameters: Record<string, any> }[],
-    maxTokens: number, userId: number, mode: string, user: string, lastMsg: any,
+    maxTokens: number, userId: number, mode: string, user: string, lastMsg: any, jsonMode: boolean,
   ): Promise<string> {
     const doCall = async (withTools: boolean): Promise<string> => {
       const clean = sanitizeMessages([...messages]);
-      const result = await callLLMWithTools(clean, withTools ? tools : [], 8000, false);
+      const result = await callLLMWithTools(clean, withTools ? tools : [], 8000, false, jsonMode);
       if (result.status === "tool_calls" && withTools) {
         const { tool_calls, ...rest } = result.message;
         messages.push(rest);

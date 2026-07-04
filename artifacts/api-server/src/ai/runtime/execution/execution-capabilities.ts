@@ -15,6 +15,10 @@ export const ROLE_DEFAULT_CAPABILITIES: Record<string, string[]> = {
   CEO:  [],
   CTO:  ["READ_SOURCE", "SEARCH_SOURCE", "ANALYZE_DEPENDENCY", "INSPECT_RUNTIME", "EXECUTE_COMMAND"],
   COO:  [],
+  CFO:  [],
+  CMO:  [],
+  CHRO: [],
+  CIO:  [],
 };
 
 export function getDefaultCapabilities(role: string): string[] {

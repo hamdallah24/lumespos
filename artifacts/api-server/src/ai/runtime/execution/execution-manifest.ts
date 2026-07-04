@@ -156,7 +156,7 @@ export interface ExecutionSnapshot {
 // allowedTools MUST always derive from capabilities via ToolRegistry.resolve().
 // No Runtime may modify this contract.
 export interface ExecutionContract {
-  role: "CEO" | "CTO";
+  role: "CEO" | "CTO" | "COO";
   mission: string;
   objective: string;
   mode: "REASONING" | "EXECUTION";

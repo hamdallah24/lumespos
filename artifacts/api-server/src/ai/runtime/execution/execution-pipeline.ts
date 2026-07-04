@@ -6,7 +6,7 @@ import { PipelineContext } from "./execution-context";
 import type { ExecutionContract } from "./execution-manifest";
 
 export interface PipelineSpec {
-  role: "CEO" | "CTO";
+  role: "CEO" | "CTO" | "COO";
   intent?: string;
   domain?: string;
   complexity?: string;
@@ -37,6 +37,7 @@ export class ExecutionPipeline {
     userId: number,
     mode: string,
     user: string,
+    jsonMode = false,
     callbacks?: PipelineCallback,
     executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string },
   ): Promise<PipelineResult> {
@@ -57,7 +58,7 @@ export class ExecutionPipeline {
     });
 
     try {
-      const text = await driver.run(context, messages, tools, maxTokens, userId, mode, user);
+      const text = await driver.run(context, messages, tools, maxTokens, userId, mode, user, jsonMode);
       return { success: true, text, contract: context.contract, context };
     } catch (e: any) {
       context.state = "FAILED";
