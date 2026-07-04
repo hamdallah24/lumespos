@@ -4,7 +4,6 @@
 // Fix Pack A: Memory moved to services/ai-memory-service.ts.
 // This file: re-exports only. No implementations.
 // ─────────────────────────────────────────────────────────────
-import { stripDSML } from "../ai/runtime/validator";
 import { db, sharedContextTable, checklistItemsTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 
@@ -26,7 +25,6 @@ export type { ToolDef } from "../ai/tools/tool-adapter";
 
 // ── MEMORY (re-export from service layer) ──
 export { remember, getHistory, getOrCreateConversation, clearMemory } from "../services/ai-memory-service";
-type ChatMsg = { role: "user" | "assistant"; content: string };
 
 // ── SHARED CONTEXT (agent-to-agent communication) ──
 export async function saveSharedContext(userId: number, mode: string, summary: string) {
@@ -89,28 +87,6 @@ export async function clearChecklistItems(conversationId: number) {
   }
 }
 
-
-// ── SPRINT 1: Memory Bridge — history truncation + contamination filter ──
-
-function filterContamination(history: ChatMsg[]): ChatMsg[] {
-  const shellCmdRe = /^(cd |grep |wc |find |ls |cat |head |tail |pm2 |ssh |scp |sudo |pnpm |npm |git )/;
-
-  return history.map(msg => {
-    if (msg.role !== "assistant") return msg;
-    // Check if message contains execution commands as main content
-    const lines = msg.content.split("\n").filter(l => l.trim());
-    const cmdLineCount = lines.filter(l => shellCmdRe.test(l.trim())).length;
-    // If >30% of lines are shell commands, this is likely contamination
-    if (cmdLineCount > 0 && cmdLineCount / Math.max(lines.length, 1) > 0.3) {
-      return { ...msg, content: "[content filtered — contamination detected]" };
-    }
-    // Strip DSML fragments from history
-    if (typeof msg.content === "string" && /<｜｜DSML｜｜/i.test(msg.content)) {
-      return { ...msg, content: stripDSML(msg.content) };
-    }
-    return msg;
-  });
-}
 
 export { callDeepSeekWithTools } from "../ai/llm/llm-adapter";
 

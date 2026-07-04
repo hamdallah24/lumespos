@@ -4,15 +4,10 @@ import { Router } from "express";
 import { requireRole, requireAuth } from "../middlewares/requireAuth";
 import { mergeDeploy, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation, remember, clearMemory } from "./ai-helpers";
 import { orchestrator } from "../ai/runtime/orchestrator";
-import { executeOperation } from "./ai-business";
-import { runMigration } from "./migrate";
-import { computeHealthScore, lastScore } from "../ai/runtime/health-policy";
+import { computeHealthScore } from "../ai/runtime/health-policy";
 import { registryStatus } from "../ai/runtime/registry";
-import { emitToolEvent, emitStateEvent, emitRuntimeEvent } from "../ai/runtime/execution-stream";
+import { emitToolEvent, emitStateEvent } from "../ai/runtime/execution-stream";
 import { replayExecution } from "../ai/runtime/replay-engine";
-import { RuntimeImportance, RuntimeEventType } from "../ai/runtime/runtime-event";
-import { db, ingredientsTable, semiFinishedTable, productsTable, usersTable, shiftAuditsTable, currentInventoryTable, orderItemsTable, ordersTable, branchesTable } from "@workspace/db";
-import { eq, and, gte, sum, desc, sql } from "drizzle-orm";
 
 const router = Router();
 
