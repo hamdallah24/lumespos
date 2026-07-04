@@ -6,7 +6,7 @@ import { ExecutionGovernor } from "./execution-governor";
 import { PipelineContext } from "./execution-context";
 import { callLLMWithTools } from "../../llm/llm-adapter";
 import { executeToolCall, getToolLabel } from "../../tools/tool-adapter";
-import { remember } from "../../../routes/ai-helpers";
+import { remember } from "../../../services/ai-memory-service";
 import { stripDSML, sanitizeMessages, validateMessageSequence, validateResponse } from "../validator";
 
 export const EXECUTION_INSTRUCTION: Record<string, string> = {

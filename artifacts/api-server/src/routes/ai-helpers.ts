@@ -1,10 +1,11 @@
 // ─────────────────────────────────────────────────────────────
 // AI HELPERS — Compatibility barrel for backward compat
-// ECP-040: All logic moved to llm/ and tools/. This file only
-// re-exports + DB-backed memory functions.
+// ECP-040: All logic moved to llm/ and tools/.
+// Fix Pack A: Memory moved to services/ai-memory-service.ts.
+// This file: re-exports only. No implementations.
 // ─────────────────────────────────────────────────────────────
 import { stripDSML } from "../ai/runtime/validator";
-import { db, conversationsTable, messagesTable, sharedContextTable, checklistItemsTable } from "@workspace/db";
+import { db, sharedContextTable, checklistItemsTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
 
 // ── DEEPSEEK / SUMOPOD ──
@@ -23,83 +24,9 @@ export {
 } from "../ai/tools/tool-adapter";
 export type { ToolDef } from "../ai/tools/tool-adapter";
 
-// ── MEMORY (DB-backed) ──
+// ── MEMORY (re-export from service layer) ──
+export { remember, getHistory, getOrCreateConversation, clearMemory } from "../services/ai-memory-service";
 type ChatMsg = { role: "user" | "assistant"; content: string };
-const MAX_MEMORY = 10;
-
-export async function getOrCreateConversation(userId: number, mode: string): Promise<number> {
-  // Atomic upsert — no race condition: INSERT if not exists, RETURN id either way
-  const result = await db.execute(
-    sql`INSERT INTO ai_conversations (user_id, mode, created_at, updated_at)
-        VALUES (${userId}, ${mode}, NOW(), NOW())
-        ON CONFLICT (user_id, mode) DO UPDATE SET updated_at = NOW()
-        RETURNING id`
-  );
-  return (result.rows[0] as any).id as number;
-}
-
-export async function getHistory(userId: number, mode: string, maxContentLength?: number): Promise<ChatMsg[]> {
-  try {
-    const convId = await getOrCreateConversation(userId, mode);
-    const rows = await db.select().from(messagesTable)
-      .where(eq(messagesTable.conversationId, convId))
-      .orderBy(messagesTable.id)
-      .limit(MAX_MEMORY * 2);
-    return rows.map(r => ({
-      role: r.role as "user" | "assistant",
-      content: maxContentLength && r.content.length > maxContentLength
-        ? r.content.slice(0, maxContentLength) + "…"
-        : r.content,
-    }));
-  } catch (e) {
-    console.error("[ai] DB getHistory error:", e);
-    return [];
-  }
-}
-
-export async function remember(userId: number, mode: string, userMsg: string, assistantReply: string) {
-  try {
-    const convId = await getOrCreateConversation(userId, mode);
-    // Single transaction: INSERT + PRUNE + UPDATE = 1 round trip
-    await db.transaction(async (tx) => {
-      await tx.insert(messagesTable).values([
-        { conversationId: convId, role: "user", content: userMsg.slice(0, 1000) },
-        { conversationId: convId, role: "assistant", content: assistantReply.slice(0, 4000) },
-      ]);
-      // Prune: keep only newest MAX_MEMORY*2 messages
-      await tx.execute(
-        sql`DELETE FROM ai_messages
-            WHERE conversation_id = ${convId}
-              AND id NOT IN (
-                SELECT id FROM ai_messages
-                WHERE conversation_id = ${convId}
-                ORDER BY id DESC
-                LIMIT ${MAX_MEMORY * 2}
-              )`
-      );
-      await tx.update(conversationsTable)
-        .set({ updatedAt: new Date() })
-        .where(eq(conversationsTable.id, convId));
-    });
-  } catch (e) {
-    console.error("[ai] DB remember error:", e);
-  }
-}
-
-export async function clearMemory(userId: number, mode: string) {
-  try {
-    const existing = await db.select().from(conversationsTable)
-      .where(and(eq(conversationsTable.userId, userId), eq(conversationsTable.mode, mode)))
-      .limit(1);
-    if (existing.length > 0) {
-      await db.delete(messagesTable)
-        .where(eq(messagesTable.conversationId, existing[0].id));
-      await db.delete(conversationsTable).where(eq(conversationsTable.id, existing[0].id));
-    }
-  } catch (e) {
-    console.error("[ai] DB clearMemory error:", e);
-  }
-}
 
 // ── SHARED CONTEXT (agent-to-agent communication) ──
 export async function saveSharedContext(userId: number, mode: string, summary: string) {

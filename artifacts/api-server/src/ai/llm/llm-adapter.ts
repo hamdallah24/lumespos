@@ -5,10 +5,9 @@
 
 import {
   getHistory, remember,
-} from "../../routes/ai-helpers";
+} from "../../services/ai-memory-service";
 import { ExecutionContext, RuntimeState } from "../runtime/execution-context";
 import { ExecutionPipeline } from "../runtime/execution/execution-pipeline";
-import { foundationLoader } from "../runtime/foundation-loader";
 import { buildFoundationContext } from "../runtime/context-builder";
 import { assembleSystemPrompt } from "../runtime/prompt-assembler";
 import { loadKnowledgeWithContent } from "../runtime/knowledge-loader";

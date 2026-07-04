@@ -2,7 +2,7 @@
 // Provides typed memory entries. DB-backed via existing ai-helpers.ts.
 
 import type { MemoryEntry, ConversationSummary } from "./context-types";
-import { getHistory } from "../../../routes/ai-helpers";
+import { getHistory } from "../../../services/ai-memory-service";
 
 export async function getRecentDecisions(userId: number, mode: string, limit = 10): Promise<MemoryEntry[]> {
   try {
