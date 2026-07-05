@@ -137,6 +137,15 @@ export class ExecutionDriver {
 
       // ── Evaluate → safety net final call ──
       if (!this.governor.shouldContinue()) {
+        console.log("[GOVERNOR-STOP]", JSON.stringify({
+          cycle: context.cycle,
+          stopReason: this.governor.stopReason,
+          evidenceQuality: this.governor.metrics.evidenceQuality,
+          confidence: this.governor.metrics.confidence,
+          strategy: this.governor.strategyEngine.strategy,
+          trackerComplete: this.governor.tracker.isComplete(),
+          budgetExceeded: this.governor.budget.isExceeded().exceeded,
+        }));
         const finalText = await this.doFinalCall(messages, tools, maxTokens, userId, mode, user, result.message, jsonMode);
         context.result = finalText;
         this.governor.finishExecution(context.contract);
@@ -144,6 +153,14 @@ export class ExecutionDriver {
       }
     }
 
+    console.log("[GOVERNOR-STOP]", JSON.stringify({
+      cycle: context.cycle,
+      stopReason: this.governor.stopReason,
+      evidenceQuality: this.governor.metrics.evidenceQuality,
+      confidence: this.governor.metrics.confidence,
+      strategy: this.governor.strategyEngine.strategy,
+      trackerComplete: this.governor.tracker.isComplete(),
+    }));
     this.governor.finishExecution(context.contract);
     return "";
   }

@@ -137,6 +137,15 @@ export async function callDeepSeek(
     const maxSystemChars = mode === "ceo" ? 12000 : 4000;
     const messages: any[] = [{ role: "system", content: system.slice(0, maxSystemChars) }];
     for (const h of history) messages.push(h);
+    console.log("[CEO-LLM-CALL]", JSON.stringify({
+      mode,
+      systemLen: system.length,
+      slicedTo: maxSystemChars,
+      actualSent: system.slice(0, maxSystemChars).length,
+      hasExecResults: system.includes("## Executive Results"),
+      historyLen: history.length,
+      maxTokens,
+    }));
     let userContent = user.slice(0, 3000);
     userContent = userContent.replace(/\b(artifacts\/|\.local\/|lib\/)\S*\.[a-z]{2,4}\b/gi, "[file]");
     messages.push({ role: "user", content: userContent });
@@ -210,6 +219,13 @@ export async function callDeepSeekWithTools(
   messages.push({ role: "user", content: user.slice(0, 5000) });
 
   // Delegate entire lifecycle to ExecutionPipeline → Driver
+  console.log("[CTO-DISPATCH]", JSON.stringify({
+    systemLen: systemContent.length,
+    historyLen: filteredHistory.length,
+    msgLen: user.slice(0, 5000).length,
+    toolsCount: tools.length,
+    model: DEEPSEEK_MODEL,
+  }));
   const result = await ExecutionPipeline.execute(
     { role: "CTO" },
     messages, tools, maxTokens, userId, mode, user,
