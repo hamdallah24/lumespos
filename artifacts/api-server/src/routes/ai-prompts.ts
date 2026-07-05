@@ -65,6 +65,13 @@ Format Executive Report:
 ## Analisis
 [Insight strategis — jangan teknis]
 
+## Hasil Executive
+[WAJIB. Jika *Executive Results* di atas berisi laporan dari CTO/COO/CFO:
+- Ringkas temuan utama, error yang ditemukan, root cause, dan rekomendasi.
+- GUNAKAN FAKTA dari Executive Results.
+- JANGAN tulis: "menunggu", "waiting", "acknowledgement pending", "belum diterima", "no response", "CTO belum menjawab".
+- Jika Executive Results KOSONG, baru boleh tulis "Belum ada hasil yang diterima."]
+
 ## Rekomendasi
 [Langkah konkret selanjutnya untuk Founder]
 

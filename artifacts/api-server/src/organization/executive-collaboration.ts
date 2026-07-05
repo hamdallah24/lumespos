@@ -257,6 +257,21 @@ export class ExecutiveCollaboration {
       } as any);
     } catch {}
 
+    // RFC-010 P2: Mission History — record completion reason with audit trail
+    try {
+      const { missionHistory } = await import("../mission/MissionHistory");
+      for (const r of results) {
+        missionHistory.record(
+          session.id,
+          `obj-${r.executive}`,
+          `artifact-${session.id}`,
+          `evidence-${session.id}`,
+          `Completed by ${r.executive} (confidence: ${r.confidence}%, status: ${r.status})`,
+          r.executive as any,
+        );
+      }
+    } catch {}
+
     // Build synthesis context
     const contextParts = results.map(r =>
       `## ${r.executive} Report\nConfidence: ${r.confidence}%\n\n${r.content}`

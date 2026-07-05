@@ -303,8 +303,8 @@ export default function ExecutiveWorkspace() {
                 <div className="w-1.5 h-1.5 rounded-full bg-[#1565FF]" /> Memproses...
               </div>
             )}
-            {/* ECP-020: Progress Card — below Memproses, when snapshot available */}
-            {execSnapshot && (
+            {/* RFC-010: Progress Card — prefer MissionProgress when available */}
+            {(execSnapshot || missionProgress) && (
               <RuntimeProgressCard
                 snapshot={execSnapshot}
                 variant="full"

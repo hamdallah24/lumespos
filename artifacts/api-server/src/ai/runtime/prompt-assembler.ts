@@ -68,9 +68,11 @@ export function assemble(input: PromptAssemblyInput): string {
     totalTokens += estimateTokens(missionBlock);
   }
 
-  // BLOCK 4: Decision Context
+  // BLOCK 4: Decision Context — metadata only, no executiveResults blob
   if (input.decision && budget - totalTokens > 200) {
-    const decisionStr = typeof input.decision === "string" ? input.decision : JSON.stringify(input.decision, null, 2);
+    const raw = typeof input.decision === "string" ? input.decision : input.decision;
+    const { executiveResults, ...meta } = (typeof raw === "object" ? raw : {}) as any;
+    const decisionStr = JSON.stringify(meta, null, 2);
     const decisionBlock = `\n## Decision Context\n${decisionStr}`;
     sections.push(decisionBlock);
     totalTokens += estimateTokens(decisionBlock);
@@ -81,6 +83,13 @@ export function assemble(input: PromptAssemblyInput): string {
     const schemaBlock = `\n${input.outputSchema}`;
     sections.push(schemaBlock);
     totalTokens += estimateTokens(schemaBlock);
+  }
+
+  // BLOCK 5.5: Executive Results (CTO/COO/CFO reports)
+  if (input.context && budget - totalTokens > 200) {
+    const contextBlock = `\n## Executive Results\n${String(input.context).slice(0, 6000)}`;
+    sections.push(contextBlock);
+    totalTokens += estimateTokens(contextBlock);
   }
 
   // BLOCK 6: Tool Rules

@@ -13,6 +13,7 @@ import { ExecutionMetrics } from "./execution-metrics";
 import { ExecutionJournal } from "./execution-journal";
 import { delegationEngine } from "./delegation-engine";
 import { executionPolicy } from "./execution-policy";
+import { EXECUTION_COMPLETION_POLICY_V1 } from "./execution-completion-policy-v1";
 
 class ExecutionGovernor {
   readonly tracker = new ObjectiveTracker();
@@ -116,7 +117,8 @@ class ExecutionGovernor {
         const cycles = (this._goalEvidenceCycles.get(goal.id) || 0) + 1;
         this._goalEvidenceCycles.set(goal.id, cycles);
 
-        if (cycles >= this._evidenceThreshold) {
+        if (cycles >= this._evidenceThreshold
+            && this.metrics.evidenceQuality >= EXECUTION_COMPLETION_POLICY_V1.minimumEvidence) {
           this.goalTree.markCompleteById(goal.id);
           this._goalEvidenceCycles.set(goal.id, 0);
         }
