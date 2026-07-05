@@ -89,7 +89,6 @@ export class ExecutionDriver {
       // ── LLM Call ──
       const result = await callLLMWithTools(messages, tools, maxTokens, false, jsonMode);
       const tokensThisCycle = result.tokensUsed;
-      console.log("[DRV-CYCLE]", JSON.stringify({ cycle: context.cycle, strategy: this.governor.strategyEngine.strategy, toolCount: result.toolCalls?.length || 0, tokens: tokensThisCycle, textLen: result.content?.length || 0 }));
 
       // ── Error: round > 0 → throw; round 0 → retry without tools ──
       if (result.status === "error") {
@@ -151,7 +150,14 @@ export class ExecutionDriver {
       // ── Evaluate → safety net final call ──
       if (!this.governor.shouldContinue()) {
         const finalText = await this.doFinalCall(messages, tools, maxTokens, userId, mode, user, result.message, jsonMode);
-        context.result = finalText;
+        // Fallback: if final call returns empty, retry with forced text-only prompt
+        if (!finalText) {
+          const shortMessages = [{ role: "system", content: "You are an AI assistant. Based on the tools you used, provide a concise summary of what you found. Output in plain text, no tools." }];
+          const fallback = await callLLMWithTools(shortMessages, [], 2000, false, jsonMode);
+          context.result = stripDSML(fallback.content || "Unable to produce summary.");
+        } else {
+          context.result = finalText;
+        }
         this.governor.finishExecution(context.contract);
         return finalText;
       }

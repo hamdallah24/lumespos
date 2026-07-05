@@ -109,13 +109,6 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
       executives, ctx, spec.objective,
     );
 
-    console.log("[CEO-RX]", JSON.stringify({
-      execCount: result.executiveResults.length,
-      synthesisCtxLen: result.synthesisContext?.length || 0,
-      firstExecContentLen: result.executiveResults[0]?.content?.length || 0,
-      synthesisPreview: result.synthesisContext?.slice(0, 300),
-    }));
-
     pipeline.push("CEOSynthesis");
     ctx.onState?.("Synthesizing");
     const synthesisPrompt = assemble({
