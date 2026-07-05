@@ -64,12 +64,18 @@ export async function callLLMWithTools(
   const clean = sanitizeMessages(messages);
   validateMessageSequence(clean);
 
+  // Estimate prompt tokens to prevent context overflow (HTTP 400)
+  const promptChars = clean.reduce((s: number, m: any) => s + (typeof m.content === "string" ? m.content.length : JSON.stringify(m).length), 0);
+  const promptTokensEstimate = Math.ceil(promptChars / 3); // conservative: 3 chars/token for code-heavy text
+  const modelContextLimit = 64000; // DeepSeek 64K context window
+  const safeMaxTokens = Math.min(maxTokens, Math.max(500, modelContextLimit - promptTokensEstimate));
+
   const toolsPayload = tools.map(t => ({
     type: "function",
     function: { name: t.name, description: t.description, parameters: t.parameters },
   }));
 
-  const body: any = { model, messages: clean, max_tokens: maxTokens, temperature: 0.7, stream };
+  const body: any = { model, messages: clean, max_tokens: safeMaxTokens, temperature: 0.7, stream };
   if (jsonMode) body.response_format = { type: "json_object" };
   if (tools.length > 0) body.tools = toolsPayload;
 
