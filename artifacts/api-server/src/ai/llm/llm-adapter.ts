@@ -66,8 +66,8 @@ export async function callLLMWithTools(
 
   // Estimate prompt tokens to prevent context overflow (HTTP 400)
   const promptChars = clean.reduce((s: number, m: any) => s + (typeof m.content === "string" ? m.content.length : JSON.stringify(m).length), 0);
-  const promptTokensEstimate = Math.ceil(promptChars / 3); // conservative: 3 chars/token for code-heavy text
-  const modelContextLimit = 64000; // DeepSeek 64K context window
+  const promptTokensEstimate = Math.ceil(promptChars / 3);
+  const modelContextLimit = 32000; // conservative for deepseek-v4-pro (may have smaller window)
   const safeMaxTokens = Math.min(maxTokens, Math.max(500, modelContextLimit - promptTokensEstimate));
 
   const toolsPayload = tools.map(t => ({

@@ -166,7 +166,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     identity: ctoIdentity,
     directive: directiveContent,
     outputSchema: CTO_OUTPUT_SCHEMA,
-    context: fileContext,
+    context: fileContext.slice(0, 4000),      // ADR-010: cap file context to prevent context overflow
     maxTokens: spec.runtimePolicy.maxTokens + 2000,
     mode: "cto",
   });
