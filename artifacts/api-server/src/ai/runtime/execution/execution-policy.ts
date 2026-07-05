@@ -6,7 +6,7 @@ import type { BudgetAllocation } from "./execution-manifest";
 
 const budgetMatrix: Record<string, BudgetAllocation> = {
   simple:    { maxTokens: 5000,  maxTools: 5,   maxTimeMs: 30000,  maxIdleCycles: 2 },
-  medium:    { maxTokens: 12000, maxTools: 20,  maxTimeMs: 120000, maxIdleCycles: 4 },
+  medium:    { maxTokens: 25000, maxTools: 20,  maxTimeMs: 120000, maxIdleCycles: 4 },
   complex:   { maxTokens: 30000, maxTools: 60,  maxTimeMs: 300000, maxIdleCycles: 6 },
   critical:  { maxTokens: 60000, maxTools: 120, maxTimeMs: 600000, maxIdleCycles: 8 },
 };
