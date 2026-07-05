@@ -11,6 +11,7 @@ import { remember } from "../../../services/ai-memory-service";
 import { stripDSML, sanitizeMessages, validateMessageSequence, validateResponse } from "../validator";
 import { contextManager } from "../../../memory/ContextManager";
 import { BudgetManager } from "../../../memory/BudgetManager";
+import { missionIntelligence } from "../../../memory/MissionIntelligence";
 
 export const EXECUTION_INSTRUCTION: Record<string, string> = {
   EXPLORE: "Continue exploring. Find all relevant files first before analyzing.",
@@ -157,8 +158,25 @@ export class ExecutionDriver {
       budgetMgr.recordUsage(cycleBudget, tokensThisCycle,
         toolResults.reduce((s: number, t: any) => s + String(t.content || "").length, 0));
 
-      // ── Evaluate → safety net final call ──
+      // ── Evaluate → evidence negotiation or final call ──
       if (!this.governor.shouldContinue()) {
+        // ADR-010 Phase 4: Evidence Negotiation — extend budget if close to threshold
+        const state = {
+          phase: missionIntelligence.determinePhase(this.governor.strategyEngine.strategy, context.cycle, this.governor.metrics.evidenceQuality),
+          evidenceQuality: this.governor.metrics.evidenceQuality,
+          confidence: this.governor.metrics.confidence,
+          cycles: context.cycle,
+          budgetUsed: budgetMgr.totalUsed(),
+          budgetTotal: budgetMgr.missionBudget(),
+          strategy: this.governor.strategyEngine.strategy,
+        };
+
+        const negotiation = missionIntelligence.negotiate(state, budgetMgr);
+        if (negotiation.extended) {
+          // Budget extended — continue loop, skip final call
+          continue;
+        }
+
         console.log(budgetMgr.summary());
         const finalText = await this.doFinalCall(messages, tools, maxTokens, userId, mode, user, result.message, jsonMode);
         context.result = finalText;
