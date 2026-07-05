@@ -145,7 +145,8 @@ export async function callDeepSeek(
     if (jsonMode) body.response_format = { type: "json_object" };
 
     const controller = new AbortController();
-    const tid = setTimeout(() => controller.abort(), 30000);
+    const tout = mode === "ceo" ? 120000 : 30000;
+    const tid = setTimeout(() => controller.abort(), tout);
     let resp;
     try {
       resp = await fetch(`${base}/chat/completions`, {
