@@ -86,6 +86,7 @@ export class ExecutionDriver {
       }
 
       // ── LLM Call ──
+      const budgetBeforeLLM = this.governor.budget.usage.tokens;
       const result = await callLLMWithTools(messages, tools, maxTokens, false, jsonMode);
       const tokensThisCycle = result.tokensUsed;
 
@@ -134,6 +135,29 @@ export class ExecutionDriver {
 
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle);
+
+      // ── Per-Cycle Budget Trace ──
+      const budgetAfter = this.governor.budget.usage.tokens;
+      const cycleUsed = budgetAfter - budgetBeforeLLM;
+      const toolOutputTokens = Math.ceil(toolResults.reduce((s: number, r: any) => s + String(r.content || "").length, 0) / 4);
+      const alloc = this.governor.budget.allocation;
+      const cont = this.governor.shouldContinue();
+      console.log(
+        `\n${'═'.repeat(36)}` +
+        `\nCycle ${context.cycle} — ${this.governor.strategyEngine.strategy}` +
+        `\n${'═'.repeat(36)}` +
+        `\nTool Calls   : ${toolStatuses.map(t => `${t.name}(${t.status})`).join(", ") || "none"}` +
+        `\nTool Outputs : ${toolOutputTokens} tokens` +
+        `\nLLM Response : ${tokensThisCycle} tokens` +
+        `\n${'─'.repeat(36)}` +
+        `\nCycle Used   : ${cycleUsed} tokens` +
+        `\nTotal Used   : ${budgetAfter} / ${alloc.maxTokens}` +
+        `\nRemaining    : ${alloc.maxTokens - budgetAfter} tokens` +
+        `\nEvidence     : ${Math.round(this.governor.metrics.evidenceQuality * 100)}%` +
+        `\nConfidence   : ${this.governor.metrics.confidence}%` +
+        `\n${cont ? `Continue: ${this.governor.strategyEngine.strategy}` : `STOP:${this.governor.stopReason}`}` +
+        `\n${'═'.repeat(36)}\n`
+      );
 
       // ── Evaluate → safety net final call ──
       if (!this.governor.shouldContinue()) {

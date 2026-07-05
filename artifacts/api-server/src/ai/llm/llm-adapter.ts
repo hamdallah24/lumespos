@@ -97,6 +97,14 @@ export async function callLLMWithTools(
   const usage = (json as any).usage;
   const tokensUsed = usage?.total_tokens || usage?.completion_tokens || 500;
 
+  // ── LLM Token Trace ──
+  console.log("[LLM-TOKEN]", JSON.stringify({
+    finish_reason: (json as any).choices?.[0]?.finish_reason,
+    prompt_tokens: usage?.prompt_tokens,
+    completion_tokens: usage?.completion_tokens,
+    total_tokens: usage?.total_tokens,
+  }));
+
   if (!msg.tool_calls || msg.tool_calls.length === 0) {
     const rawContent = msg.content?.trim() || "";
     const dsmlTools = parseDSMLToolCalls(rawContent);

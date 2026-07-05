@@ -190,6 +190,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
       false, undefined, task.onExecutionEvent,
       { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective },
     );
+    console.log("[CTO-RESULT]", JSON.stringify({ rawLen: responseText.length, preview: responseText.slice(0, 200) }));
     pipeline.push("LLM");
   } catch (e: any) {
     return { success: false, text: `LLM error: ${e.message}`, pipeline, reflection: "" };
