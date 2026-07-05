@@ -111,13 +111,20 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
 
     pipeline.push("CEOSynthesis");
     ctx.onState?.("Synthesizing");
+    // ── ASSEMBLER AUDIT ──
+    console.log("[CEO-ASSEMBLE]", JSON.stringify({
+      path: shouldDispatch ? "MISSION" : "DIRECT",
+      hasContext: !!(shouldDispatch && result.synthesisContext),
+      contextLen: result.synthesisContext?.length || 0,
+      contextPreview: result.synthesisContext?.slice(0, 200),
+    }));
     const synthesisPrompt = assemble({
       identity: CEO_IDENTITY,
       directive: directiveContent,
       decision: { ...decision, executiveResults: result.executiveResults },
       outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
       context: result.synthesisContext,
-      maxTokens: 4000,
+      maxTokens: 8000,
       mode: "ceo",
     });
     try {
@@ -127,13 +134,20 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     }
   } else {
     pipeline.push("PromptAssembly");
+    // ── ASSEMBLER AUDIT ──
+    console.log("[CEO-ASSEMBLE]", JSON.stringify({
+      path: "DIRECT",
+      hasContext: false,
+      contextLen: 0,
+      intent: contract.intent,
+    }));
     // ECP-039: NO toolRules — CEO is REASONING mode. No tools.
     const systemPrompt = assemble({
       identity: CEO_IDENTITY,
       directive: directiveContent,
       decision,
       outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
-      maxTokens: 4000,
+      maxTokens: 8000,
       mode: "ceo",
     });
     ctx.onProgress?.("💼 CEO Runtime menganalisis...");
