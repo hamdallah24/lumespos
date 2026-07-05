@@ -10,6 +10,7 @@ import { executeToolCall, executeToolWithResult, getToolLabel } from "../../tool
 import { remember } from "../../../services/ai-memory-service";
 import { stripDSML, sanitizeMessages, validateMessageSequence, validateResponse } from "../validator";
 import { contextManager } from "../../../memory/ContextManager";
+import { BudgetManager } from "../../../memory/BudgetManager";
 
 export const EXECUTION_INSTRUCTION: Record<string, string> = {
   EXPLORE: "Continue exploring. Find all relevant files first before analyzing.",
@@ -66,10 +67,15 @@ export class ExecutionDriver {
     this.governor.beginExecution(context.contract);
     context.state = "EXECUTING";
 
+    // ADR-010 Phase 3: Hierarchical Budget Manager
+    const budgetMgr = new BudgetManager(maxTokens);
     let _prevStrategy = "";
 
     while (this.governor.shouldContinue()) {
       context.cycle = this.governor.beforeCycle();
+
+      // ADR-010 Phase 3: Allocate per-cycle budget
+      const cycleBudget = budgetMgr.allocateCycle(maxTokens);
 
       // ── Strategy Injection ──
       const strategy = this.governor.strategyEngine.strategy;
@@ -147,8 +153,13 @@ export class ExecutionDriver {
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle);
 
+      // ADR-010 Phase 3: Record hierarchical budget usage
+      budgetMgr.recordUsage(cycleBudget, tokensThisCycle,
+        toolResults.reduce((s: number, t: any) => s + String(t.content || "").length, 0));
+
       // ── Evaluate → safety net final call ──
       if (!this.governor.shouldContinue()) {
+        console.log(budgetMgr.summary());
         const finalText = await this.doFinalCall(messages, tools, maxTokens, userId, mode, user, result.message, jsonMode);
         context.result = finalText;
         this.governor.finishExecution(context.contract);
@@ -156,6 +167,7 @@ export class ExecutionDriver {
       }
     }
 
+    console.log(budgetMgr.summary());
     this.governor.finishExecution(context.contract);
     return "";
   }
