@@ -90,17 +90,6 @@ export function assemble(input: PromptAssemblyInput): string {
     const contextBlock = `\n## Executive Results\n${String(input.context).slice(0, 6000)}`;
     sections.push(contextBlock);
     totalTokens += estimateTokens(contextBlock);
-  } else if (input.context) {
-    // BLOCK 5.5 skipped — budget exhausted by earlier blocks
-    console.log("[ASSEMBLER-SKIP]", JSON.stringify({
-      reason: "budget_exhausted",
-      hasContext: !!input.context,
-      contextLen: input.context?.length,
-      budget,
-      totalTokens,
-      remaining: budget - totalTokens,
-      mode: input.mode,
-    }));
   }
 
   // BLOCK 6: Tool Rules
