@@ -86,7 +86,6 @@ export class ExecutionDriver {
       }
 
       // ── LLM Call ──
-      const budgetBeforeLLM = this.governor.budget.usage.tokens;
       const result = await callLLMWithTools(messages, tools, maxTokens, false, jsonMode);
       const tokensThisCycle = result.tokensUsed;
 
@@ -136,42 +135,8 @@ export class ExecutionDriver {
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle);
 
-      // ── Per-Cycle Prompt Breakdown ──
-      const budgetAfter = this.governor.budget.usage.tokens;
-      const cycleUsed = budgetAfter - budgetBeforeLLM;
-      const alloc = this.governor.budget.allocation;
-      const cont = this.governor.shouldContinue();
-
-      // Breakdown messages by role
-      const systemChars = (messages as any[]).filter((m: any) => m.role === "system").reduce((s: number, m: any) => s + String(m.content || "").length, 0);
-      const userChars   = (messages as any[]).filter((m: any) => m.role === "user").reduce((s: number, m: any) => s + String(m.content || "").length, 0);
-      const assistChars = (messages as any[]).filter((m: any) => m.role === "assistant").reduce((s: number, m: any) => s + String(m.content || m.tool_calls?.map((tc: any) => tc.function?.name).join(",") || "").length, 0);
-      const toolChars   = (messages as any[]).filter((m: any) => m.role === "tool").reduce((s: number, m: any) => s + String(m.content || "").length, 0);
-      const totalChars  = systemChars + userChars + assistChars + toolChars;
-
-      console.log(
-        `\n${'═'.repeat(42)}` +
-        `\nCycle ${context.cycle} — ${this.governor.strategyEngine.strategy}` +
-        `\n${'═'.repeat(42)}` +
-        `\nSystem     : ${Math.ceil(systemChars / 4)} tokens (${systemChars} chars)` +
-        `\nUser       : ${Math.ceil(userChars / 4)} tokens (${userChars} chars)` +
-        `\nAssistant  : ${Math.ceil(assistChars / 4)} tokens (${assistChars} chars)` +
-        `\nTool Results: ${Math.ceil(toolChars / 4)} tokens (${toolChars} chars)` +
-        `\nMessages   : ${messages.length} total (${(messages as any[]).filter((m: any) => m.role === "system").length} sys, ${(messages as any[]).filter((m: any) => m.role === "user").length} usr, ${(messages as any[]).filter((m: any) => m.role === "assistant").length} asst, ${(messages as any[]).filter((m: any) => m.role === "tool").length} tool)` +
-        `\n${'─'.repeat(42)}` +
-        `\nLLM API     : ${tokensThisCycle} tokens total` +
-        `\n${'─'.repeat(42)}` +
-        `\nTotal Used  : ${budgetAfter} / ${alloc.maxTokens}` +
-        `\nRemaining   : ${alloc.maxTokens - budgetAfter} tokens` +
-        `\nEvidence    : ${Math.round(this.governor.metrics.evidenceQuality * 100)}%` +
-        `\nConfidence  : ${this.governor.metrics.confidence}%` +
-        `\n${cont ? `Continue: ${this.governor.strategyEngine.strategy}` : `STOP:${this.governor.stopReason}`}` +
-        `\n${'═'.repeat(42)}\n`
-      );
-
       // ── Evaluate → safety net final call ──
       if (!this.governor.shouldContinue()) {
-        this.logBudget(messages, "STOP:" + this.governor.stopReason);
         const finalText = await this.doFinalCall(messages, tools, maxTokens, userId, mode, user, result.message, jsonMode);
         context.result = finalText;
         this.governor.finishExecution(context.contract);
@@ -179,41 +144,8 @@ export class ExecutionDriver {
       }
     }
 
-    this.logBudget(messages, "LOOP-END:" + this.governor.stopReason);
     this.governor.finishExecution(context.contract);
     return "";
-  }
-
-  private logBudget(messages: any[], stopReason: string): void {
-    const alloc = this.governor.budget.allocation;
-    const used = this.governor.budget.usage;
-    const systemMsgs = messages.filter((m: any) => m.role === "system");
-    const historyMsgs = messages.filter((m: any) => m.role !== "system" && m.role !== "tool");
-    const toolMsgs = messages.filter((m: any) => m.role === "tool");
-    const systemTokens = Math.ceil(systemMsgs.reduce((s: number, m: any) => s + String(m.content||"").length, 0) / 4);
-    const historyTokens = Math.ceil(historyMsgs.reduce((s: number, m: any) => s + String(m.content||"").length, 0) / 4);
-    const toolTokens = Math.ceil(toolMsgs.reduce((s: number, m: any) => s + String(m.content||"").length, 0) / 4);
-    const reasoningTokens = used.tokens - systemTokens - historyTokens - toolTokens;
-    console.log(
-      `\nGovernor Budget` +
-      `\n────────────────────────────────` +
-      `\nAllocation   : ${alloc.maxTokens} tokens (${alloc.maxTools} tools, ${alloc.maxTimeMs / 1000}s)` +
-      `\n────────────────────────────────` +
-      `\nInput Prompt : ${systemTokens} tokens` +
-      `\nHistory      : ${historyTokens} tokens` +
-      `\nTool Outputs : ${toolTokens} tokens` +
-      `\nReasoning    : ${Math.max(0, reasoningTokens)} tokens` +
-      `\n────────────────────────────────` +
-      `\nUsed         : ${used.tokens} tokens` +
-      `\nRemaining    : ${alloc.maxTokens - used.tokens} tokens` +
-      `\nCycles       : ${this.governor.metrics.cyclesExecuted}` +
-      `\nEvidence     : ${Math.round(this.governor.metrics.evidenceQuality * 100)}%` +
-      `\nConfidence   : ${this.governor.metrics.confidence}%` +
-      `\nStrategy     : ${this.governor.strategyEngine.strategy}` +
-      `\nCompletion   : ${this.governor.tracker.isComplete()}` +
-      `\n${stopReason}` +
-      `\n────────────────────────────────\n`
-    );
   }
 
   /** Final summarization call when Governor signals stop. Retries without tools if model keeps calling them. */

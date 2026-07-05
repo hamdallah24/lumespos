@@ -77,16 +77,6 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   // Smart Dispatch: CEO handles greetings directly. Everything else is delegated.
   const shouldDispatch = spec.intent !== "greeting" && executives.length > 0;
 
-  // ── TRACE LOG ──
-  console.log("[CEO-ENTRY]", JSON.stringify({
-    intent: spec.intent,
-    domain: spec.domain,
-    confidence: spec.confidence,
-    execCount: executives.length,
-    execNames: executives.map((e: any) => e.runtime),
-    shouldDispatch,
-  }));
-
   if (shouldDispatch) {
     ctx.onState?.(`Dispatching: ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`);
     ctx.onProgress?.(`📋 Mendelegasikan ke ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`);
@@ -119,16 +109,6 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
       executives, ctx, spec.objective,
     );
 
-    // ── TRACE LOG ──
-    console.log("[CEO-MISSION]", JSON.stringify({
-      path: "MISSION",
-      execCount: result.executiveResults.length,
-      execStatus: result.executiveResults.map(r => r.status),
-      execContentLen: result.executiveResults.map(r => r.content?.length || 0),
-      synthesisContextLen: result.synthesisContext?.length || 0,
-      synthesisContextPreview: result.synthesisContext?.slice(0, 400),
-    }));
-
     pipeline.push("CEOSynthesis");
     ctx.onState?.("Synthesizing");
     const synthesisPrompt = assemble({
@@ -140,13 +120,6 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
       maxTokens: 4000,
       mode: "ceo",
     });
-    // ── TRACE LOG ──
-    console.log("[CEO-PROMPT]", JSON.stringify({
-      promptLen: synthesisPrompt.length,
-      hasExecResults: synthesisPrompt.includes("## Executive Results"),
-      hasCTOReport: synthesisPrompt.includes("## CTO Report"),
-      preview: synthesisPrompt.slice(synthesisPrompt.indexOf("## Executive Results"), synthesisPrompt.indexOf("## Executive Results") + 500),
-    }));
     try {
       rawText = await callDeepSeek(synthesisPrompt, ctx.message, ctx.userId, "ceo", 4000);
     } catch {
@@ -154,13 +127,6 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     }
   } else {
     pipeline.push("PromptAssembly");
-    // ── TRACE LOG ──
-    console.log("[CEO-DIRECT]", JSON.stringify({
-      path: "DIRECT",
-      intent: contract.intent,
-      shouldDispatch,
-      execCount: executives.length,
-    }));
     // ECP-039: NO toolRules — CEO is REASONING mode. No tools.
     const systemPrompt = assemble({
       identity: CEO_IDENTITY,
