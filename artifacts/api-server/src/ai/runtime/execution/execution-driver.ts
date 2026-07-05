@@ -89,6 +89,7 @@ export class ExecutionDriver {
       // ── LLM Call ──
       const result = await callLLMWithTools(messages, tools, maxTokens, false, jsonMode);
       const tokensThisCycle = result.tokensUsed;
+      console.log("[DRV-CYCLE]", JSON.stringify({ cycle: context.cycle, strategy: this.governor.strategyEngine.strategy, toolCount: result.toolCalls?.length || 0, tokens: tokensThisCycle, textLen: result.content?.length || 0 }));
 
       // ── Error: round > 0 → throw; round 0 → retry without tools ──
       if (result.status === "error") {

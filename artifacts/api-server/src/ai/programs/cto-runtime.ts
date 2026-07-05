@@ -152,6 +152,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     task.onProgress?.("🔎 Mengambil konteks file...");
     fileContext = await fetchContext(task.message);
   }
+  console.log("[CTO-CTX]", JSON.stringify({ msgLen: task.message.length, fileCtxLen: fileContext.length, fileCtxPreview: fileContext.slice(0, 250) }));
   pipeline.push("ContextFetching");
 
   // Stage 10: Knowledge Loading
@@ -181,6 +182,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
       : isDevOps
         ? resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS)
         : resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS);
+  console.log("[CTO-PROMPT]", JSON.stringify({ promptLen: systemPrompt.length, maxTokens: spec.runtimePolicy.maxTokens, toolsCount: toolSet.length, tools: toolSet.map((t: any) => t.name) }));
 
   let responseText: string;
   try {
@@ -190,6 +192,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
       false, undefined, task.onExecutionEvent,
       { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective },
     );
+    console.log("[CTO-OUT]", JSON.stringify({ outLen: responseText.length, preview: responseText.slice(0, 300) }));
     pipeline.push("LLM");
   } catch (e: any) {
     return { success: false, text: `LLM error: ${e.message}`, pipeline, reflection: "" };
