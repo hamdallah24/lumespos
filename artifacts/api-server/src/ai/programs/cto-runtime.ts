@@ -20,10 +20,11 @@ import { withinScope } from "../runtime/mission-scope";
 import { getMultiTrust, rateDimension } from "../runtime/multi-trust";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 import { callDeepSeekWithTools } from "../llm/llm-adapter";
-import { fetchGitHubFile, searchRepoFiles, getDependencies } from "../tools/tool-adapter";
+import { getDependencies } from "../tools/tool-adapter";
 import { getFoundationProvider } from "../runtime/foundation";
 import { CTO_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
 import { resolveTools } from "../runtime/execution/tool-registry";
+import { missionContextRegistry } from "../../knowledge/MissionContextRegistry";
 import { CAPABILITY_TOOLS, getDefaultCapabilities } from "../runtime/execution/execution-capabilities";
 
 const ctoIdentity = getIdentity("CTO")!;
@@ -34,49 +35,19 @@ function getDirective(): string {
   return content || "";
 }
 
-/** Auto-fetch relevant files from the repository for context */
+/** Auto-fetch relevant files from the repository for context — via MissionContextRegistry */
 async function fetchContext(message: string): Promise<string> {
+  const indices = await missionContextRegistry.getRelevant("general", message);
+  if (indices.length === 0) return "";
+
   const fetchedPairs: string[] = [];
   const fetchedPaths: string[] = [];
 
-  const fileRefs = message.match(/(\w+\.[a-z]{2,4})/gi);
-  if (fileRefs) {
-    const refResults = await Promise.all(fileRefs.slice(0, 3).map(async (ref) => {
-      const paths = [
-        `artifacts/pos-app/src/components/${ref}`,
-        `artifacts/pos-app/src/${ref}`,
-        `artifacts/api-server/src/routes/${ref}`,
-        `artifacts/api-server/src/${ref}`,
-        `artifacts/api-server/src/middlewares/${ref}`,
-        ref,
-      ];
-      const results = await Promise.all(paths.map(p => fetchGitHubFile(p, "main")));
-      for (let i = 0; i < results.length; i++) {
-        if (results[i].content) return { path: paths[i], content: results[i].content };
-      }
-      return null;
-    }));
-    for (const r of refResults) {
-      if (r) {
-        fetchedPaths.push(r.path);
-        fetchedPairs.push(`\n\n[FILE: ${r.path}]:\n\`\`\`\n${r.content.slice(0, 2500)}\n\`\`\``);
-      }
-    }
-  }
-
-  const relevantPaths = await searchRepoFiles(message);
-  const seen = new Set(fetchedPaths);
-  const unseen = relevantPaths.filter(p => !seen.has(p));
-  const need = Math.min(8 - fetchedPairs.length, unseen.length);
-  if (need > 0) {
-    const targets = unseen.slice(0, need);
-    const searchResults = await Promise.all(targets.map(p => fetchGitHubFile(p, "main")));
-    for (let i = 0; i < searchResults.length && fetchedPairs.length < 8; i++) {
-      const r = searchResults[i];
-      if (r.content && r.content.length > 10) {
-        fetchedPaths.push(targets[i]);
-        fetchedPairs.push(`\n\n[FILE: ${targets[i]}]:\n\`\`\`\n${r.content.slice(0, 2000)}\n\`\`\``);
-      }
+  for (const idx of indices.slice(0, 5)) {
+    const content = await missionContextRegistry.getContent(idx.path);
+    if (content && content.length > 10) {
+      fetchedPaths.push(idx.path);
+      fetchedPairs.push(`\n\n[FILE: ${idx.path}]:\n\`\`\`\n${content.slice(0, 2000)}\n\`\`\``);
     }
   }
 

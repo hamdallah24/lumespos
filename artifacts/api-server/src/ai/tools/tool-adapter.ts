@@ -83,6 +83,8 @@ export async function searchRepoFiles(query: string): Promise<string[]> {
         && !t.path.includes("/dist/")
         && !t.path.includes("-lock.json")
         && !t.path.includes("@radix-ui")
+        && !t.path.includes(".local/")
+        && !t.path.includes(".cache/")
       )
       .map((t: any) => t.path);
     treeCache = { ts: Date.now(), paths };
