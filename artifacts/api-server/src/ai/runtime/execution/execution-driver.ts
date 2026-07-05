@@ -9,6 +9,7 @@ import { callLLMWithTools } from "../../llm/llm-adapter";
 import { executeToolCall, executeToolWithResult, getToolLabel } from "../../tools/tool-adapter";
 import { remember } from "../../../services/ai-memory-service";
 import { stripDSML, sanitizeMessages, validateMessageSequence, validateResponse } from "../validator";
+import { contextManager } from "../../../memory/ContextManager";
 
 export const EXECUTION_INSTRUCTION: Record<string, string> = {
   EXPLORE: "Continue exploring. Find all relevant files first before analyzing.",
@@ -130,7 +131,18 @@ export class ExecutionDriver {
         toolStatuses.push({ name: tr.name, durationMs: tr.durationMs, status: tr.status });
       }
 
-      messages.push(result.message, ...toolResults);
+      // ADR-010 Phase 2: Artifact Compression — use summary for long tool outputs
+      const compressedTools = toolResults.map((t: any) => ({
+        ...t,
+        content: contextManager.compressToolOutput(t.content),
+      }));
+
+      messages.push(result.message, ...compressedTools);
+
+      // ADR-010 Phase 2: Sliding History — keep recent context only
+      const compressed = contextManager.compressHistory(messages, 14);
+      messages.length = 0;
+      messages.push(...compressed);
 
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle);

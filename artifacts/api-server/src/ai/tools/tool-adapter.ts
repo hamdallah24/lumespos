@@ -366,6 +366,7 @@ export async function executeToolCall(name: string, args: Record<string, any>): 
 export interface ToolResult {
   name: string;
   output: string;
+  summary?: string;  // ADR-010 Phase 2: compressed version for context
   status: "ok" | "error";
   durationMs: number;
 }
@@ -374,9 +375,13 @@ export async function executeToolWithResult(name: string, args: Record<string, a
   const t0 = Date.now();
   try {
     const output = await executeToolCall(name, args);
+    const resultOutput = String(output || "(no output)").slice(0, 2000);
     return {
       name,
-      output: String(output || "(no output)").slice(0, 2000),
+      output: resultOutput,
+      summary: resultOutput.length > 600
+        ? resultOutput.slice(0, 300) + `... [${resultOutput.length - 600} chars truncated] ...` + resultOutput.slice(-300)
+        : undefined,
       status: output.startsWith("Error:") ? "error" : "ok",
       durationMs: Date.now() - t0,
     };
