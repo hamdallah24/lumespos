@@ -1,8 +1,10 @@
 // ADR-010 Phase 4: Mission Intelligence
 // Evidence Negotiation + Knowledge Projection + Mission Lifetime.
-// Governor stops based on mission value, not just token count.
+// RFC-012 Phase 8: MissionDecision — driver reads decision, not governor directly.
 
 import type { BudgetManager } from "./BudgetManager";
+
+export type MissionDecision = "CONTINUE" | "NEGOTIATE" | "CONCLUDE" | "ABORT" | "ESCALATE";
 
 export type MissionPhase =
   | "PLANNING"
@@ -121,6 +123,32 @@ export class MissionIntelligence {
     // Conclude if strategy is explicit
     if (state.strategy === "CONCLUDE") return true;
     return false;
+  }
+
+  /**
+   * RFC-012 Phase 8: Evaluate metrics and return MissionDecision.
+   * Driver reads this decision instead of calling governor.shouldContinue() directly.
+   */
+  evaluate(metrics: {
+    evidenceQuality: number;
+    confidence: number;
+    cyclesExecuted: number;
+    strategy: string;
+    budgetExhausted: boolean;
+  }): { decision: MissionDecision; reason: string } {
+    if (metrics.evidenceQuality >= 0.40 && metrics.confidence >= 50) {
+      return { decision: "CONCLUDE", reason: "Evidence threshold met" };
+    }
+    if (metrics.cyclesExecuted >= 4 && metrics.evidenceQuality >= 0.25 && metrics.strategy === "EXPLORE") {
+      return { decision: "CONCLUDE", reason: "Force text — model stuck in tool loop" };
+    }
+    if (metrics.budgetExhausted && metrics.evidenceQuality >= 0.30) {
+      return { decision: "NEGOTIATE", reason: "Budget low but evidence close" };
+    }
+    if (metrics.budgetExhausted && metrics.evidenceQuality < 0.20 && metrics.cyclesExecuted >= 3) {
+      return { decision: "ABORT", reason: "Budget exhausted without evidence" };
+    }
+    return { decision: "CONTINUE", reason: "Normal execution" };
   }
 }
 

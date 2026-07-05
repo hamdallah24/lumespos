@@ -10,6 +10,7 @@ import { executeToolCall, executeToolWithResult, getToolLabel } from "../../tool
 import { remember } from "../../../services/ai-memory-service";
 import { stripDSML, sanitizeMessages, validateMessageSequence, validateResponse } from "../validator";
 import { contextManager } from "../../../memory/ContextManager";
+import { missionIntelligence } from "../../../memory/MissionIntelligence";
 
 export const EXECUTION_INSTRUCTION: Record<string, string> = {
   EXPLORE: "Continue exploring. Find all relevant files first before analyzing.",
@@ -67,9 +68,13 @@ export class ExecutionDriver {
     context.state = "EXECUTING";
 
     let _prevStrategy = "";
+    let forcedConclude = false;
 
     while (this.governor.shouldContinue()) {
       context.cycle = this.governor.beforeCycle();
+
+      // RFC-012 Phase 8: if MissionIntelligence called CONCLUDE, force text-only
+      const activeTools = forcedConclude ? [] : tools;
 
       // ── Strategy Injection ──
       const strategy = this.governor.strategyEngine.strategy;
@@ -87,7 +92,7 @@ export class ExecutionDriver {
       }
 
       // ── LLM Call ──
-      const result = await callLLMWithTools(messages, tools, maxTokens, false, jsonMode);
+      const result = await callLLMWithTools(messages, activeTools, maxTokens, false, jsonMode);
       const tokensThisCycle = result.tokensUsed;
 
       // ── Error: round > 0 → throw; round 0 → retry without tools ──
@@ -146,6 +151,18 @@ export class ExecutionDriver {
 
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle);
+
+      // RFC-012 Phase 8: MissionIntelligence evaluates → driver reads decision
+      const miResult = missionIntelligence.evaluate({
+        evidenceQuality: this.governor.metrics.evidenceQuality,
+        confidence: this.governor.metrics.confidence,
+        cyclesExecuted: this.governor.metrics.cyclesExecuted,
+        strategy: this.governor.strategyEngine.strategy,
+        budgetExhausted: this.governor.budget.isExceeded().exceeded,
+      });
+      if (miResult.decision === "CONCLUDE") {
+        forcedConclude = true; // next cycle uses tools=[]
+      }
 
       // ── Evaluate → safety net final call ──
       if (!this.governor.shouldContinue()) {

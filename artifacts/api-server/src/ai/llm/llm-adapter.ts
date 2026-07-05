@@ -17,6 +17,7 @@ import {
   parseDSMLToolCalls,
   validateMessageSequence, sanitizeMessages,
 } from "../runtime/validator";
+import { charsToTokens } from "../../memory/budget-config";
 
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 const DEEPSEEK_BASE = process.env.DEEPSEEK_BASE_URL;
@@ -64,11 +65,11 @@ export async function callLLMWithTools(
   const clean = sanitizeMessages(messages);
   validateMessageSequence(clean);
 
-  // Estimate prompt tokens to prevent context overflow (HTTP 400)
+  // ADR-010 Phase 7: Adaptive token estimation based on model density
   const promptChars = clean.reduce((s: number, m: any) => s + (typeof m.content === "string" ? m.content.length : JSON.stringify(m).length), 0);
-  const promptTokensEstimate = Math.ceil(promptChars / 3);
-  const modelContextLimit = 32000; // conservative for deepseek-v4-pro (may have smaller window)
-  const safeMaxTokens = Math.min(maxTokens, Math.max(500, modelContextLimit - promptTokensEstimate));
+  const promptTokensEstimate = charsToTokens(promptChars, DEEPSEEK_MODEL);
+  const modelLimit = 32000; // conservative for deepseek-v4-pro
+  const safeMaxTokens = Math.min(maxTokens, Math.max(500, modelLimit - promptTokensEstimate));
 
   const toolsPayload = tools.map(t => ({
     type: "function",
