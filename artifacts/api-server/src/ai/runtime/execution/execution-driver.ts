@@ -136,27 +136,37 @@ export class ExecutionDriver {
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle);
 
-      // ── Per-Cycle Budget Trace ──
+      // ── Per-Cycle Prompt Breakdown ──
       const budgetAfter = this.governor.budget.usage.tokens;
       const cycleUsed = budgetAfter - budgetBeforeLLM;
-      const toolOutputTokens = Math.ceil(toolResults.reduce((s: number, r: any) => s + String(r.content || "").length, 0) / 4);
       const alloc = this.governor.budget.allocation;
       const cont = this.governor.shouldContinue();
+
+      // Breakdown messages by role
+      const systemChars = (messages as any[]).filter((m: any) => m.role === "system").reduce((s: number, m: any) => s + String(m.content || "").length, 0);
+      const userChars   = (messages as any[]).filter((m: any) => m.role === "user").reduce((s: number, m: any) => s + String(m.content || "").length, 0);
+      const assistChars = (messages as any[]).filter((m: any) => m.role === "assistant").reduce((s: number, m: any) => s + String(m.content || m.tool_calls?.map((tc: any) => tc.function?.name).join(",") || "").length, 0);
+      const toolChars   = (messages as any[]).filter((m: any) => m.role === "tool").reduce((s: number, m: any) => s + String(m.content || "").length, 0);
+      const totalChars  = systemChars + userChars + assistChars + toolChars;
+
       console.log(
-        `\n${'═'.repeat(36)}` +
+        `\n${'═'.repeat(42)}` +
         `\nCycle ${context.cycle} — ${this.governor.strategyEngine.strategy}` +
-        `\n${'═'.repeat(36)}` +
-        `\nTool Calls   : ${toolStatuses.map(t => `${t.name}(${t.status})`).join(", ") || "none"}` +
-        `\nTool Outputs : ${toolOutputTokens} tokens` +
-        `\nLLM Response : ${tokensThisCycle} tokens` +
-        `\n${'─'.repeat(36)}` +
-        `\nCycle Used   : ${cycleUsed} tokens` +
-        `\nTotal Used   : ${budgetAfter} / ${alloc.maxTokens}` +
-        `\nRemaining    : ${alloc.maxTokens - budgetAfter} tokens` +
-        `\nEvidence     : ${Math.round(this.governor.metrics.evidenceQuality * 100)}%` +
-        `\nConfidence   : ${this.governor.metrics.confidence}%` +
+        `\n${'═'.repeat(42)}` +
+        `\nSystem     : ${Math.ceil(systemChars / 4)} tokens (${systemChars} chars)` +
+        `\nUser       : ${Math.ceil(userChars / 4)} tokens (${userChars} chars)` +
+        `\nAssistant  : ${Math.ceil(assistChars / 4)} tokens (${assistChars} chars)` +
+        `\nTool Results: ${Math.ceil(toolChars / 4)} tokens (${toolChars} chars)` +
+        `\nMessages   : ${messages.length} total (${(messages as any[]).filter((m: any) => m.role === "system").length} sys, ${(messages as any[]).filter((m: any) => m.role === "user").length} usr, ${(messages as any[]).filter((m: any) => m.role === "assistant").length} asst, ${(messages as any[]).filter((m: any) => m.role === "tool").length} tool)` +
+        `\n${'─'.repeat(42)}` +
+        `\nLLM API     : ${tokensThisCycle} tokens total` +
+        `\n${'─'.repeat(42)}` +
+        `\nTotal Used  : ${budgetAfter} / ${alloc.maxTokens}` +
+        `\nRemaining   : ${alloc.maxTokens - budgetAfter} tokens` +
+        `\nEvidence    : ${Math.round(this.governor.metrics.evidenceQuality * 100)}%` +
+        `\nConfidence  : ${this.governor.metrics.confidence}%` +
         `\n${cont ? `Continue: ${this.governor.strategyEngine.strategy}` : `STOP:${this.governor.stopReason}`}` +
-        `\n${'═'.repeat(36)}\n`
+        `\n${'═'.repeat(42)}\n`
       );
 
       // ── Evaluate → safety net final call ──
