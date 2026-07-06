@@ -151,10 +151,14 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
       : isDevOps
         ? resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS)
         : resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS);
+
+  // Limit to 5 essential tools — cuts 2,000 chars from API request body per cycle
+  const essentialTools = ["readFile", "searchContent", "execCommand", "listDirectory", "getDependencies"];
+  const limitedToolSet = toolSet.filter((t: any) => essentialTools.includes(t.name));
   let responseText: string;
   try {
     responseText = await callDeepSeekWithTools(
-      systemPrompt, task.message, task.userId, "cto", toolSet,
+      systemPrompt, task.message, task.userId, "cto", limitedToolSet,
       spec.runtimePolicy.maxTokens, task.onProgress, task.onTool,
       false, undefined, task.onExecutionEvent,
       { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective },
