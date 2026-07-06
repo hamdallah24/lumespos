@@ -135,11 +135,18 @@ export class MissionIntelligence {
     cyclesExecuted: number;
     strategy: string;
     budgetExhausted: boolean;
+    goalProgress: number;
   }): { decision: MissionDecision; reason: string } {
-    if (metrics.evidenceQuality >= 0.40 && metrics.confidence >= 50 && metrics.cyclesExecuted >= 8) {
-      return { decision: "CONCLUDE", reason: "Evidence threshold met" };
+    // Goals achieved (100%) → CONCLUDE regardless of other metrics
+    if (metrics.goalProgress >= 100) {
+      return { decision: "CONCLUDE", reason: `All goals completed (${metrics.goalProgress}%)` };
     }
-    if (metrics.cyclesExecuted >= 10 && metrics.evidenceQuality >= 0.25
+    // Evidence threshold met + mostly done → CONCLUDE
+    if (metrics.evidenceQuality >= 0.40 && metrics.confidence >= 50 && metrics.goalProgress >= 60) {
+      return { decision: "CONCLUDE", reason: `Evidence threshold met (goals ${metrics.goalProgress}%)` };
+    }
+    // Stuck in explore/investigate for too long → force CONCLUDE
+    if (metrics.cyclesExecuted >= 12 && metrics.evidenceQuality >= 0.25
         && (metrics.strategy === "EXPLORE" || metrics.strategy === "INVESTIGATE")) {
       return { decision: "CONCLUDE", reason: "Force text — model stuck in explore/investigate loop" };
     }

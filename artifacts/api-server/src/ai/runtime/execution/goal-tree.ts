@@ -3,27 +3,6 @@
 
 import type { GoalNode, GoalStatus } from "./execution-manifest";
 
-const domainGoalMap: Record<string, string[]> = {
-  architecture:  ["Foundation/", "ADR/", "Runtime/", "Governance/"],
-  inventory:     ["Products", "Stock", "Ingredients", "SemiFinished"],
-  devops:        ["VPS Status", "PM2", "Nginx", "Deploy Pipeline"],
-};
-
-const domainCapabilityMap: Record<string, string> = {
-  "Foundation/":   "FOUNDATION",
-  "ADR/":          "ARCHITECTURE",
-  "Runtime/":      "ARCHITECTURE",
-  "Governance/":   "GOVERNANCE",
-  "Products":      "INVENTORY",
-  "Stock":         "INVENTORY",
-  "Ingredients":   "INVENTORY",
-  "SemiFinished":  "INVENTORY",
-  "VPS Status":    "DEVOPS",
-  "PM2":           "DEVOPS",
-  "Nginx":         "DEVOPS",
-  "Deploy Pipeline":"DEVOPS",
-};
-
 class GoalTree {
   private nodes: Map<string, GoalNode> = new Map();
   private rootId: string = "";
@@ -38,19 +17,40 @@ class GoalTree {
       status: "IN_PROGRESS", parentId: undefined,
     });
 
-    const goals = domainGoalMap[domain] || entities.map(e => e);
-    if (goals.length === 0) {
-      goals.push(objective ? objective.slice(0, 50) : "Task");
-    }
-
+    // Create 3 evidence-based goals for any objective
+    const goals = ["EXPLORE_RELEVANT_FILES", "ANALYZE_FINDINGS", "PRODUCE_CONCLUSION"];
     for (let i = 0; i < goals.length; i++) {
       const id = `goal_${i}`;
       this.nodes.set(id, {
         id, label: goals[i],
         status: "PENDING", parentId: "root",
-        requiredCapability: domainCapabilityMap[goals[i]] || "ARCHITECTURE",
+        requiredCapability: "ARCHITECTURE",
       });
     }
+  }
+
+  /** Assess goal progress from actual work done. Returns 0-100. */
+  assess(filesRead: number, commandsRun: number, evidenceQuality: number, confidence: number, strategy: string): number {
+    // Goal 0: EXPLORE — complete if >= 2 files read OR any command run
+    const g0 = this.nodes.get("goal_0");
+    if (g0 && g0.status !== "COMPLETED" && (filesRead >= 2 || commandsRun >= 1)) {
+      g0.status = "COMPLETED"; g0.completedAt = new Date().toISOString(); g0.evidence = `${filesRead} files read`;
+    }
+
+    // Goal 1: ANALYZE — complete if evidence >= 0.40
+    const g1 = this.nodes.get("goal_1");
+    if (g1 && g1.status !== "COMPLETED" && evidenceQuality >= 0.40) {
+      g1.status = "COMPLETED"; g1.completedAt = new Date().toISOString(); g1.evidence = `evidence=${evidenceQuality.toFixed(2)}`;
+    }
+
+    // Goal 2: CONCLUDE — complete if confidence >= 50 and strategy is CONCLUDE/ANALYZE
+    const g2 = this.nodes.get("goal_2");
+    if (g2 && g2.status !== "COMPLETED" && confidence >= 50 && (strategy === "CONCLUDE" || strategy === "ANALYZE")) {
+      g2.status = "COMPLETED"; g2.completedAt = new Date().toISOString(); g2.evidence = `confidence=${confidence}`;
+    }
+
+    this.checkRootCompletion();
+    return this.progress();
   }
 
   /** Mark goal complete based on file path match */

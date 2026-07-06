@@ -167,6 +167,9 @@ export class ExecutionDriver {
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle, undefined, filePaths.length > 0 ? filePaths : undefined);
 
+      // Goal progress from governor-managed GoalTree (3 evidence-based goals)
+      const goalProgress = this.governor.goalTree.progress();
+
       // ADR-010 Phase 3: Record hierarchical budget
       const toolChars = toolResults.reduce((s: number, t: any) => s + String(t.content || "").length, 0);
       budgetTracker.recordCycle(
@@ -184,6 +187,7 @@ export class ExecutionDriver {
         cyclesExecuted: this.governor.metrics.cyclesExecuted,
         strategy: this.governor.strategyEngine.strategy,
         budgetExhausted: this.governor.budget.isExceeded().exceeded,
+        goalProgress,
       });
 
       // CONCLUDE now — force text-only response immediately, don't wait for next loop
