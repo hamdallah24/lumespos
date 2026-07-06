@@ -180,24 +180,27 @@ export class ExecutionDriver {
       // CONCLUDE now — force text-only response immediately, don't wait for next loop
       if (miResult.decision === "CONCLUDE") {
         // Push synthesis instruction: structured analysis, not generic summary
-        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Waktu menyimpulkan. Berdasarkan SEMUA file yang sudah kamu baca dan SEMUA command yang sudah kamu jalankan, buat laporan analisis lengkap:
+        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Waktu menyimpulkan. Berdasarkan SEMUA file yang sudah kamu baca dan SEMUA command yang sudah kamu jalankan, buat laporan analisis TEKNIS dengan format:
 
 ## Root Cause
-[Jelaskan penyebab utama yang ditemukan dari file dan log]
+[JELASKAN penyebab utama. Sebutkan file spesifik + line number. Contoh: "di ProgressCard.tsx line 84, confidence diambil dari ExecutionSnapshot.confidence."]
 
-## Evidence
-- [File X]: [apa yang ditemukan]
-- [File Y]: [apa yang ditemukan]
-- [Log/Command output]: [apa yang ditemukan]
+## Verified Evidence
+[SEBUTKAN setiap file yang SUDAH KAMU BACA. Format: "Saya MEMBACA [filepath] dan MENEMUKAN [fakta spesifik] di line [nomor]."]
+[JANGAN GUNAKAN kata: "kemungkinan", "mungkin", "bisa jadi", "diduga". Gunakan: "Saya membaca", "Saya menemukan", "Saya memverifikasi".]
 
-## Rekomendasi Perbaikan
-1. [Langkah spesifik — sebutkan file path, line, perubahan kode]
+## Rekomendasi Teknis
+1. [Langkah spesifik — sebutkan file path, line, kode sebelum → sesudah]
 2. [Langkah spesifik]
 
-## Persetujuan
-Minta persetujuan Founder untuk menjalankan perbaikan di atas. Jangan jalankan tanpa approval.
+## Confidence Justification
+Confidence [XX]% karena:
+- [Evidence item 1]
+- [Evidence item 2]
+[Tidak boleh confidence tanpa alasan]
 
-Gunakan format Assistant biasa. BUKAN tool_calls. Langsung tulis analisis.` });
+## Persetujuan
+Minta persetujuan Founder. Jangan jalankan tanpa approval.` });
 
         const finalResult = await callLLMWithTools(messages, [], Math.min(maxTokens, 4000), false, false);
         const finalContent = stripDSML(finalResult.content || "");

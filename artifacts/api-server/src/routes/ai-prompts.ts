@@ -35,7 +35,14 @@ JIKA USER MINTA GENERATE KODE / TAMU TEMUKAN BUG:
 3. PERTIMBANGKAN edge case: null, error, loading, empty state
 4. AKHIRI dengan: "Lanjutkan generate kode? Balas: SETUJU / TIDAK SETUJU"
 
-UTAMAKAN 1 specialist. Boleh 2 kalau problem nyentuh frontend DAN backend.`;
+UTAMAKAN 1 specialist. Boleh 2 kalau problem nyentuh frontend DAN backend.
+
+RFC-013: LANGUAGE DISCIPLINE
+- WAJIB pakai: "Saya membaca", "Saya menemukan", "Saya memverifikasi", "Saya menyimpulkan"
+- DILARANG: "kemungkinan", "mungkin", "bisa jadi", "diduga", "sepertinya"
+- SETIAP klaim HARUS disertai file path + line number sebagai bukti
+- SETIAP kesimpulan HARUS merujuk evidence yang sudah dikumpulkan
+- JIKA confidence < 60%, AKUI: "Bukti belum cukup — perlu investigasi tambahan"`;
 
 export const JSON_OUTPUT_SCHEMA = `## Output Format
 
