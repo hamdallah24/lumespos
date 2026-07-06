@@ -149,12 +149,14 @@ export class ExecutiveCollaboration {
             onState: (state) => ctx.onState?.((`${exec.runtime}: ${state}`) as any),
           };
           const runtimeResult = await runtime.execute(execCtx);
+          console.log("[CTO-IN]", execCtx.message.slice(0, 200));
+          console.log("[CTO-OUT]", runtimeResult.text?.slice(0, 300));
           const execResult: ExecutiveResult = {
             taskId: task.id,
             executive: exec.runtime as ExecutiveRole,
             status: runtimeResult.success ? "COMPLETED" : "FAILED",
             content: runtimeResult.text?.slice(0, 3000) || "",
-            confidence: runtimeResult.metrics?.confidence || 70,
+            confidence: runtimeResult.metrics?.confidence || 70,  // ECP-014R: read from metrics, fallback 70
             durationMs: Date.now() - t0,
             findings: (runtimeResult as any).findings || undefined,  // ECP-014R
           };
