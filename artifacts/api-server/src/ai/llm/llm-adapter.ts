@@ -17,7 +17,7 @@ import {
   parseDSMLToolCalls,
   validateMessageSequence, sanitizeMessages,
 } from "../runtime/validator";
-import { charsToTokens } from "../../memory/budget-config";
+import { charsToTokens, getModelContext } from "../../memory/budget-config";
 
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 const DEEPSEEK_BASE = process.env.DEEPSEEK_BASE_URL;
@@ -68,7 +68,7 @@ export async function callLLMWithTools(
   // ADR-010 Phase 7: Adaptive token estimation based on model density
   const promptChars = clean.reduce((s: number, m: any) => s + (typeof m.content === "string" ? m.content.length : JSON.stringify(m).length), 0);
   const promptTokensEstimate = charsToTokens(promptChars, DEEPSEEK_MODEL);
-  const modelLimit = 16000; // aggressive for sumopod deepseek-v4-pro (may be 8K-16K window)
+  const modelLimit = getModelContext(DEEPSEEK_MODEL);
   const safeMaxTokens = Math.min(maxTokens, Math.max(500, modelLimit - promptTokensEstimate));
   console.log("[LLM-REQ]", "chars=" + promptChars + " promptTok=" + promptTokensEstimate + " safeMax=" + safeMaxTokens + " tools=" + tools.length);
 
