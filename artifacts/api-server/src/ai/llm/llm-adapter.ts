@@ -68,8 +68,9 @@ export async function callLLMWithTools(
   // ADR-010 Phase 7: Adaptive token estimation based on model density
   const promptChars = clean.reduce((s: number, m: any) => s + (typeof m.content === "string" ? m.content.length : JSON.stringify(m).length), 0);
   const promptTokensEstimate = charsToTokens(promptChars, DEEPSEEK_MODEL);
-  const modelLimit = 32000; // conservative for deepseek-v4-pro
+  const modelLimit = 16000; // aggressive for sumopod deepseek-v4-pro (may be 8K-16K window)
   const safeMaxTokens = Math.min(maxTokens, Math.max(500, modelLimit - promptTokensEstimate));
+  console.log("[LLM-REQ]", "chars=" + promptChars + " promptTok=" + promptTokensEstimate + " safeMax=" + safeMaxTokens + " tools=" + tools.length);
 
   const toolsPayload = tools.map(t => ({
     type: "function",
