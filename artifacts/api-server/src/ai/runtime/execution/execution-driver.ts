@@ -99,10 +99,10 @@ export class ExecutionDriver {
       const result = await callLLMWithTools(messages, activeTools, maxTokens, false, jsonMode);
       const tokensThisCycle = result.tokensUsed;
 
-      // ── Error: round > 0 → throw; round 0 → retry without tools ──
+      // ── Error: retry with fallback (no tools, smaller prompt) ──
       if (result.status === "error") {
-        if (context.cycle > 0) throw new Error(`AI engine error at round ${context.cycle}: HTTP ${result.errorStatus}`);
-        const retry = await callLLMWithTools(messages, [], maxTokens, false, jsonMode);
+        // Retry once with fallback: no tools, conservative maxTokens
+        const retry = await callLLMWithTools(messages, [], Math.min(maxTokens, 2000), false, jsonMode);
         const text = stripDSML(retry.content || "");
         const validated = validateResponse(text);
         if (validated.cleanedText) {

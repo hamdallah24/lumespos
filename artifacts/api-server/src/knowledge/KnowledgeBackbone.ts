@@ -8,6 +8,8 @@ import { contextManager } from "../memory/ContextManager";
 import { decisionHistoryStore } from "../intelligence/decision-history";
 import { missionHistory } from "../mission/MissionHistory";
 import { organizationalMemory } from "../intelligence/organizational-memory";
+import { architectureRegistry } from "./ArchitectureRegistry";
+import { capabilityRegistry } from "./CapabilityRegistry";
 import type { ExecutiveRole } from "../mission/Mission";
 import type { KnowledgeBundle, ScopedKnowledge } from "./KnowledgeBundle";
 import type { ExecutiveMemoryEntry } from "../memory/ContextManager";
@@ -21,6 +23,8 @@ export class KnowledgeBackbone {
   readonly _decisions = decisionHistoryStore;
   readonly _history = missionHistory;
   readonly organization = organizationalMemory;
+  readonly architecture = architectureRegistry;
+  readonly capabilities = capabilityRegistry;
 
   // ── Executive Memory API ──
   getMemory(executive: string): ExecutiveMemoryEntry {
@@ -83,8 +87,8 @@ export class KnowledgeBackbone {
       artifacts,
       executiveMemory: memories,
       decisions,
-      architecture: [],
-      capabilities: {},
+      architecture: this.architecture.rules(),
+      capabilities: this.capabilities.all().reduce((acc, c) => { acc[c.role] = c.tools; return acc; }, {} as Record<string, string[]>),
     };
   }
 
@@ -100,7 +104,7 @@ export class KnowledgeBackbone {
       context: contextFiles,
       memory,
       decisions,
-      capabilities: [],
+      capabilities: this.capabilities.getTools(executive),
     };
   }
 }
