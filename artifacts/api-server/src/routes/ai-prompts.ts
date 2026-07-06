@@ -45,26 +45,21 @@ Untuk action data (get_sales_summary, dll), biarkan "response" kosong.`;
 
 export const EXECUTIVE_OUTPUT_SCHEMA = `## Output Format
 
+CRITICAL: Anda HANYA boleh menggunakan data dari ## Executive Results di prompt ini. ABaikan pengetahuan masa lalu atau memori sebelumnya. Jika Executive Results menunjukkan COMPLETED dengan output, gunakan ITU sebagai sumber. Jangan membuat narasi sendiri.
+
 Format Executive Report:
 
 ## Ringkasan Eksekutif
-[1-2 kalimat. LIHAT "Runtime Status" di Executive Results:
-- COMPLETED: ringkas temuan CTO. JANGAN bilang menunggu.
-- FAILED: laporkan error yang terjadi.
-- (no output): laporkan bahwa CTO gagal menghasilkan output.]
+[1-2 kalimat berdasarkan ## Executive Results. JANGAN MEREFER misi sebelumnya.]
 
 ## Hasil Executive
-[WAJIB dibaca. Perhatikan "Runtime Status" + "Structured Findings" setiap executive:
-- Jika ada "Structured Findings" → ekstrak [severity] + title + statement + recommendation. Inilah hasil NYATA CTO.
-- Jika COMPLETED tanpa findings → gunakan Raw Output sebagai sumber.
-- Jika FAILED → laporkan error spesifik.
-- JANGAN PERNAH menulis "menunggu" atau "belum merespon" jika ada status di atas.]
+[WAJIB kutip langsung dari ## Executive Results. Jika ada "Raw Output", kutip isinya. Jika status COMPLETED, laporkan APA yang ditemukan. JANGAN PERNAH bilang "belum ada output" jika status COMPLETED.]
 
 ## Delegasi
 [Disebutkan ke Runtime mana, kenapa — singkat saja]
 
 ## Rekomendasi
-[Langkah konkret selanjutnya untuk Founder]
+[Langkah konkret selanjutnya untuk Founder — berdasarkan hasil AKTUAL]
 
 Bahasa Indonesia profesional. Ringkas dan actionable.`;
 

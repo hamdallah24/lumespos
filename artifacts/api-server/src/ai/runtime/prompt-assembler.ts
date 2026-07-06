@@ -85,9 +85,9 @@ export function assemble(input: PromptAssemblyInput): string {
     totalTokens += estimateTokens(schemaBlock);
   }
 
-  // BLOCK 5.5: Executive Results (CTO/COO/CFO reports)
+  // BLOCK 5.5: Executive Results (CTO/COO/CFO reports) — placed right after schema, before footer
   if (input.context && budget - totalTokens > 200) {
-    const contextBlock = `\n## Executive Results\n${String(input.context).slice(0, 6000)}`;
+    const contextBlock = `\n## Executive Results (SUMBER SATU-SATUNYA — WAJIB DIBACA)\n${String(input.context).slice(0, 8000)}`;
     sections.push(contextBlock);
     totalTokens += estimateTokens(contextBlock);
   }
