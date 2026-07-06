@@ -30,6 +30,7 @@ export interface DriverCallbacks {
 export class ExecutionDriver {
   readonly governor: ExecutionGovernor;
   private readonly callbacks: DriverCallbacks;
+  private _toolsUsed = 0;
 
   /** Only place in the codebase where ExecutionGovernor is instantiated. */
   constructor(
@@ -111,10 +112,17 @@ export class ExecutionDriver {
         return "";
       }
 
-      // ── No tool calls → text response → validate + remember + return ──
+      // ── No tool calls → text response ──
       if (result.status === "ok") {
         const content = stripDSML(result.content);
         const validated = validateResponse(content);
+
+        // If still in EXPLORE/INVESTIGATE and no tools used yet, retry with stronger instruction
+        if (this._toolsUsed === 0 && ["EXPLORE", "INVESTIGATE"].includes(strategy)) {
+          messages.push({ role: "user", content: "[GOVERNOR] Anda TIDAK boleh menjawab tanpa membaca file terlebih dahulu. Gunakan tools readFile atau searchContent untuk mengumpulkan bukti. Jangan berikan analisis tanpa data." });
+          continue;
+        }
+
         if (validated.cleanedText) {
           await remember(userId, mode, user, validated.cleanedText);
           context.result = validated.cleanedText;
@@ -124,6 +132,7 @@ export class ExecutionDriver {
       }
 
       // ── Execute tool calls ──
+      this._toolsUsed += result.toolCalls.length;
       const toolResults: any[] = [];
       const toolStatuses: { name: string; durationMs: number; status: "ok" | "error" }[] = [];
       const filePaths: string[] = [];
