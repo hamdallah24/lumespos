@@ -8,6 +8,7 @@ import type { BoardExecutive } from "./executive-board";
 import { createTask } from "./executive-task";
 import type { ExecutiveRole, ExecutiveTask, ExecutiveResult } from "./executive-task";
 import type { IRuntime, RuntimeContext } from "../ai/runtime/orchestrator/runtime-interface";
+import { knowledgeBackbone } from "../knowledge/KnowledgeBackbone";
 
 export type CollaborationState = "CREATED" | "RUNNING" | "COLLECTING" | "COMPLETED" | "FAILED";
 
@@ -269,6 +270,26 @@ export class ExecutiveCollaboration {
           `Completed by ${r.executive} (confidence: ${r.confidence}%, status: ${r.status})`,
           r.executive as any,
         );
+      }
+    } catch {}
+
+    // RFC-012: Knowledge Backbone — record decisions + update executive memory
+    try {
+      for (const r of results) {
+        // Record decision in Backbone
+        knowledgeBackbone.recordDecision(
+          session.id,
+          objective,
+          [r.executive],
+          [r.status],
+          r.status === "COMPLETED" ? "Completed" : "Failed",
+        );
+        // Update executive memory
+        knowledgeBackbone.updateMemory(r.executive, {
+          currentFindings: [r.status === "COMPLETED" ? objective : `Failed: ${objective}`],
+          completedTasks: r.status === "COMPLETED" ? [objective] : [],
+          confidence: r.confidence,
+        });
       }
     } catch {}
 
