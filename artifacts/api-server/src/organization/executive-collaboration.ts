@@ -293,7 +293,11 @@ export class ExecutiveCollaboration {
 
     // Build synthesis context
     const contextParts = results.map(r =>
-      `## ${r.executive} Report\nConfidence: ${r.confidence}%\n\n${r.content}`
+      `## ${r.executive} Runtime Status: ${r.status}` +
+      `\nConfidence: ${r.confidence}%` +
+      (r.error ? `\nError: ${r.error}` : "") +
+      `\nOutput Length: ${r.content?.length || 0} chars` +
+      `\n\n${r.content || "(no output produced)"}`
     );
 
     return {
