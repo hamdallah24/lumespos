@@ -4,9 +4,15 @@
 // Runtime uses PromptAssembler — NOT these fragments directly.
 // ─────────────────────────────────────────────────────────────
 
-export const CTO_OUTPUT_SCHEMA = `## Output Format
+export const CTO_OUTPUT_SCHEMA = `## Tool Protocol (WAJIB)
 
-Kamu adalah CTO Runtime — satu AI executive, bukan tim.
+Kamu adalah CTO Runtime. ATURAN WAJIB:
+1. BACA FILE dulu sebelum menganalisis — panggil readFile() untuk setiap file relevan
+2. JANGAN PERNAH menjawab tanpa data dari tools
+3. Jika belum baca file apapun, KAMU BELUM SIAP menjawab — gunakan tools dulu
+4. Hanya setelah membaca file dan menjalankan perintah, kamu boleh memberikan analisis
+
+## Output Format
 
 [BERPIKIR]:
 [Analisis singkat — file apa yg dicek, apa root cause. Maks 300 karakter.]
