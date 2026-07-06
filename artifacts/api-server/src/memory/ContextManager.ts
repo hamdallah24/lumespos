@@ -25,13 +25,27 @@ export class ContextManager {
     const recent = messages.slice(-keepRecent);
     const older = messages.slice(systemMsg.length, -keepRecent);
 
+    // Collect tool_call_ids from recent assistant messages (so we can keep their tool responses)
+    const recentToolCallIds = new Set<string>();
+    for (const m of recent) {
+      if (m.role === "assistant" && m.tool_calls) {
+        for (const tc of m.tool_calls) recentToolCallIds.add(tc.id || tc.tool_call_id || "");
+      }
+    }
+
+    // Remove orphaned tool responses (no matching tool_call_id in recent)
+    const filtered = recent.filter(m => {
+      if (m.role !== "tool") return true;
+      return m.tool_call_id && recentToolCallIds.has(m.tool_call_id);
+    });
+
     // Summarize older messages
     if (older.length > 0) {
       const summary = this.summarizeMessages(older);
-      return [...systemMsg, { role: "system", content: summary }, ...recent];
+      return [...systemMsg, { role: "system", content: summary }, ...filtered];
     }
 
-    return [...systemMsg, ...recent];
+    return [...systemMsg, ...filtered];
   }
 
   /** Artifact Compression: replace long tool output with brief summary */
