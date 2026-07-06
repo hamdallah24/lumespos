@@ -38,6 +38,15 @@ export class ContextManager {
   compressToolOutput(output: string, maxLen: number = 800): string {
     if (output.length <= maxLen) return output;
 
+    // Heavy compression for command outputs (pm2 logs, cat, etc.)
+    if (output.length > 3000) {
+      const lines = output.split("\n").filter(l => l.trim());
+      return `[Compressed: ${output.length} chars, ${lines.length} lines]\n`
+        + lines.slice(0, 20).join("\n")
+        + `\n... [${lines.length - 40} lines omitted] ...\n`
+        + lines.slice(-20).join("\n");
+    }
+
     const lines = output.split("\n").filter(l => l.trim());
     const head = lines.slice(0, 3).join("\n");
     const tail = lines.slice(-2).join("\n");
