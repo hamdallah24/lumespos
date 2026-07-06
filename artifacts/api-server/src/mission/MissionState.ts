@@ -1,4 +1,5 @@
-// ADR-009 Phase 0: Mission State
+// @deprecated — ADR-010. Not wired. Logic duplicated in mission-engine.ts.
+// Scheduled for review in ECP-050.
 // Mission lifecycle: DRAFT → ACTIVE → BLOCKED → COMPLETED → ARCHIVED
 
 import type { MissionState } from "./Mission";

@@ -17,7 +17,6 @@ import { review as reviewProposal } from "../runtime/proposal-review";
 import { getIdentity } from "../runtime/identity";
 import { authorization as auth } from "../runtime/authorization";
 import { withinScope } from "../runtime/mission-scope";
-import { getMultiTrust, rateDimension } from "../runtime/multi-trust";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 import { callDeepSeekWithTools } from "../llm/llm-adapter";
 import { getDependencies } from "../tools/tool-adapter";

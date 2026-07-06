@@ -3,8 +3,6 @@
 // CEO melakukan sintesis akhir. Organization Engine adalah dispatcher tunggal.
 // ECP-047: executeMission() — multi-executive parallel dispatch + collect.
 
-import { executiveBoard } from "./executive-board";
-import type { BoardExecutive } from "./executive-board";
 import { createTask } from "./executive-task";
 import type { ExecutiveRole, ExecutiveTask, ExecutiveResult } from "./executive-task";
 import type { IRuntime, RuntimeContext } from "../ai/runtime/orchestrator/runtime-interface";

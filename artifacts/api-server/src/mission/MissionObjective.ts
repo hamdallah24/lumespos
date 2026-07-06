@@ -1,4 +1,5 @@
-// ADR-009 Phase 0: Mission Objective
+// @deprecated — ADR-010. Not wired. Logic covered by executive-collaboration.ts executeMission().
+// Scheduled for review in ECP-050.
 // Single objective within a mission. Has status, deliverable, acceptance criteria.
 
 import type { MissionObjective, ObjectiveStatus } from "./Mission";

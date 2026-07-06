@@ -6,9 +6,9 @@
 import { ExecutionGovernor } from "./execution-governor";
 import { PipelineContext } from "./execution-context";
 import { callLLMWithTools } from "../../llm/llm-adapter";
-import { executeToolCall, executeToolWithResult, getToolLabel } from "../../tools/tool-adapter";
+import { executeToolWithResult, getToolLabel } from "../../tools/tool-adapter";
 import { remember } from "../../../services/ai-memory-service";
-import { stripDSML, sanitizeMessages, validateMessageSequence, validateResponse } from "../validator";
+import { stripDSML, sanitizeMessages, validateResponse } from "../validator";
 import { contextManager } from "../../../memory/ContextManager";
 import { missionIntelligence } from "../../../memory/MissionIntelligence";
 import { MissionBudgetTracker } from "../../../memory/MissionBudgetTracker";
