@@ -179,7 +179,27 @@ export class ExecutionDriver {
 
       // CONCLUDE now — force text-only response immediately, don't wait for next loop
       if (miResult.decision === "CONCLUDE") {
-        const finalResult = await callLLMWithTools(messages, [], Math.min(maxTokens, 4000), false, jsonMode);
+        // Push synthesis instruction: structured analysis, not generic summary
+        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Waktu menyimpulkan. Berdasarkan SEMUA file yang sudah kamu baca dan SEMUA command yang sudah kamu jalankan, buat laporan analisis lengkap:
+
+## Root Cause
+[Jelaskan penyebab utama yang ditemukan dari file dan log]
+
+## Evidence
+- [File X]: [apa yang ditemukan]
+- [File Y]: [apa yang ditemukan]
+- [Log/Command output]: [apa yang ditemukan]
+
+## Rekomendasi Perbaikan
+1. [Langkah spesifik — sebutkan file path, line, perubahan kode]
+2. [Langkah spesifik]
+
+## Persetujuan
+Minta persetujuan Founder untuk menjalankan perbaikan di atas. Jangan jalankan tanpa approval.
+
+Gunakan format Assistant biasa. BUKAN tool_calls. Langsung tulis analisis.` });
+
+        const finalResult = await callLLMWithTools(messages, [], Math.min(maxTokens, 4000), false, false);
         const finalContent = stripDSML(finalResult.content || "");
         const validated = validateResponse(finalContent);
         if (validated.cleanedText) {
