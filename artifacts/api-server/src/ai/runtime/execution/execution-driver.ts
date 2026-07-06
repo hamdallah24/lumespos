@@ -75,6 +75,7 @@ export class ExecutionDriver {
 
     while (this.governor.shouldContinue()) {
       context.cycle = this.governor.beforeCycle();
+      console.log("[DRIVER] cycle " + context.cycle + " start, budget " + this.governor.budget.usage.tokens + "/" + this.governor.budget.allocation.maxTokens);
 
       // ── Strategy Injection ──
       const strategy = this.governor.strategyEngine.strategy;
@@ -179,6 +180,7 @@ export class ExecutionDriver {
 
       // CONCLUDE now — force text-only response immediately, don't wait for next loop
       if (miResult.decision === "CONCLUDE") {
+        console.log("[DRIVER] CONCLUDE fired at cycle " + context.cycle + " reason: " + miResult.reason);
         // Push synthesis instruction: structured analysis, not generic summary
         messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Waktu menyimpulkan. Berdasarkan SEMUA file yang sudah kamu baca dan SEMUA command yang sudah kamu jalankan, buat laporan analisis TEKNIS dengan format:
 
