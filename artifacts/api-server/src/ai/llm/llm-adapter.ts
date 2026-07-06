@@ -94,7 +94,8 @@ export async function callLLMWithTools(
   } finally { clearTimeout(tid); }
 
   if (!resp.ok) {
-    console.error(`[ai] DeepSeek HTTP ${resp.status}`);
+    const errBody = await resp.text().catch(() => "{}");
+    console.error(`[ai] DeepSeek HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
     return { message: null, content: "", toolCalls: [], tokensUsed: 0, status: "error", errorStatus: resp.status };
   }
 
