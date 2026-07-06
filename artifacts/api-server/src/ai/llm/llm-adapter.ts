@@ -150,7 +150,14 @@ export async function callDeepSeek(
     userContent = userContent.replace(/\b(artifacts\/|\.local\/|lib\/)\S*\.[a-z]{2,4}\b/gi, "[file]");
     messages.push({ role: "user", content: userContent });
 
-    const body: any = { model, messages, max_tokens: maxTokens, temperature: 0.7 };
+    // Safe max tokens based on model context window
+    const promptChars = messages.reduce((s: number, m: any) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
+    const promptTokensEstimate = charsToTokens(promptChars, DEEPSEEK_MODEL);
+    const modelLimit = getModelContext(DEEPSEEK_MODEL);
+    const safeMaxTokens = Math.min(maxTokens, Math.max(500, modelLimit - promptTokensEstimate));
+    console.log(`[LLM-REQ] mode=${mode} chars=${promptChars} promptTok=${promptTokensEstimate} safeMax=${safeMaxTokens}`);
+
+    const body: any = { model, messages, max_tokens: safeMaxTokens, temperature: 0.7 };
     if (jsonMode) body.response_format = { type: "json_object" };
 
     const controller = new AbortController();
@@ -172,8 +179,12 @@ export async function callDeepSeek(
     }
     const json = await resp.json();
     const content = (json as any).choices?.[0]?.message?.content?.trim() || "";
-    if (!content) console.error(`[ai] DeepSeek empty response. finish_reason=${(json as any).choices?.[0]?.finish_reason}`);
-    else await remember(userId, mode, user, content);
+    if (!content) {
+      console.error(`[ai] DeepSeek empty response. finish_reason=${(json as any).choices?.[0]?.finish_reason}`);
+      if (mode === "ceo") return "Maaf, CEO Runtime tidak dapat menghasilkan laporan saat ini. Coba lagi dengan perintah yang lebih spesifik.";
+    } else {
+      await remember(userId, mode, user, content);
+    }
     return content;
   } catch (err) {
     if ((err as any)?.name === "AbortError") { console.error("[ai] DeepSeek timeout"); return "ERROR: Layanan AI tidak merespon (timeout). Coba lagi."; }
