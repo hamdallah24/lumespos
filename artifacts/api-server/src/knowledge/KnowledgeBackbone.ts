@@ -10,9 +10,12 @@ import { missionHistory } from "../mission/MissionHistory";
 import { organizationalMemory } from "../intelligence/organizational-memory";
 import { architectureRegistry } from "./ArchitectureRegistry";
 import { capabilityRegistry } from "./CapabilityRegistry";
+import { findingBuilder } from "../runtime/reasoning/FindingBuilder";
 import type { ExecutiveRole } from "../mission/Mission";
 import type { KnowledgeBundle, ScopedKnowledge } from "./KnowledgeBundle";
 import type { ExecutiveMemoryEntry } from "../memory/ContextManager";
+import type { EvidenceItem, EvidenceGraph, Finding } from "../runtime/EvidenceTypes";
+import { createEvidenceId } from "../runtime/EvidenceTypes";
 
 export class KnowledgeBackbone {
 
@@ -25,6 +28,56 @@ export class KnowledgeBackbone {
   readonly organization = organizationalMemory;
   readonly architecture = architectureRegistry;
   readonly capabilities = capabilityRegistry;
+
+  // ECP-014R: Evidence Registry
+  private _evidence: Map<string, EvidenceItem> = new Map();
+  private _findings: Finding[] = [];
+
+  /** Append evidence item */
+  addEvidence(item: Omit<EvidenceItem, "id">): EvidenceItem {
+    const full: EvidenceItem = { ...item, id: createEvidenceId() };
+    this._evidence.set(full.id, full);
+    return full;
+  }
+
+  /** Get evidence by ID */
+  getEvidence(id: string): EvidenceItem | null {
+    return this._evidence.get(id) ?? null;
+  }
+
+  /** Query evidence by type */
+  queryEvidence(type?: string, source?: string): EvidenceItem[] {
+    let results = [...this._evidence.values()];
+    if (type) results = results.filter(e => e.type === type);
+    if (source) results = results.filter(e => e.source.includes(source));
+    return results;
+  }
+
+  /** Build evidence graph from stored evidence */
+  buildEvidenceGraph(): EvidenceGraph {
+    return findingBuilder.buildGraph([...this._evidence.values()]);
+  }
+
+  /** Trace evidence chain for a finding */
+  traceEvidence(finding: Finding): EvidenceItem[] {
+    return finding.evidenceIds.map(id => this._evidence.get(id)).filter(Boolean) as EvidenceItem[];
+  }
+
+  /** Store finding */
+  addFinding(finding: Finding): void {
+    this._findings.push(finding);
+  }
+
+  /** Get all findings */
+  getFindings(): Finding[] {
+    return [...this._findings];
+  }
+
+  /** Clear mission-scoped evidence */
+  clearEvidence(): void {
+    this._evidence.clear();
+    this._findings = [];
+  }
 
   // ── Executive Memory API ──
   getMemory(executive: string): ExecutiveMemoryEntry {

@@ -1,6 +1,8 @@
 // ECP-042: Executive Task — Standard task format for organization
 // Semua executive menerima format identik. Tidak ada format khusus per role.
 
+import type { Finding } from "../runtime/EvidenceTypes";
+
 export type ExecutiveRole = "CEO" | "CTO" | "COO" | "CFO" | "CMO" | "CHRO" | "CIO" | "CLO" | "CSO";
 
 export type TaskPriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
@@ -30,6 +32,7 @@ export interface ExecutiveResult {
   confidence: number;
   durationMs: number;
   error?: string;
+  findings?: Finding[];  // ECP-014R: structured findings (non-breaking)
 }
 
 let _counter = 0;

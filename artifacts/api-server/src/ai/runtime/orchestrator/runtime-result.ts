@@ -12,6 +12,8 @@ export interface RuntimeMetrics {
   delegatedTo?: string;
   verificationPassed: boolean;
   knowledgeWritten: boolean;
+  confidence?: number;  // ECP-014R: optional confidence from metrics engine
+  findings?: any[];     // ECP-014R: optional structured findings
 }
 
 export interface RuntimeResult {

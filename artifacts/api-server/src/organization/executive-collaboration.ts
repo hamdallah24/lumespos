@@ -154,8 +154,9 @@ export class ExecutiveCollaboration {
             executive: exec.runtime as ExecutiveRole,
             status: runtimeResult.success ? "COMPLETED" : "FAILED",
             content: runtimeResult.text?.slice(0, 3000) || "",
-            confidence: 70,
+            confidence: runtimeResult.metrics?.confidence || 70,
             durationMs: Date.now() - t0,
+            findings: (runtimeResult as any).findings || undefined,  // ECP-014R
           };
           this.submitResult(session, execResult);
           return execResult;
@@ -291,14 +292,22 @@ export class ExecutiveCollaboration {
       }
     } catch {}
 
-    // Build synthesis context
-    const contextParts = results.map(r =>
-      `## ${r.executive} Runtime Status: ${r.status}` +
-      `\nConfidence: ${r.confidence}%` +
-      (r.error ? `\nError: ${r.error}` : "") +
-      `\nOutput Length: ${r.content?.length || 0} chars` +
-      `\n\n${r.content || "(no output produced)"}`
-    );
+    // Build synthesis context — include structured findings when available
+    const contextParts = results.map(r => {
+      const base = `## ${r.executive} Runtime Status: ${r.status}` +
+        `\nConfidence: ${r.confidence}%` +
+        (r.error ? `\nError: ${r.error}` : "") +
+        `\nOutput Length: ${r.content?.length || 0} chars`;
+
+      // ECP-014R: Include structured findings if available
+      if (r.findings && r.findings.length > 0) {
+        const findingsText = r.findings.map(f =>
+          `\n  - [${f.severity}] ${f.title}: ${f.statement}\n    Recommendation: ${f.recommendation}`
+        ).join("");
+        return `${base}\n\n## Structured Findings (${r.findings.length} items)${findingsText}\n\n---\n## Raw Output\n${r.content || "(none)"}`;
+      }
+      return `${base}\n\n${r.content || "(no output produced)"}`;
+    });
 
     return {
       executiveResults: results,
