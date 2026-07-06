@@ -11,6 +11,7 @@ export interface ModelDensity {
 
 export const MODEL_DENSITY: Record<string, ModelDensity> = {
   "deepseek-chat":       { name: "deepseek-chat",       density: 1.0, maxOutput: 8000,  maxContext: 1000000, responseTime: 800 },
+  "deepseek-v4-flash":   { name: "deepseek-v4-flash",   density: 1.0, maxOutput: 8000,  maxContext: 1000000, responseTime: 600 },
   "deepseek-v4-pro":     { name: "deepseek-v4-pro",     density: 1.55, maxOutput: 8000, maxContext: 1000000, responseTime: 900 },
   "deepseek-reasoner":   { name: "deepseek-reasoner",   density: 1.4, maxOutput: 8000,  maxContext: 1000000, responseTime: 1200 },
   "gpt-4o":              { name: "gpt-4o",              density: 1.0, maxOutput: 4096,  maxContext: 128000,  responseTime: 600 },
