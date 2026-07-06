@@ -69,16 +69,12 @@ export class ExecutionDriver {
     context.state = "EXECUTING";
 
     let _prevStrategy = "";
-    let forcedConclude = false;
 
     // ADR-010 Phase 3: Mission Budget Tracker (pure observer)
     const budgetTracker = new MissionBudgetTracker();
 
     while (this.governor.shouldContinue()) {
       context.cycle = this.governor.beforeCycle();
-
-      // RFC-012 Phase 8: if MissionIntelligence called CONCLUDE, force text-only
-      const activeTools = forcedConclude ? [] : tools;
 
       // ── Strategy Injection ──
       const strategy = this.governor.strategyEngine.strategy;
@@ -96,7 +92,7 @@ export class ExecutionDriver {
       }
 
       // ── LLM Call ──
-      const result = await callLLMWithTools(messages, activeTools, maxTokens, false, jsonMode);
+      const result = await callLLMWithTools(messages, tools, maxTokens, false, jsonMode);
       const tokensThisCycle = result.tokensUsed;
 
       // ── Error: retry with fallback (no tools, smaller prompt) ──
@@ -174,8 +170,19 @@ export class ExecutionDriver {
         strategy: this.governor.strategyEngine.strategy,
         budgetExhausted: this.governor.budget.isExceeded().exceeded,
       });
+
+      // CONCLUDE now — force text-only response immediately, don't wait for next loop
       if (miResult.decision === "CONCLUDE") {
-        forcedConclude = true; // next cycle uses tools=[]
+        const finalResult = await callLLMWithTools(messages, [], Math.min(maxTokens, 4000), false, jsonMode);
+        const finalContent = stripDSML(finalResult.content || "");
+        const validated = validateResponse(finalContent);
+        if (validated.cleanedText) {
+          await remember(userId, mode, user, validated.cleanedText);
+          context.result = validated.cleanedText;
+        }
+        console.log(budgetTracker.summary(this.governor.budget.allocation));
+        this.governor.finishExecution(context.contract);
+        return validated.cleanedText;
       }
 
       // ── Evaluate → safety net final call ──
