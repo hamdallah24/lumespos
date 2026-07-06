@@ -136,10 +136,10 @@ export class MissionIntelligence {
     strategy: string;
     budgetExhausted: boolean;
   }): { decision: MissionDecision; reason: string } {
-    if (metrics.evidenceQuality >= 0.40 && metrics.confidence >= 50 && metrics.cyclesExecuted >= 5) {
+    if (metrics.evidenceQuality >= 0.40 && metrics.confidence >= 50 && metrics.cyclesExecuted >= 8) {
       return { decision: "CONCLUDE", reason: "Evidence threshold met" };
     }
-    if (metrics.cyclesExecuted >= 6 && metrics.evidenceQuality >= 0.25
+    if (metrics.cyclesExecuted >= 10 && metrics.evidenceQuality >= 0.25
         && (metrics.strategy === "EXPLORE" || metrics.strategy === "INVESTIGATE")) {
       return { decision: "CONCLUDE", reason: "Force text — model stuck in explore/investigate loop" };
     }

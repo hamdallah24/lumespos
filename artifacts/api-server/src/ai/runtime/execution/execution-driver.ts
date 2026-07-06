@@ -214,7 +214,7 @@ Confidence [XX]% karena: [evidence item 1], [evidence item 2]
 ## Persetujuan
 Minta persetujuan Founder.` });
 
-        const finalResult = await callLLMWithTools(messages, [], Math.min(maxTokens, 4000), false, false);
+        const finalResult = await callLLMWithTools(messages, [], Math.min(maxTokens, 8000), false, false);
         const finalContent = stripDSML(finalResult.content || "");
         const validated = validateResponse(finalContent);
         if (validated.cleanedText) {
