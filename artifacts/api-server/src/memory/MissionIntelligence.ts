@@ -136,7 +136,7 @@ export class MissionIntelligence {
     strategy: string;
     budgetExhausted: boolean;
   }): { decision: MissionDecision; reason: string } {
-    if (metrics.evidenceQuality >= 0.40 && metrics.confidence >= 50) {
+    if (metrics.evidenceQuality >= 0.40 && metrics.confidence >= 50 && metrics.cyclesExecuted >= 2) {
       return { decision: "CONCLUDE", reason: "Evidence threshold met" };
     }
     if (metrics.cyclesExecuted >= 3 && metrics.evidenceQuality >= 0.25
