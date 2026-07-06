@@ -9,8 +9,10 @@ class ExecutionStrategyEngine {
   private _strategy: ExecutionStrategy = "EXPLORE";
   private _toolHistory: string[][] = [];
   private _complexity: string = "medium";
+  private _cycleCount = 0;
 
   get strategy(): ExecutionStrategy { return this._strategy; }
+  get cycleCount(): number { return this._cycleCount; }
 
   setComplexity(c: string): void { this._complexity = c; }
 
@@ -22,6 +24,14 @@ class ExecutionStrategyEngine {
   } {
     const previous = this._strategy;
     this._toolHistory.push(toolCalls.map(t => t.name));
+    this._cycleCount++;
+
+    // Force transition: after 4 cycles go to ANALYZE, after 8 go to CONCLUDE
+    if (this._cycleCount >= 8) {
+      this._strategy = "CONCLUDE";
+    } else if (this._cycleCount >= 4 && ["EXPLORE", "INVESTIGATE"].includes(this._strategy)) {
+      this._strategy = "ANALYZE";
+    }
 
     if (toolCalls.length === 0) {
       if (state === "REFLECTING" || state === "COMPLETED") {
@@ -75,6 +85,7 @@ class ExecutionStrategyEngine {
   reset(): void {
     this._strategy = "EXPLORE";
     this._toolHistory = [];
+    this._cycleCount = 0;
   }
 }
 
