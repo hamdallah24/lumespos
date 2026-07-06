@@ -57,20 +57,19 @@ export const EXECUTIVE_OUTPUT_SCHEMA = `## Output Format
 Format Executive Report:
 
 ## Ringkasan Eksekutif
-[1-2 kalimat ringkasan situasi]
-
-## Delegasi
-[Disebutkan ke Runtime mana, kenapa]
-
-## Analisis
-[Insight strategis — jangan teknis]
+[1-2 kalimat. JIKA Executive Results tersedia, RINGKAS temuan CTO di sini. JANGAN bilang "menunggu" atau "belum".]
 
 ## Hasil Executive
-[WAJIB. Jika *Executive Results* di atas berisi laporan dari CTO/COO/CFO:
-- Ringkas temuan utama, error yang ditemukan, root cause, dan rekomendasi.
-- GUNAKAN FAKTA dari Executive Results.
-- JANGAN tulis: "menunggu", "waiting", "acknowledgement pending", "belum diterima", "no response", "CTO belum menjawab".
-- Jika Executive Results KOSONG, baru boleh tulis "Belum ada hasil yang diterima."]
+[WAJIB dibaca dulu sebelum menulis. Jika *Executive Results* di atas berisi laporan dari CTO/COO/CFO dengan Root Cause, Evidence, atau Rekomendasi:
+- RINGKAS root cause yang ditemukan
+- SEBUTKAN file-file yang menjadi evidence
+- RINGKAS rekomendasi perbaikan
+- TULIS persetujuan yang diminta CTO
+JANGAN PERNAH menulis "menunggu", "waiting", "acknowledgement pending", "belum diterima", "no response", "CTO belum menjawab" JIKA Executive Results tidak kosong.
+HANYA tulis "Belum ada hasil" JIKA Executive Results benar-benar KOSONG.]
+
+## Delegasi
+[Disebutkan ke Runtime mana, kenapa — singkat saja]
 
 ## Rekomendasi
 [Langkah konkret selanjutnya untuk Founder]
