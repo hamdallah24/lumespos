@@ -82,6 +82,7 @@ class ExecutionGovernor {
     toolCalls: { name: string; durationMs: number }[],
     tokensUsed: number,
     matchedPath?: string,
+    filePaths?: string[],  // ADR-010: file paths for evidence tracking
   ): void {
     this.budget.recordTokens(tokensUsed);
     if (hasToolCalls) this.budget.recordTool();
@@ -135,6 +136,13 @@ class ExecutionGovernor {
 
     // Legacy path: markComplete still works if matchedPath is provided
     if (matchedPath) this.goalTree.markComplete(matchedPath);
+
+    // ADR-010: Record all file paths for evidence quality computation
+    if (filePaths) {
+      for (const p of filePaths) this.metrics.recordExploration(p);
+    } else if (matchedPath) {
+      this.metrics.recordExploration(matchedPath);
+    }
 
     // Metrics
     this.metrics.recordCycle(this._cycle, toolCalls);

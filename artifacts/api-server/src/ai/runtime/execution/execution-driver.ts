@@ -126,6 +126,7 @@ export class ExecutionDriver {
       // ── Execute tool calls ──
       const toolResults: any[] = [];
       const toolStatuses: { name: string; durationMs: number; status: "ok" | "error" }[] = [];
+      const filePaths: string[] = [];
       for (const tc of result.toolCalls) {
         const label = getToolLabel(tc.name);
         this.callbacks.onProgress?.(label);
@@ -134,6 +135,11 @@ export class ExecutionDriver {
         this.callbacks.onTool?.({ name: tc.name, status: "completed", durationMs: tr.durationMs });
         toolResults.push({ role: "tool", tool_call_id: tc.id, content: tr.output });
         toolStatuses.push({ name: tr.name, durationMs: tr.durationMs, status: tr.status });
+
+        // ADR-010: Track file paths for evidence quality scoring
+        if (["readFile", "fetchGitHubFile", "fetchGitHubDir"].includes(tc.name) && tc.args?.path) {
+          filePaths.push(tc.args.path);
+        }
       }
 
       // ADR-010 Phase 2: Artifact Compression — use summary for long tool outputs
@@ -150,7 +156,7 @@ export class ExecutionDriver {
       messages.push(...compressed);
 
       // ── Observe ──
-      this.governor.afterCycle(true, toolStatuses, tokensThisCycle);
+      this.governor.afterCycle(true, toolStatuses, tokensThisCycle, undefined, filePaths.length > 0 ? filePaths : undefined);
 
       // ADR-010 Phase 3: Record hierarchical budget
       const toolChars = toolResults.reduce((s: number, t: any) => s + String(t.content || "").length, 0);

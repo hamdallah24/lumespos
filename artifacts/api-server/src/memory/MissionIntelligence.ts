@@ -139,8 +139,9 @@ export class MissionIntelligence {
     if (metrics.evidenceQuality >= 0.40 && metrics.confidence >= 50) {
       return { decision: "CONCLUDE", reason: "Evidence threshold met" };
     }
-    if (metrics.cyclesExecuted >= 4 && metrics.evidenceQuality >= 0.25 && metrics.strategy === "EXPLORE") {
-      return { decision: "CONCLUDE", reason: "Force text — model stuck in tool loop" };
+    if (metrics.cyclesExecuted >= 3 && metrics.evidenceQuality >= 0.25
+        && (metrics.strategy === "EXPLORE" || metrics.strategy === "INVESTIGATE")) {
+      return { decision: "CONCLUDE", reason: "Force text — model stuck in explore/investigate loop" };
     }
     if (metrics.budgetExhausted && metrics.evidenceQuality >= 0.30) {
       return { decision: "NEGOTIATE", reason: "Budget low but evidence close" };
