@@ -11,6 +11,7 @@ import { remember } from "../../../services/ai-memory-service";
 import { stripDSML, sanitizeMessages, validateMessageSequence, validateResponse } from "../validator";
 import { contextManager } from "../../../memory/ContextManager";
 import { missionIntelligence } from "../../../memory/MissionIntelligence";
+import { MissionBudgetTracker } from "../../../memory/MissionBudgetTracker";
 
 export const EXECUTION_INSTRUCTION: Record<string, string> = {
   EXPLORE: "Continue exploring. Find all relevant files first before analyzing.",
@@ -69,6 +70,9 @@ export class ExecutionDriver {
 
     let _prevStrategy = "";
     let forcedConclude = false;
+
+    // ADR-010 Phase 3: Mission Budget Tracker (pure observer)
+    const budgetTracker = new MissionBudgetTracker();
 
     while (this.governor.shouldContinue()) {
       context.cycle = this.governor.beforeCycle();
@@ -152,6 +156,16 @@ export class ExecutionDriver {
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle);
 
+      // ADR-010 Phase 3: Record hierarchical budget
+      const toolChars = toolResults.reduce((s: number, t: any) => s + String(t.content || "").length, 0);
+      budgetTracker.recordCycle(
+        context.cycle, tokensThisCycle, toolChars,
+        this.governor.budget.usage.tokens,
+        this.governor.strategyEngine.strategy,
+        this.governor.metrics.evidenceQuality,
+        this.governor.metrics.confidence,
+      );
+
       // RFC-012 Phase 8: MissionIntelligence evaluates → driver reads decision
       const miResult = missionIntelligence.evaluate({
         evidenceQuality: this.governor.metrics.evidenceQuality,
@@ -175,12 +189,13 @@ export class ExecutionDriver {
         } else {
           context.result = finalText;
         }
+        console.log(budgetTracker.summary(this.governor.budget.allocation));
         this.governor.finishExecution(context.contract);
         return finalText;
       }
     }
 
-    this.governor.finishExecution(context.contract);
+    console.log(budgetTracker.summary(this.governor.budget.allocation));
     return "";
   }
 
