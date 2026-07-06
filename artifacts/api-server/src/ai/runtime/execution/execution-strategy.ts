@@ -26,10 +26,8 @@ class ExecutionStrategyEngine {
     this._toolHistory.push(toolCalls.map(t => t.name));
     this._cycleCount++;
 
-    // Force transition: after 4 cycles go to ANALYZE, after 8 go to CONCLUDE
-    if (this._cycleCount >= 8) {
-      this._strategy = "CONCLUDE";
-    } else if (this._cycleCount >= 4 && ["EXPLORE", "INVESTIGATE"].includes(this._strategy)) {
+    // Force transition to ANALYZE after 4 cycles if still exploring
+    if (this._cycleCount >= 4 && ["EXPLORE", "INVESTIGATE"].includes(this._strategy)) {
       this._strategy = "ANALYZE";
     }
 
