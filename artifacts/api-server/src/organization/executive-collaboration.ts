@@ -274,6 +274,16 @@ export class ExecutiveCollaboration {
 
     // RFC-012: Knowledge Backbone — record decisions + update executive memory
     try {
+      // ECP-014R: Collect evidence from tool events
+      for (const ev of toolEvents) {
+        knowledgeBackbone.addEvidence({
+          type: ev.name.includes("read") ? "file_read" : ev.name.includes("exec") ? "command_output" : "search_result",
+          source: ev.name,
+          content: `${ev.name} executed (${ev.status}, ${ev.durationMs}ms)`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       for (const r of results) {
         // Record decision in Backbone
         knowledgeBackbone.recordDecision(

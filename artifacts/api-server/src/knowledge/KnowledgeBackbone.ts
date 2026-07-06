@@ -11,6 +11,7 @@ import { organizationalMemory } from "../intelligence/organizational-memory";
 import { architectureRegistry } from "./ArchitectureRegistry";
 import { capabilityRegistry } from "./CapabilityRegistry";
 import { findingBuilder } from "../runtime/reasoning/FindingBuilder";
+import { findingValidator } from "../runtime/reasoning/FindingValidator";
 import type { ExecutiveRole } from "../mission/Mission";
 import type { KnowledgeBundle, ScopedKnowledge } from "./KnowledgeBundle";
 import type { ExecutiveMemoryEntry } from "../memory/ContextManager";
