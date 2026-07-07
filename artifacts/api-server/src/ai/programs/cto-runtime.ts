@@ -97,8 +97,11 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   }
   pipeline.push("MissionScope");
 
-  // Stage 5: Semantic Understanding
-  const contract = await understand(task.message, task.userId);
+  // Stage 5: Semantic Understanding — use original user query, not enriched CEO mission
+  const originalQuery = task.message.includes("\nUser Query: ")
+    ? task.message.split("\nUser Query: ").pop() || task.message
+    : task.message;
+  const contract = await understand(originalQuery, task.userId);
   pipeline.push("SemanticEngine");
 
   // Stage 6: Execution Specification
