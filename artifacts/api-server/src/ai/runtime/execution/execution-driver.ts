@@ -16,79 +16,28 @@ import { MissionBudgetTracker } from "../../../memory/MissionBudgetTracker";
 interface CycleContract {
   allowedTools: string[];
   mustUseTools: boolean;
-  instruction: string;
 }
 
 const CYCLE_CONTRACT: Record<string, CycleContract> = {
   EXPLORE: {
     allowedTools: ["searchContent", "glob", "listDirectory", "fetchGitHubDir"],
     mustUseTools: true,
-    instruction: `[BEHAVIORAL CONTRACT — EXPLORE]
-Tujuan siklus ini: Menemukan file-file relevan.
-YANG DIWAJIBKAN:
-- Gunakan tools: searchContent, glob, listDirectory
-- Temukan dan identifikasi file terkait masalah
-- Outputkan daftar file yang ditemukan + alasan relevansinya
-
-YANG DILARANG:
-- readFile — belum waktunya membaca isi
-- execCommand, sshExec — tidak ada eksekusi
-- Kesimpulan/analisis — ini siklus eksplorasi, bukan analisis
-
-WAJIB hasilkan output: daftar file relevan dengan penjelasan singkat.`,
   },
   INVESTIGATE: {
     allowedTools: ["readFile", "fetchGitHubFile", "getDependencies"],
     mustUseTools: true,
-    instruction: `[BEHAVIORAL CONTRACT — INVESTIGATE]
-Tujuan siklus ini: Membaca dan memahami file yang sudah ditemukan.
-YANG DIWAJIBKAN:
-- Gunakan readFile pada file-file dari hasil eksplorasi sebelumnya
-- Catat temuan per file (struktur, fungsi, pola)
-
-YANG DILARANG:
-- searchContent, glob, listDirectory — sudah selesai eksplorasi
-- execCommand, sshExec — tidak ada eksekusi
-- Kesimpulan akhir — masih dalam investigasi
-
-WAJIB hasilkan output: ringkasan isi file + temuan per file.`,
   },
   ANALYZE: {
     allowedTools: ["readFile"],
     mustUseTools: false,
-    instruction: `[BEHAVIORAL CONTRACT — ANALYZE]
-Tujuan siklus ini: Menganalisis temuan dan menyusun kesimpulan.
-YANG DIWAJIBKAN:
-- Analisis root cause berdasarkan evidence
-- Susun rekomendasi teknis
-
-YANG DILARANG:
-- searchContent, glob — tidak perlu cari file lagi
-- execCommand, sshExec
-- readFile hanya jika ada informasi kritis yang kurang
-
-WAJIB hasilkan output: root cause analysis + rekomendasi.`,
   },
   CONCLUDE: {
     allowedTools: [],
     mustUseTools: false,
-    instruction: `[BEHAVIORAL CONTRACT — CONCLUDE]
-Tujuan siklus ini: Menghasilkan laporan akhir.
-YANG DIWAJIBKAN:
-- Laporan analisis teknis lengkap
-- Root cause, evidence, rekomendasi
-
-YANG DILARANG:
-- Semua tools — TIDAK BOLEH memanggil tools
-- Deskripsi proses ("saya membaca", "saya mencari")
-
-WAJIB hasilkan output: laporan akhir.`,
   },
   ESCALATE: {
     allowedTools: [],
     mustUseTools: false,
-    instruction: `[BEHAVIORAL CONTRACT — ESCALATE]
-Sumber daya tidak mencukupi. Laporkan temuan yang ada dan hentikan.`,
   },
 };
 
@@ -102,9 +51,8 @@ export class ExecutionDriver {
   readonly governor: ExecutionGovernor;
   private readonly callbacks: DriverCallbacks;
   private _toolsUsed = 0;
-  private _cycleOutputs: string[] = []; // intermediate outputs from each cycle
+  private _cycleOutputs: string[] = [];
 
-  /** Only place in the codebase where ExecutionGovernor is instantiated. */
   constructor(
     complexity: string, domain: string, entities: string[], objective: string,
     callbacks?: DriverCallbacks,
@@ -113,7 +61,6 @@ export class ExecutionDriver {
     this.callbacks = callbacks || {};
   }
 
-  /** PLAN — Governor generates ExecutionContract */
   plan(role: string, spec: { intent?: string; domain?: string; complexity?: string; objective?: string; entities?: string[] }): PipelineContext {
     const contract = this.governor.planExecution(role, spec);
     const ctx = new PipelineContext(contract);
@@ -123,11 +70,6 @@ export class ExecutionDriver {
     return ctx;
   }
 
-  /**
-   * Full lifecycle loop. Runs:
-   *   plan → begin → loop(strategy → filteredTools → LLM → validate tools → execute → output) → finalize
-   * Each strategy enforces: allowed tools only + must produce output.
-   */
   async run(
     context: PipelineContext,
     messages: any[],
@@ -142,9 +84,8 @@ export class ExecutionDriver {
     context.state = "EXECUTING";
 
     let _prevStrategy = "";
-    let _strategyCycles = 0;
+    let _prevCycleMsgIndex = -1;
 
-    // ADR-010 Phase 3: Mission Budget Tracker (pure observer)
     const budgetTracker = new MissionBudgetTracker();
     this._cycleOutputs = [];
 
@@ -153,17 +94,17 @@ export class ExecutionDriver {
       const strategy = this.governor.strategyEngine.strategy;
       const contract = CYCLE_CONTRACT[strategy];
 
-      // ── Strategy Change: inject contract + previous cycle output ──
+      // ── Strategy Change: inject compressed previous cycle outputs ──
+      // Contract instruction is NOT injected — tool filtering enforces behavior.
+      // Previous cycle outputs are fed once as compressed context.
       if (strategy !== _prevStrategy) {
         _prevStrategy = strategy;
-        _strategyCycles = 0;
 
-        if (contract) {
-          messages.push({ role: "user", content: contract.instruction });
-          // Feed previous cycle outputs as context for the new strategy
-          if (this._cycleOutputs.length > 0) {
-            messages.push({ role: "user", content: `[HASIL SIKLUS SEBELUMNYA]\n${this._cycleOutputs.join("\n\n---\n\n")}` });
-          }
+        if (this._cycleOutputs.length > 0 && _prevCycleMsgIndex === -1) {
+          const raw = `${this._cycleOutputs.join("\n\n")}`;
+          const compressed = contextManager.compressToolOutput(raw);
+          messages.push({ role: "user", content: `[HASIL SIKLUS SEBELUMNYA]\n${compressed}` });
+          _prevCycleMsgIndex = messages.length - 1;
         }
       }
 
@@ -175,18 +116,16 @@ export class ExecutionDriver {
         activeTools = [];
       }
 
-      // ── Validate messages ──
       for (let i = 0; i < messages.length; i++) {
         const m = messages[i];
         if (!m || typeof m !== "object") throw new Error(`Invalid message at index ${i}`);
         if (!["user", "assistant", "system", "tool"].includes(m.role)) throw new Error(`Invalid role at ${i}: "${m.role}"`);
       }
 
-      // ── LLM Call ──
       const result = await callLLMWithTools(messages, activeTools, maxTokens, false, jsonMode);
       const tokensThisCycle = result.tokensUsed;
 
-      // ── Error: retry with fallback (no tools, smaller prompt) ──
+      // ── Error: retry with fallback ──
       if (result.status === "error") {
         const retry = await callLLMWithTools(messages, [], Math.min(maxTokens, 2000), false, jsonMode);
         const text = stripDSML(retry.content || "");
@@ -206,14 +145,13 @@ export class ExecutionDriver {
         const content = stripDSML(result.content);
         const validated = validateResponse(content);
 
-        // Contract enforcement: must-use-tools cycles reject text-only responses
         if (contract && contract.mustUseTools && this._toolsUsed === 0) {
-          messages.push({ role: "user", content: `[GOVERNOR] Siklus ${strategy} WAJIB menggunakan tools. ${contract.instruction}` });
+          messages.push({ role: "user", content: `[GOVERNOR] Siklus ${strategy} WAJIB menggunakan tools.` });
           continue;
         }
 
         if (validated.cleanedText) {
-          this._cycleOutputs.push(`[${strategy} Cycle ${context.cycle}]\n${validated.cleanedText}`);
+          this._cycleOutputs.push(`[${strategy}]\n${validated.cleanedText}`);
           await remember(userId, mode, user, validated.cleanedText);
           context.result = validated.cleanedText;
         }
@@ -223,17 +161,13 @@ export class ExecutionDriver {
 
       // ── Execute tool calls ──
       this._toolsUsed += result.toolCalls.length;
-      _strategyCycles++;
       const toolResults: any[] = [];
       const toolStatuses: { name: string; durationMs: number; status: "ok" | "error" }[] = [];
       const filePaths: string[] = [];
-      let cycleTextOutput = "";
+      let assistantText = "";
 
       for (const tc of result.toolCalls) {
-        // Contract enforcement: reject disallowed tools
         if (contract && contract.allowedTools.length > 0 && !contract.allowedTools.includes(tc.name)) {
-          const msg = `[GOVERNOR] Tool "${tc.name}" DILARANG di siklus ${strategy}. Hanya diperbolehkan: ${contract.allowedTools.join(", ")}.`;
-          messages.push({ role: "user", content: msg });
           continue;
         }
 
@@ -250,12 +184,12 @@ export class ExecutionDriver {
         }
       }
 
-      // Capture any text from the assistant message as intermediate output
+      // Capture assistant text as intermediate output
       if (result.message?.content) {
         const text = stripDSML(result.message.content);
         if (text) {
-          cycleTextOutput = text;
-          this._cycleOutputs.push(`[${strategy} Cycle ${context.cycle}]\n${text}`);
+          assistantText = text;
+          this._cycleOutputs.push(`[${strategy}]\n${text}`);
         }
       }
 
@@ -275,10 +209,8 @@ export class ExecutionDriver {
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle, undefined, filePaths.length > 0 ? filePaths : undefined);
 
-      // Goal progress
       const goalProgress = this.governor.goalTree.progress();
 
-      // ── Budget tracking ──
       const toolChars = toolResults.reduce((s: number, t: any) => s + String(t.content || "").length, 0);
       budgetTracker.recordCycle(
         context.cycle, tokensThisCycle, toolChars,
@@ -288,7 +220,6 @@ export class ExecutionDriver {
         this.governor.metrics.confidence,
       );
 
-      // ── MissionIntelligence evaluation ──
       const miResult = missionIntelligence.evaluate({
         evidenceQuality: this.governor.metrics.evidenceQuality,
         confidence: this.governor.metrics.confidence,
@@ -298,36 +229,26 @@ export class ExecutionDriver {
         goalProgress,
       });
 
-      // ── CONCLUDE: force text-only, feed all previous outputs ──
+      // ── CONCLUDE ──
       if (miResult.decision === "CONCLUDE") {
-        // Include ALL intermediate outputs for synthesis
         const ctxFeed = this._cycleOutputs.length > 0
-          ? `\n\n[SEMUA HASIL SIKLUS SEBELUMNYA]\n${this._cycleOutputs.join("\n\n---\n\n")}`
+          ? `\n\n[HASIL SIKLUS]\n${contextManager.compressToolOutput(this._cycleOutputs.join("\n\n---\n\n"))}`
           : "";
 
-        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Waktu menyimpulkan.
-
-ATURAN WAJIB:
-- JELASKAN ANALISIS, bukan proses. JANGAN tulis "saya membaca file X" atau "saya menjalankan command Y". Sebutkan file dan line number secara langsung dalam analisis.
-- JANGAN transkrip penuh log/command output. Ringkas berdasarkan pola.
-- JANGAN tulis ulang command yang kamu jalankan.
-- DILARANG: frasa seperti "saya menggunakan tools", "saya mencari", "saya menemukan file", "berdasarkan hasil penelusuran".
-
-Berdasarkan SEMUA file dan command output yang sudah kamu baca, buat laporan analisis TEKNIS:
+        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE.
 
 ## Root Cause
 [JELASKAN penyebab utama. Sebutkan file spesifik + line number.]
 
 ## Verified Evidence
-[SEBUTKAN file yang SUDAH kamu baca. Format: "[filepath] line [nomor]: [fakta spesifik]"]
-[JANGAN GUNAKAN kata: "kemungkinan", "mungkin", "bisa jadi", "diduga".]
+[Format: file:line → fakta. JANGAN gunakan "mungkin", "kemungkinan".]
 
 ## Rekomendasi Teknis
 1. [Langkah spesifik]
 2. [Langkah spesifik]
 
-## Confidence Justification
-Confidence [XX]% karena: [evidence item 1], [evidence item 2]
+## Confidence
+[XX]% — [alasan]
 
 ## Persetujuan
 Minta persetujuan Founder.${ctxFeed}` });
@@ -348,7 +269,7 @@ Minta persetujuan Founder.${ctxFeed}` });
       if (!this.governor.shouldContinue()) {
         const finalText = await this.doFinalCall(messages, tools, maxTokens, userId, mode, user, result.message, jsonMode);
         if (!finalText) {
-          const shortMessages = [{ role: "system", content: "You are an AI assistant. Based on the tools you used, provide a concise summary of what you found. Output in plain text, no tools." }];
+          const shortMessages = [{ role: "system", content: "Provide a concise summary of your findings." }];
           const fallback = await callLLMWithTools(shortMessages, [], 2000, false, jsonMode);
           context.result = stripDSML(fallback.content || "Unable to produce summary.");
         } else {
@@ -364,7 +285,6 @@ Minta persetujuan Founder.${ctxFeed}` });
     return "";
   }
 
-  /** Final summarization call when Governor signals stop. Retries without tools if model keeps calling them. */
   private async doFinalCall(
     messages: any[], tools: { name: string; description: string; parameters: Record<string, any> }[],
     maxTokens: number, userId: number, mode: string, user: string, lastMsg: any, jsonMode: boolean,
