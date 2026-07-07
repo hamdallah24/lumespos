@@ -49,24 +49,24 @@ export class ContextManager {
   }
 
   /** Artifact Compression: replace long tool output with brief summary */
-  compressToolOutput(output: string, maxLen: number = 800): string {
+  compressToolOutput(output: string, maxLen: number = 8000): string {
     if (output.length <= maxLen) return output;
 
     // Heavy compression for command outputs (pm2 logs, cat, etc.)
-    if (output.length > 3000) {
+    if (output.length > 10000) {
       const lines = output.split("\n").filter(l => l.trim());
       return `[Compressed: ${output.length} chars, ${lines.length} lines]\n`
-        + lines.slice(0, 20).join("\n")
-        + `\n... [${lines.length - 40} lines omitted] ...\n`
-        + lines.slice(-20).join("\n");
+        + lines.slice(0, 40).join("\n")
+        + `\n... [${lines.length - 80} lines omitted] ...\n`
+        + lines.slice(-40).join("\n");
     }
 
     const lines = output.split("\n").filter(l => l.trim());
-    const head = lines.slice(0, 3).join("\n");
-    const tail = lines.slice(-2).join("\n");
+    const head = lines.slice(0, 10).join("\n");
+    const tail = lines.slice(-10).join("\n");
     const totalLines = lines.length;
 
-    return `${head}\n... [${totalLines - 5} lines truncated, ${output.length} chars total] ...\n${tail}`;
+    return `${head}\n... [${totalLines - 20} lines truncated, ${output.length} chars total] ...\n${tail}`;
   }
 
   /** Executive Memory: get or create compact memory for an executive */

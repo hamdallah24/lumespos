@@ -177,7 +177,7 @@ export async function listLocalDir(dirPath: string): Promise<string> {
   } catch (e: any) { return `Error: ${e.message}`; }
 }
 
-export async function readLocalFile(filePath: string, maxChars = 5000): Promise<string> {
+export async function readLocalFile(filePath: string, maxChars = 8000): Promise<string> {
   const full = resolve(filePath);
   if (!isPathSafe(full)) return `Error: Path ${filePath} di luar project.`;
   if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
@@ -275,7 +275,7 @@ export async function mergeDeploy(onStep?: (step: string, detail: string) => voi
 
 export const LOCAL_TOOLS: ToolDef[] = [
   { name: "listDirectory", description: "List files and folders in a directory path within the project.", parameters: { type: "object", properties: { path: { type: "string", description: "Absolute or relative path to directory, e.g., artifacts/pos-app/src/pages" } }, required: ["path"] } },
-  { name: "readFile", description: "Read content of a file within the project. Returns max 5000 chars.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file, e.g., artifacts/pos-app/src/pages/products.tsx" } }, required: ["path"] } },
+  { name: "readFile", description: "Read content of a file within the project. Returns max 8000 chars (full content for most files). For larger files, use execCommand with: node -e console.log(require('fs').readFileSync('path','utf-8'))", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file, e.g., artifacts/pos-app/src/pages/products.tsx" } }, required: ["path"] } },
   { name: "searchContent", description: "Search for text pattern in project files using grep.", parameters: { type: "object", properties: { path: { type: "string", description: "Directory to search in" }, pattern: { type: "string", description: "Text pattern to search for" } }, required: ["path", "pattern"] } },
   { name: "writeFile", description: "Create a new file or overwrite an existing file. Creates parent directories automatically.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to new file" }, content: { type: "string", description: "Full file content" } }, required: ["path", "content"] } },
   { name: "editFile", description: "Edit an existing file by replacing a specific text block. Search text must be EXACT match (including whitespace) and unique in the file.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file to edit" }, search: { type: "string", description: "Exact text to find (must appear exactly once)" }, replace: { type: "string", description: "Replacement text" } }, required: ["path", "search", "replace"] } },
