@@ -167,8 +167,8 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   const ctoMessage = allTargets.length > 0
     ? `${task.message}\n\n📌 TARGET ANALISIS: ${allTargets.join(", ")}\n${spec.targetFiles.length > 0 ? `FILE SPESIFIK: ${spec.targetFiles.join(", ")} — baca file ini langsung.` : ""}\nBaca file-file yang relevan dengan target di atas. Jangan membaca file di luar target.`
     : task.message;
-  console.log("[CTO-SYS]", systemPrompt.slice(0, 500));
-  console.log("[CTO-MSG]", ctoMessage.slice(0, 500));
+  console.log("[CTO-SYS]", systemPrompt.slice(0, 300));
+  console.log("[CTO-MSG]", ctoMessage.slice(0, 300));
   console.log("[CTO-TOOL]", limitedToolSet.map((t: any) => t.name).join(", "));
   console.log("[CTO-MAXTOKENS]", spec.runtimePolicy.maxTokens);
   let responseText: string;
