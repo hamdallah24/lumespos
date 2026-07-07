@@ -115,6 +115,7 @@ class OrganizationRuntime {
   /** Built-in defaults when registry file is unavailable */
   private loadDefaults(): void {
     const defaults: OrganizationNode[] = [
+      { id: "RUNTIME-014", runtime: "CKO", parent: "Founder", unit: "Advisory", level: "A", health: "Healthy", maturity: "L2", version: "1.0.0", capabilities: ["knowledge_governance", "foundation_review", "architecture_audit", "policy_recommendation", "founder_advisory", "report_generation"], missionTypes: ["advisory", "knowledge", "governance"], delegates: [] },
       { id: "RUNTIME-001", runtime: "CEO", parent: "Founder", unit: "Executive", level: "A", health: "Healthy", maturity: "L2", version: "1.0.0", capabilities: ["mission_planning", "delegation", "proposal_review", "organization", "business_analysis"], missionTypes: ["strategy", "delegation", "review"], delegates: ["CTO", "COO", "CFO"] },
       { id: "RUNTIME-002", runtime: "CTO", parent: "CEO", unit: "Engineering", level: "B", health: "Healthy", maturity: "L2", version: "1.2.0", capabilities: ["architecture", "code", "refactoring", "reflection", "evidence"], missionTypes: ["code", "architecture", "devops"], delegates: ["QA", "DevOps", "Research"] },
       { id: "RUNTIME-003", runtime: "COO", parent: "CEO", unit: "Operations", level: "B", health: "Planned", maturity: "L0", version: "—", capabilities: ["inventory", "sales", "operations"], missionTypes: ["inventory", "sales", "ops"], delegates: ["Inventory", "Sales", "Warehouse"] },
@@ -272,6 +273,7 @@ class OrganizationRuntime {
       const hasCapabilityMatch = spec.requiredCapabilities?.some((cap: string) => node.capabilities.includes(cap));
       const lowerDomain = spec.domain?.toLowerCase() || "";
       const isDomainMatch = 
+        (node.runtime === "CKO" && ["advisory", "knowledge", "governance", "foundation", "policy", "architecture_review"].includes(lowerDomain)) ||
         (node.runtime === "CTO" && ["architecture", "code", "devops", "codebase", "backend", "frontend", "system"].includes(lowerDomain)) || 
         (node.runtime === "COO" && ["inventory", "sales", "business", "operations", "hr"].includes(lowerDomain)) ||
         (node.runtime === "CFO" && ["budget", "finance", "accounting", "audit", "money"].includes(lowerDomain));

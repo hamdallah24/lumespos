@@ -125,9 +125,7 @@ async function boot(): Promise<void> {
       },
     });
 
-        // Consultant Runtime NOT registered with orchestrator — see runtime-resolver.ts line 7-14
-    // Consultant is a background advisor (maintenance cycle), not a request handler.
-    // knowledge_query intent falls through Layer 2 → Layer 3 → CEO.
+    // ECP-030: Consultant Runtime advisory — start background scheduler
 
     await organizationKernel.start();
     logger.info({ state: organizationKernel.state }, "Kernel booted");
@@ -211,5 +209,11 @@ boot().then(() => {
     logger.info({ port }, "Server listening");
     startHealthMonitor();
     missionEngine.start();
+
+    // Start CKO scheduler for background maintenance
+    import("./programs/consultant").then(({ consultantScheduler }) => {
+      consultantScheduler.start();
+      logger.info("CKO scheduler started — daily knowledge maintenance");
+    }).catch(() => {});
   });
 });

@@ -12,8 +12,7 @@ import { callDeepSeek } from "../llm/llm-adapter";
 import { getFoundationProvider } from "../runtime/foundation";
 import { assemble } from "../runtime/prompt-assembler";
 import { EXECUTIVE_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
-import { foundationLoader } from "../runtime/foundation-loader";
-import { buildFoundationContext } from "../runtime/context-builder";
+import { consultantRuntime } from "../../programs/consultant";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 
 const CEO_IDENTITY = getIdentity("CEO")!;
@@ -22,47 +21,6 @@ function getDirective(): string {
   const provider = getFoundationProvider();
   const content = provider.getDirective("CEO");
   return content || "";
-}
-
-/** Load Foundation docs relevant to query and distill into a concise technical brief for CTO */
-async function createTechBrief(query: string, domain: string, entities: string[]): Promise<string> {
-  const targets = [domain, ...entities].filter(Boolean).join(" ");
-  const assets = foundationLoader.load();
-  const pkg = buildFoundationContext(assets, "ceo", 4000);
-  if (pkg.assets.length === 0) return "";
-
-  const docContext = pkg.assets
-    .filter(a => !targets || targets.split(" ").some(t => t.length > 2 && a.id.toLowerCase().includes(t.toLowerCase()) || a.title.toLowerCase().includes(t.toLowerCase())))
-    .slice(0, 3)
-    .map(a => `[${a.id}] ${a.title}\n${a.content.slice(0, 1000)}`)
-    .join("\n\n---\n\n");
-
-  if (!docContext) return "";
-
-  const briefPrompt = `Anda adalah CEO Engineering OS. Berdasarkan dokumen Foundation berikut dan query user, buat TECHNICAL BRIEF (maks 300 kata) yang merangkum poin-poin penting untuk dieksekusi oleh CTO.
-
-Query User: ${query}
-
-Dokumen Relevan:
-${docContext}
-
-Output format:
-## Technical Brief
-[Ringkasan 2-3 kalimat tentang apa yang perlu dilakukan]
-
-## Key Requirements
-- [Poin teknis 1]
-- [Poin teknis 2]
-- [Poin teknis 3]
-
-## Dokumen Referensi
-[ID Dokumen] — [Judul]`;
-
-  try {
-    return await callDeepSeek(briefPrompt, query, 0, "ceo", 500);
-  } catch {
-    return "";
-  }
 }
 
 export interface ExecutiveDecision {
@@ -160,25 +118,23 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     if (spec.semanticReasoning) missionParts.push(`Reasoning: ${spec.semanticReasoning}`);
     if (spec.expectedOutcome) missionParts.push(`Expected: ${spec.expectedOutcome}`);
 
-    // Load relevant Foundation docs and distill into concise technical brief
-    ctx.onProgress?.("📖 Merangkum dokumen Foundation...");
-    const techBrief = await createTechBrief(ctx.message, spec.domain, spec.entities);
-    if (techBrief) missionParts.push(`\n## Technical Brief (dari Foundation)\n${techBrief}`);
-
-    // If user provides large context (ADR/RFC/ECP), summarize for CTO — don't pass raw document
-    if (ctx.message.length > 1000) {
-      try {
-        const summary = await callDeepSeek(
-          `Anda adalah CEO. Ringkas konteks berikut menjadi maks 200 kata. Fokus pada poin teknis yang relevan untuk dieksekusi CTO. JANGAN tambahkan analisis atau rekomendasi.`,
-          ctx.message, ctx.userId, "ceo", 300
-        );
-        missionParts.push(`\nUser Context: ${summary.trim().slice(0, 1500)}`);
-      } catch {
-        missionParts.push(`\nUser Context: ${ctx.message.slice(0, 1500)}`);
+    // ECP-030: CEO consults CKO (Consultant Runtime) for Foundation advisory
+    // CKO reads Strategic Cache, not raw Foundation docs — faster, lighter
+    ctx.onProgress?.("📋 Berkonsultasi dengan CKO...");
+    try {
+      const ckoResult = await consultantRuntime.analyze("founder_advisory", ctx.message);
+      if (ckoResult.success && ckoResult.text) {
+        missionParts.push(`\n## CKO Advisory\n${ckoResult.text}`);
+        if (ckoResult.findings.length > 0) {
+          missionParts.push(`\n### Findings\n${ckoResult.findings.map(f => `- [${f.severity}] ${f.description}`).join("\n")}`);
+        }
       }
-    } else {
-      missionParts.push(`\nUser Query: ${ctx.message}`);
+    } catch {
+      // CKO unavailable — fallback: pass user message directly
     }
+
+    // User context (always pass original query for full understanding)
+    missionParts.push(`\nUser Query: ${ctx.message}`);
 
     const missionPrompt = missionParts.join("\n");
     const result = await executiveCollaboration.executeMission(

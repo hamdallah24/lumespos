@@ -1,5 +1,5 @@
 // ECP-030: Consultant Provider — Foundation domain extension
-// Frozen. Adds consultant() domain to Foundation Provider.
+// Activated per Founder request. CKO advises CEO based on Foundation knowledge.
 
 import { getFoundationProvider } from "../../ai/runtime/foundation";
 import { strategicCache } from "./consultant-cache";
@@ -10,29 +10,18 @@ import { reportGenerator } from "./consultant-report";
 class ConsultantDomain {
   advisor(question: string, mode: ConsultantMode = "founder_advisory"): string {
     const cache = strategicCache.build(mode);
+    const provider = getFoundationProvider();
+    const ctx = provider.getFoundationContext();
 
-    if (question.toLowerCase().includes("foundation") || question.toLowerCase().includes("ubah")) {
-      return this.formatAdvisory("Foundation Review", [
-        `Foundation documents: ${cache.foundationSummary}`,
-        `Knowledge digest: ${cache.knowledgeDigest}`,
-        `Pending proposals: ${cache.recentProposals.length}`,
-        `Recommendation: Review pending proposals before Foundation changes.`,
-      ]);
-    }
-
-    if (question.toLowerCase().includes("health") || question.toLowerCase().includes("status")) {
-      return this.formatAdvisory("Organization Health", [
-        `Health Score: ${cache.organizationHealthScore}/100`,
-        `Active cards: cache populated`,
-        `Pending proposals: ${cache.recentProposals.length}`,
-        `Top priorities: address policy drifts and architecture debt.`,
-      ]);
-    }
-
-    return this.formatAdvisory("Advisory Response", [
-      `Knowledge digest: ${cache.knowledgeDigest}`,
-      `Recommendation: Review Strategic Cache for detailed analysis.`,
-      `Confidence: moderate — specific data needed.`,
+    // Always provide Foundation context regardless of keywords
+    return this.formatAdvisory("CKO Advisory", [
+      `Foundation: ${provider.documentCount} dokumen aktif`,
+      `Ringkasan Foundation:\n${ctx.slice(0, 800)}`,
+      `Knowledge digest: ${cache.knowledgeDigest || "—"}`,
+      `Pending proposals: ${cache.recentProposals.length}`,
+      `Organization Health: ${cache.organizationHealthScore}/100`,
+      `Rekomendasi: ${cache.recentProposals.length > 0 ? `Review ${cache.recentProposals.length} proposal tertunda sebelum eksekusi.` : "Tidak ada proposal tertunda — Foundation stabil."}`,
+      `Catatan: CKO (Consultant Runtime) — Advisory Only.`,
     ]);
   }
 

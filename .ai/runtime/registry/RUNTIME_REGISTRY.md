@@ -26,6 +26,7 @@ purpose: |
 
 ```
 Founder
+  ├── CKO (RUNTIME-014, Level A, L2) — Advisory
   └── CEO (RUNTIME-001, Level A, L2)
       ├── CTO (RUNTIME-002, Level B, L2)
       │   ├── QA (RUNTIME-005, Level C, L0)
@@ -45,6 +46,7 @@ Founder
 
 | ID | Runtime | Parent | Unit | Level | Version | Health | Maturity | Directive | Contract | Playbook | Metrics | Capability | Mission Types |
 |----|---------|--------|------|-------|---------|--------|----------|-----------|----------|----------|---------|-----------|---------------|
+| RUNTIME-014 | CKO | Founder | Advisory | A | 1.0.0 | Healthy | L2 | ❌ | ❌ | ❌ | ❌ | ✅ | advisory, knowledge, governance |
 | RUNTIME-001 | CEO | Founder | Executive | A | 1.0.0 | Healthy | L2 | ✅ | ✅ | ✅ | ✅ | ✅ | strategy, delegation, review |
 | RUNTIME-002 | CTO | CEO | Engineering | B | 1.2.0 | Healthy | L2 | ✅ | ✅ | ✅ | ✅ | ✅ | code, architecture, devops |
 | RUNTIME-003 | COO | CEO | Operations | B | — | Planned | L0 | ❌ | ❌ | ❌ | ❌ | 🟡 | inventory, sales, ops |
