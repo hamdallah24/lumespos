@@ -152,7 +152,7 @@ export async function callDeepSeek(
   if (!key || !base) { console.error("[ai] DEEPSEEK_API_KEY or DEEPSEEK_BASE_URL not set"); return "ERROR: API key AI belum dikonfigurasi."; }
   try {
     const history = await getHistory(userId, mode);
-    const maxSystemChars = mode === "ceo" ? 12000 : 4000;
+    const maxSystemChars = mode === "ceo" ? 32000 : 4000;
     const messages: any[] = [{ role: "system", content: system.slice(0, maxSystemChars) }];
     for (const h of history) messages.push(h);
     let userContent = user.slice(0, 3000);
