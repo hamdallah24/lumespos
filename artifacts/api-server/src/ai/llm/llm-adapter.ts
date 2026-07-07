@@ -112,7 +112,7 @@ export async function callLLMWithTools(
   if (!msg) return { message: null, content: "", toolCalls: [], tokensUsed: 0, status: "error", errorStatus: 500 };
 
   const usage = (json as any).usage;
-  const tokensUsed = usage?.total_tokens || usage?.completion_tokens || 500;
+  const tokensUsed = usage?.completion_tokens || usage?.total_tokens || 500;
 
   if (!msg.tool_calls || msg.tool_calls.length === 0) {
     const rawContent = msg.content?.trim() || "";
