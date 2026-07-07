@@ -55,6 +55,53 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   pipeline.push("Identity");
   ctx.onProgress?.("💼 CEO Runtime booting...");
 
+  // ── Approval Handler: CTO Implementation Plan review ──
+  if (ctx.message.startsWith("[CEO APPROVAL]")) {
+    pipeline.push("ApprovalHandler");
+    ctx.onProgress?.("📋 Meninjau rencana implementasi CTO...");
+
+    const directiveContent = getDirective();
+    const systemPrompt = assemble({
+      identity: CEO_IDENTITY,
+      directive: directiveContent,
+      outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
+      maxTokens: 2000,
+      mode: "ceo",
+    });
+
+    try {
+      const rawText = await callDeepSeek(systemPrompt, ctx.message, ctx.userId, "ceo", 1000);
+      const approved = rawText.toUpperCase().includes("APPROVED") || rawText.toUpperCase().includes("SETUJUI");
+      return {
+        success: true,
+        text: approved ? `APPROVED: ${rawText}` : `REJECTED: ${rawText}`,
+        decision: {
+          goal: "approve_implementation_plan",
+          delegation: null,
+          priority: "normal",
+          risk: "low",
+          reasoning: "CTO implementation plan review",
+          expectedOutcome: approved ? "CTO will proceed with implementation" : "CTO will conclude without writing files",
+        },
+        pipeline,
+      };
+    } catch (e: any) {
+      return {
+        success: false,
+        text: `REJECTED: Approval error — ${e.message}`,
+        decision: {
+          goal: "approve_implementation_plan",
+          delegation: null,
+          priority: "normal",
+          risk: "medium",
+          reasoning: "approval LLM call failed",
+          expectedOutcome: "rejected due to error",
+        },
+        pipeline,
+      };
+    }
+  }
+
   // Stage 2: Load Executive Directive from Foundation (cached)
   pipeline.push("DirectiveLoad");
   const directiveContent = getDirective();

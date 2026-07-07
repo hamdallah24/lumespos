@@ -1,6 +1,6 @@
 // ECP-019: Execution Strategy — State machine with anti-loop
 // Frozen. Inferred from tool call behavior, not LLM text.
-// EXPLORE → INVESTIGATE → ANALYZE → CONCLUDE → ESCALATE
+// EXPLORE → INVESTIGATE → ANALYZE → IMPLEMENT → VERIFY → CONCLUDE → ESCALATE
 
 import type { ExecutionStrategy, JournalEntry } from "./execution-manifest";
 import { executionPolicy } from "./execution-policy";
@@ -26,23 +26,36 @@ class ExecutionStrategyEngine {
     this._toolHistory.push(toolCalls.map(t => t.name));
     this._cycleCount++;
 
-    // Force transition to ANALYZE after 4 cycles if still exploring
+    // Force advance: stuck too long in exploration or writing
     if (this._cycleCount >= 4 && ["EXPLORE", "INVESTIGATE"].includes(this._strategy)) {
       this._strategy = "ANALYZE";
     }
+    if (this._cycleCount >= 8 && this._strategy === "IMPLEMENT") {
+      this._strategy = "VERIFY";
+    }
+    if (this._cycleCount >= 10 && this._strategy === "VERIFY") {
+      this._strategy = "CONCLUDE";
+    }
 
     if (toolCalls.length === 0) {
-      if (state === "REFLECTING" || state === "COMPLETED") {
+      // Text-only response → advance to next phase
+      if (state === "REFLECTING" || state === "COMPLETED" || this._strategy === "VERIFY") {
         this._strategy = "CONCLUDE";
+      } else if (this._strategy === "ANALYZE") {
+        this._strategy = "IMPLEMENT";
+      } else if (this._strategy === "IMPLEMENT") {
+        this._strategy = "VERIFY";
       } else {
         this._strategy = "ANALYZE";
       }
     } else {
       const names = toolCalls.map(t => t.name);
+      const isWrite = names.some(n => ["writeFile", "editFile", "sshExec"].includes(n));
       const isSearch = names.some(n => ["searchContent", "listDirectory", "fetchGitHubDir"].includes(n));
       const isRead = names.some(n => ["readFile", "fetchGitHubFile", "getDependencies"].includes(n));
 
-      if (isSearch) this._strategy = "EXPLORE";
+      if (isWrite) this._strategy = "IMPLEMENT";
+      else if (isSearch) this._strategy = "EXPLORE";
       else if (isRead) this._strategy = "INVESTIGATE";
       else this._strategy = "INVESTIGATE";
     }
@@ -51,7 +64,9 @@ class ExecutionStrategyEngine {
     if (this.detectLoop()) {
       if (this._strategy === "EXPLORE") { this._strategy = "INVESTIGATE"; }
       else if (this._strategy === "INVESTIGATE") { this._strategy = "ANALYZE"; }
-      else if (this._strategy === "ANALYZE") { this._strategy = "ESCALATE"; }
+      else if (this._strategy === "ANALYZE") { this._strategy = "IMPLEMENT"; }
+      else if (this._strategy === "IMPLEMENT") { this._strategy = "VERIFY"; }
+      else if (this._strategy === "VERIFY") { this._strategy = "CONCLUDE"; }
     }
 
     const changed = previous !== this._strategy;
@@ -64,6 +79,8 @@ class ExecutionStrategyEngine {
       EXPLORE: "[SYSTEM] Strategy: EXPLORE. Search for relevant files and code. Gather evidence.",
       INVESTIGATE: "[SYSTEM] Strategy: INVESTIGATE. Read files found. Inspect and compare. No more searching.",
       ANALYZE: "[SYSTEM] Strategy: ANALYZE. Analyze what you have. Only call tools if critical new info needed.",
+      IMPLEMENT: "[SYSTEM] Strategy: IMPLEMENT. Write and edit files based on analysis. Execute commands if needed.",
+      VERIFY: "[SYSTEM] Strategy: VERIFY. Run typecheck/build. Read back written files. Confirm no truncation or errors.",
       CONCLUDE: "[SYSTEM] Strategy: CONCLUDE. Time to provide your final analysis. No more tools.",
       ESCALATE: "[SYSTEM] Strategy: ESCALATE. Objective cannot be completed with current resources. Report findings so far.",
     };

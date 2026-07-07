@@ -19,6 +19,7 @@ export interface PipelineCallback {
   onProgress?: (msg: string) => void;
   onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void;
   onExecutionEvent?: (snapshot: import("./execution-manifest").ExecutionSnapshot) => void;
+  onImplPlan?: (plan: string) => Promise<boolean>;
 }
 
 export interface PipelineResult {

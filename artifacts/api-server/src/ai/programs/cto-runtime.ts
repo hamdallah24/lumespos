@@ -19,6 +19,7 @@ import { authorization as auth } from "../runtime/authorization";
 import { withinScope } from "../runtime/mission-scope";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 import { callDeepSeekWithTools } from "../llm/llm-adapter";
+import { ceoRuntime } from "./ceo-runtime";
 import { getDependencies } from "../tools/tool-adapter";
 import { getFoundationProvider } from "../runtime/foundation";
 import { CTO_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
@@ -159,9 +160,6 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
         ? resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS)
         : resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS);
 
-  // Limit to 5 essential tools — cuts 2,000 chars from API request body per cycle
-  const essentialTools = ["readFile", "searchContent", "execCommand", "listDirectory", "getDependencies"];
-  const limitedToolSet = toolSet.filter((t: any) => essentialTools.includes(t.name));
   // Enrich CTO message with target files + entities so it knows what to search for
   const allTargets = [...spec.targetFiles, ...spec.entities].filter(Boolean);
   const ctoMessage = allTargets.length > 0
@@ -169,15 +167,25 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     : task.message;
   console.log("[CTO-SYS]", systemPrompt.slice(0, 300));
   console.log("[CTO-MSG]", ctoMessage.slice(0, 300));
-  console.log("[CTO-TOOL]", limitedToolSet.map((t: any) => t.name).join(", "));
+  console.log("[CTO-TOOL]", toolSet.map((t: any) => t.name).join(", "));
   console.log("[CTO-MAXTOKENS]", spec.runtimePolicy.maxTokens);
   let responseText: string;
   try {
     responseText = await callDeepSeekWithTools(
-      systemPrompt, ctoMessage, task.userId, "cto", limitedToolSet,
+      systemPrompt, ctoMessage, task.userId, "cto", toolSet,
       spec.runtimePolicy.maxTokens, task.onProgress, task.onTool,
       false, undefined, task.onExecutionEvent,
       { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective },
+      async (plan) => {
+        const ceoResult = await ceoRuntime.execute({
+          message: `[CEO APPROVAL] CTO mengajukan Implementation Plan:\n\n${plan}\n\nSetujui atau tolak.`,
+          userId: task.userId,
+          onProgress: task.onProgress,
+          onTool: task.onTool,
+          onExecutionEvent: task.onExecutionEvent,
+        });
+        return ceoResult.success && ceoResult.text.includes("APPROVED");
+      },
     );
     pipeline.push("LLM");
   } catch (e: any) {

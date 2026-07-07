@@ -20,7 +20,7 @@ interface CycleContract {
 
 const CYCLE_CONTRACT: Record<string, CycleContract> = {
   EXPLORE: {
-    allowedTools: ["searchContent", "glob", "listDirectory", "fetchGitHubDir"],
+    allowedTools: ["searchContent", "listDirectory", "fetchGitHubDir"],
     mustUseTools: true,
   },
   INVESTIGATE: {
@@ -30,6 +30,14 @@ const CYCLE_CONTRACT: Record<string, CycleContract> = {
   ANALYZE: {
     allowedTools: ["readFile"],
     mustUseTools: false,
+  },
+  IMPLEMENT: {
+    allowedTools: ["writeFile", "editFile", "execCommand", "sshExec"],
+    mustUseTools: false,
+  },
+  VERIFY: {
+    allowedTools: ["execCommand", "readFile"],
+    mustUseTools: true,
   },
   CONCLUDE: {
     allowedTools: [],
@@ -45,6 +53,7 @@ export interface DriverCallbacks {
   onProgress?: (msg: string) => void;
   onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void;
   onExecutionEvent?: (snapshot: import("./execution-manifest").ExecutionSnapshot) => void;
+  onImplPlan?: (plan: string) => Promise<boolean>;
 }
 
 export class ExecutionDriver {
@@ -52,6 +61,8 @@ export class ExecutionDriver {
   private readonly callbacks: DriverCallbacks;
   private _toolsUsed = 0;
   private _cycleOutputs: string[] = [];
+  private _implGatePassed = false;
+  private _implPlan = "";
 
   constructor(
     complexity: string, domain: string, entities: string[], objective: string,
@@ -88,6 +99,8 @@ export class ExecutionDriver {
 
     const budgetTracker = new MissionBudgetTracker();
     this._cycleOutputs = [];
+    this._implGatePassed = false;
+    this._implPlan = "";
 
     while (this.governor.shouldContinue()) {
       context.cycle = this.governor.beforeCycle();
@@ -106,6 +119,52 @@ export class ExecutionDriver {
           messages.push({ role: "user", content: `[HASIL SIKLUS SEBELUMNYA]\n${compressed}` });
           _prevCycleMsgIndex = messages.length - 1;
         }
+      }
+
+      // ── IMPLEMENT Gate: plan + CEO approval before write tools ──
+      if (strategy === "IMPLEMENT" && !this._implGatePassed) {
+        this._implGatePassed = true;
+
+        const planPrompt = `[GOVERNOR] ANDA AKAN MEMASUKI FASE IMPLEMENTASI.
+
+Sebelum menulis file, buat Implementation Plan terlebih dahulu:
+
+## Files to Create/Modify
+[Daftar file + path lengkap]
+
+## Specific Changes
+[Perubahan spesifik per file]
+
+## Technical Rationale
+[Alasan teknis setiap perubahan]
+
+Setelah plan disetujui CEO, Anda akan mendapat akses writeFile/editFile.`;
+
+        messages.push({ role: "user", content: planPrompt });
+        const planResult = await callLLMWithTools(messages, [], 4000, false, jsonMode);
+        this._implPlan = stripDSML(planResult.content || "");
+        messages.pop();
+        messages.push({ role: "assistant", content: `[IMPLEMENTATION PLAN SUBMITTED]\n${this._implPlan}` });
+
+        this._cycleOutputs.push(`[IMPLEMENT PLAN]\n${this._implPlan}`);
+
+        if (this.callbacks.onImplPlan) {
+          const approved = await this.callbacks.onImplPlan(this._implPlan);
+          if (!approved) {
+            messages.push({ role: "user", content: "[GOVERNOR] CEO MENOLAK rencana implementasi. Akhiri dengan CONCLUDE tanpa menulis file." });
+            const rejectedResult = await callLLMWithTools(messages, [], 4000, false, jsonMode);
+            const rejectedText = stripDSML(rejectedResult.content || "");
+            const validated = validateResponse(rejectedText);
+            if (validated.cleanedText) {
+              await remember(userId, mode, user, validated.cleanedText);
+              context.result = validated.cleanedText;
+            }
+            this.governor.finishExecution(context.contract);
+            return validated.cleanedText || "";
+          }
+        }
+
+        continue;
       }
 
       // ── Filter tools per cycle contract ──

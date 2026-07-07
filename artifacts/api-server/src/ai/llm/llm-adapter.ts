@@ -203,6 +203,7 @@ export async function callDeepSeekWithTools(
   onToken?: (token: string) => void,
   onExecutionEvent?: (snapshot: import("../runtime/execution/execution-manifest").ExecutionSnapshot) => void,
   executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string },
+  onImplPlan?: (plan: string) => Promise<boolean>,
 ): Promise<string> {
   const ctx = new ExecutionContext(userId, mode);
   if (!DEEPSEEK_KEY || !DEEPSEEK_BASE) { console.error("[ai] DeepSeek key/base not set"); return ""; }
@@ -234,7 +235,7 @@ export async function callDeepSeekWithTools(
     { role: "CTO" },
     messages, tools, maxTokens, userId, mode, user,
     false,
-    { onProgress, onTool, onExecutionEvent },
+    { onProgress, onTool, onExecutionEvent, onImplPlan },
     executionSpec,
   );
 

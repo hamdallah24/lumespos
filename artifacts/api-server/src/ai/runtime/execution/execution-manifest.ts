@@ -9,6 +9,7 @@ export type ObjectiveState =
 
 export type ExecutionStrategy =
   | "EXPLORE" | "INVESTIGATE" | "ANALYZE"
+  | "IMPLEMENT" | "VERIFY"
   | "CONCLUDE" | "ESCALATE";
 
 export type StopReason =
