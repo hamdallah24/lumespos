@@ -409,8 +409,23 @@ function StatusRow({ label, value, color }: { label: string; value: string; colo
 function ExecutiveCard({ report }: { report: ExecutiveReport }) {
   const [copied, setCopied] = React.useState(false);
 
-  const copy = (text: string) => {
-    navigator.clipboard?.writeText(text).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); });
+  const copy = async (text: string) => {
+    if (!navigator.clipboard) {
+      // Fallback: select + execCommand
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed"; ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setCopied(true); setTimeout(() => setCopied(false), 1500);
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true); setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard unavailable */ }
   };
 
   const isUser = report.role === "CEO";
