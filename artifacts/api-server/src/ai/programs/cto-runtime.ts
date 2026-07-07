@@ -120,7 +120,10 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   let fileContext = "";
   if (spec.intent !== "greeting") {
     task.onProgress?.("🔎 Mengambil konteks file...");
-    fileContext = await fetchContext(task.message);
+    const enrichedForFetch = spec.entities.length > 0
+      ? `${task.message} ${spec.entities.join(" ")}`
+      : task.message;
+    fileContext = await fetchContext(enrichedForFetch);
   }
   pipeline.push("ContextFetching");
 
@@ -155,10 +158,14 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   // Limit to 5 essential tools — cuts 2,000 chars from API request body per cycle
   const essentialTools = ["readFile", "searchContent", "execCommand", "listDirectory", "getDependencies"];
   const limitedToolSet = toolSet.filter((t: any) => essentialTools.includes(t.name));
+  // Enrich CTO message with entity targets so it knows what files to search for
+  const ctoMessage = spec.entities.length > 0
+    ? `${task.message}\n\n📌 TARGET ANALISIS: ${spec.entities.join(", ")}\nBaca file-file yang relevan dengan target di atas. Jangan membaca file di luar target.`
+    : task.message;
   let responseText: string;
   try {
     responseText = await callDeepSeekWithTools(
-      systemPrompt, task.message, task.userId, "cto", limitedToolSet,
+      systemPrompt, ctoMessage, task.userId, "cto", limitedToolSet,
       spec.runtimePolicy.maxTokens, task.onProgress, task.onTool,
       false, undefined, task.onExecutionEvent,
       { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective },

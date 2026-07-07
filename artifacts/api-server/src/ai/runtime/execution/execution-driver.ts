@@ -193,19 +193,21 @@ export class ExecutionDriver {
       // CONCLUDE now — force text-only response immediately, don't wait for next loop
       if (miResult.decision === "CONCLUDE") {
         // Push synthesis instruction: structured analysis, not generic summary
-        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Waktu menyimpulkan. Berdasarkan SEMUA file dan command output yang sudah kamu baca, buat laporan analisis TEKNIS:
+        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Waktu menyimpulkan.
 
-IMPORTANT: Jika output command sangat panjang (log, PM2, systemctl), JANGAN menyalin transkrip penuh. Sebaliknya, ringkas berdasarkan POLA:
-- Jumlah error ditemukan
-- Jenis error (HTTP 400, timeout, OOM)  
-- Timestamp terbaru
-- Service yang terdampak
+ATURAN WAJIB:
+- JELASKAN ANALISIS, bukan proses. JANGAN tulis "saya membaca file X" atau "saya menjalankan command Y". Sebutkan file dan line number secara langsung dalam analisis.
+- JANGAN transkrip penuh log/command output. Ringkas berdasarkan pola.
+- JANGAN tulis ulang command yang kamu jalankan.
+- DILARANG: frasa seperti "saya menggunakan tools", "saya mencari", "saya menemukan file", "berdasarkan hasil penelusuran".
+
+Berdasarkan SEMUA file dan command output yang sudah kamu baca, buat laporan analisis TEKNIS:
 
 ## Root Cause
 [JELASKAN penyebab utama. Sebutkan file spesifik + line number.]
 
 ## Verified Evidence
-[SEBUTKAN setiap file/command yang SUDAH kamu baca. Format: "Saya MEMBACA [filepath] dan MENEMUKAN [fakta spesifik] di line [nomor]."]
+[SEBUTKAN file yang SUDAH kamu baca. Format: "[filepath] line [nomor]: [fakta spesifik]"]
 [JANGAN GUNAKAN kata: "kemungkinan", "mungkin", "bisa jadi", "diduga".]
 
 ## Rekomendasi Teknis
