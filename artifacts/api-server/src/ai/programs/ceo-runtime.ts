@@ -12,7 +12,6 @@ import { callDeepSeek } from "../llm/llm-adapter";
 import { getFoundationProvider } from "../runtime/foundation";
 import { assemble } from "../runtime/prompt-assembler";
 import { EXECUTIVE_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
-import { consultantRuntime } from "../../programs/consultant";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 
 const CEO_IDENTITY = getIdentity("CEO")!;
@@ -165,20 +164,8 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     if (spec.semanticReasoning) missionParts.push(`Reasoning: ${spec.semanticReasoning}`);
     if (spec.expectedOutcome) missionParts.push(`Expected: ${spec.expectedOutcome}`);
 
-    // ECP-030: CEO consults CKO (Consultant Runtime) for Foundation advisory
-    // CKO reads Strategic Cache, not raw Foundation docs — faster, lighter
-    ctx.onProgress?.("📋 Berkonsultasi dengan CKO...");
-    try {
-      const ckoResult = await consultantRuntime.analyze("founder_advisory", ctx.message);
-      if (ckoResult.success && ckoResult.text) {
-        missionParts.push(`\n## CKO Advisory\n${ckoResult.text}`);
-        if (ckoResult.findings.length > 0) {
-          missionParts.push(`\n### Findings\n${ckoResult.findings.map(f => `- [${f.severity}] ${f.description}`).join("\n")}`);
-        }
-      }
-    } catch {
-      // CKO unavailable — fallback: pass user message directly
-    }
+    // CKO sekarang dipanggil langsung oleh masing-masing executive runtime (CTO, COO, CFO)
+    // Level B tidak perlu Foundation — cukup directive → engineering law → playbook
 
     // User context (always pass original query for full understanding)
     missionParts.push(`\nUser Query: ${ctx.message}`);

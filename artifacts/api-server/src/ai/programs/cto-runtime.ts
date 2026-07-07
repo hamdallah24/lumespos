@@ -26,6 +26,7 @@ import { CTO_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
 import { resolveTools } from "../runtime/execution/tool-registry";
 import { missionContextRegistry } from "../../knowledge/MissionContextRegistry";
 import { CAPABILITY_TOOLS, getDefaultCapabilities } from "../runtime/execution/execution-capabilities";
+import { consultantRuntime } from "../../programs/consultant";
 
 const ctoIdentity = getIdentity("CTO")!;
 
@@ -138,6 +139,14 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     : [];
   pipeline.push("KnowledgeLoader");
 
+  // Stage 10.5: CKO Consultation — project structure + Foundation context
+  let ckoText = "";
+  try {
+    const ckoResult = await consultantRuntime.analyze("founder_advisory", task.message);
+    if (ckoResult.success && ckoResult.text) ckoText = ckoResult.text;
+  } catch { /* CKO unavailable */ }
+  pipeline.push("CKO");
+
   // ECP-039: NO toolRules — Governor provides strategy via ExecutionContract
   let systemPrompt = assemble({
     identity: ctoIdentity,
@@ -147,8 +156,8 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     maxTokens: spec.runtimePolicy.maxTokens,
     mode: "cto",
   });
-  // Tambah instruksi: CKO Advisory di user message berisi project structure
-  systemPrompt += "\n\n[PROJECT STRUCTURE] Bagian '## CKO Advisory' di pesan user berisi struktur folder project POS Lume's. Gunakan informasi ini untuk tahu folder mana yg relevan — jangan discover dari nol.\n";
+  // CKO Advisory: project structure
+  if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n\n[PROJECT STRUCTURE] Gunakan info folder di atas untuk tahu folder mana yg relevan — jangan discover dari nol.\n`;
   pipeline.push("PromptAssembly");
 
   // ECP-039 Sprint 2: Tools from Governor Contract. No hardcoded decisions.
