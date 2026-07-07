@@ -20,27 +20,19 @@ interface CycleContract {
 
 const CYCLE_CONTRACT: Record<string, CycleContract> = {
   EXPLORE: {
-    allowedTools: ["searchContent", "listDirectory", "fetchGitHubDir", "readFile"],
-    mustUseTools: true,
-  },
-  INVESTIGATE: {
-    allowedTools: ["readFile", "fetchGitHubFile", "getDependencies"],
+    allowedTools: ["searchContent", "listDirectory", "fetchGitHubDir", "readFile", "fetchGitHubFile", "glob"],
     mustUseTools: true,
   },
   ANALYZE: {
-    allowedTools: ["readFile"],
-    mustUseTools: false,
-  },
-  IMPLEMENT: {
-    allowedTools: ["writeFile", "editFile", "execCommand", "sshExec"],
-    mustUseTools: false,
-  },
-  VERIFY: {
-    allowedTools: ["execCommand", "readFile"],
+    allowedTools: ["readFile", "searchContent", "getDependencies"],
     mustUseTools: true,
   },
   CONCLUDE: {
     allowedTools: [],
+    mustUseTools: false,
+  },
+  EXECUTE: {
+    allowedTools: ["writeFile", "editFile", "execCommand", "sshExec", "readFile"],
     mustUseTools: false,
   },
   ESCALATE: {
@@ -126,51 +118,20 @@ export class ExecutionDriver {
         }
       }
 
-      // ── IMPLEMENT Gate: plan + CEO approval before write tools ──
-      if (strategy === "IMPLEMENT" && !this._implGatePassed) {
+      // ── EXECUTE Gate: cek persetujuan Founder sebelum write tools ──
+      if (strategy === "EXECUTE" && !this._implGatePassed) {
         this._implGatePassed = true;
-
-        const planPrompt = `[GOVERNOR] ANDA AKAN MEMASUKI FASE IMPLEMENTASI.
-
-Sebelum menulis file, buat Implementation Plan terlebih dahulu:
-
-## Files to Create/Modify
-[Daftar file + path lengkap]
-
-## Specific Changes
-[Perubahan spesifik per file]
-
-## Technical Rationale
-[Alasan teknis setiap perubahan]
-
-Setelah plan disetujui CEO, Anda akan mendapat akses writeFile/editFile.`;
-
-        messages.push({ role: "user", content: planPrompt });
-        const planResult = await callLLMWithTools(messages, [], 4000, false, jsonMode);
-        this._implPlan = stripDSML(planResult.content || "");
-        messages.pop();
-        messages.push({ role: "assistant", content: `[IMPLEMENTATION PLAN SUBMITTED]\n${this._implPlan}` });
-
-        this._cycleOutputs.push(`[IMPLEMENT PLAN]\n${this._implPlan}`);
-
+        // Jika Founder belum setuju → skip EXECUTE, kembali ke hasil CONCLUDE
         if (this.callbacks.onImplPlan) {
-          const approved = await this.callbacks.onImplPlan(this._implPlan);
+          const approved = await this.callbacks.onImplPlan(this._implPlan || context.result || "");
           if (!approved) {
-            messages.push({ role: "user", content: "[GOVERNOR] CEO MENOLAK rencana implementasi. Akhiri dengan CONCLUDE tanpa menulis file." });
-            const rejectedResult = await callLLMWithTools(messages, [], 4000, false, jsonMode);
-            const rejectedText = stripDSML(rejectedResult.content || "");
-            const validated = validateResponse(rejectedText);
-            if (validated.cleanedText) {
-              await remember(userId, mode, user, validated.cleanedText);
-              context.result = validated.cleanedText;
-            }
+            const finalText = context.result || "Perubahan tidak disetujui Founder.";
+            await remember(userId, mode, user, finalText);
             await this._autoGitSync();
             this.governor.finishExecution(context.contract);
-            return validated.cleanedText || "";
+            return finalText;
           }
         }
-
-        continue;
       }
 
       // ── Filter tools per cycle contract ──

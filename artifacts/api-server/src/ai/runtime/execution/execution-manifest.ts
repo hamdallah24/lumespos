@@ -8,9 +8,9 @@ export type ObjectiveState =
   | "REFLECTING" | "COMPLETED" | "BLOCKED" | "PAUSED";
 
 export type ExecutionStrategy =
-  | "EXPLORE" | "INVESTIGATE" | "ANALYZE"
-  | "IMPLEMENT" | "VERIFY"
-  | "CONCLUDE" | "ESCALATE";
+  | "EXPLORE" | "ANALYZE"
+  | "CONCLUDE" | "EXECUTE"
+  | "ESCALATE";
 
 export type StopReason =
   | "OBJECTIVE_COMPLETED" | "BUDGET_EXCEEDED" | "TIME_EXCEEDED"

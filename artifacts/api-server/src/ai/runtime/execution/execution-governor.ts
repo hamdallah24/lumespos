@@ -250,7 +250,7 @@ class ExecutionGovernor {
       mission: spec.intent || "Analyze",
       objective: spec.objective || spec.intent || "Complete task",
       mode: isEmpty ? "REASONING" : "EXECUTION",
-      strategy: isEmpty ? undefined : hasTargets ? "INVESTIGATE" : undefined,
+      strategy: isEmpty ? undefined : hasTargets ? "ANALYZE" : undefined,
       capabilities,
       allowedTools: resolveTools(capabilities, require("./execution-capabilities").CAPABILITY_TOOLS),
       budget: {
