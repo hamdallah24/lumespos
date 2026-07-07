@@ -139,7 +139,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   pipeline.push("KnowledgeLoader");
 
   // ECP-039: NO toolRules — Governor provides strategy via ExecutionContract
-  const systemPrompt = assemble({
+  let systemPrompt = assemble({
     identity: ctoIdentity,
     directive: directiveContent,
     outputSchema: CTO_OUTPUT_SCHEMA,
@@ -147,6 +147,8 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     maxTokens: spec.runtimePolicy.maxTokens,
     mode: "cto",
   });
+  // Tambah instruksi: CKO Advisory di user message berisi project structure
+  systemPrompt += "\n\n[PROJECT STRUCTURE] Bagian '## CKO Advisory' di pesan user berisi struktur folder project POS Lume's. Gunakan informasi ini untuk tahu folder mana yg relevan — jangan discover dari nol.\n";
   pipeline.push("PromptAssembly");
 
   // ECP-039 Sprint 2: Tools from Governor Contract. No hardcoded decisions.
