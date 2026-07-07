@@ -188,12 +188,16 @@ export async function callDeepSeek(
     }
     const json = await resp.json();
     const content = (json as any).choices?.[0]?.message?.content?.trim() || "";
+    const fr = (json as any).choices?.[0]?.finish_reason;
     if (!content) {
-      console.error(`[ai] DeepSeek empty response. finish_reason=${(json as any).choices?.[0]?.finish_reason}`);
-      if (mode === "ceo") return "Maaf, CEO Runtime tidak dapat menghasilkan laporan saat ini. Coba lagi dengan perintah yang lebih spesifik.";
-    } else {
-      await remember(userId, mode, user, content);
+      console.error(`[ai] DeepSeek empty response. finish_reason=${fr}`);
+      if (fr === "length" && mode !== "semantic") {
+        // Retry sekali dengan max_tokens lebih besar
+        return callDeepSeek(system, user, userId, mode, Math.min(maxTokens * 2, 4000), jsonMode);
+      }
+      return "";
     }
+    await remember(userId, mode, user, content);
     return content;
   } catch (err) {
     if ((err as any)?.name === "AbortError") { console.error("[ai] DeepSeek timeout"); return "ERROR: Layanan AI tidak merespon (timeout). Coba lagi."; }

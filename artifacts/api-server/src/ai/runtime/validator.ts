@@ -32,14 +32,21 @@ export function parseDSMLToolCalls(text: string): any[] | null {
   return toolCalls.length > 0 ? toolCalls : null;
 }
 
-/** Validate message sequence — assistant tool_calls must be followed by tool messages */
+/** Validate message sequence — assistant tool_calls must be followed by enough tool messages */
 export function validateMessageSequence(msgs: any[]) {
   for (let i = 0; i < msgs.length; i++) {
     const m = msgs[i];
     if (m.role === "assistant" && m.tool_calls?.length > 0) {
+      // Check: next message must be tool
       const next = msgs[i + 1];
       if (!next || next.role !== "tool") {
         throw new Error(`Invalid sequence at index ${i}: assistant tool_calls not followed by tool message. Next role: ${next?.role ?? "nothing"}`);
+      }
+      // Check: sufficient tool messages for all tool_calls
+      let toolCount = 0;
+      for (let j = i + 1; j < msgs.length && msgs[j].role === "tool"; j++) toolCount++;
+      if (toolCount < m.tool_calls.length) {
+        throw new Error(`Invalid sequence at index ${i}: assistant has ${m.tool_calls.length} tool_calls but only ${toolCount} tool messages follow`);
       }
     }
   }
