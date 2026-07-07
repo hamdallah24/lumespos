@@ -31,11 +31,11 @@ class ExecutionGovernor {
   private _currentGoalId: string | null = null;
   private _evidenceThreshold: number = 2;
 
-  constructor(complexity: string, domain: string, entities: string[], objective: string, onExecutionEvent?: (snapshot: ExecutionSnapshot) => void) {
+  constructor(complexity: string, domain: string, entities: string[], objective: string, onExecutionEvent?: (snapshot: ExecutionSnapshot) => void, needsImplementation = false) {
     this._onEvent = onExecutionEvent;
     this.budget = new ExecutionBudget(complexity);
     this.strategyEngine.setComplexity(complexity);
-    this.goalTree.build(domain, entities, objective);
+    this.goalTree.build(domain, entities, objective, needsImplementation);
     this.journal.start(objective, complexity, this.budget.allocation);
     this._evidenceThreshold = executionPolicy.evidenceThresholds[complexity] || 2;
   }
@@ -98,6 +98,11 @@ class ExecutionGovernor {
 
     // Strategy inference — adaptive anti-loop
     const strategyResult = this.strategyEngine.infer(toolCalls, this.tracker.state, this.metrics.evidenceQuality);
+
+    // Goal tree: advance goals sesuai strategy
+    if (strategyResult.changed) {
+      this.goalTree.advanceTo(strategyResult.strategy);
+    }
 
     // ECP-020 Phase 6: Evidence-based goal completion
     if (hasToolCalls) {

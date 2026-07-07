@@ -43,12 +43,14 @@ export class ExecutionPipeline {
     callbacks?: PipelineCallback,
     executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string; targetFiles?: string[] },
   ): Promise<PipelineResult> {
+    const needsImpl = spec.intent === "implement_change" || (executionSpec?.targetFiles?.length ?? 0) > 0;
     const driver = new ExecutionDriver(
       executionSpec?.complexity || "medium",
       executionSpec?.domain || "general",
       executionSpec?.entities || [],
       executionSpec?.objective || user.slice(0, 100),
       callbacks,
+      needsImpl,
     );
 
     const context = driver.plan(spec.role, {

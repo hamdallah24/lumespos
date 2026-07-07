@@ -59,8 +59,9 @@ export class ExecutionDriver {
   constructor(
     complexity: string, domain: string, entities: string[], objective: string,
     callbacks?: DriverCallbacks,
+    needsImplementation = false,
   ) {
-    this.governor = new ExecutionGovernor(complexity, domain, entities, objective, callbacks?.onExecutionEvent);
+    this.governor = new ExecutionGovernor(complexity, domain, entities, objective, callbacks?.onExecutionEvent, needsImplementation);
     this.callbacks = callbacks || {};
   }
 

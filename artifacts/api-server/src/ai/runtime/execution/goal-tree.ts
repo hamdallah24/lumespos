@@ -1,92 +1,79 @@
-// ECP-019: Goal Tree — decomposition + capability assignment
-// Frozen. Builds sub-goal tree from ExecutionSpec entities + domain mapping.
+// ECP-019: Goal Tree — 3 or 4 goals berdasarkan tipe tugas
+// Analisis: EXPLORE → ANALYZE → CONCLUDE
+// Implementasi: EXPLORE → ANALYZE → CONCLUDE → EXECUTE
 
 import type { GoalNode, GoalStatus } from "./execution-manifest";
+
+const GOAL_LABELS: Record<string, string> = {
+  goal_0: "EXPLORE — Identifikasi file target",
+  goal_1: "ANALYZE — Analisis mendalam + temukan akar masalah",
+  goal_2: "CONCLUDE — Sintesis, rekomendasi, lapor ke Founder",
+  goal_3: "EXECUTE — Implementasi perubahan (jika disetujui)",
+};
+
+const GOAL_STRATEGY_MAP: Record<string, string> = {
+  goal_0: "EXPLORE",
+  goal_1: "ANALYZE",
+  goal_2: "CONCLUDE",
+  goal_3: "EXECUTE",
+};
 
 class GoalTree {
   private nodes: Map<string, GoalNode> = new Map();
   private rootId: string = "";
+  private _totalGoals = 0;
 
-  /** Build tree from ExecutionSpec domain + entities */
-  build(domain: string, entities: string[], objective: string): void {
+  /** Build tree — 3 goals (analysis) or 4 goals (with implementation) */
+  build(domain: string, entities: string[], objective: string, hasExecute = false): void {
     this.nodes.clear();
     this.rootId = "root";
+    this._totalGoals = hasExecute ? 4 : 3;
 
     this.nodes.set("root", {
       id: "root", label: objective || "Objective",
       status: "IN_PROGRESS", parentId: undefined,
     });
 
-    // Single goal: evidence quality drives progress
-    this.nodes.set("goal_0", {
-      id: "goal_0", label: "GATHER_AND_ANALYZE",
-      status: "IN_PROGRESS", parentId: "root",
-      requiredCapability: "ARCHITECTURE",
-    });
-  }
-
-  /** Assess goal progress from evidence quality. Returns 0-100. */
-  assess(_filesRead: number, _commandsRun: number, evidenceQuality: number, _confidence: number, _strategy: string): number {
-    const g0 = this.nodes.get("goal_0");
-    // Goal complete when evidence is solid
-    if (g0 && g0.status !== "COMPLETED" && evidenceQuality >= 0.40) {
-      g0.status = "COMPLETED"; g0.completedAt = new Date().toISOString(); g0.evidence = `evidence=${evidenceQuality.toFixed(2)}`;
+    for (let i = 0; i < this._totalGoals; i++) {
+      this.nodes.set(`goal_${i}`, {
+        id: `goal_${i}`, label: GOAL_LABELS[`goal_${i}`],
+        status: i === 0 ? "IN_PROGRESS" : "PENDING", parentId: "root",
+        requiredCapability: "ARCHITECTURE",
+      });
     }
-    this.checkRootCompletion();
-    return this.progress(evidenceQuality);
   }
 
-  /** Progress = evidence-based (0-100). External code passes evidenceQuality for actual progress. */
-  progress(evidenceQuality?: number): number {
-    const g0 = this.nodes.get("goal_0");
-    if (g0?.status === "COMPLETED") return 100;
-    if (evidenceQuality !== undefined) return Math.min(95, Math.round(evidenceQuality * 100));
-    return 0;
-  }
-
-  /** Mark goal complete based on file path match */
-  markComplete(matchedPath: string): GoalNode | null {
-    for (const [, node] of this.nodes) {
-      if (node.status === "COMPLETED" || node.id === "root") continue;
-      if (matchedPath.toLowerCase().includes(node.label.toLowerCase().replace("/", ""))) {
-        node.status = "COMPLETED";
-        node.completedAt = new Date().toISOString();
-        node.evidence = matchedPath;
-        this.checkRootCompletion();
-        return node;
+  /** Advance goal when strategy changes — mark corresponding goal complete */
+  advanceTo(strategy: string): void {
+    for (let i = 0; i < this._totalGoals; i++) {
+      const g = this.nodes.get(`goal_${i}`);
+      if (GOAL_STRATEGY_MAP[`goal_${i}`] === strategy && g && g.status !== "COMPLETED") {
+        g.status = "COMPLETED";
+        g.completedAt = new Date().toISOString();
+        g.evidence = `Strategy reached: ${strategy}`;
+        // Set next goal as IN_PROGRESS
+        const next = this.nodes.get(`goal_${i + 1}`);
+        if (next && next.status === "PENDING") next.status = "IN_PROGRESS";
       }
     }
-    return null;
-  }
-
-  /** Mark goal complete by ID — evidence-based (no string matching) */
-  markCompleteById(goalId: string): GoalNode | null {
-    const node = this.nodes.get(goalId);
-    if (!node || node.id === "root" || node.status === "COMPLETED") return null;
-    node.status = "COMPLETED";
-    node.completedAt = new Date().toISOString();
-    node.evidence = `Evidence collected over cycles`;
     this.checkRootCompletion();
-    return node;
   }
 
-  /** Assign ownership to a goal */
-  assign(goalId: string, owner: string): boolean {
-    const node = this.nodes.get(goalId);
-    if (!node) return false;
-    node.owner = owner;
-    node.status = "ASSIGNED";
-    return true;
-  }
-
-  total(): number { return this.nodes.size - 1; } // exclude root
+  total(): number { return this._totalGoals; }
   countByStatus(statuses: GoalStatus[]): number {
     let count = 0;
-    for (const [, n] of this.nodes) {
-      if (n.id === "root") continue;
-      if (statuses.includes(n.status)) count++;
+    for (let i = 0; i < this._totalGoals; i++) {
+      const n = this.nodes.get(`goal_${i}`);
+      if (n && statuses.includes(n.status)) count++;
     }
     return count;
+  }
+
+  /** Progress = completed / total × 100 */
+  progress(_evidenceQuality?: number): number {
+    const t = this.total();
+    if (t === 0) return 100;
+    return Math.round(this.countByStatus(["COMPLETED"]) / t * 100);
   }
 
   assignmentProgress(): number {
@@ -100,23 +87,28 @@ class GoalTree {
 
   pending(): GoalNode[] {
     const result: GoalNode[] = [];
-    for (const [, n] of this.nodes) {
-      if (n.id === "root") continue;
-      if (n.status === "PENDING" || n.status === "ASSIGNED" || n.status === "IN_PROGRESS") result.push(n);
+    for (let i = 0; i < this._totalGoals; i++) {
+      const n = this.nodes.get(`goal_${i}`);
+      if (n && (n.status === "PENDING" || n.status === "ASSIGNED" || n.status === "IN_PROGRESS")) result.push(n);
     }
     return result;
   }
 
   all(): GoalNode[] {
     const result: GoalNode[] = [];
-    for (const [, n] of this.nodes) {
-      if (n.id === "root") continue;
-      result.push({ ...n });
+    for (let i = 0; i < this._totalGoals; i++) {
+      const n = this.nodes.get(`goal_${i}`);
+      if (n) result.push({ ...n });
     }
     return result;
   }
 
   get(id: string): GoalNode | undefined { return this.nodes.get(id); }
+
+  /** Legacy — mark by ID (now handled by advanceTo) */
+  markCompleteById(_goalId: string): GoalNode | null { return null; }
+  markComplete(_matchedPath: string): GoalNode | null { return null; }
+  assess(): number { return this.progress(); }
 
   private checkRootCompletion(): void {
     if (this.isComplete()) {
