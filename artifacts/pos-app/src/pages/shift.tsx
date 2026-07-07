@@ -30,11 +30,22 @@ interface SalesData {
   totalCups: number;
 }
 
+const SS_KEY_SHIFT = "shift.form";
+
+function loadShiftForm(): Record<string, unknown> | null {
+  try { const r = sessionStorage.getItem(SS_KEY_SHIFT); return r ? JSON.parse(r) : null; } catch { return null; }
+}
+function saveShiftForm(s: Record<string, unknown>): void {
+  try { sessionStorage.setItem(SS_KEY_SHIFT, JSON.stringify(s)); } catch { /* quota */ }
+}
+
 export default function ShiftPage() {
   const qc = useQueryClient();
   const [, setLocation] = useLocation();
   const { branchId, currentBranch } = useBranch();
   const { data: me } = useGetMe();
+
+  const saved = loadShiftForm();
 
   const { data: expected = [], isLoading: isLoadingStock } = useGetExpectedStock({ branchId: branchId ?? undefined });
   const filteredExpected = expected.filter((it) => it.itemType === "semi_finished" || it.itemType === "ingredient");
@@ -43,8 +54,8 @@ export default function ShiftPage() {
   const [openingBalance, setOpeningBalance] = useState<number>(0);
   const [isLoadingShift, setIsLoadingShift] = useState(true);
 
-  const [closingBalance, setClosingBalance] = useState("");
-  const [cupCounts, setCupCounts] = useState({ s: "", m: "", l: "" });
+  const [closingBalance, setClosingBalance] = useState((saved?.closingBalance as string) ?? "");
+  const [cupCounts, setCupCounts] = useState<{ s: string; m: string; l: string }>((saved?.cupCounts as any) ?? { s: "", m: "", l: "" });
   const [loading, setLoading] = useState(false);
   const [salesData, setSalesData] = useState<SalesData | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
@@ -53,11 +64,11 @@ export default function ShiftPage() {
   const [shiftStart, setShiftStart] = useState<string | null>(null);
   const [result, setResult] = useState<{ expectedBalance: number; difference: number } | null>(null);
 
-  const [counts, setCounts] = useState<Record<string, string>>({});
-  const [notes, setNotes] = useState("");
+  const [counts, setCounts] = useState<Record<string, string>>((saved?.counts as Record<string, string>) ?? {});
+  const [notes, setNotes] = useState((saved?.notes as string) ?? "");
   
-  const [stockSearch, setStockSearch] = useState("");
-  const [stockFilter, setStockFilter] = useState<"all" | "ingredient" | "semi_finished">("all");
+  const [stockSearch, setStockSearch] = useState((saved?.stockSearch as string) ?? "");
+  const [stockFilter, setStockFilter] = useState<"all" | "ingredient" | "semi_finished">((saved?.stockFilter as "all" | "ingredient" | "semi_finished") ?? "all");
 
   const displayedStock = filteredExpected.filter((it) => {
     if (stockFilter !== "all" && it.itemType !== stockFilter) return false;
@@ -132,6 +143,11 @@ export default function ShiftPage() {
       fetchSales();
     }
   }, [shiftId]);
+
+  // Persist form ke sessionStorage — survive mobile page reload
+  useEffect(() => {
+    saveShiftForm({ closingBalance, cupCounts, counts, notes, stockSearch, stockFilter });
+  }, [closingBalance, cupCounts, counts, notes, stockSearch, stockFilter]);
 
   // ======================
   // KAMERA DAN UPLOAD
@@ -273,6 +289,7 @@ export default function ShiftPage() {
         expectedBalance: data.shift.expectedBalance,
         difference: data.shift.difference,
       });
+      sessionStorage.removeItem(SS_KEY_SHIFT); // Hapus form yg tersimpan
 
       if (data.shift.difference >= 0) {
         toast.success(`Shift ditutup. Kelebihan Kas: ${formatRp(data.shift.difference)}`);
