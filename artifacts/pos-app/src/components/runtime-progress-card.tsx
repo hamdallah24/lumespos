@@ -61,9 +61,9 @@ const STAGE_LABELS: Record<string, string> = {
 
 const STRATEGY_LABELS: Record<string, string> = {
   EXPLORE: "Eksplorasi",
-  INVESTIGATE: "Investigasi",
   ANALYZE: "Analisis",
   CONCLUDE: "Kesimpulan",
+  EXECUTE: "Eksekusi",
   ESCALATE: "Eskalasi",
 };
 
