@@ -105,8 +105,22 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   } else if (shouldDispatch) {
     // ECP-047: Multi-executive dispatch → collect → CEO synthesis
     pipeline.push("ExecutiveCollaboration");
+
+    // CEO crafts structured mission: translate user intent → technical prompt
+    const missionParts = [
+      `[Executive Mission]`,
+      `Objective: ${spec.objective}`,
+      `Domain: ${spec.domain}`,
+    ];
+    if (spec.targetFiles.length > 0) missionParts.push(`Target Files: ${spec.targetFiles.join(", ")}`);
+    if (spec.entities.length > 0) missionParts.push(`Keywords: ${spec.entities.join(", ")}`);
+    if (spec.semanticReasoning) missionParts.push(`Reasoning: ${spec.semanticReasoning}`);
+    if (spec.expectedOutcome) missionParts.push(`Expected: ${spec.expectedOutcome}`);
+    missionParts.push(`User Query: ${ctx.message}`);
+
+    const missionPrompt = missionParts.join("\n");
     const result = await executiveCollaboration.executeMission(
-      executives, ctx, spec.objective,
+      executives, ctx, missionPrompt,
     );
 
     pipeline.push("CEOSynthesis");
