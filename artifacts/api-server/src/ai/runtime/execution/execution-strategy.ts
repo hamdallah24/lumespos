@@ -16,6 +16,9 @@ class ExecutionStrategyEngine {
 
   setComplexity(c: string): void { this._complexity = c; }
 
+  /** Override initial strategy (e.g. skip EXPLORE when target files known) */
+  startAt(s: ExecutionStrategy): void { this._strategy = s; }
+
   /** Infer strategy from current-cycle tool calls */
   infer(toolCalls: { name: string; durationMs: number }[], state: string): {
     strategy: ExecutionStrategy;

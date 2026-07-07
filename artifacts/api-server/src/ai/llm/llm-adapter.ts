@@ -202,7 +202,7 @@ export async function callDeepSeekWithTools(
   stream = false,
   onToken?: (token: string) => void,
   onExecutionEvent?: (snapshot: import("../runtime/execution/execution-manifest").ExecutionSnapshot) => void,
-  executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string },
+  executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string; targetFiles?: string[] },
   onImplPlan?: (plan: string) => Promise<boolean>,
 ): Promise<string> {
   const ctx = new ExecutionContext(userId, mode);

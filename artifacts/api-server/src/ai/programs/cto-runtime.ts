@@ -175,7 +175,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
       systemPrompt, ctoMessage, task.userId, "cto", toolSet,
       spec.runtimePolicy.maxTokens, task.onProgress, task.onTool,
       false, undefined, task.onExecutionEvent,
-      { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective },
+      { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective, targetFiles: spec.targetFiles },
       async (plan) => {
         const ceoResult = await ceoRuntime.execute({
           message: `[CEO APPROVAL] CTO mengajukan Implementation Plan:\n\n${plan}\n\nSetujui atau tolak.`,

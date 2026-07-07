@@ -41,7 +41,7 @@ export class ExecutionPipeline {
     user: string,
     jsonMode = false,
     callbacks?: PipelineCallback,
-    executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string },
+    executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string; targetFiles?: string[] },
   ): Promise<PipelineResult> {
     const driver = new ExecutionDriver(
       executionSpec?.complexity || "medium",
@@ -57,6 +57,7 @@ export class ExecutionPipeline {
       complexity: spec.complexity || executionSpec?.complexity,
       objective: spec.objective || executionSpec?.objective,
       entities: spec.entities || executionSpec?.entities,
+      targetFiles: executionSpec?.targetFiles,
     });
 
     try {

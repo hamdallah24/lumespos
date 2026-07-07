@@ -20,7 +20,7 @@ interface CycleContract {
 
 const CYCLE_CONTRACT: Record<string, CycleContract> = {
   EXPLORE: {
-    allowedTools: ["searchContent", "listDirectory", "fetchGitHubDir"],
+    allowedTools: ["searchContent", "listDirectory", "fetchGitHubDir", "readFile"],
     mustUseTools: true,
   },
   INVESTIGATE: {
@@ -72,7 +72,7 @@ export class ExecutionDriver {
     this.callbacks = callbacks || {};
   }
 
-  plan(role: string, spec: { intent?: string; domain?: string; complexity?: string; objective?: string; entities?: string[] }): PipelineContext {
+  plan(role: string, spec: { intent?: string; domain?: string; complexity?: string; objective?: string; entities?: string[]; targetFiles?: string[] }): PipelineContext {
     const contract = this.governor.planExecution(role, spec);
     const ctx = new PipelineContext(contract);
     ctx.onProgress = this.callbacks.onProgress;

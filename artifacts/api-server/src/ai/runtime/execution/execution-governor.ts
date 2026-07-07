@@ -243,18 +243,19 @@ class ExecutionGovernor {
   // ── ECP-039: Governor Lifecycle API ──
 
   /** Generate ExecutionContract — Governor is the sole policy owner */
-  planExecution(role: string, spec: { intent?: string; domain?: string; complexity?: string; objective?: string; entities?: string[] }): ExecutionContract {
+  planExecution(role: string, spec: { intent?: string; domain?: string; complexity?: string; objective?: string; entities?: string[]; targetFiles?: string[] }): ExecutionContract {
     const { getDefaultCapabilities } = require("./execution-capabilities");
     const { resolveTools } = require("./tool-registry");
     const capabilities = getDefaultCapabilities(role);
     const isEmpty = capabilities.length === 0;
+    const hasTargets = (spec.targetFiles?.length ?? 0) > 0;
 
-    return {
+    const contract: ExecutionContract = {
       role: role as "CEO" | "CTO" | "COO",
       mission: spec.intent || "Analyze",
       objective: spec.objective || spec.intent || "Complete task",
       mode: isEmpty ? "REASONING" : "EXECUTION",
-      strategy: isEmpty ? undefined : "INVESTIGATE",
+      strategy: isEmpty ? undefined : hasTargets ? "INVESTIGATE" : undefined,
       capabilities,
       allowedTools: resolveTools(capabilities, require("./execution-capabilities").CAPABILITY_TOOLS),
       budget: {
@@ -266,6 +267,13 @@ class ExecutionGovernor {
       telemetryPolicy: isEmpty ? "SUMMARY_ONLY" : "FULL_TRACE",
       verificationPolicy: isEmpty ? "LIGHT" : "STRICT",
     };
+
+    // Apply contract strategy to engine
+    if (contract.strategy) {
+      this.strategyEngine.startAt(contract.strategy);
+    }
+
+    return contract;
   }
 
   /** Begin execution — trace + telemetry setup */
