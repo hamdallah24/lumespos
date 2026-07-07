@@ -51,6 +51,7 @@ import { capabilityEngineComponent } from "./capability-runtime";
 import { trustRuntimeComponent } from "./trust-engine";
 import { consultantRuntime } from "../../programs/consultant";
 import { cfoRuntime } from "../programs/executive-runtime";
+import { proposalExecutor } from "../programs/proposal-executor";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -201,6 +202,7 @@ register(capabilityEngineComponent);
 register(trustRuntimeComponent);
 register(consultantRuntime);
 register(cfoRuntime);
+register(proposalExecutor);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

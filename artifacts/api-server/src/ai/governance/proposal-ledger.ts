@@ -43,6 +43,10 @@ export function pending(): LedgerEntry[] {
   return _ledger.filter(e => e.decision === "PENDING");
 }
 
+export function findById(id: string): LedgerEntry | undefined {
+  return _ledger.find(e => e.id === id);
+}
+
 export const proposalLedger = {
   name: "ProposalLedger",
   version: "1.0.0",
