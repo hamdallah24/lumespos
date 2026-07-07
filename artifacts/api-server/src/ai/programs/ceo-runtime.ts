@@ -165,7 +165,20 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     const techBrief = await createTechBrief(ctx.message, spec.domain, spec.entities);
     if (techBrief) missionParts.push(`\n## Technical Brief (dari Foundation)\n${techBrief}`);
 
-    missionParts.push(`\nUser Query: ${ctx.message}`);
+    // If user provides large context (ADR/RFC/ECP), summarize for CTO — don't pass raw document
+    if (ctx.message.length > 1000) {
+      try {
+        const summary = await callDeepSeek(
+          `Anda adalah CEO. Ringkas konteks berikut menjadi maks 200 kata. Fokus pada poin teknis yang relevan untuk dieksekusi CTO. JANGAN tambahkan analisis atau rekomendasi.`,
+          ctx.message, ctx.userId, "ceo", 300
+        );
+        missionParts.push(`\nUser Context: ${summary.trim().slice(0, 1500)}`);
+      } catch {
+        missionParts.push(`\nUser Context: ${ctx.message.slice(0, 1500)}`);
+      }
+    } else {
+      missionParts.push(`\nUser Query: ${ctx.message}`);
+    }
 
     const missionPrompt = missionParts.join("\n");
     const result = await executiveCollaboration.executeMission(
