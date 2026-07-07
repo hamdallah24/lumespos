@@ -105,14 +105,16 @@ export class ExecutionDriver {
         messages.push({ role: "user", content: `[GOVERNOR] Resume: ${context.contract.objective || "continue analysis"}` });
       }
 
-      // ── Strategy Change: inject compressed previous cycle outputs ──
-      // Contract instruction is NOT injected — tool filtering enforces behavior.
-      // Previous cycle outputs are fed once as compressed context.
+      // ── Strategy Change: inject directive + compressed previous output ──
       if (strategy !== _prevStrategy) {
         _prevStrategy = strategy;
 
-        if (this._cycleOutputs.length > 0 && _prevCycleMsgIndex === -1) {
-          const raw = `${this._cycleOutputs.join("\n\n")}`;
+        // Inject directive biar LLM tau cycle ini tugasnya apa
+        const directive = this.governor.strategyEngine.getDirective();
+        messages.push({ role: "user", content: directive });
+
+        if (this._cycleOutputs.length > 0) {
+          const raw = this._cycleOutputs.join("\n\n");
           const compressed = contextManager.compressToolOutput(raw);
           messages.push({ role: "user", content: `[HASIL SIKLUS SEBELUMNYA]\n${compressed}` });
           _prevCycleMsgIndex = messages.length - 1;

@@ -109,11 +109,11 @@ class ExecutionStrategyEngine {
 
   getDirective(): string {
     const d: Record<ExecutionStrategy, string> = {
-      EXPLORE: "[SYSTEM] CYCLE 1: EXPLORE. Cari dan identifikasi file target. Gunakan grep, glob, listDirectory, readFile sampai target teridentifikasi dengan jelas. Jangan setengah-setengah.",
-      ANALYZE: "[SYSTEM] CYCLE 2: ANALYZE. Baca file target secara mendalam. searchContent, readFile, getDependencies. Pahami alur, struktur, dan temukan akar masalah.",
-      CONCLUDE: "[SYSTEM] CYCLE 3: CONCLUDE. Gabungkan hasil EXPLORE + ANALYZE. Berikan analisis lengkap, rekomendasi, dan tentukan apakah ada file yg perlu diubah. Minta persetujuan Founder.",
-      EXECUTE: "[SYSTEM] CYCLE 4: EXECUTE. Implementasi perubahan berdasarkan analisis yg sudah disetujui. writeFile, editFile, execCommand. Hanya jalankan jika Founder sudah setuju.",
-      ESCALATE: "[SYSTEM] ESCALATE. Tidak bisa diselesaikan dengan sumber daya saat ini. Laporkan temuan sejauh ini.",
+      EXPLORE: "[GOVERNOR] SEKARANG: CYCLE 1 - EXPLORE. Cari dan identifikasi file target. WAJIB GUNAKAN TOOLS. Jangan setengah-setengah.",
+      ANALYZE: "[GOVERNOR] SEKARANG: CYCLE 2 - ANALYZE. Baca file target secara mendalam. Pahami alur, struktur, temukan akar masalah. WAJIB GUNAKAN TOOLS.",
+      CONCLUDE: "[GOVERNOR] SEKARANG: CYCLE 3 - CONCLUDE. Berikan analisis lengkap, rekomendasi, dan tentukan apakah ada perubahan yg perlu dilakukan. TIDAK PERLU TOOLS.",
+      EXECUTE: "[GOVERNOR] SEKARANG: CYCLE 4 - EXECUTE. Implementasi perubahan yg sudah disetujui. writeFile/editFile/execCommand.",
+      ESCALATE: "[GOVERNOR] ESCALATE. Tidak bisa diselesaikan. Laporkan temuan.",
     };
     return d[this._strategy];
   }
