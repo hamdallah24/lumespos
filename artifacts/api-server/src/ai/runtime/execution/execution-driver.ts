@@ -107,6 +107,11 @@ export class ExecutionDriver {
       const strategy = this.governor.strategyEngine.strategy;
       const contract = CYCLE_CONTRACT[strategy];
 
+      // Safety: rebuild messages jika corrupted (chars=0)
+      if (messages.length === 0 || messages.every(m => !m?.content && !m?.tool_calls)) {
+        messages.push({ role: "user", content: `[GOVERNOR] Resume: ${context.contract.objective || "continue analysis"}` });
+      }
+
       // ── Strategy Change: inject compressed previous cycle outputs ──
       // Contract instruction is NOT injected — tool filtering enforces behavior.
       // Previous cycle outputs are fed once as compressed context.

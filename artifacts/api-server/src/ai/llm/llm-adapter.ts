@@ -208,20 +208,19 @@ export async function callDeepSeekWithTools(
   const ctx = new ExecutionContext(userId, mode);
   if (!DEEPSEEK_KEY || !DEEPSEEK_BASE) { console.error("[ai] DeepSeek key/base not set"); return ""; }
 
-  const history = await getHistory(userId, mode, 400);
-  const filteredHistory = filterContamination(history);
-  let systemContent: string;
-  if (system.includes("[ASSET:")) {
-    systemContent = system.slice(0, 5000);
-  } else {
-    try {
-      const assets = loadKnowledgeWithContent({ strategy: "always" });
-      const pkg = buildFoundationContext(assets, mode, 4000);
-      systemContent = assembleSystemPrompt(pkg, mode) || system.slice(0, 5000);
-    } catch {
-      systemContent = system.slice(0, 5000);
-    }
-  }
+  const history = await getHistory(userId, mode, 100);
+  const filteredHistory = filterContamination(history).slice(-30);
+  // Gunakan system prompt dari caller (CTO assemble() sudah include identity + directive + schema)
+  // Hanya fallback ke legacy jika caller tidak provide system prompt
+  const systemContent = system && system.trim().length > 50
+    ? system.slice(0, 8000)
+    : (() => {
+        try {
+          const assets = loadKnowledgeWithContent({ strategy: "always" });
+          const pkg = buildFoundationContext(assets, mode, 4000);
+          return assembleSystemPrompt(pkg, mode) || system.slice(0, 5000);
+        } catch { return system.slice(0, 5000); }
+      })();
   const messages: any[] = [{ role: "system", content: systemContent }];
   for (const h of filteredHistory) messages.push(h);
   ctx.step("MemoryBridge", "load", { historyCount: filteredHistory.length });
