@@ -410,22 +410,22 @@ function ExecutiveCard({ report }: { report: ExecutiveReport }) {
   const [copied, setCopied] = React.useState(false);
 
   const copy = async (text: string) => {
-    if (!navigator.clipboard) {
-      // Fallback: select + execCommand
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed"; ta.style.left = "-9999px";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      setCopied(true); setTimeout(() => setCopied(false), 1500);
-      return;
-    }
     try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true); setTimeout(() => setCopied(false), 1500);
-    } catch { /* clipboard unavailable */ }
+      if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setCopied(true); setTimeout(() => setCopied(false), 1500);
+        return;
+      }
+    } catch { /* fallback below */ }
+    // Fallback: select + execCommand
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed"; ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+    setCopied(true); setTimeout(() => setCopied(false), 1500);
   };
 
   const isUser = report.role === "CEO";
@@ -448,7 +448,7 @@ function ExecutiveCard({ report }: { report: ExecutiveReport }) {
       }`}>
         <p className="whitespace-pre-wrap leading-relaxed pr-6">{report.text}</p>
         {/* Copy button */}
-        <button onClick={() => copy(report.text)} className={`absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all active:scale-90 ${isUser ? "text-white/50 hover:text-white/80" : "text-slate-300 hover:text-slate-500"}`}>
+        <button type="button" onClick={() => copy(report.text)} className={`absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all active:scale-90 ${isUser ? "text-white/50 hover:text-white/80" : "text-slate-300 hover:text-slate-500"}`}>
           {copied ? <Check size={13} /> : <Copy size={13} />}
         </button>
       </div>
