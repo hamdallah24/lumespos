@@ -66,10 +66,11 @@ export async function callLLMWithTools(
   try {
     validateMessageSequence(clean);
   } catch {
-    // Repair: strip orphaned tool_calls
+    // Repair: strip orphaned tool_calls + hapus tool response yg kehilangan pasangan
     for (const m of clean) {
       if (m.role === "assistant" && m.tool_calls) delete m.tool_calls;
     }
+    clean = clean.filter(m => m.role !== "tool");
     clean = sanitizeMessages(clean);
   }
 

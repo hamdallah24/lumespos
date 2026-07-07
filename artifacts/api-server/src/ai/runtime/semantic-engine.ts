@@ -45,7 +45,7 @@ Rules:
 /** Understand Founder's natural language → structured contract */
 export async function understand(message: string, userId = 1): Promise<SemanticContract> {
   try {
-    const raw = await callDeepSeek(SEMANTIC_PROMPT, message, userId, "semantic", 300);
+    const raw = await callDeepSeek(SEMANTIC_PROMPT, message, userId, "semantic", 300, true);
     const parsed = JSON.parse(raw.trim());
     return {
       intent: parsed.intent || "analyze_code",
