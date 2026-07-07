@@ -1,7 +1,7 @@
 // SPRINT 9: Capability Engine — tool availability check
 // Prevents calling tools the system doesn't have or can't execute right now
 
-import type { IntentResult } from "./intent-classifier";
+import type { IntentResult } from "./policy/types";
 
 interface CapabilityCheck {
   allowed: boolean;
