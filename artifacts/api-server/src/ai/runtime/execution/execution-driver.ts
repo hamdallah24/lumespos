@@ -318,7 +318,7 @@ Minta persetujuan Founder.${ctxFeed}` });
   }
 
   private async _autoGitSync(): Promise<void> {
-    const hasImpl = this._cycleOutputs.some(o => o.startsWith("[IMPLEMENT]"));
+    const hasImpl = this._cycleOutputs.some(o => o.startsWith("[IMPLEMENT]") || o.startsWith("[EXECUTE]"));
     if (!hasImpl) return;
     try {
       await executeToolWithResult("execCommand", { command: "git add -A" });

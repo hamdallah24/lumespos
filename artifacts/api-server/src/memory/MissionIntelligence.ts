@@ -92,7 +92,7 @@ export class MissionIntelligence {
     const domains = DOMAIN_KNOWLEDGE[normalized] || DOMAIN_KNOWLEDGE.general;
 
     // Early phases: broader knowledge. Later phases: focused.
-    if (currentPhase === "EXPLORATION" || currentPhase === "INVESTIGATE" as any) {
+    if (currentPhase === "EXPLORATION" || currentPhase === "ANALYSIS") {
       return domains;
     }
     // Analysis/Decision: narrow to most relevant
@@ -107,11 +107,11 @@ export class MissionIntelligence {
   determinePhase(strategy: string, cycles: number, evidenceQuality: number): MissionPhase {
     if (cycles === 0) return "PLANNING";
     if (strategy === "EXPLORE") return "EXPLORATION";
-    if (strategy === "INVESTIGATE") return "INVESTIGATION";
     if (strategy === "ANALYZE") return "ANALYSIS";
     if (strategy === "CONCLUDE") return "CONCLUSION";
+    if (strategy === "EXECUTE") return "DECISION";
     if (evidenceQuality >= 0.40) return "VERIFICATION";
-    return "INVESTIGATION";
+    return "ANALYSIS";
   }
 
   /** Should the mission conclude based on mission value, not just budget? */
@@ -145,10 +145,10 @@ export class MissionIntelligence {
     if (metrics.evidenceQuality >= 0.40 && metrics.confidence >= 50 && metrics.goalProgress >= 60) {
       return { decision: "CONCLUDE", reason: `Evidence threshold met (goals ${metrics.goalProgress}%)` };
     }
-    // Stuck in explore/investigate for too long → force CONCLUDE
+    // Stuck in explore/analyze for too long → force CONCLUDE
     if (metrics.cyclesExecuted >= 12 && metrics.evidenceQuality >= 0.25
-        && (metrics.strategy === "EXPLORE" || metrics.strategy === "INVESTIGATE")) {
-      return { decision: "CONCLUDE", reason: "Force text — model stuck in explore/investigate loop" };
+        && (metrics.strategy === "EXPLORE" || metrics.strategy === "ANALYZE")) {
+      return { decision: "CONCLUDE", reason: "Force text — model stuck in explore/analyze loop" };
     }
     if (metrics.budgetExhausted && metrics.evidenceQuality >= 0.30) {
       return { decision: "NEGOTIATE", reason: "Budget low but evidence close" };

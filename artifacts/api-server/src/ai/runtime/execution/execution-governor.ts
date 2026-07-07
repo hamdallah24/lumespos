@@ -43,21 +43,16 @@ class ExecutionGovernor {
   get stopReason(): StopReason { return this._stopReason; }
 
   shouldContinue(): boolean {
-    // Primary: objective complete
-    if (this.tracker.isComplete()) {
+    // Goal tree complete → selesai
+    if (this.goalTree.isComplete()) {
       this._stopReason = "OBJECTIVE_COMPLETED"; return false;
     }
-
-    // Strategy terminal states
-    if (this.strategyEngine.strategy === "CONCLUDE") {
-      this._stopReason = "OBJECTIVE_COMPLETED"; return false;
-    }
+    // ESCALATE → tidak bisa lanjut
     if (this.strategyEngine.strategy === "ESCALATE") {
       this._stopReason = "OBJECTIVE_BLOCKED"; return false;
     }
-
-    // Budget bukan hard stop — CTO harus selesai natural lewat CONCLUDE
-    // Anti-loop adaptive di strategy-engine menangani tool loops
+    // CONCLUDE bukan terminal — biar cycle 3 produce output natural
+    // Budget bukan hard stop — anti-loop adaptive di strategy-engine
     return true;
   }
 
@@ -301,8 +296,6 @@ class ExecutionGovernor {
     }
 
     if (contract.verificationPolicy === "LIGHT") return { action: "STOP", reason: "LIGHT — no verification needed" };
-
-    if (this.strategyEngine.strategy === "CONCLUDE") return { action: "STOP", reason: "CONCLUDE" };
 
     return { action: "CONTINUE", reason: "Ongoing" };
   }
