@@ -155,7 +155,7 @@ export class ExecutiveCollaboration {
             taskId: task.id,
             executive: exec.runtime as ExecutiveRole,
             status: runtimeResult.success ? "COMPLETED" : "FAILED",
-            content: runtimeResult.text?.slice(0, 3000) || "",
+            content: runtimeResult.text?.slice(0, 8000) || "",
             confidence: runtimeResult.metrics?.confidence || 70,  // ECP-014R: read from metrics, fallback 70
             durationMs: Date.now() - t0,
             findings: (runtimeResult as any).findings || undefined,  // ECP-014R
