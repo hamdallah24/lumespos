@@ -6,6 +6,16 @@ import { Activity, CheckCircle2, Clock, Users, Shield, Brain, Layers, GitBranch,
 import { getCsrfToken } from "@/lib/csrf";
 import { RuntimeProgressCard } from "@/components/runtime-progress-card";
 
+const SS_KEY_INPUT = "exec.input";
+const SS_KEY_REPORTS = "exec.reports";
+
+function ssLoad<T>(key: string, fallback: T): T {
+  try { const v = sessionStorage.getItem(key); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; }
+}
+function ssSave(key: string, val: unknown): void {
+  try { sessionStorage.setItem(key, JSON.stringify(val)); } catch { /* quota exceeded */ }
+}
+
 type ReadinessData = { ready: boolean; passed: number; failed: number; details: any[] };
 type AgentInfo = { name: string; version: string; health: { status: string } };
 
@@ -26,8 +36,8 @@ export default function ExecutiveWorkspace() {
   const [toolEvents, setToolEvents] = React.useState<{ name: string; status: string; durationMs?: number }[]>([]);
   const [execSnapshot, setExecSnapshot] = React.useState<any>(null);
   const [statusMsg, setStatusMsg] = React.useState<string>("");
-  const [reports, setReports] = React.useState<ExecutiveReport[]>([]);
-  const [input, setInput] = React.useState("");
+  const [reports, setReports] = React.useState<ExecutiveReport[]>(() => ssLoad<ExecutiveReport[]>(SS_KEY_REPORTS, []));
+  const [input, setInput] = React.useState(() => ssLoad<string>(SS_KEY_INPUT, ""));
   const [loading, setLoading] = React.useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -55,6 +65,10 @@ export default function ExecutiveWorkspace() {
   }, []);
 
   React.useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [reports]);
+
+  // Persist ke sessionStorage — survive page reload di mobile
+  React.useEffect(() => { ssSave(SS_KEY_INPUT, input); }, [input]);
+  React.useEffect(() => { ssSave(SS_KEY_REPORTS, reports); }, [reports]);
 
   const sendCommand = async () => {
     if (!input.trim() || loading) return;
