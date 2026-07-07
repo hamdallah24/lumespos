@@ -91,8 +91,13 @@ class ExecutionGovernor {
       this.tracker.transition("REFLECTING");
     }
 
-    // Strategy inference — adaptive anti-loop
-    const strategyResult = this.strategyEngine.infer(toolCalls, this.tracker.state, this.metrics.evidenceQuality);
+    // Strategy inference — per-cycle completion metrics
+    const strategyResult = this.strategyEngine.infer(
+      toolCalls, this.tracker.state,
+      this.metrics.evidenceQuality,
+      this.metrics.uniqueFiles,
+      this.metrics.confidence,
+    );
 
     // Goal tree: advance goals sesuai strategy
     if (strategyResult.changed) {

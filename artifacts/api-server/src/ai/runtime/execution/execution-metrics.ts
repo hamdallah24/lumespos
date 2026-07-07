@@ -88,6 +88,8 @@ class ExecutionMetrics {
     );
   }
 
+  get uniqueFiles(): number { return new Set(this._allPaths).size; }
+
   snapshot() {
     return {
       evidenceQuality: this.evidenceQuality,
