@@ -167,13 +167,15 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     : task.message;
   console.log("[CTO-SYS]", systemPrompt.slice(0, 300));
   console.log("[CTO-MSG]", ctoMessage.slice(0, 300));
+  // CTO needs minimum 6000 tokens for tool-calling tasks
+  const ctoMaxTokens = isGreeting ? 500 : Math.max(spec.runtimePolicy.maxTokens, 6000);
   console.log("[CTO-TOOL]", toolSet.map((t: any) => t.name).join(", "));
-  console.log("[CTO-MAXTOKENS]", spec.runtimePolicy.maxTokens);
+  console.log("[CTO-MAXTOKENS]", ctoMaxTokens);
   let responseText: string;
   try {
     responseText = await callDeepSeekWithTools(
       systemPrompt, ctoMessage, task.userId, "cto", toolSet,
-      spec.runtimePolicy.maxTokens, task.onProgress, task.onTool,
+      ctoMaxTokens, task.onProgress, task.onTool,
       false, undefined, task.onExecutionEvent,
       { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective, targetFiles: spec.targetFiles },
       async (plan) => {

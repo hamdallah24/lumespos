@@ -62,8 +62,16 @@ export async function callLLMWithTools(
   const model = DEEPSEEK_MODEL;
   if (!key || !base) return { message: null, content: "", toolCalls: [], tokensUsed: 0, status: "error", errorStatus: 500 };
 
-  const clean = sanitizeMessages(messages);
-  validateMessageSequence(clean);
+  let clean = sanitizeMessages(messages);
+  try {
+    validateMessageSequence(clean);
+  } catch {
+    // Repair: strip orphaned tool_calls
+    for (const m of clean) {
+      if (m.role === "assistant" && m.tool_calls) delete m.tool_calls;
+    }
+    clean = sanitizeMessages(clean);
+  }
 
   // ADR-010 Phase 7: Adaptive token estimation based on model density
   const promptChars = clean.reduce((s: number, m: any) => s + (typeof m.content === "string" ? m.content.length : JSON.stringify(m).length), 0);
