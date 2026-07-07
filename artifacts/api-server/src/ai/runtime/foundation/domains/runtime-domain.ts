@@ -8,6 +8,7 @@ const ROLE_DIRECTIVE_MAP: Record<string, string> = {
   CEO: "ceo-directive-v1",
   CTO: "cto-directive-v1",
   COO: "coo-directive-v1",
+  CFO: "cfo-directive-v1",
 };
 
 class RuntimeDomain implements IRuntimeDomain {
@@ -41,6 +42,7 @@ class RuntimeDomain implements IRuntimeDomain {
     if (r === "CEO") return "full";
     if (r === "CTO") return "limited";
     if (r === "COO") return "limited";
+    if (r === "CFO") return "limited";
     return null;
   }
 
@@ -49,6 +51,7 @@ class RuntimeDomain implements IRuntimeDomain {
     if (r === "CEO") return ["execute_tools", "code_modification", "deployment", "foundation_modification"];
     if (r === "CTO") return ["foundation_modification", "override_ceo"];
     if (r === "COO") return ["engineering_decisions", "code_modification", "deployment", "foundation_modification"];
+    if (r === "CFO") return ["engineering_decisions", "code_modification", "deployment", "foundation_modification", "tool_execution"];
     return [];
   }
 
@@ -57,6 +60,7 @@ class RuntimeDomain implements IRuntimeDomain {
     if (r === "CEO") return ["delegate_to_cto_coo", "report_to_founder", "never_execute_tools"];
     if (r === "CTO") return ["governed_pipeline", "identity_enforcement", "tool_governance"];
     if (r === "COO") return ["business_planner_first", "llm_fallback_only", "never_engineer"];
+    if (r === "CFO") return ["financial_analysis_first", "llm_only", "never_engineer"];
     return [];
   }
 

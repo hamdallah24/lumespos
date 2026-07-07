@@ -125,8 +125,28 @@ async function boot(): Promise<void> {
       },
     });
 
-    // ECP-030: Consultant Runtime advisory — start background scheduler
+    // CFO Runtime registration
+    const { cfoRuntime } = await import("./ai/programs/executive-runtime");
+    orchestrator.register({
+      name: "CFO", version: "1.0.0",
+      capabilities: cfoRuntime.capabilities,
+      identity: { id: "cfo-v1", role: "CFO", authority: "limited" },
+      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
+      canHandle: () => true,
+      execute: async (ctx) => {
+        const result = await cfoRuntime.execute({
+          message: ctx.message, userId: ctx.userId,
+          onProgress: ctx.onProgress,
+        });
+        return {
+          success: result.success, text: result.text, runtime: "CFO",
+          pipeline: result.pipeline || [],
+          metrics: { runtime: "CFO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false },
+        };
+      },
+    });
 
+    // ECP-030: Consultant Runtime advisory — start background scheduler
     await organizationKernel.start();
     logger.info({ state: organizationKernel.state }, "Kernel booted");
 

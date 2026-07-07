@@ -50,6 +50,7 @@ import { missionBackgroundEngine } from "./mission-background-engine";
 import { capabilityEngineComponent } from "./capability-runtime";
 import { trustRuntimeComponent } from "./trust-engine";
 import { consultantRuntime } from "../../programs/consultant";
+import { cfoRuntime } from "../programs/executive-runtime";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -199,6 +200,7 @@ register(missionBackgroundEngine);
 register(capabilityEngineComponent);
 register(trustRuntimeComponent);
 register(consultantRuntime);
+register(cfoRuntime);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

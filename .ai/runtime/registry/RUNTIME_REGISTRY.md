@@ -50,7 +50,7 @@ Founder
 | RUNTIME-001 | CEO | Founder | Executive | A | 1.0.0 | Healthy | L2 | ✅ | ✅ | ✅ | ✅ | ✅ | strategy, delegation, review |
 | RUNTIME-002 | CTO | CEO | Engineering | B | 1.2.0 | Healthy | L2 | ✅ | ✅ | ✅ | ✅ | ✅ | code, architecture, devops |
 | RUNTIME-003 | COO | CEO | Operations | B | — | Planned | L0 | ❌ | ❌ | ❌ | ❌ | 🟡 | inventory, sales, ops |
-| RUNTIME-004 | CFO | CEO | Finance | B | — | Planned | L0 | ❌ | ❌ | ❌ | ❌ | 🟡 | budget, accounting, audit |
+| RUNTIME-004 | CFO | CEO | Finance | B | 1.0.0 | Healthy | L1 | ✅ | ❌ | ❌ | ❌ | ✅ | budget, accounting, audit, finance |
 | RUNTIME-005 | QA | CTO | Engineering | C | — | Planned | L0 | ❌ | ❌ | ❌ | ❌ | 🟡 | testing, verification |
 | RUNTIME-006 | DevOps | CTO | Engineering | C | — | Planned | L0 | ❌ | ❌ | ❌ | ❌ | 🟡 | deploy, ci_cd, pipeline |
 | RUNTIME-007 | Research | CTO | Engineering | C | — | Planned | L0 | ❌ | ❌ | ❌ | ❌ | 🟡 | analysis, investigation |
