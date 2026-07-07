@@ -13,6 +13,16 @@ class ConsultantDomain {
     const provider = getFoundationProvider();
     const ctx = provider.getFoundationContext();
 
+    const PROJECT_STRUCTURE = `Folder Utama Repository POS Lume's:
+artifacts/pos-app/       — Frontend React (Vite, TypeScript, Tailwind)
+artifacts/api-server/    — Backend API (Express, Node.js, Drizzle ORM)
+artifacts/db/            — Database schema & migrasi (Drizzle/PostgreSQL)
+artifacts/mockup/        — Mockup & desain UI
+.ai/                     — Foundation documents (filosofi, arsitektur, ADR, kebijakan)
+docs/                    — Dokumentasi umum
+lib/                     — Shared library & utilities
+src/                     — Source code legacy/tambahan`;
+
     // Always provide Foundation context regardless of keywords
     return this.formatAdvisory("CKO Advisory", [
       `Foundation: ${provider.documentCount} dokumen aktif`,
@@ -20,6 +30,7 @@ class ConsultantDomain {
       `Knowledge digest: ${cache.knowledgeDigest || "—"}`,
       `Pending proposals: ${cache.recentProposals.length}`,
       `Organization Health: ${cache.organizationHealthScore}/100`,
+      `\`\`\`\n${PROJECT_STRUCTURE}\n\`\`\``,
       `Rekomendasi: ${cache.recentProposals.length > 0 ? `Review ${cache.recentProposals.length} proposal tertunda sebelum eksekusi.` : "Tidak ada proposal tertunda — Foundation stabil."}`,
       `Catatan: CKO (Consultant Runtime) — Advisory Only.`,
     ]);
