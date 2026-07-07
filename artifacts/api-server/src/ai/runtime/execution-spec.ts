@@ -20,6 +20,7 @@ export interface ExecutionSpecificationV1 {
   expectedOutcome: string;       // What the Founder should get back
   domain: string;
   entities: string[];
+  targetFiles: string[];         // Specific file/directory paths from user
 
   // ── Constraints ──
   constraints: string[];         // Rules: ["no deployment", "read-only"]
@@ -74,6 +75,7 @@ export function buildSpecV1(contract: SemanticContract): ExecutionSpecificationV
     expectedOutcome: contract.confidence > 80 ? "Resolved directly" : "Proposal required — high uncertainty",
     domain: contract.domain,
     entities: contract.entities,
+    targetFiles: contract.targetFiles,
     constraints: policy.tools === "none" ? ["no tools", "direct answer only"] : [],
     risk: contract.risk as "low" | "medium" | "high",
     priority: contract.risk === "high" ? "high" : "normal",

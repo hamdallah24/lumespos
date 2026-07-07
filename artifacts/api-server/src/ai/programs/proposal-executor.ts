@@ -15,6 +15,7 @@ export async function executeApprovedProposal(
     problem: `Execute approved proposal: ${proposalId}`,
     domain: "general",
     entities: [proposalId],
+    targetFiles: [],
     confidence: 85,
     risk: "low",
     requiredCapabilities: ["readFiles", "searchCode", "editCode"],

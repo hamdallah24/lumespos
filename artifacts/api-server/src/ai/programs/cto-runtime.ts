@@ -120,8 +120,9 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   let fileContext = "";
   if (spec.intent !== "greeting") {
     task.onProgress?.("🔎 Mengambil konteks file...");
-    const enrichedForFetch = spec.entities.length > 0
-      ? `${task.message} ${spec.entities.join(" ")}`
+    const searchTerms = [...spec.targetFiles, ...spec.entities].filter(Boolean);
+    const enrichedForFetch = searchTerms.length > 0
+      ? `${task.message} ${searchTerms.join(" ")}`
       : task.message;
     fileContext = await fetchContext(enrichedForFetch);
   }
@@ -158,9 +159,10 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   // Limit to 5 essential tools — cuts 2,000 chars from API request body per cycle
   const essentialTools = ["readFile", "searchContent", "execCommand", "listDirectory", "getDependencies"];
   const limitedToolSet = toolSet.filter((t: any) => essentialTools.includes(t.name));
-  // Enrich CTO message with entity targets so it knows what files to search for
-  const ctoMessage = spec.entities.length > 0
-    ? `${task.message}\n\n📌 TARGET ANALISIS: ${spec.entities.join(", ")}\nBaca file-file yang relevan dengan target di atas. Jangan membaca file di luar target.`
+  // Enrich CTO message with target files + entities so it knows what to search for
+  const allTargets = [...spec.targetFiles, ...spec.entities].filter(Boolean);
+  const ctoMessage = allTargets.length > 0
+    ? `${task.message}\n\n📌 TARGET ANALISIS: ${allTargets.join(", ")}\n${spec.targetFiles.length > 0 ? `FILE SPESIFIK: ${spec.targetFiles.join(", ")} — baca file ini langsung.` : ""}\nBaca file-file yang relevan dengan target di atas. Jangan membaca file di luar target.`
     : task.message;
   let responseText: string;
   try {

@@ -9,6 +9,7 @@ export interface SemanticContract {
   problem: string;             // What the Founder wants (distilled)
   domain: string;              // "inventory" | "products" | "architecture" | "general"
   entities: string[];          // Key terms: ["inventory", "saveButton"]
+  targetFiles: string[];       // Specific file/directory paths: ["routes/auth.ts", "src/core/"]
   confidence: number;          // 0-100
   risk: "low" | "medium" | "high";
   requiredCapabilities: string[]; // ["readFiles", "searchCode", "ssh"]
@@ -24,6 +25,7 @@ Output ONLY valid JSON. No markdown, no explanation.
   "problem": "what the Founder actually wants — distilled to 1 sentence",
   "domain": "inventory" | "products" | "architecture" | "general" | "devops" | "business" | "knowledge",
   "entities": ["key", "terms", "from", "message"],
+  "targetFiles": ["extract", "any", "file", "paths", "or", "directories", "mentioned"],
   "confidence": 0-100 (how sure are you about the intent?),
   "risk": "low" | "medium" | "high",
   "requiredCapabilities": ["readFiles", "searchCode", "ssh", "editCode", "none"],
@@ -37,7 +39,8 @@ Rules:
 - Code changes = implement_change
 - Server/VPS/SSH = devops_operation
 - Business/migration = business_action
-- If confidence < 70, mark as knowledge_query and flag missingContext`;
+- If confidence < 70, mark as knowledge_query and flag missingContext
+- targetFiles: Extract any file paths, directory paths, or filenames from the message. Examples: "routes/auth.ts" → ["routes/auth.ts"], "file core/App.tsx" → ["core/App.tsx"], "folder src/ai" → ["src/ai"], "cek authentication middleware" → ["authentication", "middleware"]. Include partial paths. Empty array if none mentioned.`;
 
 /** Understand Founder's natural language → structured contract */
 export async function understand(message: string, userId = 1): Promise<SemanticContract> {
@@ -49,6 +52,7 @@ export async function understand(message: string, userId = 1): Promise<SemanticC
       problem: parsed.problem || message.slice(0, 100),
       domain: parsed.domain || "general",
       entities: parsed.entities || [],
+      targetFiles: parsed.targetFiles || [],
       confidence: Math.min(parsed.confidence || 80, 100),
       risk: parsed.risk || "low",
       requiredCapabilities: parsed.requiredCapabilities || ["readFiles"],
@@ -57,7 +61,7 @@ export async function understand(message: string, userId = 1): Promise<SemanticC
   } catch {
     // Fallback: conservative — assume analysis, read-only
     return {
-      intent: "analyze_code", problem: message.slice(0, 100), domain: "general", entities: [],
+      intent: "analyze_code", problem: message.slice(0, 100), domain: "general", entities: [], targetFiles: [],
       confidence: 60, risk: "low", requiredCapabilities: ["readFiles"], missingContext: ["LLM parsing failed"],
     };
   }
