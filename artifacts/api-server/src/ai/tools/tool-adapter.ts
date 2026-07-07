@@ -231,7 +231,7 @@ export async function execLocalCommand(command: string): Promise<string> {
   if (!allowed.includes(cmdName)) return `Error: Command "${cmdName}" tidak diizinkan. Allowed: ${allowed.join(", ")}`;
   if (cmdName === "git") {
     const subCmd = command.trim().split(/\s+/)[1] || "";
-    const allowedGit = ["status", "diff", "checkout", "merge", "push", "pull", "fetch", "branch", "log", "remote"];
+    const allowedGit = ["status", "diff", "checkout", "merge", "push", "pull", "fetch", "branch", "log", "remote", "add", "commit"];
     if (subCmd && !allowedGit.includes(subCmd)) return `Error: Git subcommand "${subCmd}" tidak diizinkan. Allowed: ${allowedGit.join(", ")}`;
   }
   try {

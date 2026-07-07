@@ -159,6 +159,7 @@ Setelah plan disetujui CEO, Anda akan mendapat akses writeFile/editFile.`;
               await remember(userId, mode, user, validated.cleanedText);
               context.result = validated.cleanedText;
             }
+            await this._autoGitSync();
             this.governor.finishExecution(context.contract);
             return validated.cleanedText || "";
           }
@@ -194,7 +195,8 @@ Setelah plan disetujui CEO, Anda akan mendapat akses writeFile/editFile.`;
           context.result = validated.cleanedText;
         }
         this.governor.afterCycle(false, [], tokensThisCycle);
-        if (validated.cleanedText) return validated.cleanedText;
+        if (validated.cleanedText) { await this._autoGitSync(); return validated.cleanedText; }
+        await this._autoGitSync();
         this.governor.finishExecution(context.contract);
         return "";
       }
@@ -215,6 +217,7 @@ Setelah plan disetujui CEO, Anda akan mendapat akses writeFile/editFile.`;
           context.result = validated.cleanedText;
         }
         this.governor.afterCycle(false, [], tokensThisCycle);
+        await this._autoGitSync();
         return validated.cleanedText;
       }
 
@@ -320,6 +323,7 @@ Minta persetujuan Founder.${ctxFeed}` });
           context.result = validated.cleanedText;
         }
         console.log(budgetTracker.summary(this.governor.budget.allocation));
+        await this._autoGitSync();
         this.governor.finishExecution(context.contract);
         return validated.cleanedText;
       }
@@ -335,13 +339,25 @@ Minta persetujuan Founder.${ctxFeed}` });
           context.result = finalText;
         }
         console.log(budgetTracker.summary(this.governor.budget.allocation));
+        await this._autoGitSync();
         this.governor.finishExecution(context.contract);
         return finalText;
       }
     }
 
     console.log(budgetTracker.summary(this.governor.budget.allocation));
+    await this._autoGitSync();
     return "";
+  }
+
+  private async _autoGitSync(): Promise<void> {
+    const hasImpl = this._cycleOutputs.some(o => o.startsWith("[IMPLEMENT]"));
+    if (!hasImpl) return;
+    try {
+      await executeToolWithResult("execCommand", { command: "git add -A" });
+      await executeToolWithResult("execCommand", { command: 'git commit -m "auto: CTO changes" --allow-empty' });
+      await executeToolWithResult("execCommand", { command: "git push" });
+    } catch {}
   }
 
   private async doFinalCall(
