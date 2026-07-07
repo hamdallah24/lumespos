@@ -56,13 +56,8 @@ class ExecutionGovernor {
       this._stopReason = "OBJECTIVE_BLOCKED"; return false;
     }
 
-    // Safety boundary: budget exceeded
-    const budgetCheck = this.budget.isExceeded();
-    if (budgetCheck.exceeded) {
-      this._stopReason = (budgetCheck.reason as StopReason) || "BUDGET_EXCEEDED";
-      return false;
-    }
-
+    // Budget bukan hard stop — CTO harus selesai natural lewat CONCLUDE
+    // Anti-loop adaptive di strategy-engine menangani tool loops
     return true;
   }
 
@@ -101,8 +96,8 @@ class ExecutionGovernor {
       this.tracker.transition("REFLECTING");
     }
 
-    // Strategy inference
-    const strategyResult = this.strategyEngine.infer(toolCalls, this.tracker.state);
+    // Strategy inference — adaptive anti-loop
+    const strategyResult = this.strategyEngine.infer(toolCalls, this.tracker.state, this.metrics.evidenceQuality);
 
     // ECP-020 Phase 6: Evidence-based goal completion
     if (hasToolCalls) {
@@ -294,9 +289,6 @@ class ExecutionGovernor {
   /** Evaluate — make decisions based on verification. NO hardcoded numbers. */
   evaluate(contract: ExecutionContract, verification?: { completed?: boolean; confident?: boolean; needsMoreEvidence?: boolean; passed?: boolean }): { action: "STOP" | "CONTINUE" | "CONCLUDE"; reason: string } {
     if (contract.exitPolicy === "IMMEDIATE") return { action: "STOP", reason: "IMMEDIATE" };
-
-    const budgetCheck = this.budget.isExceeded();
-    if (budgetCheck.exceeded) return { action: "STOP", reason: "BUDGET_EXHAUSTED" };
 
     if (contract.verificationPolicy === "STRICT" && verification) {
       if (verification.completed && verification.confident) return { action: "CONCLUDE", reason: "Verification: completed + confident" };

@@ -276,7 +276,7 @@ Setelah plan disetujui CEO, Anda akan mendapat akses writeFile/editFile.`;
       // ── Observe ──
       this.governor.afterCycle(true, toolStatuses, tokensThisCycle, undefined, filePaths.length > 0 ? filePaths : undefined);
 
-      const goalProgress = this.governor.goalTree.progress();
+      const goalProgress = this.governor.goalTree.progress(this.governor.metrics.evidenceQuality);
 
       const toolChars = toolResults.reduce((s: number, t: any) => s + String(t.content || "").length, 0);
       budgetTracker.recordCycle(

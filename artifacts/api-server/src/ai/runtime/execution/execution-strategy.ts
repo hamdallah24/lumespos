@@ -19,8 +19,12 @@ class ExecutionStrategyEngine {
   /** Override initial strategy (e.g. skip EXPLORE when target files known) */
   startAt(s: ExecutionStrategy): void { this._strategy = s; }
 
-  /** Infer strategy from current-cycle tool calls */
-  infer(toolCalls: { name: string; durationMs: number }[], state: string): {
+  /** Infer strategy from current-cycle tool calls — adaptive anti-loop */
+  infer(
+    toolCalls: { name: string; durationMs: number }[],
+    state: string,
+    evidenceQuality = 0,
+  ): {
     strategy: ExecutionStrategy;
     changed: boolean;
     reason: string;
@@ -29,14 +33,28 @@ class ExecutionStrategyEngine {
     this._toolHistory.push(toolCalls.map(t => t.name));
     this._cycleCount++;
 
-    // Force advance: stuck too long in exploration or writing
-    if (this._cycleCount >= 4 && ["EXPLORE", "INVESTIGATE"].includes(this._strategy)) {
+    // Adaptive force advance: threshold depends on evidence + complexity
+    // High evidence (>0.60) → advance faster (2-3 cycles)
+    // Low evidence (<0.20) → allow more exploration (6-8 cycles)
+    // Normal → default (4-6 cycles)
+    const baseThreshold = this._complexity === "simple" ? 3 : this._complexity === "complex" ? 6 : 4;
+    const adaptiveExplore = evidenceQuality > 0.60 ? Math.max(2, baseThreshold - 1)
+      : evidenceQuality < 0.20 ? baseThreshold + 3
+      : baseThreshold;
+    const adaptiveImplement = evidenceQuality > 0.60 ? 6 : 10;
+    const adaptiveVerify = evidenceQuality > 0.60 ? 8 : 12;
+
+    if (this._cycleCount >= adaptiveExplore && ["EXPLORE", "INVESTIGATE"].includes(this._strategy)) {
       this._strategy = "ANALYZE";
     }
-    if (this._cycleCount >= 8 && this._strategy === "IMPLEMENT") {
+    if (this._cycleCount >= adaptiveImplement && this._strategy === "IMPLEMENT") {
       this._strategy = "VERIFY";
     }
-    if (this._cycleCount >= 10 && this._strategy === "VERIFY") {
+    if (this._cycleCount >= adaptiveVerify && this._strategy === "VERIFY") {
+      this._strategy = "CONCLUDE";
+    }
+    // Safety: any strategy past 15 cycles → force CONCLUDE
+    if (this._cycleCount >= 15) {
       this._strategy = "CONCLUDE";
     }
 
@@ -63,8 +81,8 @@ class ExecutionStrategyEngine {
       else this._strategy = "INVESTIGATE";
     }
 
-    // Anti-loop detection
-    if (this.detectLoop()) {
+    // Adaptive anti-loop: detectLoop juga pakai evidence
+    if (this.detectLoop(evidenceQuality)) {
       if (this._strategy === "EXPLORE") { this._strategy = "INVESTIGATE"; }
       else if (this._strategy === "INVESTIGATE") { this._strategy = "ANALYZE"; }
       else if (this._strategy === "ANALYZE") { this._strategy = "IMPLEMENT"; }
@@ -90,14 +108,20 @@ class ExecutionStrategyEngine {
     return directives[this._strategy];
   }
 
-  private detectLoop(): boolean {
-    const recent = this._toolHistory.slice(-4);
-    if (recent.length < 4) return false;
-    const threshold = executionPolicy.getAntiLoopThreshold(this._complexity);
+  private detectLoop(evidenceQuality = 0): boolean {
+    // Adaptive threshold: high evidence → fewer cycles needed to detect loop
+    // Low evidence → more lenient (may need more exploration)
+    const lookback = evidenceQuality > 0.60 ? 2 : evidenceQuality < 0.20 ? 5 : 3;
+    const recent = this._toolHistory.slice(-lookback);
+    if (recent.length < lookback) return false;
     const allSameTool = recent.every(tools =>
       tools.length === 1 && tools[0] === recent[0][0]
     );
-    return allSameTool;
+    // Also detect if using only search tools repeatedly without reading
+    const allSearch = recent.every(tools =>
+      tools.some(t => ["searchContent", "listDirectory", "fetchGitHubDir"].includes(t))
+    );
+    return allSameTool || allSearch;
   }
 
   reset(): void {

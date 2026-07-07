@@ -17,40 +17,31 @@ class GoalTree {
       status: "IN_PROGRESS", parentId: undefined,
     });
 
-    // Create 3 evidence-based goals for any objective
-    const goals = ["EXPLORE_RELEVANT_FILES", "ANALYZE_FINDINGS", "PRODUCE_CONCLUSION"];
-    for (let i = 0; i < goals.length; i++) {
-      const id = `goal_${i}`;
-      this.nodes.set(id, {
-        id, label: goals[i],
-        status: "PENDING", parentId: "root",
-        requiredCapability: "ARCHITECTURE",
-      });
-    }
+    // Single goal: evidence quality drives progress
+    this.nodes.set("goal_0", {
+      id: "goal_0", label: "GATHER_AND_ANALYZE",
+      status: "IN_PROGRESS", parentId: "root",
+      requiredCapability: "ARCHITECTURE",
+    });
   }
 
-  /** Assess goal progress from actual work done. Returns 0-100. */
-  assess(filesRead: number, commandsRun: number, evidenceQuality: number, confidence: number, strategy: string): number {
-    // Goal 0: EXPLORE — complete if >= 2 files read OR any command run
+  /** Assess goal progress from evidence quality. Returns 0-100. */
+  assess(_filesRead: number, _commandsRun: number, evidenceQuality: number, _confidence: number, _strategy: string): number {
     const g0 = this.nodes.get("goal_0");
-    if (g0 && g0.status !== "COMPLETED" && (filesRead >= 2 || commandsRun >= 1)) {
-      g0.status = "COMPLETED"; g0.completedAt = new Date().toISOString(); g0.evidence = `${filesRead} files read`;
+    // Goal complete when evidence is solid
+    if (g0 && g0.status !== "COMPLETED" && evidenceQuality >= 0.40) {
+      g0.status = "COMPLETED"; g0.completedAt = new Date().toISOString(); g0.evidence = `evidence=${evidenceQuality.toFixed(2)}`;
     }
-
-    // Goal 1: ANALYZE — complete if evidence >= 0.40
-    const g1 = this.nodes.get("goal_1");
-    if (g1 && g1.status !== "COMPLETED" && evidenceQuality >= 0.40) {
-      g1.status = "COMPLETED"; g1.completedAt = new Date().toISOString(); g1.evidence = `evidence=${evidenceQuality.toFixed(2)}`;
-    }
-
-    // Goal 2: CONCLUDE — complete if confidence >= 50 and strategy is CONCLUDE/ANALYZE
-    const g2 = this.nodes.get("goal_2");
-    if (g2 && g2.status !== "COMPLETED" && confidence >= 50 && (strategy === "CONCLUDE" || strategy === "ANALYZE")) {
-      g2.status = "COMPLETED"; g2.completedAt = new Date().toISOString(); g2.evidence = `confidence=${confidence}`;
-    }
-
     this.checkRootCompletion();
-    return this.progress();
+    return this.progress(evidenceQuality);
+  }
+
+  /** Progress = evidence-based (0-100). External code passes evidenceQuality for actual progress. */
+  progress(evidenceQuality?: number): number {
+    const g0 = this.nodes.get("goal_0");
+    if (g0?.status === "COMPLETED") return 100;
+    if (evidenceQuality !== undefined) return Math.min(95, Math.round(evidenceQuality * 100));
+    return 0;
   }
 
   /** Mark goal complete based on file path match */
@@ -96,12 +87,6 @@ class GoalTree {
       if (statuses.includes(n.status)) count++;
     }
     return count;
-  }
-
-  progress(): number {
-    const t = this.total();
-    if (t === 0) return 100;
-    return Math.round(this.countByStatus(["COMPLETED"]) / t * 100);
   }
 
   assignmentProgress(): number {
