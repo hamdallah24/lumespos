@@ -11,6 +11,7 @@ import { memoryIndex } from "./memory-index";
 import { executiveMemoryStore } from "./executive-memory";
 import { knowledgeQueue } from "./knowledge-queue";
 import type { ExperienceInput } from "./experience-engine";
+import { knowledgeGovernor } from "../ai/runtime/knowledge";
 
 export class LearningEngine {
   private listeners: Array<(event: LearningEvent) => void> = [];
@@ -65,6 +66,15 @@ export class LearningEngine {
     for (const node of merged) {
       knowledgeGraph.addNode(node);
       memoryIndex.add(node);
+      // Bridge: register as knowledge card for CKO/Consultant
+      try {
+        knowledgeGovernor.register(
+          `${node.domain}: ${node.source.executive}`,
+          `[${node.type}] ${node.content.slice(0, 300)}`,
+          node.reinforced || 1,
+          [node.domain, executive, node.type, ...node.relatesTo],
+        );
+      } catch { /* non-blocking */ }
     }
     this.emit({ type: "KNOWLEDGE_ADDED", missionId, executive, timestamp: new Date().toISOString(), metadata: { count: merged.length } });
 
