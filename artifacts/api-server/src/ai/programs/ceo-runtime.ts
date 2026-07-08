@@ -154,60 +154,42 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   } else if (contract.intent === "greeting") {
     rawText = "Halo. Ada yang bisa CEO Runtime bantu?";
   } else if (shouldDispatch) {
-    // Background mission hanya untuk intent yg butuh analisis/implementasi kode
-    const isBackgroundIntent = ["analyze_code", "implement_change"].includes(spec.intent);
-    const hasCTO = executives.some((e: { runtime: string }) => e.runtime === "CTO");
+    // ── Mission Creator: jika user minta buat misi → create + queue ──
+    const lower = ctx.message.toLowerCase();
+    const isCreateMission = /\b(buat|jalankan|kerjakan|proses)\s+misi\b/i.test(lower)
+      || /\b(misi)\s+(baru|lanjut|eksekusi)\b/i.test(lower);
 
-    if (hasCTO && isBackgroundIntent) {
-      // ECP-047: Background Mission — simpan ke DB, queue, return segera
+    if (isCreateMission) {
       pipeline.push("BackgroundMission");
-
       const missionId = await aiMissionService.create(
         ctx.userId,
         spec.objective || ctx.message.slice(0, 100),
         ctx.message,
-        "cto",
+        executives[0]?.runtime || "cto",
         spec.estimatedComplexity,
       );
-
-      aiQueue.enqueue({ missionId, userId: ctx.userId, message: ctx.message, mode: "cto" });
-
-      rawText = JSON.stringify({
-        type: "mission_created",
-        missionId,
-        message: `✅ Misi #${missionId} dibuat dan sedang diproses. Pantau progress di dashboard.`,
-      });
+      aiQueue.enqueue({ missionId, userId: ctx.userId, message: ctx.message, mode: executives[0]?.runtime || "cto" });
+      rawText = `✅ **Misi #${missionId} dibuat** berdasarkan diskusi kita. Misi sedang diproses, hasil akan muncul di chat ini otomatis.`;
     } else {
-      // COO/CFO → synchronous via executeMission seperti biasa
-      pipeline.push("ExecutiveCollaboration");
-
-      const missionParts = [
-        `[Executive Mission]`,
-        `Objective: ${spec.objective}`,
-        `Domain: ${spec.domain}`,
-      ];
-      if (spec.targetFiles.length > 0) missionParts.push(`Target Files: ${spec.targetFiles.join(", ")}`);
-      if (spec.entities.length > 0) missionParts.push(`Keywords: ${spec.entities.join(", ")}`);
-      if (spec.semanticReasoning) missionParts.push(`Reasoning: ${spec.semanticReasoning}`);
-      if (spec.expectedOutcome) missionParts.push(`Expected: ${spec.expectedOutcome}`);
-      missionParts.push(`\nUser Query: ${ctx.message}`);
-
-      const missionPrompt = missionParts.join("\n");
-      const result = await executiveCollaboration.executeMission(executives, ctx, missionPrompt);
-
-      pipeline.push("CEOSynthesis");
-      ctx.onState?.("Synthesizing");
-      const synthesisPrompt = assemble({
+      // Chat biasa — CEO diskusi dulu, misi dibuat hanya saat user bilang "buat misi"
+      pipeline.push("PromptAssembly");
+      const systemPrompt = assemble({
         identity: CEO_IDENTITY,
         directive: directiveContent,
-        decision: { ...decision, executiveResults: result.executiveResults },
+        decision,
         outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
-        context: result.synthesisContext,
         maxTokens: 8000,
         mode: "ceo",
       });
+      ctx.onProgress?.("💼 CEO Runtime merespon...");
       try {
-        rawText = await callDeepSeek(synthesisPrompt, ctx.message, ctx.userId, "ceo", 4000);
+        rawText = await callDeepSeek(
+          systemPrompt, ctx.message, ctx.userId, "ceo", 4000,
+        );
+        // Tambah catatan bahwa user bisa buat misi kalo mau
+        if (!rawText.toLowerCase().includes("buat misi")) {
+          rawText += "\n\n> 💡 *Jika ingin tugas ini dijalankan sebagai misi, katakan **buat misi**.*";
+        }
       } catch {
         rawText = "CEO Runtime sedang sibuk. Coba lagi.";
       }
@@ -237,11 +219,9 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
 
   // Stage 9: Executive Report
   pipeline.push("ExecutiveReport");
-  const delegationLine = shouldDispatch
-    ? `\n> — CEO Runtime · Didispatch ke ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`
-    : executives.length > 0
-      ? `\n> — CEO Runtime · Didelegasikan ke ${executives[0].runtime}`
-      : "\n> — CEO Runtime · Direct";
+  const delegationLine = rawText.includes("Misi #")
+    ? `\n> — CEO Runtime · Misi dikirim ke ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`
+    : "\n> — CEO Runtime · Direct";
   const text = `## Executive Report\n\n${rawText}\n${delegationLine}`;
 
   return {
