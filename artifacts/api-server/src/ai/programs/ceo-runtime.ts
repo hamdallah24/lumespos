@@ -171,6 +171,7 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
         "RUNTIME-001",
         { missionType: "analysis", userId: ctx.userId, userMessage: ctx.message },
       );
+      missionRuntime.transition(rtMission.id, "UNDERSTANDING");
       missionRuntime.transition(rtMission.id, "PLANNING");
       missionRuntime.transition(rtMission.id, "DELEGATED");
       // 2. Persist ke DB
