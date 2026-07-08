@@ -63,6 +63,7 @@ async function fetchContext(message: string): Promise<string> {
 interface CTOTask {
   message: string;
   userId: number;
+  missionId?: number;
   onProgress?: (msg: string) => void;
   onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void;
   onExecutionEvent?: (snapshot: import("../runtime/execution/execution-manifest").ExecutionSnapshot) => void;

@@ -5,6 +5,8 @@ import React from "react";
 import { Activity, CheckCircle2, Clock, Users, Shield, Brain, Layers, GitBranch, Zap, ArrowRight, Send, Target, FileText, AlertTriangle, Copy, Check } from "lucide-react";
 import { getCsrfToken } from "@/lib/csrf";
 import { RuntimeProgressCard } from "@/components/runtime-progress-card";
+import { ActiveMissions } from "@/components/active-missions";
+import { MissionDetail } from "@/components/mission-detail";
 
 const SS_KEY_INPUT = "exec.input";
 const SS_KEY_REPORTS = "exec.reports";
@@ -50,6 +52,7 @@ export default function ExecutiveWorkspace() {
   // ADR-009: Evidence + Mission store
   const [evidenceScore, setEvidenceScore] = React.useState<any>(null);
   const [missionProgress, setMissionProgress] = React.useState<any>(null);
+  const [selectedMissionId, setSelectedMissionId] = React.useState<number | null>(null);
 
   // Fetch org status on mount
   React.useEffect(() => {
@@ -351,17 +354,8 @@ export default function ExecutiveWorkspace() {
           <Section title="Organization" icon={GitBranch}>
             {orgData?.tree ? <OrgMiniGraph nodes={orgData.tree} /> : <p className="text-xs text-slate-400">Loading...</p>}
           </Section>
-          <Section title="Active Missions" icon={Target}>
-            {missionData?.active?.length > 0
-              ? <p className="text-xs text-green-600 font-medium">{missionData.active.length} active</p>
-              : <p className="text-xs text-slate-400">Belum ada mission aktif</p>}
-          </Section>
-          <Section title="Pending Approvals" icon={FileText}>
-            <p className="text-xs text-slate-400">Tidak ada proposal pending</p>
-          </Section>
-          <Section title="Knowledge Gaps" icon={AlertTriangle}>
-            <p className="text-xs text-slate-400">Tidak ada gap terdeteksi</p>
-          </Section>
+          <ActiveMissions onSelect={setSelectedMissionId} />
+          {selectedMissionId && <MissionDetail missionId={selectedMissionId} onClose={() => setSelectedMissionId(null)} />}
           <Section title="Runtime Status" icon={Activity}>
             {orgData?.health ? (
               <div className="space-y-1.5 text-xs">

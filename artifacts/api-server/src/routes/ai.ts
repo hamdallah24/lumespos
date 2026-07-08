@@ -250,6 +250,55 @@ router.get("/ai/missions", requireRole("owner"), async (_req, res) => {
   res.json({ active, report });
 });
 
+// Misi aktif milik user
+router.get("/ai/missions/active", requireAuth, async (req, res) => {
+  const { aiMissionService } = await import("../services/ai-mission-service");
+  const missions = await aiMissionService.listActive(req.user!.id);
+  res.json({ missions });
+});
+
+// SSE stream untuk misi background — replay snapshot + live update
+router.get("/ai/mission/:id/stream", requireAuth, async (req, res) => {
+  const { aiMissionService } = await import("../services/ai-mission-service");
+  const missionId = parseInt(req.params.id);
+  if (isNaN(missionId)) { res.status(400).json({ error: "Invalid mission ID" }); return; }
+
+  const mission = await aiMissionService.getById(missionId);
+  if (!mission) { res.status(404).json({ error: "Mission not found" }); return; }
+  if (mission.userId !== req.user!.id) { res.status(403).json({ error: "Forbidden" }); return; }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  let aborted = false;
+  req.on("close", () => { aborted = true; });
+
+  // Replay snapshot history
+  const snapshots = await aiMissionService.getSnapshots(missionId);
+  for (const s of snapshots) {
+    if (aborted) return;
+    res.write(`data: ${JSON.stringify({ type: "snapshot", ...s })}\n\n`);
+  }
+
+  // Kirim status terakhir
+  res.write(`data: ${JSON.stringify({ type: "mission", id: mission.id, status: mission.status, progress: mission.progress, strategy: mission.strategy, result: mission.result, error: mission.error })}\n\n`);
+
+  // Kalau sudah selesai, stop
+  if (mission.status === "completed" || mission.status === "failed" || mission.status === "cancelled") {
+    res.end(); return;
+  }
+
+  // Live subscribe
+  const unsub = aiMissionService.subscribe(missionId, (ev) => {
+    if (aborted) { unsub(); return; }
+    res.write(`data: ${JSON.stringify({ type: ev.type, ...ev.data })}\n\n`);
+    if (ev.type === "completed" || ev.type === "error") { unsub(); res.end(); }
+  });
+});
+
 router.post("/ai/mission", requireRole("owner"), async (req, res) => {
   const { title, objective, domains, priority } = req.body as { title: string; objective: string; domains: string[]; priority?: string };
   if (!title || !domains) { res.status(400).json({ error: "title and domains required" }); return; }
