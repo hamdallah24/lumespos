@@ -7,6 +7,8 @@ import { missionRuntime } from "./mission-engine";
 import { organizationEngine } from "./organization-engine";
 import { ctoProgram } from "../programs/cto-runtime";
 import { aiMissionService } from "../../services/ai-mission-service";
+import { db, missionsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 /** Cek apakah output CTO layak — tolak yg cuma error/empty/meta */
 function isQualityOutput(text: string): { ok: boolean; reason: string } {
@@ -122,6 +124,10 @@ class MissionEngine {
 
     try {
       const { remember } = await import("../../services/ai-memory-service");
+      // Sync DB ke RUNNING
+      if (mission.dbMissionId) {
+        await aiMissionService.transition(mission.dbMissionId, "RUNNING");
+      }
       const result = await ctoProgram.execute({
         message: mission.userMessage || mission.title,
         userId: mission.userId,
@@ -155,7 +161,7 @@ class MissionEngine {
       if (errMsg) {
         missionRuntime.transition(mission.id, "FAILED");
         if (mission.dbMissionId) {
-          await aiMissionService.transition(mission.dbMissionId, "FAILED");
+          await db.update(missionsTable).set({ status: "FAILED", updatedAt: new Date(), completedAt: new Date() }).where(eq(missionsTable.id, mission.dbMissionId));
           aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ ${errMsg}`);
           await remember(mission.userId, "ceo", mission.userMessage,
             `❌ **Misi #${mission.dbMissionId || mission.id} Gagal**: ${errMsg}. Coba perjelas file atau folder targetnya.`);
@@ -167,7 +173,7 @@ class MissionEngine {
       missionRuntime.transition(mission.id, "REVIEW");
       missionRuntime.approve(mission.id);
       if (mission.dbMissionId) {
-        await aiMissionService.transition(mission.dbMissionId, "COMPLETED", { progress: 100, result: result.text.slice(0, 200) });
+        await db.update(missionsTable).set({ status: "COMPLETED", updatedAt: new Date(), completedAt: new Date(), result: result.text.slice(0, 200) }).where(eq(missionsTable.id, mission.dbMissionId));
         await aiMissionService.saveSnapshot(mission.dbMissionId, 0, { progress: 100 });
         aiMissionService.notifyCompleted(mission.dbMissionId, result.text, result.text.slice(0, 200));
       }
@@ -177,7 +183,7 @@ class MissionEngine {
     } catch (e: any) {
       missionRuntime.transition(mission.id, "FAILED");
       if (mission.dbMissionId) {
-        await aiMissionService.transition(mission.dbMissionId, "FAILED");
+        await db.update(missionsTable).set({ status: "FAILED", updatedAt: new Date(), completedAt: new Date() }).where(eq(missionsTable.id, mission.dbMissionId));
         aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ Error: ${e.message}`);
         const { remember } = await import("../../services/ai-memory-service");
         await remember(mission.userId, "ceo", mission.userMessage,

@@ -175,7 +175,7 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
       missionRuntime.transition(rtMission.id, "PLANNING");
       missionRuntime.transition(rtMission.id, "DELEGATED");
       // 2. Persist ke DB
-      const dbId = await aiMissionService.create(ctx.userId, rtMission.title, ctx.message, "cto", spec.estimatedComplexity);
+      const dbId = await aiMissionService.create(ctx.userId, rtMission.title, ctx.message, "cto", spec.estimatedComplexity, "DELEGATED");
       // Update in-memory mission dengan dbMissionId
       const stored = missionRuntime.get(rtMission.id);
       if (stored) stored.dbMissionId = dbId;

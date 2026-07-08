@@ -20,8 +20,8 @@ class AiMissionService {
 
   // ── CRUD ──
 
-  async create(userId: number, title: string, objective: string, mode = "cto", complexity = "medium"): Promise<number> {
-    const [m] = await db.insert(missionsTable).values({ userId, title, objective, mode, complexity, status: "CREATED" }).returning({ id: missionsTable.id });
+  async create(userId: number, title: string, objective: string, mode = "cto", complexity = "medium", status: string = "CREATED"): Promise<number> {
+    const [m] = await db.insert(missionsTable).values({ userId, title, objective, mode, complexity, status }).returning({ id: missionsTable.id });
     return m.id;
   }
 
