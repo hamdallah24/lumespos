@@ -1,5 +1,9 @@
 import React from "react";
-import { Activity, CheckCircle2, XCircle, Layers, Shield, Cpu, Brain, Database, GitBranch } from "lucide-react";
+import { Activity, CheckCircle2, XCircle, Layers, Shield, Cpu, Brain, Database, GitBranch, Zap, Users, FileText, Server } from "lucide-react";
+
+const LAYER_ICONS: Record<string, React.ComponentType<any>> = {
+  CEO: Zap, CTO: Cpu, COO: Database, CFO: FileText, CKO: Brain, QA: Shield, DevOps: Server, Research: GitBranch,
+};
 
 type ReadinessData = {
   ready: boolean;
@@ -17,31 +21,35 @@ type HealthData = {
   timestamp: string;
 };
 
-const ENG_OS_LAYERS = [
-  { name: "Foundation", pct: 100, icon: Layers, color: "bg-green-500" },
-  { name: "Foundation Adoption", pct: 100, icon: GitBranch, color: "bg-green-500" },
-  { name: "Runtime", pct: 80, icon: Cpu, color: "bg-blue-500" },
-  { name: "Knowledge", pct: 70, icon: Brain, color: "bg-blue-500" },
-  { name: "Governance", pct: 80, icon: Shield, color: "bg-green-500" },
-  { name: "Security", pct: 70, icon: Shield, color: "bg-blue-500" },
-  { name: "Identity", pct: 30, icon: Database, color: "bg-yellow-500" },
-];
-
 export default function EngineeringOSDashboard() {
   const [readiness, setReadiness] = React.useState<ReadinessData | null>(null);
   const [health, setHealth] = React.useState<HealthData | null>(null);
+  const [orgData, setOrgData] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
     Promise.all([
       fetch("/api/ai/readiness-public", { credentials: "include" }).then(r => r.json()),
       fetch("/api/ai/health", { credentials: "include" }).then(r => r.json()).catch(() => null),
-    ]).then(([r, h]) => {
+      fetch("/api/ai/org-public", { credentials: "include" }).then(r => r.json()).catch(() => null),
+    ]).then(([r, h, o]) => {
       setReadiness(r);
       setHealth(h);
+      setOrgData(o);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
+
+  const MATURITY_PCT: Record<string, number> = { L0: 25, L1: 55, L2: 85 };
+  const layers = React.useMemo(() => {
+    if (!orgData?.tree) return [];
+    return orgData.tree.map((n: any) => {
+      const pct = MATURITY_PCT[n.maturity] || 30;
+      const color = n.health === "Healthy" ? "bg-green-500" : n.health === "Busy" ? "bg-blue-500" : "bg-yellow-500";
+      const Icon = LAYER_ICONS[n.runtime] || Layers;
+      return { name: n.runtime, pct, icon: Icon, color, health: n.health, maturity: n.maturity };
+    });
+  }, [orgData]);
 
   if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="animate-pulse text-slate-400">Loading Engineering OS...</div></div>;
 
@@ -62,29 +70,36 @@ export default function EngineeringOSDashboard() {
           </div>
         </div>
 
-        {/* Status Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        {/* Status Cards — semua real data */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatusCard label="Readiness" value={readiness?.ready ? "Healthy" : "Degraded"} color={readiness?.ready ? "green" : "red"} />
           <StatusCard label="Health Score" value={health ? `${health.score}/100` : "—"} color={health && health.score >= 80 ? "green" : "yellow"} />
-          <StatusCard label="Components" value={readiness ? `${readiness.total} tests` : "—"} color="blue" />
+          <StatusCard label="Tests Passed" value={readiness ? `${readiness.passed}/${readiness.total}` : "—"} color={readiness && readiness.failed === 0 ? "green" : "yellow"} />
+          <StatusCard label="Runtimes" value={orgData?.tree ? `${orgData.tree.length} active` : "—"} color="blue" />
         </div>
 
-        {/* Architecture Layers */}
-        <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-[#1565FF]/10 p-5">
-          <h2 className="text-sm font-semibold mb-4 text-slate-700 dark:text-white">Architecture Maturity</h2>
-          <div className="space-y-3">
-            {ENG_OS_LAYERS.map(layer => (
-              <div key={layer.name} className="flex items-center gap-3">
-                <layer.icon className="w-4 h-4 text-slate-400 shrink-0" />
-                <span className="text-xs text-slate-600 dark:text-slate-300 w-36 shrink-0">{layer.name}</span>
-                <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div className={`h-full ${layer.color} rounded-full transition-all`} style={{ width: `${layer.pct}%` }} />
+        {/* Architecture Maturity — dari org tree */}
+        {layers.length > 0 && (
+          <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-[#1565FF]/10 p-5">
+            <h2 className="text-sm font-semibold mb-4 text-slate-700 dark:text-white">Runtime Maturity</h2>
+            <div className="space-y-3">
+              {layers.map(layer => (
+                <div key={layer.name} className="flex items-center gap-3">
+                  <layer.icon className="w-4 h-4 text-slate-400 shrink-0" />
+                  <span className="text-xs text-slate-600 dark:text-slate-300 w-24 shrink-0">{layer.name}</span>
+                  <span className="text-[10px] text-slate-400 w-8 shrink-0">{layer.maturity}</span>
+                  <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div className={`h-full ${layer.color} rounded-full transition-all`} style={{ width: `${layer.pct}%` }} />
+                  </div>
+                  <span className="text-xs font-medium text-slate-500 w-10 text-right">{layer.pct}%</span>
+                  <span className={`text-[10px] w-14 text-right ${
+                    layer.health === "Healthy" ? "text-green-500" : layer.health === "Busy" ? "text-blue-500" : "text-yellow-500"
+                  }`}>{layer.health}</span>
                 </div>
-                <span className="text-xs font-medium text-slate-500 w-10 text-right">{layer.pct}%</span>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Health Policy Breakdown */}
         {health && (
