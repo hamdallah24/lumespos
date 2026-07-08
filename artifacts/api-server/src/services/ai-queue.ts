@@ -1,4 +1,5 @@
 // ECP-047: Background Mission Queue — in-memory, single-threaded worker
+import { remember } from "./ai-memory-service";
 import { aiMissionService } from "./ai-mission-service";
 import { ctoProgram } from "../ai/programs/cto-runtime";
 
@@ -8,6 +9,16 @@ type QueueTask = {
   message: string;
   mode: string;
 };
+
+function trimResult(text: string, max = 500): string {
+  if (!text) return "";
+  const cleaned = text
+    .replace(/<｜｜DSML｜｜[\s\S]*?>/g, "")
+    .replace(/<\/｜｜DSML｜｜[\s\S]*?>/g, "")
+    .replace(/#{3,}/g, "")
+    .trim();
+  return cleaned.length > max ? cleaned.slice(0, max) + "..." : cleaned;
+}
 
 class AiQueue {
   private queue: QueueTask[] = [];
@@ -68,11 +79,19 @@ class AiQueue {
 
       if (result.success && result.text) {
         await aiMissionService.updateStatus(task.missionId, "completed", { result: result.text, progress: 100 });
+        // Notifikasi ke chat CEO — executive runtime yg selesai kirim
+        const summary = trimResult(result.text, 400);
+        await remember(task.userId, "ceo", task.message,
+          `✅ **Misi #${task.missionId} Selesai**\n\n${summary}\n\n📊 Detail lengkap bisa dilihat di dashboard Executive.`);
       } else {
         await aiMissionService.updateStatus(task.missionId, "completed", { result: result.text || "(no output)", progress: 100 });
+        await remember(task.userId, "ceo", task.message,
+          `✅ **Misi #${task.missionId} Selesai** (tanpa output spesifik). Cek dashboard untuk detail.`);
       }
     } catch (e: any) {
       await aiMissionService.updateStatus(task.missionId, "failed", { error: e.message || "Unknown error" });
+      await remember(task.userId, "ceo", task.message,
+        `❌ **Misi #${task.missionId} Gagal**: ${e.message || "Unknown error"}`);
     } finally {
       this.activeMissionId = null;
       this.processNext();
