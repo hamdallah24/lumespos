@@ -22,8 +22,6 @@ class AiMissionService {
 
   async create(userId: number, title: string, objective: string, mode = "cto", complexity = "medium"): Promise<number> {
     const [m] = await db.insert(missionsTable).values({ userId, title, objective, mode, complexity, status: "CREATED" }).returning({ id: missionsTable.id });
-    // Juga register ke in-memory MissionRuntime untuk lifecycle tracking
-    try { missionRuntime.create(title, objective, [mode], "normal"); } catch {}
     return m.id;
   }
 
