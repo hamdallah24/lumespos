@@ -30,6 +30,7 @@ class MissionEngine {
   private config: EngineConfig;
   private ticker: NodeJS.Timeout | null = null;
   private running = false;
+  private processing = new Set<string>();
 
   constructor(config = DEFAULT_CONFIG) {
     this.config = config;
@@ -65,6 +66,8 @@ class MissionEngine {
     let delegated = 0, completed = 0, failed = 0;
 
     for (const mission of toProcess) {
+      if (this.processing.has(mission.id)) continue; // Skip — sedang diproses
+      this.processing.add(mission.id);
       try {
         const result = await this.processMission(mission.id);
         if (result === "delegated") delegated++;
@@ -72,6 +75,8 @@ class MissionEngine {
         if (result === "failed") failed++;
       } catch (e: any) {
         console.error(`[MissionEngine] Error processing ${mission.id}:`, e.message);
+      } finally {
+        this.processing.delete(mission.id);
       }
     }
 
@@ -94,7 +99,10 @@ class MissionEngine {
   /** Execute CTO program for analysis/implementation missions */
   private async executeCTOMission(mission: any): Promise<"completed" | "failed"> {
     if (!mission.userId) return "failed";
-    missionRuntime.transition(mission.id, "RUNNING");
+    // Hanya transisi ke RUNNING kalo belum RUNNING — cegah invalid transition
+    if (mission.status !== "RUNNING") {
+      missionRuntime.transition(mission.id, "RUNNING");
+    }
 
     try {
       const { remember } = await import("../../services/ai-memory-service");
