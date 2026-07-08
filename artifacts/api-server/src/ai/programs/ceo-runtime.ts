@@ -123,8 +123,10 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   pipeline.push("OrganizationEngine");
   const executives = organizationEngine.delegateBySpec(spec);
   
-  // Smart Dispatch: CEO handles greetings directly. Everything else is delegated.
-  const shouldDispatch = spec.intent !== "greeting" && executives.length > 0;
+  // Smart Dispatch: CEO handles greetings + knowledge_query (chat biasa) langsung.
+  // Delegasi hanya untuk intent yg butuh aksi konkret.
+  const noDelegate = ["greeting", "knowledge_query"];
+  const shouldDispatch = !noDelegate.includes(spec.intent) && executives.length > 0;
 
   if (shouldDispatch) {
     ctx.onState?.(`Dispatching: ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`);
