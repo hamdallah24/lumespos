@@ -67,6 +67,7 @@ class MissionAPI {
     let dbMissionId: number | undefined;
     try {
       const { aiMissionService } = await import("../../services/ai-mission-service");
+      console.log(`[QA-DB] aiMissionService loaded, creating record for userId=${extended?.userId}`);
       dbMissionId = await aiMissionService.create(
         extended?.userId || 1,
         mission.title,
@@ -75,6 +76,7 @@ class MissionAPI {
         "medium",
         "DELEGATED",
       );
+      console.log(`[QA-DB] dbMissionId=${dbMissionId}`);
     } catch (e: any) {
       console.error(`[MissionAPI] Failed to create DB mission record:`, e?.message || e);
     }
