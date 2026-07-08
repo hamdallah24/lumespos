@@ -15,7 +15,6 @@ function trimResult(text: string, max = 500): string {
   const cleaned = text
     .replace(/<｜｜DSML｜｜[\s\S]*?>/g, "")
     .replace(/<\/｜｜DSML｜｜[\s\S]*?>/g, "")
-    .replace(/#{3,}/g, "")
     .trim();
   return cleaned.length > max ? cleaned.slice(0, max) + "..." : cleaned;
 }
