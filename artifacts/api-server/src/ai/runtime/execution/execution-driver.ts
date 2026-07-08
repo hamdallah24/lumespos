@@ -52,10 +52,14 @@ export class ExecutionDriver {
   readonly governor: ExecutionGovernor;
   private readonly callbacks: DriverCallbacks;
   private _toolsUsed = 0;
+  private _filesRead: string[] = [];
   private _cycleOutputs: string[] = [];
   private _implGatePassed = false;
   private _implPlan = "";
   private _mustUseRetries = 0;
+
+  get toolsUsed(): number { return this._toolsUsed; }
+  get filesRead(): string[] { return [...this._filesRead]; }
 
   constructor(
     complexity: string, domain: string, entities: string[], objective: string,
@@ -225,6 +229,7 @@ export class ExecutionDriver {
 
         if (["readFile", "fetchGitHubFile", "fetchGitHubDir"].includes(tc.name) && tc.args?.path) {
           filePaths.push(tc.args.path);
+          if (!this._filesRead.includes(tc.args.path)) this._filesRead.push(tc.args.path);
         }
       }
 

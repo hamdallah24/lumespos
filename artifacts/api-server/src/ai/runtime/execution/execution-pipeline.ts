@@ -27,6 +27,8 @@ export interface PipelineResult {
   text: string;
   contract: ExecutionContract;
   context: PipelineContext;
+  toolsUsed: number;
+  filesRead: string[];
 }
 
 export class ExecutionPipeline {
@@ -64,10 +66,10 @@ export class ExecutionPipeline {
 
     try {
       const text = await driver.run(context, messages, tools, maxTokens, userId, mode, user, jsonMode);
-      return { success: true, text, contract: context.contract, context };
+      return { success: true, text, contract: context.contract, context, toolsUsed: driver.toolsUsed, filesRead: driver.filesRead };
     } catch (e: any) {
       context.state = "FAILED";
-      return { success: false, text: e.message || "Pipeline failed", contract: context.contract, context };
+      return { success: false, text: e.message || "Pipeline failed", contract: context.contract, context, toolsUsed: 0, filesRead: [] };
     }
   }
 }

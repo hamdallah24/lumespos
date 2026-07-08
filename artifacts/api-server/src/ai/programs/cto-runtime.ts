@@ -74,6 +74,8 @@ interface CTOResult {
   text: string;
   pipeline: string[];
   reflection: string;
+  toolsUsed: number;
+  filesRead: string[];
 }
 
 async function execute(task: CTOTask, execContract?: ExecutionContract): Promise<CTOResult> {
@@ -185,9 +187,11 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   const ctoMaxTokens = isGreeting ? 500 : Math.max(spec.runtimePolicy.maxTokens, 6000);
   console.log("[CTO-TOOL]", toolSet.map((t: any) => t.name).join(", "));
   console.log("[CTO-MAXTOKENS]", ctoMaxTokens);
-  let responseText: string;
+  let responseText = "";
+  let toolsUsed = 0;
+  let filesRead: string[] = [];
   try {
-    responseText = await callDeepSeekWithTools(
+    const llmResult = await callDeepSeekWithTools(
       systemPrompt, ctoMessage, task.userId, "cto", toolSet,
       ctoMaxTokens, task.onProgress, task.onTool,
       false, undefined, task.onExecutionEvent,
@@ -203,9 +207,12 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
         return ceoResult.success && ceoResult.text.includes("APPROVED");
       },
     );
+    responseText = llmResult.text;
+    toolsUsed = llmResult.toolsUsed;
+    filesRead = llmResult.filesRead;
     pipeline.push("LLM");
   } catch (e: any) {
-    return { success: false, text: `LLM error: ${e.message}`, pipeline, reflection: "" };
+    return { success: false, text: `LLM error: ${e.message}`, pipeline, reflection: "", toolsUsed: 0, filesRead: [] };
   }
 
   // Stage 13: Reflection
@@ -242,6 +249,8 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     text: responseText,
     pipeline,
     reflection: report.recommendation,
+    toolsUsed,
+    filesRead,
   };
 }
 

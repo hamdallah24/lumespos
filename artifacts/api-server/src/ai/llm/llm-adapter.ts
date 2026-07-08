@@ -217,14 +217,12 @@ export async function callDeepSeekWithTools(
   onExecutionEvent?: (snapshot: import("../runtime/execution/execution-manifest").ExecutionSnapshot) => void,
   executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string; targetFiles?: string[] },
   onImplPlan?: (plan: string) => Promise<boolean>,
-): Promise<string> {
+): Promise<{ text: string; toolsUsed: number; filesRead: string[] }> {
   const ctx = new ExecutionContext(userId, mode);
-  if (!DEEPSEEK_KEY || !DEEPSEEK_BASE) { console.error("[ai] DeepSeek key/base not set"); return ""; }
+  if (!DEEPSEEK_KEY || !DEEPSEEK_BASE) { console.error("[ai] DeepSeek key/base not set"); return { text: "", toolsUsed: 0, filesRead: [] }; }
 
   const history = await getHistory(userId, mode, 100);
   const filteredHistory = filterContamination(history).slice(-30);
-  // Gunakan system prompt dari caller (CTO assemble() sudah include identity + directive + schema)
-  // Hanya fallback ke legacy jika caller tidak provide system prompt
   const systemContent = system && system.trim().length > 50
     ? system.slice(0, 8000)
     : (() => {
@@ -242,7 +240,6 @@ export async function callDeepSeekWithTools(
   ctx.incMetric("roundCount");
   messages.push({ role: "user", content: user.slice(0, 5000) });
 
-  // Delegate entire lifecycle to ExecutionPipeline → Driver
   const result = await ExecutionPipeline.execute(
     { role: "CTO" },
     messages, tools, maxTokens, userId, mode, user,
@@ -252,5 +249,5 @@ export async function callDeepSeekWithTools(
   );
 
   finalize(ctx);
-  return result.text || "";
+  return { text: result.text || "", toolsUsed: result.toolsUsed, filesRead: result.filesRead };
 }

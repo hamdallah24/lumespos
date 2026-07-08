@@ -34,11 +34,12 @@ export const deepseekProvider: LLMProvider = {
   },
 
   async chatWithTools(params) {
-    return callDeepSeekWithTools(
+    const result = await callDeepSeekWithTools(
       params.system, params.user, 0, "cto",
       params.tools as any[] || [], params.maxTokens || 3000,
       params.onProgress,
     );
+    return result.text;
   },
 };
 

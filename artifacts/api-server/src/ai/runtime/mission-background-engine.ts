@@ -8,13 +8,20 @@ import { organizationEngine } from "./organization-engine";
 import { ctoProgram } from "../programs/cto-runtime";
 import { aiMissionService } from "../../services/ai-mission-service";
 
-/** Cek apakah output CTO layak — tolak yg cuma error/empty */
-function isQualityOutput(text: string): boolean {
-  if (!text || text.length < 100) return false;
+/** Cek apakah output CTO layak — tolak yg cuma error/empty/meta */
+function isQualityOutput(text: string): { ok: boolean; reason: string } {
+  if (!text || text.length < 300) return { ok: false, reason: "Output terlalu pendek (<300 chars)" };
   const lower = text.toLowerCase();
   const notFound = ["tidak ditemukan", "not found", "0 hasil", "tidak ada file", "no files found"];
-  if (notFound.some(p => lower.includes(p)) && !/[`'\"][\w./]+[`'\"]/.test(text)) return false;
-  return true;
+  if (notFound.some(p => lower.includes(p)) && !/[`'\"][\w./]+[`'\"]/.test(text)) {
+    return { ok: false, reason: "Output cuma berisi 'file tidak ditemukan' tanpa analisis" };
+  }
+  // Tolak output yg cuma meta — ngomongin proses bukan konten
+  const metaLines = text.split("\n").filter(l => /saya telah|berdasarkan hasil|setelah membaca|saya menggunakan|saya mencari/i.test(l));
+  if (metaLines.length > text.split("\n").length * 0.5) {
+    return { ok: false, reason: "Output didominasi deskripsi proses, bukan analisis" };
+  }
+  return { ok: true, reason: "" };
 }
 
 interface EngineConfig {
@@ -130,36 +137,48 @@ class MissionEngine {
         },
       });
 
-      // Quality gate: tolak output kosong / error / not-found
-      const outputOk = result.success && result.text && isQualityOutput(result.text);
-
-      if (outputOk) {
-        missionRuntime.transition(mission.id, "REVIEW");
-        missionRuntime.approve(mission.id);
-        // Save result ke DB
-        if (mission.dbMissionId) {
-          await aiMissionService.saveSnapshot(mission.dbMissionId, 0, { progress: 100 });
-          aiMissionService.notifyCompleted(mission.dbMissionId, result.text, result.text.slice(0, 200));
-        }
-        // Notifikasi chat
-        await remember(mission.userId, "ceo", mission.userMessage,
-          `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n${result.text.slice(0, 400)}`);
-        return "completed";
+      // ── REAL REVIEW: verifikasi tool usage + output quality ──
+      let errMsg = "";
+      if (!result.success) {
+        errMsg = "CTO gagal menjalankan analisis";
+      } else if (result.toolsUsed === 0) {
+        errMsg = "CTO tidak menggunakan tools — output tanpa data dari file";
+      } else if (result.filesRead.length === 0) {
+        errMsg = "CTO tidak membaca file apapun";
       } else {
+        const quality = isQualityOutput(result.text);
+        if (!quality.ok) {
+          errMsg = quality.reason;
+        }
+      }
+
+      if (errMsg) {
         missionRuntime.transition(mission.id, "FAILED");
-        const errMsg = result.success && result.text ? "Output tidak memenuhi kualitas — file tidak ditemukan atau analisis kosong" : "CTO gagal menghasilkan output";
         if (mission.dbMissionId) {
           aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ ${errMsg}`);
-          const { remember } = await import("../../services/ai-memory-service");
           await remember(mission.userId, "ceo", mission.userMessage,
             `❌ **Misi #${mission.dbMissionId || mission.id} Gagal**: ${errMsg}. Coba perjelas file atau folder targetnya.`);
         }
         return "failed";
       }
+
+      // ── REVIEW LULUS → approve ──
+      missionRuntime.transition(mission.id, "REVIEW");
+      missionRuntime.approve(mission.id);
+      if (mission.dbMissionId) {
+        await aiMissionService.saveSnapshot(mission.dbMissionId, 0, { progress: 100 });
+        aiMissionService.notifyCompleted(mission.dbMissionId, result.text, result.text.slice(0, 200));
+      }
+      await remember(mission.userId, "ceo", mission.userMessage,
+        `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n**Tools:** ${result.toolsUsed} tool calls, ${result.filesRead.length} file dibaca\n\n${result.text.slice(0, 400)}`);
+      return "completed";
     } catch (e: any) {
       missionRuntime.transition(mission.id, "FAILED");
       if (mission.dbMissionId) {
         aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ Error: ${e.message}`);
+        const { remember } = await import("../../services/ai-memory-service");
+        await remember(mission.userId, "ceo", mission.userMessage,
+          `❌ **Misi #${mission.dbMissionId || mission.id} Error**: ${e.message}`);
       }
       return "failed";
     }
