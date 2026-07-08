@@ -152,30 +152,63 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   } else if (contract.intent === "greeting") {
     rawText = "Halo. Ada yang bisa CEO Runtime bantu?";
   } else if (shouldDispatch) {
-    // ECP-047: Background Mission — simpan ke DB, queue, return segera
-    pipeline.push("BackgroundMission");
+    // Cek: apakah ada CTO di executive? Kalau iya → background mission
+    const hasCTO = executives.some((e: { runtime: string }) => e.runtime === "CTO");
 
-    const missionId = await aiMissionService.create(
-      ctx.userId,
-      spec.objective || ctx.message.slice(0, 100),
-      ctx.message,
-      "cto",
-      spec.estimatedComplexity,
-    );
+    if (hasCTO) {
+      // ECP-047: Background Mission — simpan ke DB, queue, return segera
+      pipeline.push("BackgroundMission");
 
-    // Queue eksekusi CTO di background
-    aiQueue.enqueue({
-      missionId,
-      userId: ctx.userId,
-      message: ctx.message,
-      mode: "cto",
-    });
+      const missionId = await aiMissionService.create(
+        ctx.userId,
+        spec.objective || ctx.message.slice(0, 100),
+        ctx.message,
+        "cto",
+        spec.estimatedComplexity,
+      );
 
-    rawText = JSON.stringify({
-      type: "mission_created",
-      missionId,
-      message: `✅ Misi #${missionId} dibuat dan sedang diproses. Pantau progress di dashboard.`,
-    });
+      aiQueue.enqueue({ missionId, userId: ctx.userId, message: ctx.message, mode: "cto" });
+
+      rawText = JSON.stringify({
+        type: "mission_created",
+        missionId,
+        message: `✅ Misi #${missionId} dibuat dan sedang diproses. Pantau progress di dashboard.`,
+      });
+    } else {
+      // COO/CFO → synchronous via executeMission seperti biasa
+      pipeline.push("ExecutiveCollaboration");
+
+      const missionParts = [
+        `[Executive Mission]`,
+        `Objective: ${spec.objective}`,
+        `Domain: ${spec.domain}`,
+      ];
+      if (spec.targetFiles.length > 0) missionParts.push(`Target Files: ${spec.targetFiles.join(", ")}`);
+      if (spec.entities.length > 0) missionParts.push(`Keywords: ${spec.entities.join(", ")}`);
+      if (spec.semanticReasoning) missionParts.push(`Reasoning: ${spec.semanticReasoning}`);
+      if (spec.expectedOutcome) missionParts.push(`Expected: ${spec.expectedOutcome}`);
+      missionParts.push(`\nUser Query: ${ctx.message}`);
+
+      const missionPrompt = missionParts.join("\n");
+      const result = await executiveCollaboration.executeMission(executives, ctx, missionPrompt);
+
+      pipeline.push("CEOSynthesis");
+      ctx.onState?.("Synthesizing");
+      const synthesisPrompt = assemble({
+        identity: CEO_IDENTITY,
+        directive: directiveContent,
+        decision: { ...decision, executiveResults: result.executiveResults },
+        outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
+        context: result.synthesisContext,
+        maxTokens: 8000,
+        mode: "ceo",
+      });
+      try {
+        rawText = await callDeepSeek(synthesisPrompt, ctx.message, ctx.userId, "ceo", 4000);
+      } catch {
+        rawText = "CEO Runtime sedang sibuk. Coba lagi.";
+      }
+    }
   } else {
     pipeline.push("PromptAssembly");
     // ECP-039: NO toolRules — CEO is REASONING mode. No tools.
