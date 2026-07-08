@@ -55,6 +55,7 @@ export class ExecutionDriver {
   private _cycleOutputs: string[] = [];
   private _implGatePassed = false;
   private _implPlan = "";
+  private _mustUseRetries = 0;
 
   constructor(
     complexity: string, domain: string, entities: string[], objective: string,
@@ -175,9 +176,15 @@ export class ExecutionDriver {
         const content = stripDSML(result.content);
         const validated = validateResponse(content);
 
-        if (contract && contract.mustUseTools && this._toolsUsed === 0) {
-          messages.push({ role: "user", content: `[GOVERNOR] Siklus ${strategy} WAJIB menggunakan tools.` });
-          continue;
+        if (contract && contract.mustUseTools) {
+          this._mustUseRetries++;
+          if (this._mustUseRetries >= 3) {
+            // Safety: setelah 3 kali peringatan, terima teks apa adanya
+            this._mustUseRetries = 0;
+          } else {
+            messages.push({ role: "user", content: `[GOVERNOR] Siklus ${strategy} WAJIB menggunakan tools (percobaan ${this._mustUseRetries}/3). JANGAN output teks — GUNAKAN TOOLS.` });
+            continue;
+          }
         }
 
         // Analysis gate: tolak output kotor (garbled, file path doang, dll)
