@@ -15,37 +15,65 @@ class ConsultantDomain {
 
     const STRUCTURES: Partial<Record<ConsultantMode, string>> = {
       cto_advisory: `Folder relevan untuk CTO:
-artifacts/api-server/src/ai/ — AI programs (LLM, runtime, pipeline, execution)
-artifacts/api-server/src/routes/ — API routes
-artifacts/pos-app/src/pages/ — Halaman frontend (React)
-artifacts/pos-app/src/components/ — Komponen UI
-artifacts/db/ — Database schema & migrasi
-.ai/foundation/ — Foundation directives & policies
-.ai/adr/ — Architecture Decision Records`,
+.ai/                          — Foundation, ADR, arsitektur, kebijakan
+├── foundation/               — 14 dokumen inti (directive, policy, filosofi)
+├── adr/                      — Architecture Decision Records
+├── runtime/mission/          — Mission lifecycle, standard, runtime spec
+├── runtime/capabilities/     — CEO/CTO capability matrices
+├── playbooks/                — CEO/CTO playbook
+artifacts/api-server/src/
+├── ai/
+│   ├── programs/             — CEO, CTO, Executive runtimes
+│   ├── runtime/
+│   │   ├── execution/        — Strategy engine, driver, governor, budget
+│   │   │   ├── execution-strategy.ts — 4-cycle (EXPLORE→ANALYZE→CONCLUDE→EXECUTE)
+│   │   │   ├── execution-governor.ts — shouldContinue, afterCycle, budget
+│   │   │   ├── execution-driver.ts   — Main loop, CONCLUDE prompt, tool dispatch
+│   │   │   ├── goal-tree.ts         — 3/4 goal progress
+│   │   │   └── execution-policy.ts  — Budget matrix, anti-loop
+│   │   ├── foundation/domains/ — Governance, delegation, capability, trust
+│   │   ├── mission-background-engine.ts — Background CTO executor
+│   │   └── mission-engine.ts  — 13-state mission lifecycle
+│   ├── llm/                   — callDeepSeek, callLLMWithTools
+│   └── tools/                 — tool-adapter.ts (VPS-first, GitHub fallback)
+├── services/                  — ai-mission-service, ai-memory-service
+├── routes/                    — ai.ts, shift, orders, products
+├── programs/consultant/       — CKO (knowledge officer, project structure)
+├── organization/              — Executive collaboration, board
+├── memory/                    — ContextManager, MissionIntelligence
+├── metrics/                   — Evidence, mission progress
+├── governance/                — Compliance, risk, policy engines
+└── intelligence/              — Cross-executive learning, reputation
+artifacts/pos-app/src/
+├── pages/                     — executive.tsx, eng-os.tsx, shift.tsx, cashier.tsx
+├── components/                — runtime-progress-card, active-missions, mission-detail
+artifacts/db/                  — Database schema (Drizzle ORM, PostgreSQL)
+lib/db/                        — @workspace/db (migrations, schema definitions)
+docs/                          — ADR, arsitektur, audit checklist`,
 
       coo_advisory: `Folder relevan untuk COO:
-artifacts/api-server/src/routes/ai.ts — Business API routes
 artifacts/api-server/src/routes/ai-business.ts — Operasi bisnis
-lib/ — Business logic & utilities
-artifacts/db/ — Database schema
-.ai/foundation/ — Operating model & policies`,
+artifacts/api-server/src/routes/ai.ts — Business API routes
+lib/                          — Shared utilities
+artifacts/db/                  — Database schema (inventory, orders, expenses)
+.ai/foundation/                — Operating model, delegation policies`,
 
       cfo_advisory: `Folder relevan untuk CFO:
 artifacts/api-server/src/routes/ai.ts — Finance & accounting routes
-lib/ — Financial logic & utilities
-artifacts/db/ — Database schema (keuangan)
-.ai/foundation/ — Budget & governance policies`,
+lib/                          — Financial logic & utilities
+artifacts/db/                  — Database schema (orders, expenses)
+.ai/foundation/                — Budget & governance policies`,
     };
 
-    const folderStructure = STRUCTURES[mode] || `Folder Utama Repository POS Lume's:
-artifacts/pos-app/       — Frontend React (Vite, TypeScript, Tailwind)
-artifacts/api-server/    — Backend API (Express, Node.js, Drizzle ORM)
-artifacts/db/            — Database schema & migrasi (Drizzle/PostgreSQL)
-artifacts/mockup/        — Mockup & desain UI
-.ai/                     — Foundation documents (filosofi, arsitektur, ADR, kebijakan)
-docs/                    — Dokumentasi umum
-lib/                     — Shared library & utilities
-src/                     — Source code legacy/tambahan`;
+    const folderStructure = STRUCTURES[mode] || `Project POS Lume's:
+.ai/                          — Foundation documents (filosofi, arsitektur, ADR, kebijakan)
+artifacts/api-server/src/     — Backend (Express, Node.js, Drizzle ORM, AI runtime)
+artifacts/pos-app/            — Frontend (React, Vite, TypeScript, Tailwind)
+artifacts/db/                 — Database schema & migrasi (Drizzle/PostgreSQL)
+artifacts/mockup-sandbox/     — Mockup & desain UI preview
+lib/                          — Shared package workspace (db, api-client, api-spec, api-zod)
+docs/                         — Dokumentasi arsitektur & ADR
+scripts/                      — Build, generate, deploy utilities`;
 
     return this.formatAdvisory("CKO Advisory", [
       `Foundation: ${provider.documentCount} dokumen aktif`,
