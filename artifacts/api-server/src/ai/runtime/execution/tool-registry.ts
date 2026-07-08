@@ -16,7 +16,7 @@ export const ALL_TOOLS: ToolDef[] = [
   { name: "editFile", description: "Edit an existing file by replacing a specific text block.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file to edit" }, search: { type: "string", description: "Exact text to find" }, replace: { type: "string", description: "Replacement text" } }, required: ["path", "search", "replace"] } },
   { name: "execCommand", description: "Execute a safe shell command. Allowed: git, pnpm, npm, pm2, node, tsc, npx.", parameters: { type: "object", properties: { command: { type: "string" } }, required: ["command"] } },
   { name: "getDependencies", description: "Analyze import graph of a file.", parameters: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } },
-  { name: "fetchGitHubFile", description: "Fetch file from GitHub (fallback only).", parameters: { type: "object", properties: { path: { type: "string" }, branch: { type: "string" } }, required: ["path"] } },
+  { name: "fetchGitHubFile", description: "Read file. VPS dulu, fallback GitHub. Path bisa absolute atau relative.", parameters: { type: "object", properties: { path: { type: "string" }, branch: { type: "string" } }, required: ["path"] } },
   { name: "fetchGitHubDir", description: "List directory from GitHub (fallback only).", parameters: { type: "object", properties: { path: { type: "string" }, branch: { type: "string" } }, required: ["path"] } },
   { name: "sshExec", description: "Run shell command on VPS via SSH.", parameters: { type: "object", properties: { command: { type: "string" } }, required: ["command"] } },
 ];

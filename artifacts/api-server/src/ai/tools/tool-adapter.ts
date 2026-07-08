@@ -299,10 +299,25 @@ export function getToolLabel(name: string): string {
   return toolLabelMap[name] ?? `⚙️ ${name}...`;
 }
 
+// ── Path normalizer: absolute → relative untuk GitHub API ──
+
+const PROJECT_PREFIXES = [
+  "/home/ubuntu/lumespos/",
+  "/home/ubuntu/lumespos",
+  resolve(process.cwd().includes("artifacts") ? "../.." : ".") + "/",
+];
+
+function normalizePathForGitHub(path: string): string {
+  for (const prefix of PROJECT_PREFIXES) {
+    if (path.startsWith(prefix)) return path.slice(prefix.length);
+  }
+  return path;
+}
+
 // ── File Read with Fallback ──
 
 export async function readFileWithFallback(path: string, branch = "main"): Promise<string> {
-  const localPath = path.startsWith("/") ? path : `/home/ubuntu/lumespos/${path}`;
+  const localPath = path.startsWith("/") ? path : join(PROJECT_ROOT, path);
   try {
     const local = await readLocalFile(localPath);
     if (local && !local.startsWith("Error:")) {
@@ -310,11 +325,13 @@ export async function readFileWithFallback(path: string, branch = "main"): Promi
       return local;
     }
   } catch { console.log("[FileRead] Local miss:", localPath.slice(0, 60)); }
+  // Fallback GitHub dengan path ternormalisasi
+  const ghPath = normalizePathForGitHub(path);
   try {
-    const gh = await fetchGitHubFile(path, branch);
+    const gh = await fetchGitHubFile(ghPath, branch);
     if (gh.content) {
-      console.log("[FileRead] GitHub hit:", path);
-      return `✅ ${path} (GitHub):\n\`\`\`\n${gh.content.slice(0, 5000)}\n\`\`\``;
+      console.log("[FileRead] GitHub hit:", ghPath);
+      return `✅ ${ghPath} (GitHub):\n\`\`\`\n${gh.content.slice(0, 5000)}\n\`\`\``;
     }
   } catch {}
   return `Error: File "${path}" tidak ditemukan (local maupun GitHub).`;
@@ -345,9 +362,15 @@ export async function executeToolCall(name: string, args: Record<string, any>): 
     case "execCommand": return execLocalCommand(args.command || "");
     case "getDependencies": return getDependencies(args.path || "");
     case "fetchGitHubFile": {
-      const r = await fetchGitHubFile(args.path || "", args.branch || "main");
-      if (r.content) return `✅ ${args.path} (GitHub):\n\`\`\`\n${r.content.slice(0, 5000)}\n\`\`\``;
-      return `Error: File "${args.path}" tidak ditemukan di GitHub (branch: ${args.branch || "main"}).`;
+      // VPS-first: coba local dulu
+      const rawPath = args.path || "";
+      const local = await readLocalFile(rawPath);
+      if (!local.startsWith("Error:")) return local;
+      // Fallback GitHub dengan path ternormalisasi
+      const ghPath = normalizePathForGitHub(rawPath);
+      const r = await fetchGitHubFile(ghPath, args.branch || "main");
+      if (r.content) return `✅ ${ghPath} (GitHub):\n\`\`\`\n${r.content.slice(0, 5000)}\n\`\`\``;
+      return `Error: File "${rawPath}" tidak ditemukan (local maupun GitHub branch ${args.branch || "main"}).`;
     }
     case "fetchGitHubDir": {
       const d = await fetchGitHubDir(args.path || "", args.branch || "main");
