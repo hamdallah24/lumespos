@@ -333,7 +333,11 @@ router.post("/ai/mission", requireRole("owner"), async (req, res) => {
   // Auto-activate: Authority validates → activates via Mission Engine
   const proposalId = (result.data as any)?.proposal?.id;
   if (!proposalId) { res.status(400).json({ error: "No proposal created" }); return; }
-  const activation = await missionAuthority.activate(proposalId, "CEO");
+  const activation = await missionAuthority.activate(proposalId, "CEO", {
+    missionType: "analysis",
+    userId: req.user!.id,
+    userMessage: objective || title,
+  });
   if (!activation.success) { res.status(400).json({ error: activation.error || "Activation failed", authority: result.data }); return; }
   res.json({ mission: (activation.data as any)?.mission, authority: result.data });
 });

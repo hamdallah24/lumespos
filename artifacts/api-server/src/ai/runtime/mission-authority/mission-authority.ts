@@ -25,8 +25,8 @@ class MissionAuthority {
   }
 
   /** Activate a mission from a proposal */
-  activate(proposalId: string, assignedTo = "CEO") {
-    return missionAPI.activateMission(proposalId, assignedTo);
+  activate(proposalId: string, assignedTo = "CEO", extended?: { missionType?: "analysis" | "implementation" | "legacy"; userId?: number; userMessage?: string }) {
+    return missionAPI.activateMission(proposalId, assignedTo, extended);
   }
 
   /** Cancel a proposal */

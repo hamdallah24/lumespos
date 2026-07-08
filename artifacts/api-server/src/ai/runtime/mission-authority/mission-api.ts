@@ -51,7 +51,7 @@ class MissionAPI {
   }
 
   /** Activate a proposal as a mission */
-  async activateMission(proposalId: string, assignedTo: string): Promise<MissionAPIResult> {
+  async activateMission(proposalId: string, assignedTo: string, extended?: { missionType?: "analysis" | "implementation" | "legacy"; userId?: number; userMessage?: string }): Promise<MissionAPIResult> {
     const proposal = proposalRegistry.getProposal(proposalId);
     if (!proposal) return { success: false, error: "Proposal not found" };
 
@@ -66,7 +66,7 @@ class MissionAPI {
     // ECP-036: Create actual mission via Mission Engine
     try {
       const { missionEngineComponent } = await import("../mission-engine");
-      const created = missionEngineComponent.create(mission.title, proposal.description, [proposal.title], proposal.priority > 80 ? "high" : "normal");
+      const created = missionEngineComponent.create(mission.title, proposal.description, [proposal.title], proposal.priority > 80 ? "high" : "normal", "RUNTIME-001", extended);
       missionEngineComponent.delegate(created.id);
     } catch (e: any) {
       console.error(`[MissionAPI] Failed to create mission from proposal ${proposalId}:`, e?.message || e);
