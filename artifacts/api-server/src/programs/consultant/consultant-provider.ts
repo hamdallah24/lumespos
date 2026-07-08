@@ -14,42 +14,19 @@ class ConsultantDomain {
     const ctx = provider.getFoundationContext();
 
     const STRUCTURES: Partial<Record<ConsultantMode, string>> = {
-      cto_advisory: `Folder relevan untuk CTO:
-.ai/                          — Foundation, ADR, arsitektur, kebijakan
-├── foundation/               — 14 dokumen inti (directive, policy, filosofi)
-├── adr/                      — Architecture Decision Records
-├── runtime/mission/          — Mission lifecycle, standard, runtime spec
-├── runtime/capabilities/     — CEO/CTO capability matrices
-├── playbooks/                — CEO/CTO playbook
-artifacts/api-server/src/
-├── ai/
-│   ├── programs/             — CEO, CTO, Executive runtimes
-│   ├── runtime/
-│   │   ├── execution/        — Strategy engine, driver, governor, budget
-│   │   │   ├── execution-strategy.ts — 4-cycle (EXPLORE→ANALYZE→CONCLUDE→EXECUTE)
-│   │   │   ├── execution-governor.ts — shouldContinue, afterCycle, budget
-│   │   │   ├── execution-driver.ts   — Main loop, CONCLUDE prompt, tool dispatch
-│   │   │   ├── goal-tree.ts         — 3/4 goal progress
-│   │   │   └── execution-policy.ts  — Budget matrix, anti-loop
-│   │   ├── foundation/domains/ — Governance, delegation, capability, trust
-│   │   ├── mission-background-engine.ts — Background CTO executor
-│   │   └── mission-engine.ts  — 13-state mission lifecycle
-│   ├── llm/                   — callDeepSeek, callLLMWithTools
-│   └── tools/                 — tool-adapter.ts (VPS-first, GitHub fallback)
-├── services/                  — ai-mission-service, ai-memory-service
-├── routes/                    — ai.ts, shift, orders, products
-├── programs/consultant/       — CKO (knowledge officer, project structure)
-├── organization/              — Executive collaboration, board
-├── memory/                    — ContextManager, MissionIntelligence
-├── metrics/                   — Evidence, mission progress
-├── governance/                — Compliance, risk, policy engines
-└── intelligence/              — Cross-executive learning, reputation
-artifacts/pos-app/src/
-├── pages/                     — executive.tsx, eng-os.tsx, shift.tsx, cashier.tsx
-├── components/                — runtime-progress-card, active-missions, mission-detail
-artifacts/db/                  — Database schema (Drizzle ORM, PostgreSQL)
-lib/db/                        — @workspace/db (migrations, schema definitions)
-docs/                          — ADR, arsitektur, audit checklist`,
+      cto_advisory: `📌 FILE MAP (path umum untuk analisis):
+- Inventory: artifacts/pos-app/src/pages/inventory.tsx
+- Products: artifacts/pos-app/src/pages/products.tsx
+- Dashboard POS: artifacts/pos-app/src/pages/dashboard.tsx
+- Shift/Audit: artifacts/pos-app/src/pages/shift.tsx
+- Orders: artifacts/pos-app/src/pages/orders.tsx
+- Users: artifacts/pos-app/src/pages/users.tsx
+- API Routes: artifacts/api-server/src/routes/
+- AI Routes: artifacts/api-server/src/routes/ai.ts
+- AI Programs: artifacts/api-server/src/ai/programs/
+- Database Schema: lib/db/src/schema/
+- Frontend Components: artifacts/pos-app/src/components/
+- PosApp Pages: artifacts/pos-app/src/pages/`,
 
       coo_advisory: `Folder relevan untuk COO:
 artifacts/api-server/src/routes/ai-business.ts — Operasi bisnis

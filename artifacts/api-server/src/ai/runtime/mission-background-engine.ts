@@ -8,6 +8,15 @@ import { organizationEngine } from "./organization-engine";
 import { ctoProgram } from "../programs/cto-runtime";
 import { aiMissionService } from "../../services/ai-mission-service";
 
+/** Cek apakah output CTO layak — tolak yg cuma error/empty */
+function isQualityOutput(text: string): boolean {
+  if (!text || text.length < 100) return false;
+  const lower = text.toLowerCase();
+  const notFound = ["tidak ditemukan", "not found", "0 hasil", "tidak ada file", "no files found"];
+  if (notFound.some(p => lower.includes(p)) && !/[`'\"][\w./]+[`'\"]/.test(text)) return false;
+  return true;
+}
+
 interface EngineConfig {
   intervalMs: number;     // How often to poll
   maxConcurrent: number;  // Max missions processed per tick
@@ -121,7 +130,10 @@ class MissionEngine {
         },
       });
 
-      if (result.success && result.text) {
+      // Quality gate: tolak output kosong / error / not-found
+      const outputOk = result.success && result.text && isQualityOutput(result.text);
+
+      if (outputOk) {
         missionRuntime.transition(mission.id, "REVIEW");
         missionRuntime.approve(mission.id);
         // Save result ke DB
@@ -135,8 +147,12 @@ class MissionEngine {
         return "completed";
       } else {
         missionRuntime.transition(mission.id, "FAILED");
+        const errMsg = result.success && result.text ? "Output tidak memenuhi kualitas — file tidak ditemukan atau analisis kosong" : "CTO gagal menghasilkan output";
         if (mission.dbMissionId) {
-          aiMissionService.notifyCompleted(mission.dbMissionId, "", "❌ CTO gagal menghasilkan output");
+          aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ ${errMsg}`);
+          const { remember } = await import("../../services/ai-memory-service");
+          await remember(mission.userId, "ceo", mission.userMessage,
+            `❌ **Misi #${mission.dbMissionId || mission.id} Gagal**: ${errMsg}. Coba perjelas file atau folder targetnya.`);
         }
         return "failed";
       }
