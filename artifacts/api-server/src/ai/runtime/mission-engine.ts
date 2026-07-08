@@ -144,7 +144,8 @@ class MissionRuntime {
       }
     }
 
-    // Transition: CREATED → PLANNING → DELEGATED
+    // Transition: CREATED → UNDERSTANDING → PLANNING → DELEGATED
+    this.transition(missionId, "UNDERSTANDING");
     this.transition(missionId, "PLANNING");
     this.transition(missionId, "DELEGATED");
 
