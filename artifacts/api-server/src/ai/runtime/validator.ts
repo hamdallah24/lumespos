@@ -116,6 +116,14 @@ export function validateResponse(text: string): ValidationResult {
     cleaned = "";
   }
 
+  // Tolak dump file mentah — jika >60% output adalah code blocks atau kutipan file
+  const codeBlockLines = text.split("\n").filter(l => /^```|^\s*\/\/|^\s*#|^\s*\/\*/.test(l) || /^[\w./]+\.[\w]+:/.test(l)).length;
+  const totalLines = text.split("\n").length;
+  if (totalLines > 20 && codeBlockLines / totalLines > 0.6) {
+    warnings.push("CONTAMINATION: output didominasi dump file mentah — harusnya analisis, bukan kutipan");
+    cleaned = "Output ditolak: berisi dump file, bukan analisis.";
+  }
+
   if (/<｜｜DSML｜｜/i.test(text) || /<\/｜｜DSML｜｜/i.test(text)) {
     warnings.push("DSML_FRAGMENT: tool call tags still present in response");
     cleaned = stripDSML(cleaned);
