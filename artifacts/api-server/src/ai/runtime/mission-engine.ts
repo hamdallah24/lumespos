@@ -41,6 +41,11 @@ interface MissionContract {
   createdAt: string;
   completedAt?: string;
   delegatedTo: string[];
+  // Extended: CTO execution
+  missionType?: "analysis" | "implementation" | "legacy";
+  userId?: number;
+  userMessage?: string;
+  dbMissionId?: number;
 }
 
 interface MissionReport {
@@ -60,6 +65,7 @@ class MissionRuntime {
     domains: string[],
     priority: MissionPriority = "normal",
     sponsor = "RUNTIME-001",
+    extended?: { missionType?: "analysis" | "implementation" | "legacy"; userId?: number; userMessage?: string; dbMissionId?: number },
   ): MissionContract {
     this.counter++;
     const mission: MissionContract = {
@@ -80,8 +86,9 @@ class MissionRuntime {
         evidence: undefined,
       })),
       evidence: [],
-      createdAt: new Date().toISOString(),
       delegatedTo: [],
+      createdAt: new Date().toISOString(),
+      ...(extended || {}),
     };
 
     this.missions.set(mission.id, mission);

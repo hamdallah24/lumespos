@@ -14,7 +14,7 @@ import { assemble } from "../runtime/prompt-assembler";
 import { EXECUTIVE_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 import { aiMissionService } from "../../services/ai-mission-service";
-import { aiQueue } from "../../services/ai-queue";
+import { missionRuntime } from "../runtime/mission-engine";
 
 const CEO_IDENTITY = getIdentity("CEO")!;
 
@@ -161,17 +161,23 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
 
     if (isCreateMission) {
       pipeline.push("BackgroundMission");
-      const missionId = await aiMissionService.create(
-        ctx.userId,
+      // 1. Create in-memory mission (13-state lifecycle via mission-engine)
+      const rtMission = missionRuntime.create(
         spec.objective || ctx.message.slice(0, 100),
         ctx.message,
-        executives[0]?.runtime || "cto",
-        spec.estimatedComplexity,
+        [executives[0]?.runtime || "cto"],
+        spec.risk === "high" ? "high" : "normal",
+        "RUNTIME-001",
+        { missionType: "analysis", userId: ctx.userId, userMessage: ctx.message },
       );
-      await aiMissionService.transition(missionId, "PLANNING");
-      aiQueue.enqueue({ missionId, userId: ctx.userId, message: ctx.message, mode: executives[0]?.runtime || "cto" });
-      await aiMissionService.transition(missionId, "DELEGATED");
-      rawText = `✅ **Misi #${missionId} dibuat** berdasarkan diskusi kita. Misi sedang diproses, hasil akan muncul di chat ini otomatis.`;
+      missionRuntime.transition(rtMission.id, "PLANNING");
+      missionRuntime.transition(rtMission.id, "DELEGATED");
+      // 2. Persist ke DB
+      const dbId = await aiMissionService.create(ctx.userId, rtMission.title, ctx.message, "cto", spec.estimatedComplexity);
+      // Update in-memory mission dengan dbMissionId
+      const stored = missionRuntime.get(rtMission.id);
+      if (stored) stored.dbMissionId = dbId;
+      rawText = `✅ **Misi ${rtMission.id} (DB#${dbId}) dibuat** berdasarkan diskusi kita. Misi sedang diproses, hasil akan muncul di chat ini otomatis.`;
     } else {
       // Chat biasa — CEO diskusi dulu, misi dibuat hanya saat user bilang "buat misi"
       pipeline.push("PromptAssembly");

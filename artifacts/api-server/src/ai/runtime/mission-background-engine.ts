@@ -1,9 +1,12 @@
 // Phase II Wave 4: Mission Engine — background mission processor
 // Polls active missions, advances state, routes to Runtimes.
 // Auto-starts on server boot.
+// Extended: executes CTO program for analysis/implementation missions.
 
 import { missionRuntime } from "./mission-engine";
 import { organizationEngine } from "./organization-engine";
+import { ctoProgram } from "../programs/cto-runtime";
+import { aiMissionService } from "../../services/ai-mission-service";
 
 interface EngineConfig {
   intervalMs: number;     // How often to poll
@@ -39,11 +42,11 @@ class MissionEngine {
 
     console.log(`[MissionEngine] Starting — polling every ${this.config.intervalMs / 1000}s, max ${this.config.maxConcurrent}/tick`);
 
-    // Initial tick
-    this.tick();
+    // Initial tick (async)
+    this.tick().catch(e => console.error("[MissionEngine] Initial tick error:", e));
 
     // Periodic ticks
-    this.ticker = setInterval(() => this.tick(), this.config.intervalMs);
+    this.ticker = setInterval(() => this.tick().catch(e => console.error("[MissionEngine] Tick error:", e)), this.config.intervalMs);
   }
 
   /** Stop the engine */
@@ -54,7 +57,7 @@ class MissionEngine {
   }
 
   /** Process one tick — advance active missions */
-  private tick(): void {
+  private async tick(): Promise<void> {
     const active = missionRuntime.active();
     if (active.length === 0) return;
 
@@ -63,7 +66,7 @@ class MissionEngine {
 
     for (const mission of toProcess) {
       try {
-        const result = this.processMission(mission.id);
+        const result = await this.processMission(mission.id);
         if (result === "delegated") delegated++;
         if (result === "completed") completed++;
         if (result === "failed") failed++;
@@ -83,44 +86,88 @@ class MissionEngine {
     }
   }
 
+  /** Execute CTO program for analysis/implementation missions */
+  private async executeCTOMission(mission: any): Promise<"completed" | "failed"> {
+    if (!mission.userId) return "failed";
+    missionRuntime.transition(mission.id, "RUNNING");
+
+    try {
+      const { remember } = await import("../../services/ai-memory-service");
+      const result = await ctoProgram.execute({
+        message: mission.userMessage || mission.title,
+        userId: mission.userId,
+        onProgress: (msg) => { /* bisa ditambahkan snapshot */ },
+        onExecutionEvent: async (snapshot: any) => {
+          // Save snapshot & progress ke DB via aiMissionService
+          if (mission.dbMissionId && snapshot?.progress?.overall !== undefined) {
+            await aiMissionService.saveSnapshot(mission.dbMissionId, snapshot.metrics?.cyclesExecuted || 0, {
+              strategy: snapshot.strategy, stage: snapshot.stage, progress: snapshot.progress.overall,
+              currentGoal: snapshot.currentGoal?.label, metrics: snapshot.metrics,
+            });
+          }
+        },
+      });
+
+      if (result.success && result.text) {
+        missionRuntime.transition(mission.id, "REVIEW");
+        missionRuntime.approve(mission.id);
+        // Save result ke DB
+        if (mission.dbMissionId) {
+          await aiMissionService.saveSnapshot(mission.dbMissionId, 0, { progress: 100 });
+          aiMissionService.notifyCompleted(mission.dbMissionId, result.text, result.text.slice(0, 200));
+        }
+        // Notifikasi chat
+        await remember(mission.userId, "ceo", mission.userMessage,
+          `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n${result.text.slice(0, 400)}`);
+        return "completed";
+      } else {
+        missionRuntime.transition(mission.id, "FAILED");
+        if (mission.dbMissionId) {
+          aiMissionService.notifyCompleted(mission.dbMissionId, "", "❌ CTO gagal menghasilkan output");
+        }
+        return "failed";
+      }
+    } catch (e: any) {
+      missionRuntime.transition(mission.id, "FAILED");
+      if (mission.dbMissionId) {
+        aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ Error: ${e.message}`);
+      }
+      return "failed";
+    }
+  }
+
   /** Process a single mission through its lifecycle */
-  private processMission(missionId: string): "delegated" | "completed" | "failed" | "skipped" {
+  private async processMission(missionId: string): Promise<"delegated" | "completed" | "failed" | "skipped"> {
     const mission = missionRuntime.get(missionId);
     if (!mission) return "skipped";
 
     switch (mission.status) {
       case "CREATED":
       case "PLANNING":
-        // Auto-delegate to organization
         const result = missionRuntime.delegateToOrg(missionId);
         return result ? "delegated" : "failed";
 
       case "DELEGATED":
       case "RUNNING": {
-        // Check if all work packages are complete
+        // ── CTO Execution Mission ──
+        if (mission.missionType === "analysis" || mission.missionType === "implementation") {
+          return await this.executeCTOMission(mission);
+        }
+
+        // ── Legacy: auto-complete work packages ──
         const allDone = mission.workPackages.every(wp => wp.status === "completed");
         if (allDone) {
           missionRuntime.transition(missionId, "REVIEW");
-          // Auto-approve if confidence is high
           missionRuntime.approve(missionId);
           return "completed";
         }
-
-        // Try to auto-complete pending work packages
         for (const pkg of mission.workPackages) {
           if (pkg.status === "assigned" || pkg.status === "pending") {
-            // Delegate to the assigned runtime
             const runtime = organizationEngine.find(pkg.assignedTo || mission.owner);
             if (runtime && organizationEngine.canAccept(runtime.id)) {
-              const result = missionRuntime.completePackage(
-                missionId,
-                pkg.id,
+              missionRuntime.completePackage(missionId, pkg.id,
                 `[Auto] ${pkg.title} completed by ${runtime.runtime}`,
-                `Processed by Mission Engine at ${new Date().toISOString()}`,
-              );
-              if (result) {
-                console.log(`[MissionEngine] ${pkg.id}: auto-completed by ${runtime.runtime}`);
-              }
+                `Processed by Mission Engine at ${new Date().toISOString()}`);
             }
           }
         }
