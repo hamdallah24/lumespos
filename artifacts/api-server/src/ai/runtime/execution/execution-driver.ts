@@ -204,7 +204,9 @@ export class ExecutionDriver {
         }
         this.governor.afterCycle(false, [], tokensThisCycle);
         await this._autoGitSync();
-        return validated.cleanedText;
+        // CONCLUDE → return as final. ANALYZE/EXPLORE → continue ke CONCLUDE cycle
+        if (strategy === "CONCLUDE") return context.result || validated.cleanedText || "";
+        continue;
       }
 
       // ── Execute tool calls ──
