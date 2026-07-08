@@ -109,9 +109,9 @@ class ExecutionStrategyEngine {
 
   getDirective(): string {
     const d: Record<ExecutionStrategy, string> = {
-      EXPLORE: "[GOVERNOR] SEKARANG: CYCLE 1 - EXPLORE. Cari dan identifikasi file target. WAJIB GUNAKAN TOOLS. Jangan setengah-setengah.",
-      ANALYZE: "[GOVERNOR] SEKARANG: CYCLE 2 - ANALYZE. Baca file target secara mendalam. Pahami alur, struktur, temukan akar masalah. WAJIB GUNAKAN TOOLS.",
-      CONCLUDE: "[GOVERNOR] SEKARANG: CYCLE 3 - CONCLUDE. Berikan analisis lengkap, rekomendasi, dan tentukan apakah ada perubahan yg perlu dilakukan. TIDAK PERLU TOOLS.",
+      EXPLORE: "[GOVERNOR] SEKARANG: CYCLE 1 - EXPLORE. Cari file target. WAJIB GUNAKAN TOOLS. Gunakan listDirectory/searchContent. JANGAN gunakan execCommand untuk baca file.",
+      ANALYZE: "[GOVERNOR] SEKARANG: CYCLE 2 - ANALYZE. Baca file dengan readFile(). Pahami isi kode. JANGAN pakai wc/grep/cat — pakai readFile(). WAJIB GUNAKAN TOOLS.",
+      CONCLUDE: "[GOVERNOR] SEKARANG: CYCLE 3 - CONCLUDE. Berikan analisis lengkap, rekomendasi. TIDAK PERLU TOOLS.",
       EXECUTE: "[GOVERNOR] SEKARANG: CYCLE 4 - EXECUTE. Implementasi perubahan yg sudah disetujui. writeFile/editFile/execCommand.",
       ESCALATE: "[GOVERNOR] ESCALATE. Tidak bisa diselesaikan. Laporkan temuan.",
     };

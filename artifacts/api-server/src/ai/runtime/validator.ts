@@ -110,6 +110,12 @@ export function validateResponse(text: string): ValidationResult {
     warnings.push(`INCOMPLETE: response too short (${text.length} chars)`);
   }
 
+  // Tolak output yang cuma angka (hasil wc -l, ls | wc -l, dll) tanpa analisis
+  if (/^\d+\s*$/.test(cleaned.trim()) || /^(\d+\s)+$/.test(cleaned.trim())) {
+    warnings.push("CONTAMINATION: output hanya berisi angka tanpa analisis");
+    cleaned = "";
+  }
+
   if (/<｜｜DSML｜｜/i.test(text) || /<\/｜｜DSML｜｜/i.test(text)) {
     warnings.push("DSML_FRAGMENT: tool call tags still present in response");
     cleaned = stripDSML(cleaned);
