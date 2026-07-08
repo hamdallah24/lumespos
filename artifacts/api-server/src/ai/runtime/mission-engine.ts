@@ -299,8 +299,8 @@ export const missionEngineComponent = {
     };
   },
 
-  create: (title: string, objective: string, domains: string[], priority?: MissionPriority) =>
-    missionEngine.create(title, objective, domains, priority),
+  create: (title: string, objective: string, domains: string[], priority?: MissionPriority, sponsor?: string, extended?: { missionType?: "analysis" | "implementation" | "legacy"; userId?: number; userMessage?: string; dbMissionId?: number }) =>
+    missionEngine.create(title, objective, domains, priority || "normal", sponsor, extended),
 
   delegate: (id: string) => missionEngine.delegateToOrg(id),
   completePackage: (missionId: string, pkgId: string, result: string, evidence: string) =>
