@@ -239,7 +239,7 @@ export default function ExecutiveWorkspace() {
             <div className="ml-auto flex items-center gap-3 text-xs">
               <StatusBadge icon={Shield} label="Kernel" value={readiness?.ready ? "Locked" : "Degraded"} color={readiness?.ready ? "green" : "red"} />
               <StatusBadge icon={Users} label="Agents" value={`${agents.length}`} color="blue" />
-              <StatusBadge icon={Activity} label="Health" value="96" color="green" />
+              <StatusBadge icon={Activity} label="Health" value={orgData?.health ? String(Math.round(orgData.health.healthy / orgData.health.total * 100)) : "—"} color={orgData?.health ? (orgData.health.healthy / orgData.health.total >= 0.7 ? "green" : "yellow") : "slate"} />
             </div>
           </header>
 
@@ -378,12 +378,13 @@ export default function ExecutiveWorkspace() {
                 <StatusRow label="Planned" value={`${orgData.health.planned}`} color="blue" />
                 <StatusRow label="Offline" value={`${orgData.health.offline}`} color="red" />
               </div>
-            ) : (
+            ) : readiness ? (
               <div className="space-y-1.5 text-xs">
-                <StatusRow label="Foundation" value="100%" color="green" />
-                <StatusRow label="Runtime" value="78%" color="blue" />
-                <StatusRow label="Knowledge" value="70%" color="blue" />
+                <StatusRow label="Readiness" value={`${readiness.passed}/${readiness.total}`} color={readiness.passed === readiness.total ? "green" : "yellow"} />
+                <StatusRow label="Failed" value={`${readiness.failed}`} color={readiness.failed > 0 ? "red" : "green"} />
               </div>
+            ) : (
+              <div className="text-xs text-slate-400 py-2 text-center">Memuat status...</div>
             )}
           </Section>
         </div>
