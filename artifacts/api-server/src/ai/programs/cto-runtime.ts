@@ -48,7 +48,7 @@ async function fetchContext(message: string): Promise<string> {
     const content = await missionContextRegistry.getContent(idx.path);
     if (content && content.length > 10) {
       fetchedPaths.push(idx.path);
-      fetchedPairs.push(`\n\n[FILE: ${idx.path}]:\n\`\`\`\n${content.slice(0, 2000)}\n\`\`\``);
+      fetchedPairs.push(`\n\n[FILE: ${idx.path}]:\n\`\`\`\n${content.slice(0, 8000)}\n\`\`\``);
     }
   }
 
@@ -153,7 +153,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     identity: ctoIdentity,
     directive: directiveContent,
     outputSchema: CTO_OUTPUT_SCHEMA,
-    context: fileContext.slice(0, 12000),     // ADR-010: cap file context — 1M context aman untuk 12K chars
+    context: fileContext.slice(0, 96000),     // 1M context aman untuk 96K chars file content
     maxTokens: spec.runtimePolicy.maxTokens,
     mode: "cto",
   });

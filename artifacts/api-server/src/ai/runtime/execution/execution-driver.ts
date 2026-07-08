@@ -297,7 +297,7 @@ export class ExecutionDriver {
 ## Persetujuan
 Minta persetujuan Founder.${ctxFeed}` });
 
-        const finalResult = await callLLMWithTools(messages, [], Math.min(maxTokens, 16000), false, false);
+        const finalResult = await callLLMWithTools(messages, [], maxTokens, false, false);
         const finalContent = stripDSML(finalResult.content || "");
         const validated = validateResponse(finalContent);
         if (validated.cleanedText && validated.isValid) {
@@ -348,7 +348,7 @@ Minta persetujuan Founder.${ctxFeed}` });
   ): Promise<string> {
     const doCall = async (withTools: boolean): Promise<string> => {
       const clean = sanitizeMessages([...messages]);
-      const result = await callLLMWithTools(clean, withTools ? tools : [], Math.min(maxTokens, 16000), false, jsonMode);
+      const result = await callLLMWithTools(clean, withTools ? tools : [], maxTokens, false, jsonMode);
       if (result.status === "tool_calls" && withTools) {
         const { tool_calls, ...rest } = result.message;
         messages.push(rest);

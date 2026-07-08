@@ -8,13 +8,13 @@ import type { BudgetAllocation } from "./execution-manifest";
 // Industri AI coding (OpenCode, Copilot) pakai context window + completion tracking
 const budgetMatrix: Record<string, BudgetAllocation> = {
   simple:    { maxTokens: 8000,   maxTools: 8,   maxTimeMs: 60000,  maxIdleCycles: 2 },
-  medium:    { maxTokens: 60000,  maxTools: 40,  maxTimeMs: 300000, maxIdleCycles: 6 },
-  complex:   { maxTokens: 100000, maxTools: 80,  maxTimeMs: 600000, maxIdleCycles: 8 },
-  critical:  { maxTokens: 150000, maxTools: 150, maxTimeMs: 900000, maxIdleCycles: 12 },
+  medium:    { maxTokens: 100000, maxTools: 40,  maxTimeMs: 300000, maxIdleCycles: 6 },
+  complex:   { maxTokens: 500000, maxTools: 80,  maxTimeMs: 600000, maxIdleCycles: 8 },
+  critical:  { maxTokens: 750000, maxTools: 150, maxTimeMs: 900000, maxIdleCycles: 12 },
 };
 
 export const globalSafety: BudgetAllocation = {
-  maxTokens: 200000, maxTools: 300, maxTimeMs: 1800000, maxIdleCycles: 20,
+  maxTokens: 950000, maxTools: 300, maxTimeMs: 1800000, maxIdleCycles: 20,
 };
 
 export const antiLoop: Record<string, number> = {
