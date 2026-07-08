@@ -239,7 +239,7 @@ class MissionRuntime {
     ].join("\n");
   }
 
-  private isValidTransition(from: MissionState, to: MissionState): boolean {
+  isValidTransition(from: MissionState, to: MissionState): boolean {
     const valid: Record<MissionState, MissionState[]> = {
       CREATED: ["UNDERSTANDING", "CANCELLED"],
       UNDERSTANDING: ["PLANNING", "WAITING", "CANCELLED"],

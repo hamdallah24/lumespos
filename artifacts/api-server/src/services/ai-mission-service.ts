@@ -1,28 +1,12 @@
 // ECP-047: Mission Service — CRUD + snapshot + live streaming
-// Terintegrasi dengan mission-engine.ts (13-state lifecycle)
+// State management via mission-engine.ts (SSOT — MISSION_LIFECYCLE.md)
 import { EventEmitter } from "events";
 import { db, missionsTable, missionSnapshotsTable } from "@workspace/db";
 import { eq, desc, asc, and, sql } from "drizzle-orm";
 import { missionRuntime } from "../ai/runtime/mission-engine";
+import type { MissionState } from "../ai/runtime/mission-engine";
 
-// 13-state lifecycle dari MissionRuntime
-const LIFECYCLE: Record<string, string[]> = {
-  "CREATED":        ["UNDERSTANDING", "CANCELLED"],
-  "UNDERSTANDING":  ["PLANNING", "CANCELLED"],
-  "PLANNING":       ["DELEGATED", "CANCELLED", "BLOCKED"],
-  "DELEGATED":      ["RUNNING", "WAITING", "BLOCKED", "FAILED", "CANCELLED"],
-  "RUNNING":        ["REVIEW", "WAITING", "BLOCKED", "FAILED", "CANCELLED"],
-  "WAITING":        ["RUNNING", "CANCELLED"],
-  "BLOCKED":        ["WAITING", "CANCELLED"],
-  "REVIEW":         ["APPROVED", "FAILED"],
-  "APPROVED":       ["COMPLETED"],
-  "COMPLETED":      ["ARCHIVED"],
-  "FAILED":         ["ARCHIVED"],
-  "CANCELLED":      ["ARCHIVED"],
-  "ARCHIVED":       [],
-};
-
-export type MissionLifecycle = keyof typeof LIFECYCLE;
+export type MissionLifecycle = MissionState;
 
 interface MissionEvent {
   type: "snapshot" | "status_change" | "completed" | "error";
@@ -68,8 +52,8 @@ class AiMissionService {
   }>) {
     const mission = await this.getById(id);
     if (!mission) return;
-    const allowed = LIFECYCLE[mission.status] || [];
-    if (!allowed.includes(toStatus)) {
+    // Validasi state via mission-engine.ts (SSOT — MISSION_LIFECYCLE.md)
+    if (!missionRuntime.isValidTransition(mission.status as any, toStatus as any)) {
       console.warn(`[MissionService] Invalid transition: ${mission.status} → ${toStatus} (id=${id})`);
       return;
     }
