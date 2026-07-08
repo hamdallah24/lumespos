@@ -45,7 +45,7 @@ class ObjectiveTracker {
       return "ANALYZING";
     }
     if (toolsAreSearch) return "COLLECTING_EVIDENCE";
-    if (toolsAreRead) return "INVESTIGATE" as any;
+    if (toolsAreRead) return "ANALYZING";
     return "COLLECTING_EVIDENCE";
   }
 

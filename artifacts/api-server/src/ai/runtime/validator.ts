@@ -82,12 +82,12 @@ export function validateResponse(text: string): ValidationResult {
   );
 
   const garbledPatterns = [
-    /(artifacts\w+\.\.\.\w+)/,
-    /(\w+\|\w+\|\w+)/,
-    /(\w+\\\.\\\.)/,
-    /undefined(?=[a-z])/i,
-    /(\w+\/\w+\.\w+){3,}/,     // Path fragments concatenated without spaces (e.g., "artifacts/api-server/README.mdrtifacts/mockup")
-    /\w+\.(tsx?|md|json)\w+/i,  // File extensions merged with next word (e.g., "README.mdrtifacts")
+    { regex: /(artifacts\w+\.\.\.\w+)/g, replacement: "" },
+    { regex: /(\w+\|\w+\|\w+)/g, replacement: "" },
+    { regex: /(\w+\\\.\\\.)/g, replacement: "" },
+    { regex: /undefined(?=[a-z])/gi, replacement: "" },
+    { regex: /(\w+\/\w+\.\w+){3,}/g, replacement: "" },    // Path fragments concatenated
+    { regex: /\w+\.(tsx?|md|json)\w+/gi, replacement: "" },  // File extensions merged
   ];
 
   if (shellCommandLines.length > 0) {
@@ -95,11 +95,15 @@ export function validateResponse(text: string): ValidationResult {
     cleaned = cleaned.split("\n").filter(line => !shellCommandLines.includes(line)).join("\n");
   }
 
-  for (const pattern of garbledPatterns) {
-    if (pattern.test(text)) {
-      warnings.push("CONTAMINATION: garbled/corrupted text pattern detected");
-      break;
+  let garbledFound = false;
+  for (const { regex, replacement } of garbledPatterns) {
+    if (regex.test(cleaned)) {
+      garbledFound = true;
+      cleaned = cleaned.replace(regex, replacement);
     }
+  }
+  if (garbledFound) {
+    warnings.push("CONTAMINATION: garbled text stripped from response");
   }
 
   if (text.length < 20 && !/^(ok|ya|tidak|yes|no|done)$/i.test(text.trim())) {

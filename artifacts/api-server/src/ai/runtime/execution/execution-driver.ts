@@ -159,12 +159,12 @@ export class ExecutionDriver {
         const retry = await callLLMWithTools(messages, [], Math.min(maxTokens, 2000), false, jsonMode);
         const text = stripDSML(retry.content || "");
         const validated = validateResponse(text);
-        if (validated.cleanedText) {
+        if (validated.cleanedText && validated.isValid) {
           await remember(userId, mode, user, validated.cleanedText);
           context.result = validated.cleanedText;
         }
         this.governor.afterCycle(false, [], tokensThisCycle);
-        if (validated.cleanedText) { await this._autoGitSync(); return validated.cleanedText; }
+        if (validated.cleanedText && validated.isValid) { await this._autoGitSync(); return validated.cleanedText; }
         await this._autoGitSync();
         this.governor.finishExecution(context.contract);
         return "";
@@ -177,6 +177,12 @@ export class ExecutionDriver {
 
         if (contract && contract.mustUseTools && this._toolsUsed === 0) {
           messages.push({ role: "user", content: `[GOVERNOR] Siklus ${strategy} WAJIB menggunakan tools.` });
+          continue;
+        }
+
+        // Analysis gate: tolak output kotor (garbled, file path doang, dll)
+        if (!validated.isValid && validated.cleanedText) {
+          messages.push({ role: "user", content: `[GOVERNOR] Output ditolak: ${validated.warnings.join(", ")}. Berikan analisis yang benar.` });
           continue;
         }
 
@@ -269,10 +275,10 @@ export class ExecutionDriver {
         messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE.
 
 ## Root Cause
-[JELASKAN penyebab utama. Sebutkan file spesifik + line number.]
+[JELASKAN penyebab utama. Berikan analisis, bukan hanya daftar file.]
 
 ## Verified Evidence
-[Format: file:line → fakta. JANGAN gunakan "mungkin", "kemungkinan".]
+[Jelaskan temuan dan analisis. JANGAN hanya output daftar file path.]
 
 ## Rekomendasi Teknis
 1. [Langkah spesifik]
@@ -287,14 +293,14 @@ Minta persetujuan Founder.${ctxFeed}` });
         const finalResult = await callLLMWithTools(messages, [], Math.min(maxTokens, 8000), false, false);
         const finalContent = stripDSML(finalResult.content || "");
         const validated = validateResponse(finalContent);
-        if (validated.cleanedText) {
+        if (validated.cleanedText && validated.isValid) {
           await remember(userId, mode, user, validated.cleanedText);
           context.result = validated.cleanedText;
         }
         console.log(budgetTracker.summary(this.governor.budget.allocation));
         await this._autoGitSync();
         this.governor.finishExecution(context.contract);
-        return validated.cleanedText;
+        return validated.cleanedText && validated.isValid ? validated.cleanedText : "";
       }
 
       // ── Evaluate → safety net final call ──
@@ -320,7 +326,7 @@ Minta persetujuan Founder.${ctxFeed}` });
   }
 
   private async _autoGitSync(): Promise<void> {
-    const hasImpl = this._cycleOutputs.some(o => o.startsWith("[IMPLEMENT]") || o.startsWith("[EXECUTE]"));
+    const hasImpl = this._cycleOutputs.some(o => o.startsWith("[EXECUTE]"));
     if (!hasImpl) return;
     try {
       await executeToolWithResult("execCommand", { command: "git add -A" });

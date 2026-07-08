@@ -159,6 +159,8 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   });
   // CKO Advisory: project structure
   if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n\n[PROJECT STRUCTURE] Gunakan info folder di atas untuk tahu folder mana yg relevan — jangan discover dari nol.\n`;
+  // Tegaskan: output harus analisis, bukan daftar file
+  systemPrompt += `\n[ATURAN OUTPUT] JANGAN PERNAH output hanya daftar file path. Setiap file path WAJIB disertai penjelasan MENGAPA dan analisis dampaknya. Output tanpa analisis akan DITOLAK.\n`;
   pipeline.push("PromptAssembly");
 
   // ECP-039 Sprint 2: Tools from Governor Contract. No hardcoded decisions.
