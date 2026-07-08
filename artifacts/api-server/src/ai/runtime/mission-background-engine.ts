@@ -6,6 +6,7 @@
 import { missionRuntime } from "./mission-engine";
 import { organizationEngine } from "./organization-engine";
 import { ctoProgram } from "../programs/cto-runtime";
+import { ceoRuntime } from "../programs/ceo-runtime";
 import { aiMissionService } from "../../services/ai-mission-service";
 import { db, missionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -117,6 +118,7 @@ class MissionEngine {
   /** Execute CTO program for analysis/implementation missions */
   private async executeCTOMission(mission: any): Promise<"completed" | "failed"> {
     if (!mission.userId) return "failed";
+    console.log(`[PIPELINE:BGE] executeCTOMission start — id=${mission.id} dbId=${mission.dbMissionId} type=${mission.missionType} ckoTargets=${mission.ckoTargets?.targetFiles?.length ?? 0} files`);
     // Hanya transisi ke RUNNING kalo belum RUNNING — cegah invalid transition
     if (mission.status !== "RUNNING") {
       missionRuntime.transition(mission.id, "RUNNING");
@@ -128,8 +130,12 @@ class MissionEngine {
       if (mission.dbMissionId) {
         await aiMissionService.transition(mission.dbMissionId, "RUNNING");
       }
+      // Pass CKO targets to CTO via enriched message
+      const enrichedMessage = (mission.ckoTargets?.targetFiles?.length ?? 0) > 0
+        ? `${mission.userMessage || mission.title}\n\n📌 TARGET ANALISIS DARI CKO: ${mission.ckoTargets.targetFiles.join(", ")}\n${mission.ckoTargets.businessContext || ""}`
+        : (mission.userMessage || mission.title);
       const result = await ctoProgram.execute({
-        message: mission.userMessage || mission.title,
+        message: enrichedMessage,
         userId: mission.userId,
         onProgress: (msg) => { /* bisa ditambahkan snapshot */ },
         onExecutionEvent: async (snapshot: any) => {
@@ -173,6 +179,31 @@ class MissionEngine {
         return "failed";
       }
 
+      // ── CEO REVIEW: forward CTO output to CEO for approval ──
+      console.log(`[PIPELINE:BGE] CEO review — forwarding CTO result for mission=${mission.id}`);
+      try {
+        const ceoFeedback = await ceoRuntime.execute({
+          message: `[CEO APPROVAL] CTO telah selesai menganalisis. Berikut hasilnya:\n\n${result.text.slice(0, 2000)}\n\nSetujui hasil ini untuk dikirim ke Founder?`,
+          userId: mission.userId || 1,
+          onProgress: () => {},
+        });
+        const approved = ceoFeedback.text.includes("APPROVED") || ceoFeedback.text.includes("SETUJUI");
+        console.log(`[PIPELINE:BGE] CEO review result — approved=${approved}`);
+        if (!approved) {
+          missionRuntime.transition(mission.id, "FAILED");
+          if (mission.dbMissionId) {
+            await db.update(missionsTable).set({ status: "FAILED", updatedAt: new Date(), completedAt: new Date() }).where(eq(missionsTable.id, mission.dbMissionId));
+            aiMissionService.notifyCompleted(mission.dbMissionId, "", "❌ CEO menolak hasil analisis CTO");
+            await remember(mission.userId, "ceo", mission.userMessage,
+              `❌ **Misi #${mission.dbMissionId || mission.id} Ditolak CEO**: Hasil analisis CTO tidak memenuhi standar.`);
+          }
+          return "failed";
+        }
+      } catch (e: any) {
+        console.log(`[PIPELINE:BGE] CEO review error — falling through: ${e.message}`);
+        // Fall through — approve anyway if CEO review fails
+      }
+
       // ── REVIEW LULUS → approve ──
       missionRuntime.transition(mission.id, "REVIEW");
       missionRuntime.approve(mission.id);
@@ -183,6 +214,7 @@ class MissionEngine {
       }
       await remember(mission.userId, "ceo", mission.userMessage,
         `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n**Tools:** ${result.toolsUsed} tool calls, ${result.filesRead.length} file dibaca\n\n${result.text.slice(0, 400)}`);
+      console.log(`[PIPELINE:BGE] executeCTOMission end — mission=${mission.id} completed`);
       return "completed";
     } catch (e: any) {
       missionRuntime.transition(mission.id, "FAILED");

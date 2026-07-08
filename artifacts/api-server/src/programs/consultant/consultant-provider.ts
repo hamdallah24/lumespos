@@ -6,6 +6,14 @@ import { strategicCache } from "./consultant-cache";
 import type { StrategicCache, ConsultantMode, ConsultantKPI } from "./consultant-types";
 import { kpiTracker } from "./consultant-kpi";
 import { reportGenerator } from "./consultant-report";
+import { callDeepSeek } from "../../ai/llm/llm-adapter";
+
+export interface CKOTargets {
+  targetFiles: string[];
+  entities: string[];
+  domain: string;
+  businessContext: string;
+}
 
 class ConsultantDomain {
   advisor(question: string, mode: ConsultantMode = "founder_advisory"): string {
@@ -102,6 +110,70 @@ scripts/                      — Build, generate, deploy utilities`;
 
   getWeeklyReport(): string { return reportGenerator.formatWeekly(); }
   getMonthlyReport(): string { return reportGenerator.formatMonthly(); }
+
+  /** Translate founder's business language → technical targets */
+  async translateToTargets(question: string): Promise<CKOTargets> {
+    const lower = question.toLowerCase();
+    const matchedFiles: string[] = [];
+    const matchedEntities: string[] = [];
+
+    // Keyword → file path mapping dari STRUCTURES
+    const keywordMap: Record<string, { files: string[]; entities: string[]; domain: string }> = {
+      inventory: { files: ["artifacts/pos-app/src/pages/inventory.tsx", "lib/db/src/schema/inventory.ts"], entities: ["inventory", "stok", "barang"], domain: "inventory" },
+      stok: { files: ["artifacts/pos-app/src/pages/inventory.tsx"], entities: ["stok", "inventory"], domain: "inventory" },
+      produk: { files: ["artifacts/pos-app/src/pages/products.tsx", "lib/db/src/schema/products.ts"], entities: ["products", "produk"], domain: "products" },
+      product: { files: ["artifacts/pos-app/src/pages/products.tsx", "lib/db/src/schema/products.ts"], entities: ["products"], domain: "products" },
+      dashboard: { files: ["artifacts/pos-app/src/pages/dashboard.tsx"], entities: ["dashboard", "laporan"], domain: "business" },
+      penjualan: { files: ["artifacts/pos-app/src/pages/dashboard.tsx", "artifacts/pos-app/src/pages/orders.tsx", "artifacts/api-server/src/routes/ai-business.ts"], entities: ["sales", "penjualan", "revenue"], domain: "business" },
+      sales: { files: ["artifacts/pos-app/src/pages/dashboard.tsx", "artifacts/pos-app/src/pages/orders.tsx", "artifacts/api-server/src/routes/ai-business.ts"], entities: ["sales", "revenue"], domain: "business" },
+      order: { files: ["artifacts/pos-app/src/pages/orders.tsx", "lib/db/src/schema/orders.ts"], entities: ["orders", "pesanan"], domain: "business" },
+      pesanan: { files: ["artifacts/pos-app/src/pages/orders.tsx"], entities: ["pesanan", "orders"], domain: "business" },
+      shift: { files: ["artifacts/pos-app/src/pages/shift.tsx"], entities: ["shift", "audit"], domain: "business" },
+      user: { files: ["artifacts/pos-app/src/pages/users.tsx", "lib/db/src/schema/users.ts"], entities: ["users", "pengguna"], domain: "products" },
+      pengguna: { files: ["artifacts/pos-app/src/pages/users.tsx"], entities: ["pengguna", "users"], domain: "products" },
+      expense: { files: ["artifacts/api-server/src/routes/ai-business.ts", "lib/db/src/schema/expenses.ts"], entities: ["expenses", "biaya"], domain: "business" },
+      biaya: { files: ["artifacts/api-server/src/routes/ai-business.ts"], entities: ["biaya", "expenses"], domain: "business" },
+      laporan: { files: ["artifacts/pos-app/src/pages/dashboard.tsx", "artifacts/pos-app/src/pages/orders.tsx"], entities: ["laporan", "report"], domain: "business" },
+      report: { files: ["artifacts/pos-app/src/pages/dashboard.tsx", "artifacts/pos-app/src/pages/orders.tsx"], entities: ["report", "laporan"], domain: "business" },
+      api: { files: ["artifacts/api-server/src/routes/"], entities: ["api", "routes"], domain: "architecture" },
+      auth: { files: ["artifacts/api-server/src/routes/auth.ts", "artifacts/pos-app/src/pages/login.tsx"], entities: ["auth", "login", "otentikasi"], domain: "architecture" },
+      database: { files: ["lib/db/src/schema/"], entities: ["database", "schema", "db"], domain: "architecture" },
+      arsitektur: { files: [".ai/foundation/", "docs/architecture/"], entities: ["arsitektur", "architecture", "foundation"], domain: "architecture" },
+    };
+
+    for (const [keyword, mapping] of Object.entries(keywordMap)) {
+      if (lower.includes(keyword)) {
+        matchedFiles.push(...mapping.files);
+        matchedEntities.push(...mapping.entities);
+      }
+    }
+
+    // Deduplikasi
+    const uniqueFiles = [...new Set(matchedFiles)];
+    const uniqueEntities = [...new Set(matchedEntities)];
+
+    // Tentukan domain dari keyword dengan score tertinggi
+    const domainScores: Record<string, number> = {};
+    for (const [keyword, mapping] of Object.entries(keywordMap)) {
+      if (lower.includes(keyword)) {
+        domainScores[mapping.domain] = (domainScores[mapping.domain] || 0) + 1;
+      }
+    }
+    const topDomain = Object.entries(domainScores).sort((a, b) => b[1] - a[1])[0]?.[0] || "general";
+
+    const businessContext = uniqueFiles.length > 0
+      ? `Founder ingin: "${question}". File relevan: ${uniqueFiles.join(", ")}. Fokus domain: ${topDomain}.`
+      : "";
+
+    console.log(`[PIPELINE:CKO:TRANSLATE] question="${question.slice(0, 60)}" targetFiles=${uniqueFiles.length} domain="${topDomain}" entities=${uniqueEntities.join(",")}`);
+
+    return {
+      targetFiles: uniqueFiles,
+      entities: uniqueEntities,
+      domain: topDomain,
+      businessContext,
+    };
+  }
 
   private formatAdvisory(title: string, points: string[]): string {
     return `## ${title}\n\n${points.map(p => `- ${p}`).join("\n")}\n\n> Consultant Runtime (CKO) — Advisory Only`;

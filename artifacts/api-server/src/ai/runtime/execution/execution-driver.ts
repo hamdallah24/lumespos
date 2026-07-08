@@ -112,6 +112,7 @@ export class ExecutionDriver {
 
       // ── Strategy Change: inject directive + compressed previous output ──
       if (strategy !== _prevStrategy) {
+        console.log(`[PIPELINE:${_prevStrategy}→${strategy}] cycle=${context.cycle} toolsUsed=${this._toolsUsed} filesRead=${this._filesRead.length}`);
         _prevStrategy = strategy;
 
         // Inject directive biar LLM tau cycle ini tugasnya apa
@@ -229,7 +230,7 @@ export class ExecutionDriver {
         toolResults.push({ role: "tool", tool_call_id: tc.id, content: tr.output });
         toolStatuses.push({ name: tr.name, durationMs: tr.durationMs, status: tr.status });
 
-        if (["readFile", "fetchGitHubFile", "fetchGitHubDir"].includes(tc.name) && tc.args?.path) {
+        if (["readFile", "fetchGitHubFile", "fetchGitHubDir", "searchContent"].includes(tc.name) && tc.args?.path) {
           filePaths.push(tc.args.path);
           if (!this._filesRead.includes(tc.args.path)) this._filesRead.push(tc.args.path);
         }

@@ -43,9 +43,12 @@ Rules:
 - targetFiles: Extract any file paths, directory paths, or filenames from the message. Examples: "routes/auth.ts" → ["routes/auth.ts"], "file core/App.tsx" → ["core/App.tsx"], "folder src/ai" → ["src/ai"], "cek authentication middleware" → ["authentication", "middleware"]. Include partial paths. Empty array if none mentioned.`;
 
 /** Understand Founder's natural language → structured contract */
-export async function understand(message: string, userId = 1): Promise<SemanticContract> {
+export async function understand(message: string, userId = 1, ckoTargets?: { domain: string; entities: string[]; targetFiles: string[]; businessContext: string }): Promise<SemanticContract> {
   try {
-    const raw = await callDeepSeek(SEMANTIC_PROMPT, message, userId, "semantic", 1000, true);
+    const enhancedMessage = ckoTargets?.businessContext
+      ? `${message}\n\n[CKO ADVISORY]\n${ckoTargets.businessContext}\nRelevant domain: ${ckoTargets.domain}\nRelevant entities: ${ckoTargets.entities.join(", ")}\nTarget files: ${ckoTargets.targetFiles.join(", ")}`
+      : message;
+    const raw = await callDeepSeek(SEMANTIC_PROMPT, enhancedMessage, userId, "semantic", 1000, true);
     const parsed = JSON.parse(raw.trim());
     return {
       intent: parsed.intent || "analyze_code",

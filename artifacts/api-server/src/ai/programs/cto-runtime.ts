@@ -3,12 +3,10 @@
 // Identity from identity.ts, directive from Foundation, prompt from PromptAssembler.
 // CTO IS the engineer. LLM does technical reasoning only.
 
-import { understand } from "../runtime/semantic-engine";
 import { buildSpecV1 } from "../runtime/execution-spec";
 import { verify as verifySpec } from "../runtime/verification-engine";
 import { plan } from "../runtime/planner";
 import { loadKnowledgeWithContent } from "../runtime/knowledge-loader";
-import { buildFoundationContext } from "../runtime/context-builder";
 import { assemble } from "../runtime/prompt-assembler";
 import { reflect } from "../runtime/reflection-engine";
 import { collectEvidence } from "../runtime/evidence-collector";
@@ -26,7 +24,6 @@ import { CTO_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
 import { resolveTools } from "../runtime/execution/tool-registry";
 import { missionContextRegistry } from "../../knowledge/MissionContextRegistry";
 import { CAPABILITY_TOOLS, getDefaultCapabilities } from "../runtime/execution/execution-capabilities";
-import { consultantRuntime } from "../../programs/consultant";
 
 const ctoIdentity = getIdentity("CTO")!;
 
@@ -81,6 +78,7 @@ interface CTOResult {
 async function execute(task: CTOTask, execContract?: ExecutionContract): Promise<CTOResult> {
   const pipeline: string[] = [];
   const t0 = Date.now();
+  console.log(`[PIPELINE:CTO] execute start — message="${(task.message||"").slice(0, 80)}" userId=${task.userId} missionId=${task.missionId}`);
 
   // Stage 1: Identity
   pipeline.push("Identity");
@@ -102,11 +100,31 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   }
   pipeline.push("MissionScope");
 
-  // Stage 5: Semantic Understanding — use original user query, not enriched CEO mission
+  // Stage 5: Semantic Understanding — skip LLM, extract from message directly (CEO already parsed semantics)
   const originalQuery = task.message.includes("\nUser Query: ")
     ? task.message.split("\nUser Query: ").pop() || task.message
     : task.message;
-  const contract = await understand(originalQuery, task.userId);
+  const lower = originalQuery.toLowerCase();
+  const extractedEntities: string[] = [];
+  const extractedTargets: string[] = [];
+  // Simple keyword extraction — no LLM call
+  for (const kw of ["inventory", "stok", "produk", "product", "dashboard", "order", "pesanan", "shift", "user", "pengguna", "expense", "biaya", "laporan", "report", "api", "auth", "database", "schema", "migration"]) {
+    if (lower.includes(kw)) extractedEntities.push(kw);
+  }
+  // Extract any file-like patterns
+  const fileMatches = originalQuery.match(/(?:[\w./-]+\.(ts|tsx|js|jsx|json|css|html|sql|md))/g);
+  if (fileMatches) extractedTargets.push(...fileMatches);
+  const contract: import("../runtime/semantic-engine").SemanticContract = {
+    intent: "analyze_code",
+    problem: originalQuery.slice(0, 100),
+    domain: extractedEntities.includes("inventory") ? "inventory" : extractedEntities.includes("product") || extractedEntities.includes("produk") ? "products" : "general",
+    entities: extractedEntities,
+    targetFiles: extractedTargets,
+    confidence: extractedEntities.length > 0 ? 85 : 70,
+    risk: "low",
+    requiredCapabilities: ["readFiles", "searchCode"],
+    missingContext: [],
+  };
   pipeline.push("SemanticEngine");
 
   // Stage 6: Execution Specification
@@ -142,14 +160,6 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     : [];
   pipeline.push("KnowledgeLoader");
 
-  // Stage 10.5: CKO Consultation — project structure + Foundation context
-  let ckoText = "";
-  try {
-    const ckoResult = await consultantRuntime.analyze("cto_advisory", task.message);
-    if (ckoResult.success && ckoResult.text) ckoText = ckoResult.text;
-  } catch { /* CKO unavailable */ }
-  pipeline.push("CKO");
-
   // ECP-039: NO toolRules — Governor provides strategy via ExecutionContract
   let systemPrompt = assemble({
     identity: ctoIdentity,
@@ -159,8 +169,6 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     maxTokens: spec.runtimePolicy.maxTokens,
     mode: "cto",
   });
-  // CKO Advisory: project structure
-  if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n\n[PROJECT STRUCTURE] Gunakan info folder di atas untuk tahu folder mana yg relevan — jangan discover dari nol.\n`;
   // Tegaskan: output harus analisis, bukan daftar file
   systemPrompt += `\n[ATURAN OUTPUT] JANGAN PERNAH output hanya daftar file path. Setiap file path WAJIB disertai penjelasan MENGAPA dan analisis dampaknya. Output tanpa analisis akan DITOLAK.\n`;
   pipeline.push("PromptAssembly");
@@ -243,6 +251,8 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
       }
     }
   }
+
+  console.log(`[PIPELINE:CTO] execute end — pipeline=[${pipeline.join("→")}] success=${report.objectiveAchieved} toolsUsed=${toolsUsed} filesRead=${filesRead.length} duration=${Date.now() - t0}ms`);
 
   return {
     success: report.objectiveAchieved,

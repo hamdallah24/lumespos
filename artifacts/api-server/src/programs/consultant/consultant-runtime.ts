@@ -5,10 +5,13 @@
 import { knowledgeGovernor } from "../../ai/runtime/knowledge";
 import { strategicCache } from "./consultant-cache";
 import { consultantDomain } from "./consultant-provider";
+import type { CKOTargets } from "./consultant-provider";
 import { healthMonitor } from "./consultant-health";
 import { kpiTracker } from "./consultant-kpi";
 import { reportGenerator } from "./consultant-report";
 import type { ConsultantMode, ConsultantRecommendation, Finding } from "./consultant-types";
+
+export type { CKOTargets } from "./consultant-provider";
 
 const CKO_IDENTITY = {
   id: "cko-v1",
@@ -86,6 +89,10 @@ function maintenance(): { mode: ConsultantMode; result: string }[] {
   return results;
 }
 
+async function translateToTargets(question: string): Promise<CKOTargets> {
+  return consultantDomain.translateToTargets(question);
+}
+
 function health() {
   return {
     status: "healthy" as const, uptime: 0, dependencies: [] as any[], version: "1.0.0",
@@ -101,6 +108,7 @@ export const consultantRuntime = {
   identity: () => CKO_IDENTITY,
   health,
   analyze,
+  translateToTargets,
   maintenance,
 };
 

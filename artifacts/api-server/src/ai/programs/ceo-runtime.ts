@@ -16,6 +16,7 @@ import type { ExecutionContract } from "../runtime/execution/execution-manifest"
 import { aiMissionService } from "../../services/ai-mission-service";
 import { missionRuntime } from "../runtime/mission-engine";
 import { missionEngine } from "../runtime/mission-background-engine";
+import { consultantRuntime } from "../../programs/consultant";
 
 const CEO_IDENTITY = getIdentity("CEO")!;
 
@@ -52,6 +53,7 @@ export interface CEOResult {
 
 async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promise<CEOResult> {
   const pipeline: string[] = [];
+  console.log(`[PIPELINE:CEO] execute start — message="${ctx.message.slice(0, 80)}" userId=${ctx.userId}`);
 
   // Stage 1: Identity
   pipeline.push("Identity");
@@ -108,9 +110,20 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   pipeline.push("DirectiveLoad");
   const directiveContent = getDirective();
 
-  // Stage 3: Semantic Understanding
+  // Stage 2b: CKO — translate Founder's business intent → technical targets
+  pipeline.push("CKOTranslate");
+  ctx.onProgress?.("🧠 CKO menerjemahkan intent bisnis ke target teknis...");
+  let ckoTargets: import("../../programs/consultant").CKOTargets | null = null;
+  try {
+    ckoTargets = await consultantRuntime.translateToTargets(ctx.message);
+    console.log(`[PIPELINE:CEO:CKO] domain="${ckoTargets.domain}" files=${ckoTargets.targetFiles.length} entities=${ckoTargets.entities.join(",")}`);
+  } catch (e: any) {
+    console.log(`[PIPELINE:CEO:CKO] error: ${e.message}`);
+  }
+
+  // Stage 3: Semantic Understanding (dengan CKO advisory)
   pipeline.push("SemanticEngine");
-  const contract = await understand(ctx.message, ctx.userId);
+  const contract = await understand(ctx.message, ctx.userId, ckoTargets ?? undefined);
 
   // Stage 4: Execution Specification
   pipeline.push("ExecutionSpec");
@@ -169,7 +182,7 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
         [executives[0]?.runtime || "cto"],
         spec.risk === "high" ? "high" : "normal",
         "RUNTIME-001",
-        { missionType: "analysis", userId: ctx.userId, userMessage: ctx.message },
+        { missionType: "analysis", userId: ctx.userId, userMessage: ctx.message, ckoTargets: ckoTargets ?? undefined },
       );
       missionRuntime.transition(rtMission.id, "UNDERSTANDING");
       missionRuntime.transition(rtMission.id, "PLANNING");
@@ -235,6 +248,8 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     ? `\n> — CEO Runtime · Misi dikirim ke ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`
     : "\n> — CEO Runtime · Direct";
   const text = `## Executive Report\n\n${rawText}\n${delegationLine}`;
+
+  console.log(`[PIPELINE:CEO] execute end — pipeline=[${pipeline.join("→")}] success=${verification.passed && !rawText.startsWith("ERROR:")}`);
 
   return {
     success: verification.passed && !rawText.startsWith("ERROR:"),

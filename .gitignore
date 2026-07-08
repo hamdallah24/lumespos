@@ -12,3 +12,9 @@ build/
 **/.env
 **/.env.local
 **/.env.production
+
+# Temporary test scripts
+_tmp-*
+
+# Build artifacts
+*.tsbuildinfo

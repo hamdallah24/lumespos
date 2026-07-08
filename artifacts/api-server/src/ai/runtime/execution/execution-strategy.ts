@@ -64,9 +64,9 @@ class ExecutionStrategyEngine {
       const isRead = names.some(n => ["readFile", "fetchGitHubFile", "getDependencies"].includes(n));
       if (!isSearch && !isRead) return this._result(previous, "unchanged");
 
-      // Complete: target teridentifikasi (≥1 file unik dibaca) ATAU max cycles
-      const maxExploreCycles = evidenceQuality > 0.60 ? 4 : evidenceQuality < 0.20 ? 8 : 5;
-      if (uniqueFiles >= 1 || this._strategyCycleCount >= maxExploreCycles) {
+      // Complete: minimal 1 file unik dibaca (readFile) ATAU max cycles habis
+      const maxExploreCycles = evidenceQuality > 0.60 ? 6 : evidenceQuality < 0.20 ? 10 : 7;
+      if (uniqueFiles >= Math.min(this._strategyCycleCount, 2) || this._strategyCycleCount >= maxExploreCycles) {
         this._strategy = "ANALYZE";
         this._strategyCycleCount = 0;
         return this._result(previous, `EXPLORE selesai: uniqueFiles=${uniqueFiles}, strategyCycles=${this._strategyCycleCount}`);
@@ -109,7 +109,7 @@ class ExecutionStrategyEngine {
 
   getDirective(): string {
     const d: Record<ExecutionStrategy, string> = {
-      EXPLORE: "[GOVERNOR] SEKARANG: CYCLE 1 - EXPLORE. Cari file target. WAJIB GUNAKAN TOOLS. Gunakan listDirectory/searchContent. JANGAN gunakan execCommand untuk baca file.",
+      EXPLORE: "[GOVERNOR] SEKARANG: CYCLE 1 - EXPLORE. Cari file target. WAJIB GUNAKAN TOOLS. Pipeline: searchContent → cari file relevan. listDirectory → lihat struktur folder. WAJIB baca file yang ditemukan dengan readFile(). searchContent TANPA readFile = TIDAK LENGKAP. JANGAN gunakan execCommand untuk baca file.",
       ANALYZE: "[GOVERNOR] SEKARANG: CYCLE 2 - ANALYZE. Baca file dengan readFile(). Pahami isi kode. JANGAN pakai wc/grep/cat — pakai readFile(). WAJIB GUNAKAN TOOLS.",
       CONCLUDE: "[GOVERNOR] SEKARANG: CYCLE 3 - CONCLUDE. Berikan analisis lengkap, rekomendasi. TIDAK PERLU TOOLS.",
       EXECUTE: "[GOVERNOR] SEKARANG: CYCLE 4 - EXECUTE. Implementasi perubahan yg sudah disetujui. writeFile/editFile/execCommand.",

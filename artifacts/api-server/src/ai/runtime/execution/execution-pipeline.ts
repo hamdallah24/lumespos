@@ -45,6 +45,7 @@ export class ExecutionPipeline {
     callbacks?: PipelineCallback,
     executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string; targetFiles?: string[] },
   ): Promise<PipelineResult> {
+    console.log(`[PIPELINE:EXEC] execute start — role=${spec.role} intent=${spec.intent} domain=${spec.domain} objective="${(spec.objective||"").slice(0, 60)}"`);
     const needsImpl = spec.intent === "implement_change" || (executionSpec?.targetFiles?.length ?? 0) > 0;
     const driver = new ExecutionDriver(
       executionSpec?.complexity || "medium",
@@ -66,9 +67,11 @@ export class ExecutionPipeline {
 
     try {
       const text = await driver.run(context, messages, tools, maxTokens, userId, mode, user, jsonMode);
+      console.log(`[PIPELINE:EXEC] execute end — success=true toolsUsed=${driver.toolsUsed} filesRead=${driver.filesRead.length} cycles=${context.cycle}`);
       return { success: true, text, contract: context.contract, context, toolsUsed: driver.toolsUsed, filesRead: driver.filesRead };
     } catch (e: any) {
       context.state = "FAILED";
+      console.log(`[PIPELINE:EXEC] execute end — success=false error="${e.message}" cycles=${context.cycle}`);
       return { success: false, text: e.message || "Pipeline failed", contract: context.contract, context, toolsUsed: 0, filesRead: [] };
     }
   }

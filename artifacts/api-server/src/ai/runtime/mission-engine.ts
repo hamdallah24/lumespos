@@ -46,6 +46,7 @@ interface MissionContract {
   userId?: number;
   userMessage?: string;
   dbMissionId?: number;
+  ckoTargets?: { targetFiles: string[]; entities: string[]; domain: string; businessContext: string };
 }
 
 interface MissionReport {
@@ -299,7 +300,7 @@ export const missionEngineComponent = {
     };
   },
 
-  create: (title: string, objective: string, domains: string[], priority?: MissionPriority, sponsor?: string, extended?: { missionType?: "analysis" | "implementation" | "legacy"; userId?: number; userMessage?: string; dbMissionId?: number }) =>
+  create: (title: string, objective: string, domains: string[], priority?: MissionPriority, sponsor?: string, extended?: { missionType?: "analysis" | "implementation" | "legacy"; userId?: number; userMessage?: string; dbMissionId?: number; ckoTargets?: { targetFiles: string[]; entities: string[]; domain: string; businessContext: string } }) =>
     missionEngine.create(title, objective, domains, priority || "normal", sponsor, extended),
 
   delegate: (id: string) => missionEngine.delegateToOrg(id),
