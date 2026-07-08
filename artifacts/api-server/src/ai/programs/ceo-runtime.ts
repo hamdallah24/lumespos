@@ -154,10 +154,11 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   } else if (contract.intent === "greeting") {
     rawText = "Halo. Ada yang bisa CEO Runtime bantu?";
   } else if (shouldDispatch) {
-    // Cek: apakah ada CTO di executive? Kalau iya → background mission
+    // Background mission hanya untuk intent yg butuh analisis/implementasi kode
+    const isBackgroundIntent = ["analyze_code", "implement_change"].includes(spec.intent);
     const hasCTO = executives.some((e: { runtime: string }) => e.runtime === "CTO");
 
-    if (hasCTO) {
+    if (hasCTO && isBackgroundIntent) {
       // ECP-047: Background Mission — simpan ke DB, queue, return segera
       pipeline.push("BackgroundMission");
 
