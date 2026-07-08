@@ -163,4 +163,6 @@ overrides:
 allowBuilds:
   '@clerk/shared': true
   bcrypt: false
+  cpu-features: true
   esbuild: true
+  ssh2: true

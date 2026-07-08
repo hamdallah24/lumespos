@@ -173,9 +173,9 @@ class MissionEngine {
       missionRuntime.transition(mission.id, "REVIEW");
       missionRuntime.approve(mission.id);
       if (mission.dbMissionId) {
-        await db.update(missionsTable).set({ status: "COMPLETED", updatedAt: new Date(), completedAt: new Date(), result: result.text.slice(0, 200) }).where(eq(missionsTable.id, mission.dbMissionId));
+        await db.update(missionsTable).set({ status: "COMPLETED", updatedAt: new Date(), completedAt: new Date(), result: result.text.slice(0, 4000) }).where(eq(missionsTable.id, mission.dbMissionId));
         await aiMissionService.saveSnapshot(mission.dbMissionId, 0, { progress: 100 });
-        aiMissionService.notifyCompleted(mission.dbMissionId, result.text, result.text.slice(0, 200));
+        aiMissionService.notifyCompleted(mission.dbMissionId, result.text, result.text.slice(0, 400));
       }
       await remember(mission.userId, "ceo", mission.userMessage,
         `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n**Tools:** ${result.toolsUsed} tool calls, ${result.filesRead.length} file dibaca\n\n${result.text.slice(0, 400)}`);
