@@ -12,6 +12,7 @@ import { JSON_OUTPUT_SCHEMA } from "../routes/ai-prompts";
 import { ExecutionPipeline } from "../ai/runtime/execution/execution-pipeline";
 import type { ExecutionContract } from "../ai/runtime/execution/execution-manifest";
 import { executeOperation } from "../routes/ai-business";
+import { consultantRuntime } from "./consultant";
 
 const COO_IDENTITY = getIdentity("COO")!;
 
@@ -116,6 +117,14 @@ async function execute(task: COOTask, execContract?: ExecutionContract): Promise
     return { success: false, text: `❌ ${verification.stopReason}`, pipeline };
   }
 
+  // Stage 5.5: CKO Consultation — project structure spesifik COO
+  let ckoText = "";
+  try {
+    const ckoResult = await consultantRuntime.analyze("coo_advisory", task.message);
+    if (ckoResult.success && ckoResult.text) ckoText = ckoResult.text;
+  } catch { /* CKO unavailable */ }
+  pipeline.push("CKO");
+
   // Stage 6: Business Planner (deterministic first)
   pipeline.push("BusinessPlanner");
   const businessPlan = plan(task.message);
@@ -128,7 +137,7 @@ async function execute(task: COOTask, execContract?: ExecutionContract): Promise
   } else if (businessPlan) {
     // Low confidence — LLM fallback via ExecutionPipeline (Governor-owned)
     pipeline.push("PipelineLLM");
-    const systemPrompt = assemble({
+    let systemPrompt = assemble({
       identity: COO_IDENTITY,
       directive: directiveContent,
       decision: businessPlan,
@@ -136,6 +145,7 @@ async function execute(task: COOTask, execContract?: ExecutionContract): Promise
       maxTokens: 800,
       mode: "bisnis",
     });
+    if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n`;
     const messages = [{ role: "system", content: systemPrompt }, { role: "user", content: task.message }];
     const execResult = await ExecutionPipeline.execute(
       { role: "COO" },
@@ -151,13 +161,14 @@ async function execute(task: COOTask, execContract?: ExecutionContract): Promise
   } else {
     // No rule match — full LLM generation via ExecutionPipeline (Governor-owned)
     pipeline.push("PipelineLLM");
-    const systemPrompt = assemble({
+    let systemPrompt = assemble({
       identity: COO_IDENTITY,
       directive: directiveContent,
       outputSchema: JSON_OUTPUT_SCHEMA,
       maxTokens: 800,
       mode: "bisnis",
     });
+    if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n`;
     const messages = [{ role: "system", content: systemPrompt }, { role: "user", content: task.message }];
     const execResult = await ExecutionPipeline.execute(
       { role: "COO" },

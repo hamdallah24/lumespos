@@ -63,7 +63,10 @@ export type ConsultantMode =
   | "weekly_review"
   | "monthly_review"
   | "founder_advisory"
-  | "proposal_generator";
+  | "proposal_generator"
+  | "cto_advisory"
+  | "coo_advisory"
+  | "cfo_advisory";
 
 export interface ConsultantKPI {
   duplicateKnowledgeRate: number;

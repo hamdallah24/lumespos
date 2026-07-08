@@ -12,6 +12,7 @@ import { assemble } from "../runtime/prompt-assembler";
 import { JSON_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
 import { ExecutionPipeline } from "../runtime/execution/execution-pipeline";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
+import { consultantRuntime } from "../../programs/consultant";
 
 export interface ExecutiveTask {
   message: string;
@@ -60,15 +61,25 @@ export function createExecutiveRuntime(config: ExecutiveConfig) {
       return { success: false, text: `❌ ${verification.stopReason}`, pipeline };
     }
 
+    // CKO Consultation — project structure spesifik per executive
+    let ckoText = "";
+    const ckoMode = config.role === "CFO" ? "cfo_advisory" as const : "founder_advisory" as const;
+    try {
+      const ckoResult = await consultantRuntime.analyze(ckoMode, task.message);
+      if (ckoResult.success && ckoResult.text) ckoText = ckoResult.text;
+    } catch { /* CKO unavailable */ }
+    pipeline.push("CKO");
+
     // Decision: structured report from LLM via ExecutionPipeline (Governor-owned)
     pipeline.push("PipelineLLM");
-    const systemPrompt = assemble({
+    let systemPrompt = assemble({
       identity: execIdentity,
       directive: directiveContent,
       outputSchema: JSON_OUTPUT_SCHEMA,
       maxTokens: 800,
       mode: config.role.toLowerCase(),
     });
+    if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n`;
     const messages = [{ role: "system", content: systemPrompt }, { role: "user", content: task.message }];
     const execResult = await ExecutionPipeline.execute(
       { role: "COO" },

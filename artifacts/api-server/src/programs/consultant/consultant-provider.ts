@@ -13,7 +13,31 @@ class ConsultantDomain {
     const provider = getFoundationProvider();
     const ctx = provider.getFoundationContext();
 
-    const PROJECT_STRUCTURE = `Folder Utama Repository POS Lume's:
+    const STRUCTURES: Partial<Record<ConsultantMode, string>> = {
+      cto_advisory: `Folder relevan untuk CTO:
+artifacts/api-server/src/ai/ — AI programs (LLM, runtime, pipeline, execution)
+artifacts/api-server/src/routes/ — API routes
+artifacts/pos-app/src/pages/ — Halaman frontend (React)
+artifacts/pos-app/src/components/ — Komponen UI
+artifacts/db/ — Database schema & migrasi
+.ai/foundation/ — Foundation directives & policies
+.ai/adr/ — Architecture Decision Records`,
+
+      coo_advisory: `Folder relevan untuk COO:
+artifacts/api-server/src/routes/ai.ts — Business API routes
+artifacts/api-server/src/routes/ai-business.ts — Operasi bisnis
+lib/ — Business logic & utilities
+artifacts/db/ — Database schema
+.ai/foundation/ — Operating model & policies`,
+
+      cfo_advisory: `Folder relevan untuk CFO:
+artifacts/api-server/src/routes/ai.ts — Finance & accounting routes
+lib/ — Financial logic & utilities
+artifacts/db/ — Database schema (keuangan)
+.ai/foundation/ — Budget & governance policies`,
+    };
+
+    const folderStructure = STRUCTURES[mode] || `Folder Utama Repository POS Lume's:
 artifacts/pos-app/       — Frontend React (Vite, TypeScript, Tailwind)
 artifacts/api-server/    — Backend API (Express, Node.js, Drizzle ORM)
 artifacts/db/            — Database schema & migrasi (Drizzle/PostgreSQL)
@@ -23,14 +47,13 @@ docs/                    — Dokumentasi umum
 lib/                     — Shared library & utilities
 src/                     — Source code legacy/tambahan`;
 
-    // Always provide Foundation context regardless of keywords
     return this.formatAdvisory("CKO Advisory", [
       `Foundation: ${provider.documentCount} dokumen aktif`,
       `Ringkasan Foundation:\n${ctx.slice(0, 800)}`,
       `Knowledge digest: ${cache.knowledgeDigest || "—"}`,
       `Pending proposals: ${cache.recentProposals.length}`,
       `Organization Health: ${cache.organizationHealthScore}/100`,
-      `\`\`\`\n${PROJECT_STRUCTURE}\n\`\`\``,
+      `\`\`\`\n${folderStructure}\n\`\`\``,
       `Rekomendasi: ${cache.recentProposals.length > 0 ? `Review ${cache.recentProposals.length} proposal tertunda sebelum eksekusi.` : "Tidak ada proposal tertunda — Foundation stabil."}`,
       `Catatan: CKO (Consultant Runtime) — Advisory Only.`,
     ]);

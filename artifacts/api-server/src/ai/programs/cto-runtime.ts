@@ -142,7 +142,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   // Stage 10.5: CKO Consultation — project structure + Foundation context
   let ckoText = "";
   try {
-    const ckoResult = await consultantRuntime.analyze("founder_advisory", task.message);
+    const ckoResult = await consultantRuntime.analyze("cto_advisory", task.message);
     if (ckoResult.success && ckoResult.text) ckoText = ckoResult.text;
   } catch { /* CKO unavailable */ }
   pipeline.push("CKO");
