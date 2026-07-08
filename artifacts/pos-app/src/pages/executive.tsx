@@ -364,13 +364,12 @@ export default function ExecutiveWorkspace() {
           </footer>
         </div>
 
-        {/* Right: Dashboard */}
+        {/* Right: Dashboard — Desktop only */}
         <div className="hidden lg:flex w-80 border-l border-[#1565FF]/10 flex-col overflow-y-auto p-5 space-y-5">
           <Section title="Organization" icon={GitBranch}>
             {orgData?.tree ? <OrgMiniGraph nodes={orgData.tree} /> : <p className="text-xs text-slate-400">Loading...</p>}
           </Section>
           <ActiveMissions onSelect={setSelectedMissionId} />
-          {selectedMissionId && <MissionDetail missionId={selectedMissionId} onClose={() => setSelectedMissionId(null)} />}
           <Section title="Runtime Status" icon={Activity}>
             {orgData?.health ? (
               <div className="space-y-1.5 text-xs">
@@ -389,6 +388,29 @@ export default function ExecutiveWorkspace() {
           </Section>
         </div>
       </div>
+
+      {/* MissionDetail — di luar sidebar, accessible di all screen sizes */}
+      {selectedMissionId && <MissionDetail missionId={selectedMissionId} onClose={() => setSelectedMissionId(null)} />}
+
+      {/* Mobile FAB: floating button untuk misi aktif */}
+      <div className="lg:hidden fixed bottom-24 right-4 z-40 flex flex-col items-end gap-2">
+        <button
+          onClick={() => setSelectedMissionId(-1)}
+          className="w-12 h-12 rounded-full bg-[#1565FF] text-white shadow-lg flex items-center justify-center hover:bg-[#1565FF]/90 transition-all active:scale-95"
+        >
+          <Target size={20} />
+        </button>
+      </div>
+
+      {/* Mobile mission panel (slide-up) */}
+      {selectedMissionId === -1 && (
+        <div className="lg:hidden fixed inset-0 z-50 bg-black/30" onClick={() => setSelectedMissionId(null)}>
+          <div className="absolute bottom-0 left-0 right-0 bg-white dark:bg-slate-900 rounded-t-2xl shadow-2xl max-h-[70vh] overflow-y-auto p-5" onClick={e => e.stopPropagation()}>
+            <div className="w-10 h-1 rounded-full bg-slate-300 mx-auto mb-4" />
+            <ActiveMissions onSelect={(id) => setSelectedMissionId(id)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
