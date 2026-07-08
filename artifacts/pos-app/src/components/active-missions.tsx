@@ -21,14 +21,22 @@ interface Mission {
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
-  pending: <Clock size={14} className="text-yellow-500" />,
-  running: <Play size={14} className="text-blue-500 animate-pulse" />,
-  completed: <CheckCircle2 size={14} className="text-green-500" />,
-  failed: <XCircle size={14} className="text-red-500" />,
+  CREATED: <Clock size={14} className="text-slate-400" />,
+  UNDERSTANDING: <Play size={14} className="text-blue-500 animate-pulse" />,
+  PLANNING: <Play size={14} className="text-purple-500 animate-pulse" />,
+  DELEGATED: <Play size={14} className="text-blue-500 animate-pulse" />,
+  RUNNING: <Play size={14} className="text-blue-500 animate-pulse" />,
+  REVIEW: <Clock size={14} className="text-amber-500" />,
+  APPROVED: <CheckCircle2 size={14} className="text-green-500" />,
+  COMPLETED: <CheckCircle2 size={14} className="text-green-500" />,
+  FAILED: <XCircle size={14} className="text-red-500" />,
+  CANCELLED: <XCircle size={14} className="text-slate-400" />,
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "Menunggu", running: "Berjalan", completed: "Selesai", failed: "Gagal",
+  CREATED: "Dibuat", UNDERSTANDING: "Memahami", PLANNING: "Merencanakan",
+  DELEGATED: "Didelegasikan", RUNNING: "Berjalan", REVIEW: "Review",
+  APPROVED: "Disetujui", COMPLETED: "Selesai", FAILED: "Gagal", CANCELLED: "Dibatalkan",
 };
 
 const STRATEGY_LABEL: Record<string, string> = {

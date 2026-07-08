@@ -7,7 +7,7 @@ export const missionsTable = pgTable("ai_missions", {
   title: text("title").notNull(),
   objective: text("objective").notNull().default(""),
   mode: varchar("mode", { length: 20 }).notNull().default("cto"),
-  status: varchar("status", { length: 20 }).notNull().default("pending"),
+  status: varchar("status", { length: 20 }).notNull().default("CREATED"),
   complexity: varchar("complexity", { length: 20 }).notNull().default("medium"),
   strategy: varchar("strategy", { length: 20 }),
   progress: integer("progress").notNull().default(0),

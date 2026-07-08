@@ -39,7 +39,7 @@ class AiQueue {
     this.activeMissionId = task.missionId;
 
     try {
-      await aiMissionService.updateStatus(task.missionId, "running");
+      await aiMissionService.transition(task.missionId, "RUNNING");
 
       const result = await ctoProgram.execute({
         message: task.message,
@@ -55,7 +55,7 @@ class AiQueue {
         },
         onExecutionEvent: async (snapshot: any) => {
           if (snapshot?.progress?.overall !== undefined) {
-            await aiMissionService.updateStatus(task.missionId, "running", {
+            await aiMissionService.transition(task.missionId, "RUNNING", {
               progress: snapshot.progress.overall,
               strategy: snapshot.strategy,
               currentGoal: snapshot.currentGoal?.label,
@@ -77,19 +77,18 @@ class AiQueue {
       });
 
       if (result.success && result.text) {
-        await aiMissionService.updateStatus(task.missionId, "completed", { result: result.text, progress: 100 });
+        await aiMissionService.transition(task.missionId, "COMPLETED", { result: result.text, progress: 100 });
         const summary = trimResult(result.text, 400);
-        // Notifikasi ke chat + live stream
         await remember(task.userId, "ceo", task.message,
           `✅ **Misi #${task.missionId} Selesai**\n\n${summary}\n\n📊 Detail lengkap bisa dilihat di dashboard Executive.`);
         aiMissionService.notifyCompleted(task.missionId, result.text, summary);
       } else {
-        await aiMissionService.updateStatus(task.missionId, "completed", { result: result.text || "(no output)", progress: 100 });
+        await aiMissionService.transition(task.missionId, "COMPLETED", { result: result.text || "(no output)", progress: 100 });
         await remember(task.userId, "ceo", task.message,
           `✅ **Misi #${task.missionId} Selesai** (tanpa output spesifik). Cek dashboard untuk detail.`);
       }
     } catch (e: any) {
-      await aiMissionService.updateStatus(task.missionId, "failed", { error: e.message || "Unknown error" });
+      await aiMissionService.transition(task.missionId, "FAILED", { error: e.message || "Unknown error" });
       await remember(task.userId, "ceo", task.message,
         `❌ **Misi #${task.missionId} Gagal**: ${e.message || "Unknown error"}`);
       aiMissionService.notifyCompleted(task.missionId, "", `❌ Gagal: ${e.message || "Unknown error"}`);

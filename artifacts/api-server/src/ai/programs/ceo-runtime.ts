@@ -168,7 +168,9 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
         executives[0]?.runtime || "cto",
         spec.estimatedComplexity,
       );
+      await aiMissionService.transition(missionId, "PLANNING");
       aiQueue.enqueue({ missionId, userId: ctx.userId, message: ctx.message, mode: executives[0]?.runtime || "cto" });
+      await aiMissionService.transition(missionId, "DELEGATED");
       rawText = `✅ **Misi #${missionId} dibuat** berdasarkan diskusi kita. Misi sedang diproses, hasil akan muncul di chat ini otomatis.`;
     } else {
       // Chat biasa — CEO diskusi dulu, misi dibuat hanya saat user bilang "buat misi"

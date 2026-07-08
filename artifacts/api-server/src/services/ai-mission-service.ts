@@ -1,9 +1,28 @@
 // ECP-047: Mission Service — CRUD + snapshot + live streaming
+// Terintegrasi dengan mission-engine.ts (13-state lifecycle)
 import { EventEmitter } from "events";
 import { db, missionsTable, missionSnapshotsTable } from "@workspace/db";
 import { eq, desc, asc, and, sql } from "drizzle-orm";
+import { missionRuntime } from "../ai/runtime/mission-engine";
 
-export type MissionStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+// 13-state lifecycle dari MissionRuntime
+const LIFECYCLE: Record<string, string[]> = {
+  "CREATED":        ["UNDERSTANDING", "CANCELLED"],
+  "UNDERSTANDING":  ["PLANNING", "CANCELLED"],
+  "PLANNING":       ["DELEGATED", "CANCELLED", "BLOCKED"],
+  "DELEGATED":      ["RUNNING", "WAITING", "BLOCKED", "FAILED", "CANCELLED"],
+  "RUNNING":        ["REVIEW", "WAITING", "BLOCKED", "FAILED", "CANCELLED"],
+  "WAITING":        ["RUNNING", "CANCELLED"],
+  "BLOCKED":        ["WAITING", "CANCELLED"],
+  "REVIEW":         ["APPROVED", "FAILED"],
+  "APPROVED":       ["COMPLETED"],
+  "COMPLETED":      ["ARCHIVED"],
+  "FAILED":         ["ARCHIVED"],
+  "CANCELLED":      ["ARCHIVED"],
+  "ARCHIVED":       [],
+};
+
+export type MissionLifecycle = keyof typeof LIFECYCLE;
 
 interface MissionEvent {
   type: "snapshot" | "status_change" | "completed" | "error";
@@ -13,13 +32,14 @@ interface MissionEvent {
 
 class AiMissionService {
   private emitter = new EventEmitter();
-  // MissionEvent emitter: subscriber per missionId
   private subs = new Map<string, Set<(ev: MissionEvent) => void>>();
 
   // ── CRUD ──
 
   async create(userId: number, title: string, objective: string, mode = "cto", complexity = "medium"): Promise<number> {
-    const [m] = await db.insert(missionsTable).values({ userId, title, objective, mode, complexity }).returning({ id: missionsTable.id });
+    const [m] = await db.insert(missionsTable).values({ userId, title, objective, mode, complexity, status: "CREATED" }).returning({ id: missionsTable.id });
+    // Juga register ke in-memory MissionRuntime untuk lifecycle tracking
+    try { missionRuntime.create(title, objective, [mode], "normal"); } catch {}
     return m.id;
   }
 
@@ -37,20 +57,27 @@ class AiMissionService {
 
   async listActive(userId: number) {
     return db.select().from(missionsTable)
-      .where(and(eq(missionsTable.userId, userId), sql`${missionsTable.status} IN ('pending','running')`))
+      .where(and(eq(missionsTable.userId, userId), sql`${missionsTable.status} IN ('CREATED','UNDERSTANDING','PLANNING','DELEGATED','RUNNING','WAITING','REVIEW')`))
       .orderBy(desc(missionsTable.createdAt));
   }
 
-  async updateStatus(id: number, status: MissionStatus, extra?: Partial<{
+  async transition(id: number, toStatus: MissionLifecycle, extra?: Partial<{
     progress: number; strategy: string; currentGoal: string;
     evidenceQuality: number; confidence: number; cyclesExecuted: number;
     result: string; error: string;
   }>) {
-    const vals: any = { status, updatedAt: new Date() };
+    const mission = await this.getById(id);
+    if (!mission) return;
+    const allowed = LIFECYCLE[mission.status] || [];
+    if (!allowed.includes(toStatus)) {
+      console.warn(`[MissionService] Invalid transition: ${mission.status} → ${toStatus} (id=${id})`);
+      return;
+    }
+    const vals: any = { status: toStatus, updatedAt: new Date() };
     if (extra) Object.assign(vals, extra);
-    if (status === "completed" || status === "failed") vals.completedAt = new Date();
+    if (toStatus === "COMPLETED" || toStatus === "FAILED" || toStatus === "CANCELLED") vals.completedAt = new Date();
     await db.update(missionsTable).set(vals).where(eq(missionsTable.id, id));
-    this.emit({ type: "status_change", missionId: id, data: { status, ...extra } });
+    this.emit({ type: "status_change", missionId: id, data: { status: toStatus, ...extra } });
   }
 
   // ── Snapshots ──
