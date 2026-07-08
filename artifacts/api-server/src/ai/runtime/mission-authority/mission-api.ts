@@ -8,6 +8,8 @@ import { alignmentEngine } from "./alignment-engine";
 import { priorityEngine } from "./priority-engine";
 import { approvalPolicy } from "./approval-policy";
 import { missionBoard } from "./mission-board";
+import { aiMissionService } from "../../../services/ai-mission-service";
+import { missionEngineComponent } from "../mission-engine";
 
 interface MissionAPIResult {
   success: boolean;
@@ -66,7 +68,6 @@ class MissionAPI {
     // Create DB mission record so result can be persisted + notified to frontend
     let dbMissionId: number | undefined;
     try {
-      const { aiMissionService } = await import("../../services/ai-mission-service");
       console.log(`[QA-DB] aiMissionService loaded, creating record for userId=${extended?.userId}`);
       dbMissionId = await aiMissionService.create(
         extended?.userId || 1,
@@ -83,7 +84,6 @@ class MissionAPI {
 
     // ECP-036: Create actual mission via Mission Engine
     try {
-      const { missionEngineComponent } = await import("../mission-engine");
       const created = missionEngineComponent.create(mission.title, proposal.description, [proposal.title], proposal.priority > 80 ? "high" : "normal", "RUNTIME-001", { ...extended, dbMissionId });
       missionEngineComponent.delegate(created.id);
     } catch (e: any) {
