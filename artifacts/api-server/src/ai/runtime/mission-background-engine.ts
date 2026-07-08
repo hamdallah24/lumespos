@@ -155,6 +155,7 @@ class MissionEngine {
       if (errMsg) {
         missionRuntime.transition(mission.id, "FAILED");
         if (mission.dbMissionId) {
+          await aiMissionService.transition(mission.dbMissionId, "FAILED");
           aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ ${errMsg}`);
           await remember(mission.userId, "ceo", mission.userMessage,
             `❌ **Misi #${mission.dbMissionId || mission.id} Gagal**: ${errMsg}. Coba perjelas file atau folder targetnya.`);
@@ -166,6 +167,7 @@ class MissionEngine {
       missionRuntime.transition(mission.id, "REVIEW");
       missionRuntime.approve(mission.id);
       if (mission.dbMissionId) {
+        await aiMissionService.transition(mission.dbMissionId, "COMPLETED", { progress: 100, result: result.text.slice(0, 200) });
         await aiMissionService.saveSnapshot(mission.dbMissionId, 0, { progress: 100 });
         aiMissionService.notifyCompleted(mission.dbMissionId, result.text, result.text.slice(0, 200));
       }
@@ -175,6 +177,7 @@ class MissionEngine {
     } catch (e: any) {
       missionRuntime.transition(mission.id, "FAILED");
       if (mission.dbMissionId) {
+        await aiMissionService.transition(mission.dbMissionId, "FAILED");
         aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ Error: ${e.message}`);
         const { remember } = await import("../../services/ai-memory-service");
         await remember(mission.userId, "ceo", mission.userMessage,
