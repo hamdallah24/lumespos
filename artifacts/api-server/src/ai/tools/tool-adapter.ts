@@ -177,7 +177,7 @@ export async function listLocalDir(dirPath: string): Promise<string> {
   } catch (e: any) { return `Error: ${e.message}`; }
 }
 
-export async function readLocalFile(filePath: string, maxChars = 8000): Promise<string> {
+export async function readLocalFile(filePath: string, maxChars = 50000): Promise<string> {
   const full = resolve(filePath);
   if (!isPathSafe(full)) return `Error: Path ${filePath} di luar project.`;
   if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
@@ -353,7 +353,7 @@ export async function executeToolCall(name: string, args: Record<string, any>): 
       const local = await readLocalFile(p);
       if (!local.startsWith("Error:")) return local;
       const gh = await fetchGitHubFile(p, "main");
-      if (gh.content) return `✅ ${p} (GitHub):\n\`\`\`\n${gh.content.slice(0, 5000)}\n\`\`\``;
+      if (gh.content) return `✅ ${p} (GitHub):\n\`\`\`\n${gh.content.slice(0, 50000)}\n\`\`\``;
       return local;
     }
     case "searchContent": return searchLocalContent(args.path || ".", args.pattern || "");
