@@ -224,7 +224,7 @@ export async function callDeepSeekWithTools(
   const history = await getHistory(userId, mode, 100);
   const filteredHistory = filterContamination(history).slice(-30);
   const systemContent = system && system.trim().length > 50
-    ? system.slice(0, 8000)
+    ? system
     : (() => {
         try {
           const assets = loadKnowledgeWithContent({ strategy: "always" });
