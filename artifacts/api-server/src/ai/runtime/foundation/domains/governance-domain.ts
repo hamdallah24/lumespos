@@ -8,8 +8,8 @@ import { getAssetContent } from "../foundation-cache";
 
 function parseConfidenceGates(): ConfidenceGates {
   return {
-    stop: 40,
-    warn: 60,
+    stop: 25,
+    warn: 50,
     execute: 80,
   };
 }
