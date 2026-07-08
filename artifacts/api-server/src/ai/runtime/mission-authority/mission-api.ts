@@ -68,7 +68,9 @@ class MissionAPI {
       const { missionEngineComponent } = await import("../mission-engine");
       const created = missionEngineComponent.create(mission.title, proposal.description, [proposal.title], proposal.priority > 80 ? "high" : "normal");
       missionEngineComponent.delegate(created.id);
-    } catch { /* Mission Engine call is best-effort */ }
+    } catch (e: any) {
+      console.error(`[MissionAPI] Failed to create mission from proposal ${proposalId}:`, e?.message || e);
+    }
 
     return { success: true, data: { mission } };
   }

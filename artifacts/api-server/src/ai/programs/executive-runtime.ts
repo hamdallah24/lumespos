@@ -13,6 +13,7 @@ import { JSON_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
 import { ExecutionPipeline } from "../runtime/execution/execution-pipeline";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 import { consultantRuntime } from "../../programs/consultant";
+import { LOCAL_TOOLS } from "../tools/tool-adapter";
 
 export interface ExecutiveTask {
   message: string;
@@ -76,14 +77,15 @@ export function createExecutiveRuntime(config: ExecutiveConfig) {
       identity: execIdentity,
       directive: directiveContent,
       outputSchema: JSON_OUTPUT_SCHEMA,
-      maxTokens: 800,
+      maxTokens: 16000,
       mode: config.role.toLowerCase(),
     });
     if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n`;
     const messages = [{ role: "system", content: systemPrompt }, { role: "user", content: task.message }];
+    const pipelineRole: "CEO" | "CTO" | "COO" = spec.intent === "analyze_code" || spec.intent === "implement_change" ? "CTO" : "COO";
     const execResult = await ExecutionPipeline.execute(
-      { role: "COO" },
-      messages, [], 800, task.userId, config.role.toLowerCase(), task.message, true,
+      { role: pipelineRole, intent: spec.intent, domain: spec.domain },
+      messages, LOCAL_TOOLS, spec.estimatedTokens || 16000, task.userId, config.role.toLowerCase(), task.message, true,
       { onProgress: task.onProgress },
       { complexity: "simple", domain: spec.domain, objective: spec.objective },
     );

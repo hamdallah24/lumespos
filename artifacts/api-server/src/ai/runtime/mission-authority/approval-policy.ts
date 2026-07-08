@@ -20,11 +20,11 @@ class ApprovalPolicy {
     if (p >= 90) {
       return { approved: false, autoApproved: false, requiredApprover: "Founder", reason: "Critical priority — requires Founder approval" };
     }
-    if (p >= 80) {
-      return { approved: false, autoApproved: false, requiredApprover: "Council", reason: "High priority — requires Council approval" };
+    if (p >= 95) {
+      return { approved: false, autoApproved: false, requiredApprover: "Council", reason: "Critical priority — requires Council approval" };
     }
     if (p >= 60) {
-      return { approved: true, autoApproved: true, requiredApprover: "CEO", reason: "Auto-approved (priority 60-79)" };
+      return { approved: true, autoApproved: true, requiredApprover: "CEO", reason: "Auto-approved (priority 60+)" };
     }
     return { approved: false, autoApproved: true, requiredApprover: "System", reason: "Below threshold — rejected" };
   }
