@@ -12,6 +12,6 @@ export const AnalysisPolicyProvider: RuntimePolicyProvider = {
     foundation: "full",
     manifest: true,
     sharedContext: true,
-    maxTokens: 6000,
+    maxTokens: 32000,
   }),
 };

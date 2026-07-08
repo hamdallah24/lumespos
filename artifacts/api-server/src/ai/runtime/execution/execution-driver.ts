@@ -286,20 +286,21 @@ export class ExecutionDriver {
           ? `\n\n[HASIL SIKLUS]\n${contextManager.compressToolOutput(this._cycleOutputs.join("\n\n---\n\n"))}`
           : "";
 
-        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE.
+        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Berikan analisis LENGKAP dan DETAIL. Output minimal 500 karakter.
 
 ## Root Cause
-[JELASKAN penyebab utama. Berikan analisis, bukan hanya daftar file.]
+[JELASKAN penyebab utama dengan detail. Minimal 3 kalimat.]
 
 ## Verified Evidence
-[Jelaskan temuan dan analisis. JANGAN hanya output daftar file path.]
+[Jelaskan temuan dan analisis. Kutip baris kode spesifik jika relevan. Minimal 5 kalimat.]
 
 ## Rekomendasi Teknis
-1. [Langkah spesifik]
-2. [Langkah spesifik]
+1. [Langkah spesifik dengan justifikasi]
+2. [Langkah spesifik dengan justifikasi]
+3. [Langkah spesifik dengan justifikasi]
 
 ## Confidence
-[XX]% — [alasan]
+[XX]% — [alasan detail]
 
 ## Persetujuan
 Minta persetujuan Founder.${ctxFeed}` });
