@@ -158,6 +158,10 @@ class MissionEngine {
         }
       }
 
+      // QA: log detail hasil CTO untuk root cause analysis
+      console.log(`[QA-CTO] mission=${mission.id} success=${result.success} toolsUsed=${result.toolsUsed} filesRead=${result.filesRead?.length} textLen=${(result.text||"").length} dbId=${mission.dbMissionId} errMsg="${errMsg}"`);
+      console.log(`[QA-CTO] textPreview: ${(result.text||"").slice(0, 200)}`);
+
       if (errMsg) {
         missionRuntime.transition(mission.id, "FAILED");
         if (mission.dbMissionId) {
