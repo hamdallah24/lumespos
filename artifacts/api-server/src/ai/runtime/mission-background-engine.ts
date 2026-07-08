@@ -14,7 +14,7 @@ interface EngineConfig {
 }
 
 const DEFAULT_CONFIG: EngineConfig = {
-  intervalMs: 30000,  // 30 seconds
+  intervalMs: 5000,   // 5 detik — responsif
   maxConcurrent: 3,
 };
 
@@ -84,6 +84,11 @@ class MissionEngine {
     if (delegated > 0 || completed > 0) {
       console.log(`[MissionEngine] Tick: ${toProcess.length} processed — ${delegated} delegated, ${completed} completed, ${failed} failed`);
     }
+  }
+
+  /** Trigger tick immediately — panggil setelah mission dibuat */
+  triggerTick(): void {
+    this.tick().catch(e => console.error("[MissionEngine] Trigger tick error:", e));
   }
 
   /** Execute CTO program for analysis/implementation missions */

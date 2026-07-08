@@ -15,6 +15,7 @@ import { EXECUTIVE_OUTPUT_SCHEMA } from "../../routes/ai-prompts";
 import type { ExecutionContract } from "../runtime/execution/execution-manifest";
 import { aiMissionService } from "../../services/ai-mission-service";
 import { missionRuntime } from "../runtime/mission-engine";
+import { missionEngine } from "../runtime/mission-background-engine";
 
 const CEO_IDENTITY = getIdentity("CEO")!;
 
@@ -177,6 +178,8 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
       // Update in-memory mission dengan dbMissionId
       const stored = missionRuntime.get(rtMission.id);
       if (stored) stored.dbMissionId = dbId;
+      // Trigger background engine segera (jangan nunggu 5 detik)
+      missionEngine.triggerTick();
       rawText = `✅ **Misi ${rtMission.id} (DB#${dbId}) dibuat** berdasarkan diskusi kita. Misi sedang diproses, hasil akan muncul di chat ini otomatis.`;
     } else {
       // Chat biasa — CEO diskusi dulu, misi dibuat hanya saat user bilang "buat misi"
