@@ -63,16 +63,32 @@ class MissionAPI {
     const mission = proposalRegistry.promote(proposalId, assignedTo);
     if (!mission) return { success: false, error: "Failed to promote proposal" };
 
+    // Create DB mission record so result can be persisted + notified to frontend
+    let dbMissionId: number | undefined;
+    try {
+      const { aiMissionService } = await import("../../services/ai-mission-service");
+      dbMissionId = await aiMissionService.create(
+        extended?.userId || 1,
+        mission.title,
+        proposal.description,
+        "cto",
+        "medium",
+        "DELEGATED",
+      );
+    } catch (e: any) {
+      console.error(`[MissionAPI] Failed to create DB mission record:`, e?.message || e);
+    }
+
     // ECP-036: Create actual mission via Mission Engine
     try {
       const { missionEngineComponent } = await import("../mission-engine");
-      const created = missionEngineComponent.create(mission.title, proposal.description, [proposal.title], proposal.priority > 80 ? "high" : "normal", "RUNTIME-001", extended);
+      const created = missionEngineComponent.create(mission.title, proposal.description, [proposal.title], proposal.priority > 80 ? "high" : "normal", "RUNTIME-001", { ...extended, dbMissionId });
       missionEngineComponent.delegate(created.id);
     } catch (e: any) {
       console.error(`[MissionAPI] Failed to create mission from proposal ${proposalId}:`, e?.message || e);
     }
 
-    return { success: true, data: { mission } };
+    return { success: true, data: { mission, dbMissionId } };
   }
 
   /** Get the mission board */
