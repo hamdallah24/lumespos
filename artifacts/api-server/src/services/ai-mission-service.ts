@@ -78,6 +78,10 @@ class AiMissionService {
     return () => { this.subs.get(key)?.delete(cb); };
   }
 
+  notifyCompleted(missionId: number, result: string, summary: string): void {
+    this.emit({ type: "completed", missionId, data: { result, summary } });
+  }
+
   private emit(ev: MissionEvent) {
     const key = String(ev.missionId);
     this.subs.get(key)?.forEach(cb => { try { cb(ev); } catch {} });

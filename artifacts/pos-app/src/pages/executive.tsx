@@ -65,6 +65,21 @@ export default function ExecutiveWorkspace() {
       .then(r => r.json()).then(d => {
         if (d.messages) setReports(d.messages.map((m: any) => ({ role: m.role === "user" ? "CEO" : "CEO" as const, text: m.content, timestamp: new Date().toISOString() })));
       }).catch(() => {});
+
+    // Subscribe auto-notifikasi mission selesai
+    const es = new EventSource("/api/ai/mission/events", { withCredentials: true });
+    es.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.type === "completed" && d.data?.summary) {
+          setReports(prev => {
+            if (prev.some(r => r.text?.includes(`Misi #${d.missionId} Selesai`))) return prev;
+            return [...prev, { role: "CEO" as const, text: `✅ **Misi #${d.missionId} Selesai**\n\n${d.data.summary}`, timestamp: new Date().toISOString() }];
+          });
+        }
+      } catch {}
+    };
+    return () => es.close();
   }, []);
 
   React.useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [reports]);

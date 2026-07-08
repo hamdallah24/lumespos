@@ -250,6 +250,22 @@ router.get("/ai/missions", requireRole("owner"), async (_req, res) => {
   res.json({ active, report });
 });
 
+// SSE global: semua mission events (auto-notifikasi saat mission selesai)
+router.get("/ai/mission/events", requireAuth, async (req, res) => {
+  const { aiMissionService } = await import("../services/ai-mission-service");
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+  let aborted = false;
+  req.on("close", () => { aborted = true; });
+  const unsub = aiMissionService.subscribeAll((ev) => {
+    if (aborted) { unsub(); return; }
+    res.write(`data: ${JSON.stringify({ type: ev.type, missionId: ev.missionId, data: ev.data })}\n\n`);
+  });
+});
+
 // Misi aktif milik user
 router.get("/ai/missions/active", requireAuth, async (req, res) => {
   const { aiMissionService } = await import("../services/ai-mission-service");

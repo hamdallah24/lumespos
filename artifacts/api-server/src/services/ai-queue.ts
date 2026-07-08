@@ -79,10 +79,11 @@ class AiQueue {
 
       if (result.success && result.text) {
         await aiMissionService.updateStatus(task.missionId, "completed", { result: result.text, progress: 100 });
-        // Notifikasi ke chat CEO — executive runtime yg selesai kirim
         const summary = trimResult(result.text, 400);
+        // Notifikasi ke chat + live stream
         await remember(task.userId, "ceo", task.message,
           `✅ **Misi #${task.missionId} Selesai**\n\n${summary}\n\n📊 Detail lengkap bisa dilihat di dashboard Executive.`);
+        aiMissionService.notifyCompleted(task.missionId, result.text, summary);
       } else {
         await aiMissionService.updateStatus(task.missionId, "completed", { result: result.text || "(no output)", progress: 100 });
         await remember(task.userId, "ceo", task.message,
@@ -92,6 +93,7 @@ class AiQueue {
       await aiMissionService.updateStatus(task.missionId, "failed", { error: e.message || "Unknown error" });
       await remember(task.userId, "ceo", task.message,
         `❌ **Misi #${task.missionId} Gagal**: ${e.message || "Unknown error"}`);
+      aiMissionService.notifyCompleted(task.missionId, "", `❌ Gagal: ${e.message || "Unknown error"}`);
     } finally {
       this.activeMissionId = null;
       this.processNext();
