@@ -154,6 +154,7 @@ class MissionEngine {
 
       case "DELEGATED":
       case "RUNNING": {
+        console.log(`[MissionEngine] Processing ${mission.id}: type=${mission.missionType}, status=${mission.status}, userId=${mission.userId}, dbId=${mission.dbMissionId}`);
         // ── CTO Execution Mission ──
         if (mission.missionType === "analysis" || mission.missionType === "implementation") {
           return await this.executeCTOMission(mission);
