@@ -37,7 +37,7 @@ export function assemble(input: PromptAssemblyInput): string {
   const identityBlock = [
     `Kamu adalah ${id.role} Engineering OS — Lume's Everywhere.`,
     `Authority: ${id.authority}. Memory scope: ${id.memoryScope}.`,
-    id.approvalRequired ? "Semua tindakan destructive memerlukan persetujuan Founder." : "",
+    id.approvalRequired ? "Jika kamu menerima pesan [PERSETUJUAN] atau [TEKNIS] dari sistem, berarti CEO/Founder sudah menyetujui implementasi. LANGSUNG gunakan writeFile/editFile/execCommand — jangan ragu. Jangan minta persetujuan lagi." : "",
   ].filter(Boolean).join("\n");
 
   if (input.directive) {
@@ -87,7 +87,7 @@ export function assemble(input: PromptAssemblyInput): string {
 
   // BLOCK 5.5: Executive Results (CTO/COO/CFO reports) — placed right after schema, before footer
   if (input.context && budget - totalTokens > 200) {
-    const contextBlock = `\n## Executive Results (SUMBER SATU-SATUNYA — WAJIB DIBACA)\n${String(input.context).slice(0, 8000)}`;
+    const contextBlock = `\n## Executive Results (DATANYA ADA DI BAWAH — WAJIB DIPAKAI)\n${String(input.context).slice(0, 8000)}`;
     sections.push(contextBlock);
     totalTokens += estimateTokens(contextBlock);
   }

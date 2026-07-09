@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, productsTable, categoriesTable, semiFinishedTable, currentInventoryTable, recipesTable } from "@workspace/db";
-import { eq, and, ilike, sql } from "drizzle-orm";
+import { eq, and, ilike, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, requireRole, canAccessBranch } from "../middlewares/requireAuth";
 
 const router = Router();
@@ -123,24 +123,99 @@ router.get("/products", requireAuth, requireBranchAccess((req) => Number(req.que
       .leftJoin(categoriesTable, eq(categoriesTable.id, productsTable.categoryId))
       .where(and(...conditions));
 
-    // Hitung stok & HPP untuk setiap produk
-    const productsWithStock = await Promise.all(
-      rows.map(async (row) => {
-        const stock = await getProductStock(row.id, branchId);
-        const costPrice = await getProductCost(row.id, branchId);
-        return {
-          id: row.id,
-          name: row.name,
-          categoryId: row.categoryId,
-          categoryName: row.categoryName,
-          price: parseFloat(row.price),
-          costPrice,
-          stock,
-          imageUrl: row.imageUrl,
-          isActive: row.isActive,
-        };
-      })
-    );
+    // Batch: ambil stock & cost untuk semua produk (2 query, bukan N+1)
+    const productIds = rows.map(r => r.id);
+    let recipeRows: { parentId: number; componentId: number; quantity: string | number }[] = [];
+    let costRows: { id: number; costPricePerUnit: string | number }[] = [];
+    let stockRows: { itemId: number; currentStock: string | number }[] = [];
+
+    if (productIds.length > 0) {
+      recipeRows = await db
+        .select({
+          parentId: recipesTable.parentId,
+          componentId: recipesTable.componentId,
+          quantity: recipesTable.quantity,
+        })
+        .from(recipesTable)
+        .where(
+          and(
+            eq(recipesTable.parentType, "product"),
+            eq(recipesTable.componentType, "semi_finished"),
+            inArray(recipesTable.parentId, productIds),
+          )
+        );
+
+      if (recipeRows.length > 0) {
+        const componentIds = [...new Set(recipeRows.map(r => r.componentId))];
+
+        costRows = await db
+          .select({
+            id: semiFinishedTable.id,
+            costPricePerUnit: semiFinishedTable.costPricePerUnit,
+          })
+          .from(semiFinishedTable)
+          .where(inArray(semiFinishedTable.id, componentIds));
+
+        stockRows = await db
+          .select({
+            itemId: currentInventoryTable.itemId,
+            currentStock: currentInventoryTable.currentStock,
+          })
+          .from(currentInventoryTable)
+          .where(
+            and(
+              eq(currentInventoryTable.itemType, "semi_finished"),
+              eq(currentInventoryTable.branchId, branchId),
+              inArray(currentInventoryTable.itemId, componentIds),
+            )
+          );
+      }
+    }
+
+    const costMap = new Map(costRows.map(r => [r.id, typeof r.costPricePerUnit === 'string' ? parseFloat(r.costPricePerUnit) : Number(r.costPricePerUnit)]));
+    const stockMap = new Map(stockRows.map(r => [r.itemId, typeof r.currentStock === 'string' ? parseFloat(r.currentStock) : Number(r.currentStock)]));
+
+    const recipesByProduct = new Map<number, { componentId: number; quantity: number }[]>();
+    for (const r of recipeRows) {
+      if (!recipesByProduct.has(r.parentId)) recipesByProduct.set(r.parentId, []);
+      recipesByProduct.get(r.parentId)!.push({
+        componentId: r.componentId,
+        quantity: typeof r.quantity === 'string' ? parseFloat(r.quantity) : Number(r.quantity),
+      });
+    }
+
+    const productsWithStock = rows.map(row => {
+      const recipes = recipesByProduct.get(row.id) || [];
+      let stock = 0;
+      let costPrice = 0;
+
+      if (recipes.length > 0) {
+        let maxPossible = Infinity;
+        for (const r of recipes) {
+          const s = stockMap.get(r.componentId) ?? 0;
+          const possible = Math.floor(s / r.quantity);
+          maxPossible = Math.min(maxPossible, possible);
+        }
+        stock = maxPossible === Infinity ? 0 : maxPossible;
+
+        for (const r of recipes) {
+          const unitCost = costMap.get(r.componentId) ?? 0;
+          costPrice += unitCost * r.quantity;
+        }
+      }
+
+      return {
+        id: row.id,
+        name: row.name,
+        categoryId: row.categoryId,
+        categoryName: row.categoryName,
+        price: parseFloat(row.price),
+        costPrice,
+        stock,
+        imageUrl: row.imageUrl,
+        isActive: row.isActive,
+      };
+    });
 
     return res.json(productsWithStock);
   } catch (error) {

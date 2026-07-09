@@ -45,8 +45,8 @@ export class ExecutionPipeline {
     callbacks?: PipelineCallback,
     executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string; targetFiles?: string[] },
   ): Promise<PipelineResult> {
-    console.log(`[PIPELINE:EXEC] execute start — role=${spec.role} intent=${spec.intent} domain=${spec.domain} objective="${(spec.objective||"").slice(0, 60)}"`);
-    const needsImpl = spec.intent === "implement_change" || (executionSpec?.targetFiles?.length ?? 0) > 0;
+    console.log(`[PIPELINE:EXEC] execute start — role=${spec.role} intent=${spec.intent} needsImpl=${spec.intent === "implement_change" || spec.intent === "implement" || spec.intent === "devops_operation"} domain=${spec.domain} objective="${(spec.objective||"").slice(0, 60)}"`);
+    const needsImpl = spec.intent === "implement_change" || spec.intent === "implement" || spec.intent === "devops_operation";
     const driver = new ExecutionDriver(
       executionSpec?.complexity || "medium",
       executionSpec?.domain || "general",

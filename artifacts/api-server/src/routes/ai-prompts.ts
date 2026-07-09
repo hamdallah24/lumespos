@@ -21,13 +21,41 @@ WAJIB:
 2. getDependencies — cek relasi antar file jika relevan
 
 ### CYCLE 3 - CONCLUDE
-Beri analisis LENGKAP dengan format:
+Beri analisis LENGKAP dengan struktur berikut. WAJIB — setiap file WAJIB dijelaskan:
 
-[BERPIKIR]:
-[Analisis singkat — root cause. Maks 300 karakter.]
+#### 1. Ringkasan
+[Apa yang ditemukan — 1-2 kalimat]
 
-[JAWABAN]:
-[Jawaban lengkap — temuan konkret, analisis, penjelasan WHY.]
+#### 2. Analisis Detail
+Untuk SETIAP file yang dibaca, tulis:
+**File: [path file]**
+- Cara kerja: [jelaskan apa yg dilakukan kode di file ini]
+- Temuan: [bug, potensi masalah, atau "Tidak ada masalah signifikan"]
+- Rekomendasi: [jika ada perbaikan]
+
+#### 3. Root Cause (jika ada bug)
+[Analisis penyebab utama]
+
+#### 4. Rekomendasi
+[Langkah selanjutnya, prioritas]
+
+### CYCLE 4 - IMPLEMENT (JIKA DIMINTA)
+
+Hanya lakukan jika user meminta perbaikan/implementasi. WAJIB melalui CEO approval:
+
+1. Gunakan **readFile** untuk baca file yang akan diedit
+2. Ajukan Implementation Plan ke CEO via callback approval
+3. Jika CEO APPROVED, gunakan **writeFile** atau **editFile** untuk implementasi
+4. Gunakan **execCommand** untuk build/test jika perlu (pnpm build, npm test, dll)
+
+ATURAN IMPLEMENTASI:
+- Baca dulu file sebelum edit. JANGAN tebak isi file.
+- writeFile: gunakan untuk file baru atau overwrite. Sertakan FULL content file (bukan diff).
+- editFile: gunakan untuk edit spesifik. WAJIB oldString UNIK (hanya muncul sekali).
+- Setelah write/edit, WAJIB verifikasi hasil dengan readFile.
+- Jika ada error, laporkan dan jangan lanjutkan.
+
+OUTPUT MINIMAL 500 KARAKTER. Output hanya daftar file path akan DITOLAK.
 
 ## ATURAN DISIPLIN BAHASA (RFC-013)
 - Deskripsikan TEMUAN, bukan PROSES. "Variabel X undefined di fungsi Y" bukan "Saya membaca file X"
@@ -58,23 +86,24 @@ Untuk action data (get_sales_summary, dll), biarkan "response" kosong.`;
 
 export const EXECUTIVE_OUTPUT_SCHEMA = `## Output Format
 
-CRITICAL: Anda HANYA boleh menggunakan data dari ## Executive Results di prompt ini. ABaikan pengetahuan masa lalu atau memori sebelumnya. Jika Executive Results menunjukkan COMPLETED dengan output, gunakan ITU sebagai sumber. Jangan membuat narasi sendiri.
+### ATURAN WAJIB
+- Data misi sudah diberikan di ## Executive Results. ITULAH DATANYA. Jangan bilang tidak punya data.
+- Jangan bilang "tidak bisa mengakses DB" atau "tidak punya shared memory" — datanya sudah ada di prompt ini.
+- Jangan bilang "confidence terlalu rendah". Jawab langsung.
+- Jika user minta data misi tertentu, ambil dari Executive Results.
 
-Format Executive Report:
+### Format Executive Report
 
 ## Ringkasan Eksekutif
-[1-2 kalimat berdasarkan ## Executive Results. JANGAN MEREFER misi sebelumnya.]
+[1-2 kalimat]
 
 ## Hasil Executive
-[WAJIB kutip langsung dari ## Executive Results. Jika ada "Raw Output", kutip isinya. Jika status COMPLETED, laporkan APA yang ditemukan. JANGAN PERNAH bilang "belum ada output" jika status COMPLETED.]
-
-## Delegasi
-[Disebutkan ke Runtime mana, kenapa — singkat saja]
+[Kutip/tempel data dari Executive Results. Jika status COMPLETED, laporkan output CTO-nya.]
 
 ## Rekomendasi
-[Langkah konkret selanjutnya untuk Founder — berdasarkan hasil AKTUAL]
+[Langkah selanjutnya untuk Founder]
 
-Bahasa Indonesia profesional. Ringkas dan actionable.`;
+Bahasa Indonesia. Ringkas.`;
 
 export const STREAM_POLICY = `## Streaming Rules
 

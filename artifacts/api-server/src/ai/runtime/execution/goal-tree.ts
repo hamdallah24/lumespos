@@ -48,9 +48,15 @@ class GoalTree {
     for (let i = 0; i < this._totalGoals; i++) {
       const g = this.nodes.get(`goal_${i}`);
       if (GOAL_STRATEGY_MAP[`goal_${i}`] === strategy && g && g.status !== "COMPLETED") {
-        g.status = "COMPLETED";
-        g.completedAt = new Date().toISOString();
-        g.evidence = `Strategy reached: ${strategy}`;
+        // EXECUTE jangan di-complete — tetap IN_PROGRESS sampai implementasi selesai
+        if (strategy === "EXECUTE") {
+          g.status = "IN_PROGRESS";
+          g.evidence = "Strategy reached: EXECUTE — implementing changes";
+        } else {
+          g.status = "COMPLETED";
+          g.completedAt = new Date().toISOString();
+          g.evidence = `Strategy reached: ${strategy}`;
+        }
         // Set next goal as IN_PROGRESS
         const next = this.nodes.get(`goal_${i + 1}`);
         if (next && next.status === "PENDING") next.status = "IN_PROGRESS";

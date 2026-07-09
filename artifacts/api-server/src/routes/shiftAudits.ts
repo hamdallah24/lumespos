@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, shiftAuditsTable, usersTable, currentInventoryTable, stockAdjustmentsTable, ordersTable, orderItemsTable, productsTable, productVariantsTable, recipesTable } from "@workspace/db";
+import { db, shiftAuditsTable, usersTable, currentInventoryTable, stockAdjustmentsTable, ordersTable, orderItemsTable, productsTable, productVariantsTable, recipesTable, expensesTable } from "@workspace/db";
 import { and, desc, eq, sql, gte, lte } from "drizzle-orm";
 import { canAccessBranch, requireAuth, requireBranchAccess, requireRole } from "../middlewares/requireAuth";
 import { listInventoryForBranch, listInventoryForShift, adjustInventory, type Executor, type ItemType } from "../services/inventory";
@@ -49,6 +49,103 @@ function buildReconciliation(expected: StockEntry[], actual: StockEntry[]) {
     };
   });
   return { reconciliation, maxDiscrepancyPct };
+}
+
+function parseCupCounts(input: unknown): { s: number; m: number; l: number } | null {
+  if (!input || typeof input !== "object") return null;
+  const record = input as Record<string, unknown>;
+  const cupCounts = record.cupCounts as Record<string, unknown> | undefined;
+  if (cupCounts && typeof cupCounts === "object") {
+    return {
+      s: Number(cupCounts.s ?? 0),
+      m: Number(cupCounts.m ?? 0),
+      l: Number(cupCounts.l ?? 0),
+    };
+  }
+  const single = Number(record.endingCupCount ?? record.cupCount ?? 0);
+  return single > 0 ? { s: single, m: 0, l: 0 } : null;
+}
+
+function reconcileStockOpeningToClosing(opening: StockEntry[], closing: StockEntry[]) {
+  const openingMap = new Map(opening.map((i) => [`${i.itemType}:${i.itemId}`, i]));
+  const closingMap = new Map(closing.map((i) => [`${i.itemType}:${i.itemId}`, i]));
+  const keys = new Set([...openingMap.keys(), ...closingMap.keys()]);
+  const delta = Array.from(keys).map((key) => {
+    const openingItem = openingMap.get(key);
+    const closingItem = closingMap.get(key);
+    const openingQty = openingItem?.quantity ?? 0;
+    const closingQty = closingItem?.quantity ?? 0;
+    const deltaQty = closingQty - openingQty;
+    return {
+      itemType: openingItem?.itemType ?? closingItem?.itemType ?? "ingredient",
+      itemId: openingItem?.itemId ?? closingItem?.itemId ?? 0,
+      name: openingItem?.name ?? closingItem?.name ?? key,
+      unit: openingItem?.unit ?? closingItem?.unit ?? "pcs",
+      opening: openingQty,
+      closing: closingQty,
+      delta: deltaQty,
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+
+  return {
+    opening,
+    closing,
+    delta,
+    summary: {
+      itemsTracked: delta.length,
+      itemsWithChange: delta.filter((item) => Math.abs(item.delta) > 0.0001).length,
+      totalQtyDelta: delta.reduce((sum, item) => sum + item.delta, 0),
+    },
+  };
+}
+
+function buildExecutiveSummary(params: {
+  anomalies: any[];
+  stockAnalysis: any;
+  cupAnalysis: any;
+  totalCups: number;
+  totalMaterialLoss: number;
+  totalPotentialRevenue: number;
+}) {
+  const stockDeltaItems = params.stockAnalysis?.delta?.filter((item: any) => Math.abs(item.delta) > 0.0001).length ?? 0;
+  const cupGap = params.cupAnalysis?.discrepancy ?? 0;
+  const highRisk = params.anomalies.some((a) => a.flag === "HIGH") || Math.abs(cupGap) > 2;
+  const mediumRisk = params.anomalies.length > 0 || stockDeltaItems > 0 || Math.abs(cupGap) > 0.5;
+  const severity = highRisk ? "high" : mediumRisk ? "medium" : "low";
+  const verdict = severity === "high" ? "Perlu Tindakan Segera" : severity === "medium" ? "Waspada" : "Normal";
+  const headline = severity === "high"
+    ? "Ada potensi kehilangan atau penyimpangan serius pada shift ini."
+    : severity === "medium"
+      ? "Ada beberapa sinyal yang perlu dipantau lebih dekat."
+      : "Operasional shift secara umum konsisten dan tidak ada anomali besar.";
+
+  const keyPoints = [
+    `${params.anomalies.length} temuan anomali bahan baku`,
+    `${stockDeltaItems} item stok mengalami perubahan sejak awal shift`,
+    `Cup terjual ${params.totalCups} unit${Math.abs(cupGap) > 0.5 ? `, selisih ${cupGap > 0 ? "+" : ""}${cupGap} unit` : ""}`,
+  ].filter(Boolean);
+
+  const recommendation = severity === "high"
+    ? "Lakukan review langsung ke kasir, barista, dan bukti fisik sebelum verifikasi akhir."
+    : severity === "medium"
+      ? "Cek ulang pencatatan takaran, stok fisik, dan cup sebelum verifikasi."
+      : "Monitor rutin tetap berjalan dan lanjutkan SOP standar.";
+
+  return {
+    verdict,
+    severity,
+    headline,
+    keyPoints,
+    recommendation,
+    metrics: {
+      anomalyCount: params.anomalies.length,
+      totalMaterialLoss: params.totalMaterialLoss,
+      totalPotentialRevenue: params.totalPotentialRevenue,
+      stockDeltaItems,
+      cupDiscrepancy: cupGap,
+      totalCups: params.totalCups,
+    },
+  };
 }
 
 // GET /api/shift/sales - ambil total penjualan shift
@@ -188,7 +285,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
       return res.status(403).json({ error: "Forbidden branch" });
     }
 
-    // Hitung total cash dari order
+    const windowEnd = new Date();
     const [sales] = await db
       .select({ totalCash: sql<string>`COALESCE(SUM(total), 0)` })
       .from(sql`orders`)
@@ -197,12 +294,25 @@ router.post("/shift/end", requireAuth, async (req, res) => {
           eq(sql`branch_id`, shift.branchId),
           eq(sql`payment_method`, "cash"),
           sql`created_at >= ${shift.shiftStart}`,
+          sql`created_at <= ${windowEnd}`,
           eq(sql`status`, "completed")
         )
       );
 
+    const [expenseResult] = await db
+      .select({ totalExpenses: sql<string>`COALESCE(SUM(amount), 0)` })
+      .from(expensesTable)
+      .where(
+        and(
+          eq(expensesTable.branchId, shift.branchId),
+          sql`${expensesTable.createdAt} >= ${shift.shiftStart}`,
+          sql`${expensesTable.createdAt} <= ${windowEnd}`,
+        )
+      );
+
     const totalCash = parseFloat(sales?.totalCash || "0");
-    const expectedBalance = parseFloat(shift.openingBalance) + totalCash;
+    const totalExpenses = parseFloat(expenseResult?.totalExpenses || "0");
+    const expectedBalance = parseFloat(shift.openingBalance) + totalCash - totalExpenses;
     const difference = closingBalance - expectedBalance;
     let status = difference !== 0 ? "discrepancy" : "pending";
 
@@ -441,6 +551,21 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
   const expected = (row.expectedStockJson as StockEntry[] | null) ?? [];
   const actual = (row.actualStockJson as StockEntry[] | null) ?? [];
   const { reconciliation, maxDiscrepancyPct } = buildReconciliation(expected, actual);
+  const shiftStart = row.shiftStart ? new Date(row.shiftStart) : null;
+  const shiftEnd = row.shiftEnd ? new Date(row.shiftEnd) : new Date();
+  const [expenseResult] = shiftStart
+    ? await db
+        .select({ totalExpenses: sql<string>`COALESCE(SUM(amount), 0)` })
+        .from(expensesTable)
+        .where(
+          and(
+            eq(expensesTable.branchId, row.branchId),
+            sql`${expensesTable.createdAt} >= ${shiftStart}`,
+            sql`${expensesTable.createdAt} <= ${shiftEnd}`,
+          )
+        )
+    : [{ totalExpenses: "0" }];
+  const totalExpenses = parseFloat(expenseResult?.totalExpenses || "0");
 
   let moneyNote: any = null;
   if (row.notes) { try { moneyNote = JSON.parse(row.notes); } catch { moneyNote = { raw: row.notes }; } }
@@ -460,6 +585,7 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
     expectedBalance: row.expectedBalance ? parseFloat(row.expectedBalance) : null,
     difference: moneyNote?.difference ?? null,
     totalCash: moneyNote?.totalCash ?? null,
+    totalExpenses,
     endingCupCount: row.endingCupCount ? parseFloat(row.endingCupCount) : null,
     createdAt: row.createdAt,
     maxDiscrepancyPct,
@@ -693,25 +819,35 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
         if (n.cupCounts) cupBySize = { s: Number(n.cupCounts.s) || 0, m: Number(n.cupCounts.m) || 0, l: Number(n.cupCounts.l) || 0 };
       } catch {}
     }
-    const endingCupCount = audit.endingCupCount ? parseFloat(audit.endingCupCount) : null;
     const [prevShift] = await db
-      .select({ ec: shiftAuditsTable.endingCupCount })
+      .select({
+        ec: shiftAuditsTable.endingCupCount,
+        notes: shiftAuditsTable.notes,
+        actualStockJson: shiftAuditsTable.actualStockJson,
+        expectedStockJson: shiftAuditsTable.expectedStockJson,
+      })
       .from(shiftAuditsTable)
       .where(and(eq(shiftAuditsTable.branchId, audit.branchId!), sql`${shiftAuditsTable.id} < ${id}`))
       .orderBy(sql`${shiftAuditsTable.id} DESC`).limit(1);
-    const startingCups = prevShift ? parseFloat(prevShift.ec || "0") : 0;
-    const cupsUsed = endingCupCount !== null ? startingCups - endingCupCount + totalCups : null;
-    const cupDiscrepancy = cupsUsed !== null ? cupsUsed - totalCups : null;
-    const cupStatus = cupDiscrepancy === null ? "Tidak ada data cup" :
-      Math.abs(cupDiscrepancy) < 1 ? "OK — cup sesuai" : "SELISIH";
+    const openingCupCounts = parseCupCounts(prevShift?.notes) ?? { s: 0, m: 0, l: 0 };
+    const closingCupCounts = cupBySize ?? { s: 0, m: 0, l: 0 };
+    const startingCups = prevShift?.ec ? parseFloat(prevShift.ec) : (openingCupCounts.s + openingCupCounts.m + openingCupCounts.l);
+    const endingCupCount = audit.endingCupCount ? parseFloat(audit.endingCupCount) : (closingCupCounts.s + closingCupCounts.m + closingCupCounts.l);
+    const actualCupUsed = startingCups - endingCupCount;
+    const cupDiscrepancy = actualCupUsed - totalCups;
+    const cupStatus = Math.abs(cupDiscrepancy) < 1 ? "OK — cup sesuai" : "SELISIH";
+
+    const openingStock = (prevShift?.actualStockJson as any[] | null) ?? (prevShift?.expectedStockJson as any[] | null) ?? [];
+    const stockAnalysis = reconcileStockOpeningToClosing(openingStock, actual);
 
     const cupAnalysis: any = {
-      start: cupBySize ? { s: cupBySize.s, m: cupBySize.m, l: cupBySize.l, total: startingCups } : { total: startingCups },
-      end: cupBySize ? { s: cupBySize.s, m: cupBySize.m, l: cupBySize.l, total: endingCupCount ?? 0 } : { total: endingCupCount ?? 0 },
+      start: { s: openingCupCounts.s, m: openingCupCounts.m, l: openingCupCounts.l, total: startingCups },
+      end: { s: closingCupCounts.s, m: closingCupCounts.m, l: closingCupCounts.l, total: endingCupCount },
       sold: totalCups,
-      used: cupsUsed,
+      actualUsed: actualCupUsed,
       discrepancy: cupDiscrepancy,
       status: cupStatus,
+      source: "stok fisik cup awal/akhir shift",
     };
 
     const ingredientCups = anomalies.reduce((s, a) => s + (a.potentialCups || 0), 0);
@@ -723,15 +859,26 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
 
     const totalMaterial = anomalies.reduce((s: number, a: any) => s + a.materialLoss, 0);
     const totalRevenue = anomalies.reduce((s: number, a: any) => s + a.potentialRevenue, 0);
+    const executiveSummary = buildExecutiveSummary({
+      anomalies,
+      stockAnalysis,
+      cupAnalysis,
+      totalCups,
+      totalMaterialLoss: totalMaterial,
+      totalPotentialRevenue: totalRevenue,
+    });
 
     res.json({
       shiftId: id, branchId: audit.branchId, period: `${audit.shiftStart} — ${audit.shiftEnd}`,
       totalCups,
+      stockAnalysis,
       cupAnalysis,
       anomalies,
+      executiveSummary,
       summary: {
         totalAnomalies: anomalies.length, totalMaterialLoss: totalMaterial, totalPotentialRevenue: totalRevenue,
-        recommendation: anomalies.length > 0 ? "Audit SOP takaran. Cek barista & training." : "Semua dalam batas normal.",
+        recommendation: executiveSummary.recommendation,
+        executiveSummary,
       },
     });
   } catch (e) {

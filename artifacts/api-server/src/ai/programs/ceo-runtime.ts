@@ -17,6 +17,9 @@ import { aiMissionService } from "../../services/ai-mission-service";
 import { missionRuntime } from "../runtime/mission-engine";
 import { missionEngine } from "../runtime/mission-background-engine";
 import { consultantRuntime } from "../../programs/consultant";
+import { knowledgeBackbone } from "../../knowledge/KnowledgeBackbone";
+import { db, missionsTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 
 const CEO_IDENTITY = getIdentity("CEO")!;
 
@@ -64,28 +67,29 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     pipeline.push("ApprovalHandler");
     ctx.onProgress?.("📋 Meninjau rencana implementasi CTO...");
 
-    const directiveContent = getDirective();
-    const systemPrompt = assemble({
-      identity: CEO_IDENTITY,
-      directive: directiveContent,
-      outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
-      maxTokens: 2000,
-      mode: "ceo",
-    });
-
     try {
-      const rawText = await callDeepSeek(systemPrompt, ctx.message, ctx.userId, "ceo", 1000);
-      const approved = rawText.toUpperCase().includes("APPROVED") || rawText.toUpperCase().includes("SETUJUI");
+      const approved = await callDeepSeek(
+        `Kamu adalah CEO Engineering OS. Tugasmu hanya MENYETUJUI atau MENOLAK rencana implementasi dari CTO.
+        
+        ATURAN:
+        - Jika rencana CTO masuk akal dan tidak merusak sistem, balas dengan: "APPROVED"
+        - Jika rencana CTO berbahaya atau tidak tepat, balas dengan: "REJECTED: [alasan singkat]"
+        - JANGAN berikan analisis tambahan. JANGAN gunakan format executive report.
+        - Jawab LANGSUNG dengan APPROVED atau REJECTED.
+        - Bahasa Indonesia.`,
+        ctx.message, ctx.userId, "ceo", 500,
+      );
+      const isApproved = approved.toUpperCase().includes("APPROVED");
       return {
         success: true,
-        text: approved ? `APPROVED: ${rawText}` : `REJECTED: ${rawText}`,
+        text: isApproved ? `APPROVED: ${approved}` : `REJECTED: ${approved}`,
         decision: {
           goal: "approve_implementation_plan",
           delegation: null,
           priority: "normal",
           risk: "low",
           reasoning: "CTO implementation plan review",
-          expectedOutcome: approved ? "CTO will proceed with implementation" : "CTO will conclude without writing files",
+          expectedOutcome: isApproved ? "CTO will proceed with implementation" : "CTO will conclude without writing files",
         },
         pipeline,
       };
@@ -108,6 +112,7 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
 
   // Stage 2: Load Executive Directive from Foundation (cached)
   pipeline.push("DirectiveLoad");
+  ctx.onProgress?.("📄 Memuat directive eksekutif...");
   const directiveContent = getDirective();
 
   // Stage 2b: CKO — translate Founder's business intent → technical targets
@@ -123,18 +128,22 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
 
   // Stage 3: Semantic Understanding (dengan CKO advisory)
   pipeline.push("SemanticEngine");
+  ctx.onProgress?.("🔎 Memahami intent pengguna...");
   const contract = await understand(ctx.message, ctx.userId, ckoTargets ?? undefined);
 
   // Stage 4: Execution Specification
   pipeline.push("ExecutionSpec");
+  ctx.onProgress?.("📋 Execution spec selesai...");
   const spec = buildSpecV1(contract);
 
   // Stage 5: Verification
   pipeline.push("Verification");
+  ctx.onProgress?.("✅ Verifikasi spesifikasi...");
   const verification = verify(spec);
 
   // Stage 6: Delegation via Organization Engine
   pipeline.push("OrganizationEngine");
+  ctx.onProgress?.("🏢 Menentukan delegasi...");
   const executives = organizationEngine.delegateBySpec(spec);
   
   // Smart Dispatch: CEO handles greetings + knowledge_query (chat biasa) langsung.
@@ -163,7 +172,26 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
 
     // Stage 8: LLM Reasoning
   let rawText = "";
-  if (!verification.passed) {
+
+  // Stage 8a: Mission Query — handle BEFORE verification gate so "Confidence too low" doesn't block it
+  const isMissionQuery = /misi\s*#?\d+|misi\s+(terakhir|sebelumnya|lalu|yang\s+selesai|lampau)/i.test(ctx.message)
+    && !/\b(buat|jalankan|kerjakan|proses)\s+misi\b/i.test(ctx.message);
+  if (isMissionQuery) {
+    pipeline.push("MissionQuery");
+    const match = ctx.message.match(/misi\s*#?(\d+)/i);
+    const targetId = match ? parseInt(match[1]) : -1;
+    const missionRows = await db.select({
+      id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
+    }).from(missionsTable)
+      .where(targetId > 0 ? eq(missionsTable.id, targetId) : undefined)
+      .orderBy(desc(missionsTable.id)).limit(5).catch(() => []);
+    const target = targetId > 0 ? missionRows.find(m => m.id === targetId) : missionRows[0];
+    if (target) {
+      rawText = `Ringkasan Eksekutif\nMisi #${target.id} berstatus **${target.status}**.\n\nHasil Executive\n${target.result ? target.result.slice(0, 4000) : "Tidak ada output tersimpan."}`;
+    } else {
+      rawText = `Ringkasan Eksekutif\nMisi #${targetId} tidak ditemukan di database.`;
+    }
+  } else if (!verification.passed) {
     rawText = `❌ ${verification.stopReason}`;
   } else if (contract.intent === "greeting") {
     rawText = "Halo. Ada yang bisa CEO Runtime bantu?";
@@ -198,14 +226,30 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     } else {
       // Chat biasa — CEO diskusi dulu, misi dibuat hanya saat user bilang "buat misi"
       pipeline.push("PromptAssembly");
-      const systemPrompt = assemble({
+      ctx.onProgress?.("📝 Merakit prompt CEO...");
+      // Inject executive memory + recent missions from DB so CEO has real data
+      const ceoMemory = knowledgeBackbone.summarizeMemory("CEO");
+      const ctoMemory = knowledgeBackbone.summarizeMemory("CTO");
+      const memoryBlock = [ceoMemory, ctoMemory].filter(Boolean).join("\n");
+      let missionsContext = "";
+      try {
+        const recentMissions = await db.select({
+          id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
+        }).from(missionsTable).orderBy(desc(missionsTable.id)).limit(5);
+        missionsContext = recentMissions.map((m, i) => {
+          const showFull = i === 0 && m.result && m.result.length > 300;
+          return `- Misi #${m.id}: ${m.status}${m.result ? ` — ${showFull ? m.result : m.result.slice(0, 300)}` : ""}`;
+        }).join("\n");
+      } catch { /* DB unavailable */ }
+      const contextParts = [memoryBlock, missionsContext ? `\n## Riwayat Misi Terbaru\n${missionsContext}` : ""].filter(Boolean);
+      const systemPrompt = `DILARANG: jangan pernah mengatakan "Confidence too low" atau "confidence terlalu rendah". Jawab langsung berdasarkan data yang ada atau pengetahuanmu.\n\n${assemble({
         identity: CEO_IDENTITY,
         directive: directiveContent,
-        decision,
+        context: contextParts.join("\n\n") || undefined,
         outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
         maxTokens: 8000,
         mode: "ceo",
-      });
+      })}`;
       ctx.onProgress?.("💼 CEO Runtime merespon...");
       try {
         rawText = await callDeepSeek(
@@ -221,15 +265,26 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     }
   } else {
     pipeline.push("PromptAssembly");
+    ctx.onProgress?.("📝 Merakit prompt CEO...");
     // ECP-039: NO toolRules — CEO is REASONING mode. No tools.
-    const systemPrompt = assemble({
+    let missionsContext = "";
+    try {
+      const recentMissions = await db.select({
+        id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
+      }).from(missionsTable).orderBy(desc(missionsTable.id)).limit(5);
+      missionsContext = recentMissions.map((m, i) => {
+        const showFull = i === 0 && m.result && m.result.length > 300;
+        return `- Misi #${m.id}: ${m.status}${m.result ? ` — ${showFull ? m.result : m.result.slice(0, 300)}` : ""}`;
+      }).join("\n");
+    } catch { /* DB unavailable */ }
+    const systemPrompt = `DILARANG: jangan pernah mengatakan "Confidence too low" atau "confidence terlalu rendah". Jawab langsung berdasarkan data yang ada atau pengetahuanmu.\n\n${assemble({
       identity: CEO_IDENTITY,
       directive: directiveContent,
-      decision,
+      context: missionsContext ? `\n## Riwayat Misi Terbaru\n${missionsContext}` : undefined,
       outputSchema: EXECUTIVE_OUTPUT_SCHEMA,
       maxTokens: 8000,
       mode: "ceo",
-    });
+    })}`;
     ctx.onProgress?.("💼 CEO Runtime menganalisis...");
     try {
       // ECP-039: CEO uses callDeepSeek (single call, no Governor loop).
@@ -242,12 +297,32 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     }
   }
 
+  // Stage 8b: Post-process — catch LLM refusal patterns (confidence, no access, no data)
+  const refusalRe = /confidence\s+too\s+low|confidence\s+terlalu\s+rendah|tidak.*(?:memiliki\s+akses|bisa\s+mengakses|ada\s+data|bisa\s+menjawab|memiliki\s+cukup|bisa\s+melakukan)|tidak.*(?:akses\s+ke\s+database|shared\s+memory|terhubung)|forbidden\s+actions/i;
+  if (refusalRe.test(rawText) && rawText.length < 3000) {
+    const match = ctx.message.match(/misi\s*#?(\d+)/i);
+    const targetId = match ? parseInt(match[1]) : -1;
+    const missionRows = await db.select({
+      id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
+    }).from(missionsTable)
+      .where(targetId > 0 ? eq(missionsTable.id, targetId) : undefined)
+      .orderBy(desc(missionsTable.id)).limit(5).catch(() => []);
+    if (missionRows.length > 0) {
+      const target = targetId > 0 ? missionRows.find(m => m.id === targetId) : missionRows[0];
+      if (target) {
+      rawText = `Ringkasan Eksekutif\nMisi #${target.id} berstatus **${target.status}**.\n\nHasil Executive\n${target.result ? target.result.slice(0, 4000) : "Tidak ada output tersimpan."}`;
+      if (!pipeline.includes("MissionQuery")) pipeline.push("MissionQuery");
+      }
+    }
+  }
+
   // Stage 9: Executive Report
   pipeline.push("ExecutiveReport");
-  const delegationLine = rawText.includes("Misi #")
+  const isDelegated = rawText.includes("Misi #") && !pipeline.includes("MissionQuery");
+  const delegationLine = isDelegated
     ? `\n> — CEO Runtime · Misi dikirim ke ${executives.map((e: { runtime: string }) => e.runtime).join(", ")}`
     : "\n> — CEO Runtime · Direct";
-  const text = `## Executive Report\n\n${rawText}\n${delegationLine}`;
+  const text = `${rawText}\n${delegationLine}`;
 
   console.log(`[PIPELINE:CEO] execute end — pipeline=[${pipeline.join("→")}] success=${verification.passed && !rawText.startsWith("ERROR:")}`);
 

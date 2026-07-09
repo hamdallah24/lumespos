@@ -10,6 +10,7 @@ import { ceoRuntime } from "../programs/ceo-runtime";
 import { aiMissionService } from "../../services/ai-mission-service";
 import { db, missionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { knowledgeBackbone } from "../../knowledge/KnowledgeBackbone";
 
 /** Cek apakah output CTO layak — tolak yg cuma error/empty/meta */
 function isQualityOutput(text: string): { ok: boolean; reason: string } {
@@ -93,7 +94,7 @@ class MissionEngine {
         if (result === "completed") completed++;
         if (result === "failed") failed++;
       } catch (e: any) {
-        console.error(`[MissionEngine] Error processing ${mission.id}:`, e.message);
+        console.error(`[MissionEngine] Error processing ${mission.id}:`, e.message, e.stack?.split("\n")[1] || "");
       } finally {
         this.processing.delete(mission.id);
       }
@@ -151,8 +152,10 @@ class MissionEngine {
 
       // ── REAL REVIEW: verifikasi tool usage + output quality ──
       let errMsg = "";
-      if (!result.success) {
-        errMsg = "CTO gagal menjalankan analisis";
+      if ((result.text || "").trim().length < 300) {
+        const short = (result.text || "").trim();
+        if (!short) errMsg = "CTO gagal menjalankan analisis (output kosong)";
+        else errMsg = `CTO output terlalu pendek (${short.length} chars)`;
       } else if (result.toolsUsed === 0) {
         errMsg = "CTO tidak menggunakan tools — output tanpa data dari file";
       } else if (result.filesRead.length === 0) {
@@ -171,7 +174,7 @@ class MissionEngine {
       if (errMsg) {
         missionRuntime.transition(mission.id, "FAILED");
         if (mission.dbMissionId) {
-          await db.update(missionsTable).set({ status: "FAILED", updatedAt: new Date(), completedAt: new Date() }).where(eq(missionsTable.id, mission.dbMissionId));
+          await db.update(missionsTable).set({ status: "FAILED", result: `REJECT: ${errMsg}`, updatedAt: new Date(), completedAt: new Date() }).where(eq(missionsTable.id, mission.dbMissionId));
           aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ ${errMsg}`);
           await remember(mission.userId, "ceo", mission.userMessage,
             `❌ **Misi #${mission.dbMissionId || mission.id} Gagal**: ${errMsg}. Coba perjelas file atau folder targetnya.`);
@@ -179,20 +182,46 @@ class MissionEngine {
         return "failed";
       }
 
-      // ── CEO REVIEW: forward CTO output to CEO for approval ──
+      // ── CEO REVIEW: forward CTO output with executive memory context ──
       console.log(`[PIPELINE:BGE] CEO review — forwarding CTO result for mission=${mission.id}`);
       try {
+        // Save current CTO result into CEO's executive memory for historical context
+        const findings = (result.text || "").split("\n").filter(l => l.startsWith("##") || l.startsWith("-")).slice(0, 10);
+        knowledgeBackbone.updateMemory("CEO", {
+          objective: mission.objective || "analysis",
+          currentFindings: findings.length > 0 ? findings : [(result.text || "").slice(0, 200)],
+          completedTasks: [`Mission #${mission.dbMissionId}: ${(result.text || "").length} chars CTO output`],
+          confidence: Math.min(Math.floor((result.text || "").length / 100), 95),
+        });
+
+        // Build memory prompt so CEO knows past decisions & findings
+        const ceoMemory = knowledgeBackbone.summarizeMemory("CEO");
+
+        let ceoPrompt = result.text || "";
+        ceoPrompt = ceoPrompt.replace(/##\s*CYCLE\s+\d+\s*[-–—]\s*\w+/gi, "").trim();
+        ceoPrompt = ceoPrompt.slice(0, 2500);
+
+        const memoryContext = ceoMemory ? `\n\n## Konteks Eksekusi Sebelumnya\n${ceoMemory}` : "";
         const ceoFeedback = await ceoRuntime.execute({
-          message: `[CEO APPROVAL] CTO telah selesai menganalisis. Berikut hasilnya:\n\n${result.text.slice(0, 2000)}\n\nSetujui hasil ini untuk dikirim ke Founder?`,
+          message: `[CEO APPROVAL] CTO telah selesai menganalisis. Berikut hasilnya:\n\n${ceoPrompt}${memoryContext}\n\nSetujui hasil ini untuk dikirim ke Founder? Balas dengan SETUJUI jika kualitas memadai.`,
           userId: mission.userId || 1,
           onProgress: () => {},
         });
-        const approved = ceoFeedback.text.includes("APPROVED") || ceoFeedback.text.includes("SETUJUI");
+        const lower = ceoFeedback.text.toLowerCase();
+        const approved = lower.includes("setujui") || lower.includes("approve") || lower.includes("setuju") || lower.includes("approved") || lower.includes("ya");
         console.log(`[PIPELINE:BGE] CEO review result — approved=${approved}`);
+        // Save approval decision to executive memory
+        const prevCompleted = knowledgeBackbone.getMemory("CEO").completedTasks;
+        knowledgeBackbone.updateMemory("CEO", {
+          completedTasks: [
+            ...prevCompleted,
+            `Mission #${mission.dbMissionId || mission.id}: ${approved ? "APPROVED" : "REJECTED"} — ${(result.text || "").length} chars`,
+          ],
+        });
         if (!approved) {
           missionRuntime.transition(mission.id, "FAILED");
           if (mission.dbMissionId) {
-            await db.update(missionsTable).set({ status: "FAILED", updatedAt: new Date(), completedAt: new Date() }).where(eq(missionsTable.id, mission.dbMissionId));
+            await db.update(missionsTable).set({ status: "FAILED", result: "REJECT: CEO menolak hasil analisis CTO", updatedAt: new Date(), completedAt: new Date() }).where(eq(missionsTable.id, mission.dbMissionId));
             aiMissionService.notifyCompleted(mission.dbMissionId, "", "❌ CEO menolak hasil analisis CTO");
             await remember(mission.userId, "ceo", mission.userMessage,
               `❌ **Misi #${mission.dbMissionId || mission.id} Ditolak CEO**: Hasil analisis CTO tidak memenuhi standar.`);
@@ -207,19 +236,41 @@ class MissionEngine {
       // ── REVIEW LULUS → approve ──
       missionRuntime.transition(mission.id, "REVIEW");
       missionRuntime.approve(mission.id);
+      const fullText = result.text.slice(0, 12000);
+      const preview = result.text.slice(0, 500);
+
+      // CEO: generate simple-language summary for founder
+      let ceoSummary = "";
+      try {
+        const ceoExplain = await ceoRuntime.execute({
+          message: `[CEO EXPLAIN] CTO baru saja selesai menganalisis. Berikut hasil analisis teknisnya:\n\n${result.text.slice(0, 3000)}\n\nTugasmu: jelaskan hasil ini ke Founder (pemilik toko) dalam BAHASA INDONESIA SEDERHANA. Founder bukan programmer. Jelaskan:\n1. Apa yang ditemukan? (dengan analogi sederhana)\n2. Apa dampaknya ke bisnis?\n3. Apa rekomendasi selanjutnya?\n\nGunakan bahasa sehari-hari, hindari istilah teknis. Maksimal 3 paragraf.`,
+          userId: mission.userId || 1,
+          onProgress: () => {},
+        });
+        if (ceoExplain.success && ceoExplain.text) {
+          ceoSummary = ceoExplain.text.slice(0, 2000);
+        }
+      } catch {
+        // Fallback — tetap pakai teks CTO
+      }
+
+      const founderMessage = ceoSummary
+        ? `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n${ceoSummary}`
+        : `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n**Tools:** ${result.toolsUsed} tool calls, ${result.filesRead.length} file dibaca\n\n${fullText}`;
+
       if (mission.dbMissionId) {
         await db.update(missionsTable).set({ status: "COMPLETED", updatedAt: new Date(), completedAt: new Date(), result: result.text.slice(0, 4000) }).where(eq(missionsTable.id, mission.dbMissionId));
         await aiMissionService.saveSnapshot(mission.dbMissionId, 0, { progress: 100 });
-        aiMissionService.notifyCompleted(mission.dbMissionId, result.text, result.text.slice(0, 400));
+        aiMissionService.notifyCompleted(mission.dbMissionId, result.text, ceoSummary || preview);
       }
-      await remember(mission.userId, "ceo", mission.userMessage,
-        `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n**Tools:** ${result.toolsUsed} tool calls, ${result.filesRead.length} file dibaca\n\n${result.text.slice(0, 400)}`);
+      await remember(mission.userId, "ceo", mission.userMessage, founderMessage);
       console.log(`[PIPELINE:BGE] executeCTOMission end — mission=${mission.id} completed`);
       return "completed";
     } catch (e: any) {
+      console.error(`[PIPELINE:BGE] executeCTOMission error — mission=${mission.id} dbId=${mission.dbMissionId} err="${e.message}"`);
       missionRuntime.transition(mission.id, "FAILED");
       if (mission.dbMissionId) {
-        await db.update(missionsTable).set({ status: "FAILED", updatedAt: new Date(), completedAt: new Date() }).where(eq(missionsTable.id, mission.dbMissionId));
+        await db.update(missionsTable).set({ status: "FAILED", result: `ERROR: ${e.message}`, updatedAt: new Date(), completedAt: new Date() }).where(eq(missionsTable.id, mission.dbMissionId));
         aiMissionService.notifyCompleted(mission.dbMissionId, "", `❌ Error: ${e.message}`);
         const { remember } = await import("../../services/ai-memory-service");
         await remember(mission.userId, "ceo", mission.userMessage,

@@ -29,6 +29,12 @@ async function buildAll() {
     // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
       "*.node",
+      "pino",
+      "pino-pretty",
+      "pino-file",
+      "pino-http",
+      "thread-stream",
+      "thread-stream-worker",
       "sharp",
       "better-sqlite3",
       "sqlite3",
@@ -103,8 +109,9 @@ async function buildAll() {
     ],
     sourcemap: "linked",
     plugins: [
-      // pino relies on workers to handle logging, instead of externalizing it we use a plugin to handle it
-      esbuildPluginPino({ transports: ["pino-pretty"] })
+      // pino relies on workers to handle logging. Disabled pino-pretty transport due to
+      // esbuild-plugin-pino embedding absolute Windows paths on the build machine.
+      // For local dev, pipe output through: node dist/index.mjs | npx pino-pretty
     ],
     // Make sure packages that are cjs only (e.g. express) but are bundled continue to work in our esm output file
     banner: {

@@ -7,6 +7,7 @@ import type { StrategicCache, ConsultantMode, ConsultantKPI } from "./consultant
 import { kpiTracker } from "./consultant-kpi";
 import { reportGenerator } from "./consultant-report";
 import { callDeepSeek } from "../../ai/llm/llm-adapter";
+import { consultantDiscovery } from "./consultant-discovery";
 
 export interface CKOTargets {
   targetFiles: string[];
@@ -116,9 +117,10 @@ scripts/                      — Build, generate, deploy utilities`;
     const lower = question.toLowerCase();
     const matchedFiles: string[] = [];
     const matchedEntities: string[] = [];
+    const domainScores: Record<string, number> = {};
 
-    // Keyword → file path mapping dari STRUCTURES
-    const keywordMap: Record<string, { files: string[]; entities: string[]; domain: string }> = {
+    // Hardcoded fallback keyword map — used when discovery file not available
+    const HARDCODED_MAP: Record<string, { files: string[]; entities: string[]; domain: string }> = {
       inventory: { files: ["artifacts/pos-app/src/pages/inventory.tsx", "lib/db/src/schema/inventory.ts"], entities: ["inventory", "stok", "barang"], domain: "inventory" },
       stok: { files: ["artifacts/pos-app/src/pages/inventory.tsx"], entities: ["stok", "inventory"], domain: "inventory" },
       produk: { files: ["artifacts/pos-app/src/pages/products.tsx", "lib/db/src/schema/products.ts"], entities: ["products", "produk"], domain: "products" },
@@ -141,24 +143,20 @@ scripts/                      — Build, generate, deploy utilities`;
       arsitektur: { files: [".ai/foundation/", "docs/architecture/"], entities: ["arsitektur", "architecture", "foundation"], domain: "architecture" },
     };
 
+    // Try loading dynamic map from discovery; fall back to hardcoded
+    const dynamicMap = consultantDiscovery.load();
+    const keywordMap = dynamicMap || HARDCODED_MAP;
+
     for (const [keyword, mapping] of Object.entries(keywordMap)) {
       if (lower.includes(keyword)) {
         matchedFiles.push(...mapping.files);
         matchedEntities.push(...mapping.entities);
-      }
-    }
-
-    // Deduplikasi
-    const uniqueFiles = [...new Set(matchedFiles)];
-    const uniqueEntities = [...new Set(matchedEntities)];
-
-    // Tentukan domain dari keyword dengan score tertinggi
-    const domainScores: Record<string, number> = {};
-    for (const [keyword, mapping] of Object.entries(keywordMap)) {
-      if (lower.includes(keyword)) {
         domainScores[mapping.domain] = (domainScores[mapping.domain] || 0) + 1;
       }
     }
+
+    const uniqueFiles = [...new Set(matchedFiles)];
+    const uniqueEntities = [...new Set(matchedEntities)];
     const topDomain = Object.entries(domainScores).sort((a, b) => b[1] - a[1])[0]?.[0] || "general";
 
     const businessContext = uniqueFiles.length > 0

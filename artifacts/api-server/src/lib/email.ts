@@ -10,11 +10,11 @@ function requiredEnv(name: string) {
   return value;
 }
 
-const appBaseUrl = requiredEnv("APP_BASE_URL") ?? "http://localhost:4173";
-const smtpHost = requiredEnv("SMTP_HOST");
-const smtpUser = requiredEnv("SMTP_USER");
-const smtpPass = requiredEnv("SMTP_PASS");
-const smtpFrom = requiredEnv("SMTP_FROM") ?? "Lume's Everywhere <no-reply@example.local>";
+const appBaseUrl = process.env.APP_BASE_URL ?? "http://localhost:4173";
+const smtpHost = process.env.SMTP_HOST ?? "";
+const smtpUser = process.env.SMTP_USER ?? "";
+const smtpPass = process.env.SMTP_PASS ?? "";
+const smtpFrom = process.env.SMTP_FROM ?? "Lume's Everywhere <no-reply@example.local>";
 const smtpPort = Number(process.env.SMTP_PORT ?? 587);
 const smtpSecure = process.env.SMTP_SECURE === "true";
 

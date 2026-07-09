@@ -1,8 +1,10 @@
 import { randomUUID } from "crypto";
 import fs from "fs";
+import fsp from "fs/promises";
 import path from "path";
 
 const UPLOAD_DIR = process.env.LOCAL_UPLOAD_DIR || path.join(process.cwd(), "uploads");
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
 // Pastikan folder uploads ada
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -41,7 +43,11 @@ export class ObjectStorageService {
   }
 
   async downloadObject(filePath: string): Promise<Response> {
-    const buffer = fs.readFileSync(filePath);
+    const stat = await fsp.stat(filePath);
+    if (stat.size > MAX_FILE_SIZE) {
+      throw new Error(`File too large: ${stat.size} bytes (max ${MAX_FILE_SIZE})`);
+    }
+    const buffer = await fsp.readFile(filePath);
     const ext = path.extname(filePath).slice(1) || "jpeg";
     return new Response(buffer, {
       headers: {

@@ -100,6 +100,11 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
 
   const allRecon = detail?.reconciliation ?? [];
   const hasWarning = allRecon.some((r) => r.isWarning);
+  const totalExpenses = (detail as any)?.totalExpenses ?? null;
+  const expectedCash = (detail?.openingBalance ?? 0) + (detail?.totalCash ?? 0) - (totalExpenses ?? 0);
+  const executiveSummary = fraud?.executiveSummary;
+  const fraudSummaryText = executiveSummary?.recommendation ?? fraud?.summary?.recommendation ?? "Analisis anti-fraud sedang diproses...";
+  const fraudSeverity = executiveSummary ? (executiveSummary.severity === "high" ? "Waspada Tinggi" : executiveSummary.severity === "medium" ? "Waspada" : "Normal") : (fraud?.summary?.totalAnomalies > 0 ? (fraud.summary.totalAnomalies > 2 ? "Waspada Tinggi" : "Waspada") : "Normal");
 
   useEffect(() => {
     const fetchAnalysis = async () => {
@@ -161,12 +166,19 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
                 {detail.totalCash != null && (
                   <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Penjualan Tunai</span><span className="font-semibold">{formatRp(detail.totalCash)}</span></div>
                 )}
+                {totalExpenses != null && (
+                  <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Pengeluaran</span><span className="font-semibold text-destructive">{formatRp(totalExpenses)}</span></div>
+                )}
                 {detail.expectedBalance != null && (
                   <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Harapan Kas</span><span className="font-semibold">{formatRp(detail.expectedBalance)}</span></div>
                 )}
                 {detail.closingBalance != null && (
                   <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Kas Akhir</span><span className="font-semibold text-primary">{formatRp(detail.closingBalance)}</span></div>
                 )}
+              </div>
+              <div className="mt-2 p-2 rounded border border-primary/20 bg-primary/5 text-xs">
+                <div className="flex justify-between"><span>Rumus kas shift</span><span className="font-semibold">Modal + penjualan tunai - pengeluaran</span></div>
+                <div className="mt-1 flex justify-between text-sm font-semibold text-primary"><span>Kas yang diharapkan</span><span>{formatRp(expectedCash)}</span></div>
               </div>
               {detail.difference != null && (
                 <div className={`mt-2 p-2 rounded text-center text-sm font-bold ${Math.abs(detail.difference) < 100 ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300" : "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300"}`}>
@@ -206,10 +218,70 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
             {/* ── 🔍 ANALISIS FRAUD ── */}
             <div>
               <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">🔍 Analisis Fraud</h3>
+              {executiveSummary && (
+                <div className={`mb-3 rounded-lg border p-3 text-xs ${fraudSeverity === "Waspada Tinggi" ? "border-red-400 bg-red-50 dark:bg-red-950" : fraudSeverity === "Waspada" ? "border-orange-300 bg-orange-50 dark:bg-orange-950" : "border-emerald-300 bg-emerald-50 dark:bg-emerald-950"}`}>
+                  <div className="flex items-center justify-between gap-2 font-semibold">
+                    <div>
+                      <p>Ringkasan Eksekutif</p>
+                      <p className="mt-1 text-[11px] font-normal text-muted-foreground">{executiveSummary.headline}</p>
+                    </div>
+                    <Badge className={fraudSeverity === "Waspada Tinggi" ? "bg-red-600 hover:bg-red-600" : fraudSeverity === "Waspada" ? "bg-orange-600 hover:bg-orange-600" : "bg-emerald-600 hover:bg-emerald-600"}>{executiveSummary.verdict}</Badge>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="rounded bg-background/70 p-2">
+                      <div className="text-muted-foreground">Anomali</div>
+                      <div className="font-semibold mt-0.5">{executiveSummary.metrics.anomalyCount}</div>
+                    </div>
+                    <div className="rounded bg-background/70 p-2">
+                      <div className="text-muted-foreground">Potensi rugi</div>
+                      <div className="font-semibold mt-0.5">{formatRp(executiveSummary.metrics.totalMaterialLoss)}</div>
+                    </div>
+                  </div>
+                  <ul className="mt-2 space-y-1 text-[11px] text-muted-foreground">
+                    {executiveSummary.keyPoints.map((point: string, index: number) => (
+                      <li key={`${point}-${index}`} className="flex gap-2"><span className="text-primary">•</span><span>{point}</span></li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 font-semibold text-foreground">Rekomendasi: {fraudSummaryText}</p>
+                </div>
+              )}
+              <div className={`mb-3 rounded-lg border p-3 text-xs ${fraudSeverity === "Waspada Tinggi" ? "border-red-400 bg-red-50 dark:bg-red-950" : fraudSeverity === "Waspada" ? "border-orange-300 bg-orange-50 dark:bg-orange-950" : "border-emerald-300 bg-emerald-50 dark:bg-emerald-950"}`}>
+                <div className="flex items-center justify-between font-semibold">
+                  <span>Status</span>
+                  <span>{fraudSeverity}</span>
+                </div>
+                <p className="mt-1 text-muted-foreground">{fraudSummaryText}</p>
+              </div>
               {fraudLoading ? (
                 <div className="h-20 bg-muted rounded animate-pulse" />
               ) : fraud ? (
                 <div className="space-y-3">
+                  {fraud.stockAnalysis && (
+                    <div className="space-y-2 text-xs">
+                      <div className="p-2 rounded border border-primary/20 bg-primary/5">
+                        <p className="font-semibold mb-1">Rekonsiliasi Stok Awal–Akhir</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="p-2 rounded bg-background/70">
+                            <span className="text-muted-foreground">Item terpantau</span>
+                            <div className="font-semibold mt-0.5">{fraud.stockAnalysis.summary?.itemsTracked ?? 0}</div>
+                          </div>
+                          <div className="p-2 rounded bg-background/70">
+                            <span className="text-muted-foreground">Total delta</span>
+                            <div className="font-semibold mt-0.5">{fraud.stockAnalysis.summary?.totalQtyDelta ?? 0}</div>
+                          </div>
+                        </div>
+                        {fraud.stockAnalysis.delta?.slice(0, 4).map((item: any, idx: number) => (
+                          <div key={`${item.name}-${idx}`} className="mt-2 flex justify-between border-t border-border/40 pt-1">
+                            <span>{item.name}</span>
+                            <span className={item.delta > 0 ? "text-emerald-600" : item.delta < 0 ? "text-red-600" : "text-muted-foreground"}>
+                              {item.opening} → {item.closing} ({item.delta > 0 ? "+" : ""}{item.delta})
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Cup Analysis — 3 ukuran */}
                   {fraud.cupAnalysis && (
                     <div className="space-y-2 text-xs">
@@ -218,9 +290,9 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
                           <span className="text-muted-foreground">Cup Awal</span>
                           <div className="font-semibold mt-0.5 space-x-2">
                             {fraud.cupAnalysis.start?.s !== undefined ? <>
-                              <span>K: {fraud.cupAnalysis.start.s}</span>
-                              <span>S: {fraud.cupAnalysis.start.m}</span>
-                              <span>B: {fraud.cupAnalysis.start.l}</span>
+                              <span>Kcl: {fraud.cupAnalysis.start.s}</span>
+                              <span>Sdg: {fraud.cupAnalysis.start.m}</span>
+                              <span>Bsr: {fraud.cupAnalysis.start.l}</span>
                             </> : null}
                             <span className="text-primary">({fraud.cupAnalysis.start?.total ?? "—"})</span>
                           </div>
@@ -229,15 +301,15 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
                           <span className="text-muted-foreground">Cup Akhir</span>
                           <div className="font-semibold mt-0.5 space-x-2">
                             {fraud.cupAnalysis.end?.s !== undefined ? <>
-                              <span>K: {fraud.cupAnalysis.end.s}</span>
-                              <span>S: {fraud.cupAnalysis.end.m}</span>
-                              <span>B: {fraud.cupAnalysis.end.l}</span>
+                              <span>Kcl: {fraud.cupAnalysis.end.s}</span>
+                              <span>Sdg: {fraud.cupAnalysis.end.m}</span>
+                              <span>Bsr: {fraud.cupAnalysis.end.l}</span>
                             </> : null}
                             <span className="text-primary">({fraud.cupAnalysis.end?.total ?? "—"})</span>
                           </div>
                         </div>
                         <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Terjual</span><span className="font-semibold">{fraud.totalCups}</span></div>
-                        <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Terpakai</span><span className="font-semibold">{fraud.cupAnalysis.used ?? "—"}</span></div>
+                        <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Terpakai</span><span className="font-semibold">{fraud.cupAnalysis.actualUsed ?? "—"}</span></div>
                       </div>
                     </div>
                   )}
@@ -296,7 +368,7 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
                   )}
                 </div>
               ) : detail ? (
-                <p className="text-xs text-muted-foreground">Tidak ada data analisis.</p>
+                <p className="text-xs text-muted-foreground">Tidak ada data analisis untuk shift ini.</p>
               ) : null}
             </div>
 

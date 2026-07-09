@@ -215,7 +215,7 @@ export async function callDeepSeekWithTools(
   stream = false,
   onToken?: (token: string) => void,
   onExecutionEvent?: (snapshot: import("../runtime/execution/execution-manifest").ExecutionSnapshot) => void,
-  executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string; targetFiles?: string[] },
+  executionSpec?: { complexity?: string; domain?: string; entities?: string[]; objective?: string; targetFiles?: string[]; intent?: string },
   onImplPlan?: (plan: string) => Promise<boolean>,
 ): Promise<{ text: string; toolsUsed: number; filesRead: string[] }> {
   const ctx = new ExecutionContext(userId, mode);
@@ -241,7 +241,7 @@ export async function callDeepSeekWithTools(
   messages.push({ role: "user", content: user.slice(0, 5000) });
 
   const result = await ExecutionPipeline.execute(
-    { role: "CTO" },
+    { role: "CTO", intent: executionSpec?.intent },
     messages, tools, maxTokens, userId, mode, user,
     false,
     { onProgress, onTool, onExecutionEvent, onImplPlan },

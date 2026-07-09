@@ -14,7 +14,28 @@ const execP = promisify(exec);
 
 // ── Config ──
 
-export const PROJECT_ROOT = resolve(process.cwd().includes("artifacts") ? "../.." : ".");
+// Find monorepo root by walking up for pnpm-workspace.yaml or artifacts/
+function findProjectRoot(): string {
+  let dir = process.cwd().replace(/\\/g, "/");
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(resolve(dir, "pnpm-workspace.yaml"))) return resolve(dir);
+    if (existsSync(resolve(dir, "artifacts"))) return resolve(dir);
+    const parent = resolve(dir, "..");
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return process.cwd();
+}
+export const PROJECT_ROOT = findProjectRoot();
+
+// Resolve user-provided path relative to PROJECT_ROOT (not CWD)
+function resolveProjectPath(p: string): string {
+  if (p.startsWith("/")) return resolve(p);
+  // If already absolute via resolve(), use as-is
+  const abs = resolve(p);
+  if (abs.startsWith(PROJECT_ROOT)) return abs;
+  return resolve(PROJECT_ROOT, p);
+}
 
 export const GITHUB_PAT = process.env.GITHUB_PAT || "";
 export const GITHUB_REPO = "hamdallah24/lumespos";
@@ -53,9 +74,13 @@ export async function fetchGitHubFile(path: string, branch = "main"): Promise<{ 
 
 export async function fetchGitHubDir(path: string, branch = "main"): Promise<string> {
   if (!GITHUB_PAT) return "Error: GITHUB_PAT tidak dikonfigurasi.";
-  const resp = await fetch(`${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`, {
-    headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github.v3+json" },
-  });
+  let resp;
+  try {
+    resp = await fetch(`${GITHUB_RAW}/${GITHUB_REPO}/contents/${path}?ref=${branch}`, {
+      headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github.v3+json" },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch { return `Error: Timeout/Gagal menghubungi GitHub — ${path}`; }
   if (!resp.ok) return `Error: GitHub ${resp.status} — ${path} tidak ditemukan di branch ${branch}.`;
   const items = await resp.json().catch(() => []);
   if (!Array.isArray(items)) return "Error: Response GitHub bukan array.";
@@ -70,9 +95,13 @@ export async function searchRepoFiles(query: string): Promise<string[]> {
   if (!GITHUB_PAT) return [];
 
   if (!treeCache || Date.now() - treeCache.ts > 300000) {
-    const resp = await fetch(`${GITHUB_API}/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH || "main"}?recursive=true`, {
-      headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github+json" },
-    });
+    let resp;
+    try {
+      resp = await fetch(`${GITHUB_API}/${GITHUB_REPO}/git/trees/${GITHUB_BRANCH || "main"}?recursive=true`, {
+        headers: { Authorization: `Bearer ${GITHUB_PAT}`, Accept: "application/vnd.github+json" },
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch { return []; }
     if (!resp.ok) return [];
     const json = await resp.json() as any;
     const paths: string[] = (json.tree || [])
@@ -135,9 +164,12 @@ export function sshExec(cmd: string): Promise<string> {
 const IMPORT_RE = /import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+(?:\s*,\s*(?:\{[^}]*\}|\*\s+as\s+\w+|\w+))?)\s+from\s+)?['"]([^'"]+)['"]/g;
 
 export async function getDependencies(filePath: string): Promise<string> {
-  let full = resolve(filePath);
-  if (!existsSync(full)) full = resolve(join(PROJECT_ROOT, filePath));
-  if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
+  const variants = resolvePathVariants(filePath);
+  let full = "";
+  for (const v of variants) {
+    if (existsSync(v)) { full = v; break; }
+  }
+  if (!full) return `Error: File ${filePath} tidak ditemukan.`;
   try {
     const content = await readFile(full, "utf-8");
     const imports: string[] = [];
@@ -162,42 +194,74 @@ export async function getDependencies(filePath: string): Promise<string> {
 const SAFE_DIRS = [PROJECT_ROOT, join(PROJECT_ROOT, "artifacts"), join(PROJECT_ROOT, "lib")];
 function isPathSafe(p: string): boolean { return SAFE_DIRS.some(d => resolve(p).startsWith(d)); }
 
+// Try multiple path variants for search/read fallback
+function resolvePathVariants(raw: string): string[] {
+  const candidates: string[] = [];
+  const abs = resolveProjectPath(raw);
+  candidates.push(abs);
+  // Remove monorepo root prefix if redundant
+  const rel = abs.replace(/\\/g, "/").replace(PROJECT_ROOT.replace(/\\/g, "/") + "/", "");
+  // Try common aliases
+  const altPaths = [
+    rel,
+    rel.replace(/^artifacts\/[^/]+\/src\//, "src/"),
+    rel.replace(/^artifacts\/[^/]+\/src\/pages\//, "pages/"),
+    rel.replace(/^lib\/db\/src\//, "db/"),
+    rel.replace(/^artifacts\/api-server\/src\//, "api/"),
+  ];
+  for (const alt of altPaths) {
+    const candidate = resolve(PROJECT_ROOT, alt);
+    if (candidate !== abs && !candidates.includes(candidate)) candidates.push(candidate);
+  }
+  return candidates;
+}
+
 export async function listLocalDir(dirPath: string): Promise<string> {
-  const full = resolve(dirPath);
-  if (!isPathSafe(full)) return `Error: Path ${dirPath} di luar project.`;
-  if (!existsSync(full)) return `Error: Directory ${dirPath} tidak ditemukan.`;
-  try {
-    const items = await readdir(full, { withFileTypes: true });
-    const result = await Promise.all(items.map(async d => {
-      if (d.isDirectory()) return `📁 ${d.name}`;
-      const s = await stat(join(full, d.name));
-      return `📄 ${d.name} (${s.size} bytes)`;
-    }));
-    return result.join("\n");
-  } catch (e: any) { return `Error: ${e.message}`; }
+  const variants = resolvePathVariants(dirPath);
+  for (const full of variants) {
+    if (!isPathSafe(full)) continue;
+    if (!existsSync(full)) continue;
+    try {
+      const items = await readdir(full, { withFileTypes: true });
+      const result = await Promise.all(items.map(async d => {
+        if (d.isDirectory()) return `📁 ${d.name}`;
+        const s = await stat(join(full, d.name));
+        return `📄 ${d.name} (${s.size} bytes)`;
+      }));
+      return result.join("\n");
+    } catch { /* try next variant */ }
+  }
+  return `Error: Directory ${dirPath} tidak ditemukan.`;
 }
 
 export async function readLocalFile(filePath: string, maxChars = 50000): Promise<string> {
-  const full = resolve(filePath);
-  if (!isPathSafe(full)) return `Error: Path ${filePath} di luar project.`;
-  if (!existsSync(full)) return `Error: File ${filePath} tidak ditemukan.`;
-  try {
-    const content = await readFile(full, "utf-8");
-    return content.length > maxChars ? content.slice(0, maxChars) + `\n\n... (truncated, ${content.length - maxChars} chars remaining)` : content;
-  } catch (e: any) { return `Error: ${e.message}`; }
+  const variants = resolvePathVariants(filePath);
+  for (const full of variants) {
+    if (!isPathSafe(full)) continue;
+    if (!existsSync(full)) continue;
+    try {
+      const content = await readFile(full, "utf-8");
+      return content.length > maxChars ? content.slice(0, maxChars) + `\n\n... (truncated, ${content.length - maxChars} chars remaining)` : content;
+    } catch { /* try next variant */ }
+  }
+  return `Error: File ${filePath} tidak ditemukan.`;
 }
 
 export async function searchLocalContent(dirPath: string, pattern: string): Promise<string> {
-  const full = resolve(dirPath);
-  if (!isPathSafe(full)) return `Error: Path ${dirPath} di luar project.`;
-  try {
-    const cmd = process.platform === "win32"
-      ? `findstr /s /i /n "${pattern}" "${full}\\*" 2>nul`
-      : `grep -rn --include="*.ts" --include="*.tsx" --include="*.json" "${pattern}" "${full}" 2>/dev/null | head -30`;
-    const { stdout } = await execP(cmd, { timeout: 5000, cwd: PROJECT_ROOT });
-    const result = stdout.trim();
-    return result || `Tidak ditemukan "${pattern}" di ${dirPath}`;
-  } catch { return `Tidak ditemukan "${pattern}" di ${dirPath}`; }
+  const variants = resolvePathVariants(dirPath);
+  for (const full of variants) {
+    if (!isPathSafe(full)) continue;
+    if (!existsSync(full)) continue;
+    try {
+      const cmd = process.platform === "win32"
+        ? `findstr /s /i /n "${pattern}" "${full}\\*" 2>nul`
+        : `grep -rn --include="*.ts" --include="*.tsx" --include="*.json" "${pattern}" "${full}" 2>/dev/null | head -30`;
+      const { stdout } = await execP(cmd, { timeout: 5000, cwd: PROJECT_ROOT });
+      const result = stdout.trim();
+      if (result) return result;
+    } catch { /* try next variant */ }
+  }
+  return `Tidak ditemukan "${pattern}" di ${dirPath}`;
 }
 
 export async function writeLocalFile(filePath: string, content: string): Promise<string> {
@@ -302,9 +366,8 @@ export function getToolLabel(name: string): string {
 // ── Path normalizer: absolute → relative untuk GitHub API ──
 
 const PROJECT_PREFIXES = [
-  "/home/ubuntu/lumespos/",
-  "/home/ubuntu/lumespos",
-  resolve(process.cwd().includes("artifacts") ? "../.." : ".") + "/",
+  PROJECT_ROOT + "/",
+  PROJECT_ROOT,
 ];
 
 function normalizePathForGitHub(path: string): string {
@@ -317,7 +380,7 @@ function normalizePathForGitHub(path: string): string {
 // ── File Read with Fallback ──
 
 export async function readFileWithFallback(path: string, branch = "main"): Promise<string> {
-  const localPath = path.startsWith("/") ? path : join(PROJECT_ROOT, path);
+  const localPath = resolveProjectPath(path);
   try {
     const local = await readLocalFile(localPath);
     if (local && !local.startsWith("Error:")) {

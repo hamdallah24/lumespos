@@ -3,6 +3,7 @@
 
 export { consultantRuntime } from "./consultant-runtime";
 export { consultantScheduler } from "./consultant-scheduler";
+export { consultantDiscovery } from "./consultant-discovery";
 export { consultantDomain } from "./consultant-provider";
 export { strategicCache } from "./consultant-cache";
 export { healthMonitor } from "./consultant-health";

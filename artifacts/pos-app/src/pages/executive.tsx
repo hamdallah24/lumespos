@@ -7,6 +7,7 @@ import { getCsrfToken } from "@/lib/csrf";
 import { RuntimeProgressCard } from "@/components/runtime-progress-card";
 import { ActiveMissions } from "@/components/active-missions";
 import { MissionDetail } from "@/components/mission-detail";
+import MarkdownRenderer from "@/components/markdown-renderer";
 
 const SS_KEY_INPUT = "exec.input";
 const SS_KEY_REPORTS = "exec.reports";
@@ -22,11 +23,13 @@ type ReadinessData = { ready: boolean; passed: number; failed: number; details: 
 type AgentInfo = { name: string; version: string; health: { status: string } };
 
 type ExecutiveReport = {
-  role: "CEO" | "CTO" | "COO";
+  role: "User" | "CEO" | "CTO" | "COO" | "System";
   text: string;
-  missionId?: string;
+  missionId?: number;
   status?: "created" | "delegated" | "executing" | "completed";
   timestamp: string;
+  system?: boolean;
+  sender?: string;
 };
 
 export default function ExecutiveWorkspace() {
@@ -42,6 +45,9 @@ export default function ExecutiveWorkspace() {
   const [input, setInput] = React.useState(() => ssLoad<string>(SS_KEY_INPUT, ""));
   const [loading, setLoading] = React.useState(false);
   const chatEndRef = React.useRef<HTMLDivElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  const senderRef = React.useRef<string>("");
+  const [currentSender, setCurrentSender] = React.useState<string>("");
 
   // ECP-047: Executive Workspace state
   const [missionPhase, setMissionPhase] = React.useState<string>("idle");
@@ -63,7 +69,7 @@ export default function ExecutiveWorkspace() {
     // Load conversation history
     fetch("/api/ai/history?mode=ceo", { credentials: "include" })
       .then(r => r.json()).then(d => {
-        if (d.messages) setReports(d.messages.map((m: any) => ({ role: m.role === "user" ? "CEO" : "CEO" as const, text: m.content, timestamp: new Date().toISOString() })));
+        if (d.messages) setReports(d.messages.map((m: any) => ({ role: m.role === "user" ? "User" : "CTO" as const, text: m.content, timestamp: new Date().toISOString() })));
       }).catch(() => {});
 
     // Subscribe auto-notifikasi mission selesai
@@ -74,8 +80,14 @@ export default function ExecutiveWorkspace() {
         if (d.type === "completed" && d.data?.summary) {
           setReports(prev => {
             if (prev.some(r => r.text?.includes(`Misi #${d.missionId} Selesai`))) return prev;
-            return [...prev, { role: "CEO" as const, text: `✅ **Misi #${d.missionId} Selesai**\n\n${d.data.summary}`, timestamp: new Date().toISOString() }];
+            return [...prev, { role: "System" as const, text: `✅ **Misi #${d.missionId} Selesai**\n\n${d.data.summary}`, timestamp: new Date().toISOString(), system: true, sender: "System" }];
           });
+        }
+        if (d.type === "status_change") {
+          setReports(prev => [...prev, {
+            role: "System" as const, text: `_📋 Misi #${d.missionId}: ${d.status}_`,
+            timestamp: new Date().toISOString(), system: true, sender: "Mission",
+          }]);
         }
       } catch {}
     };
@@ -86,6 +98,14 @@ export default function ExecutiveWorkspace() {
 
   React.useEffect(() => { ssSave(SS_KEY_INPUT, input); }, [input]);
 
+  // Auto-resize textarea
+  React.useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = Math.min(textareaRef.current.scrollHeight, 240) + "px";
+    }
+  }, [input]);
+
   const sendCommand = async () => {
     if (!input.trim() || loading) return;
     const cmd = input.trim();
@@ -93,7 +113,7 @@ export default function ExecutiveWorkspace() {
     setLoading(true);
 
     // Add user message
-    setReports(prev => [...prev, { role: "CEO", text: cmd, timestamp: new Date().toISOString() }]);
+    setReports(prev => [...prev, { role: "User", text: cmd, timestamp: new Date().toISOString(), sender: "User" }]);
 
     try {
       const resp = await fetch("/api/ai/chat", {
@@ -108,7 +128,7 @@ export default function ExecutiveWorkspace() {
       const ct = resp.headers.get("content-type") || "";
       if (ct.includes("json")) {
         const json = await resp.json();
-        setReports(prev => [...prev, { role: "CTO", text: json.reply || "No response", timestamp: new Date().toISOString() }]);
+        setReports(prev => [...prev, { role: senderRef.current as any, text: json.reply || "No response", timestamp: new Date().toISOString(), sender: senderRef.current }]);
       } else {
         const reader = resp.body!.getReader();
         const decoder = new TextDecoder();
@@ -124,11 +144,62 @@ export default function ExecutiveWorkspace() {
             try {
               const data = JSON.parse(line.slice(6));
               // Type: delta → accumulate text
+              if (data.type === "token") accumulated += data.token;
               if (data.type === "delta") accumulated += data.delta;
-              if (data.type === "done") accumulated = data.finalText || accumulated;
+              if (data.type === "done") {
+                accumulated = data.finalText || accumulated;
+                const sender = data.sender || senderRef.current;
+                if (data.sender) { setCurrentSender(data.sender); senderRef.current = data.sender; }
+                if (accumulated) {
+                  setReports(prev => {
+                    const copy = [...prev];
+                    const last = copy[copy.length - 1];
+                    if (last && last.role === sender && !last.system) {
+                      copy[copy.length - 1] = { ...last, text: accumulated };
+                    } else {
+                      copy.push({ role: sender as any, text: accumulated, timestamp: new Date().toISOString(), sender });
+                    }
+                    return copy;
+                  });
+                }
+              }
+              // Meta: sender info
+              if (data.type === "meta" && data.sender) {
+                setCurrentSender(data.sender);
+                senderRef.current = data.sender;
+              }
               // Legacy format
               if (data.delta && !data.type) accumulated += data.delta;
-              if (data.done && !data.type) accumulated = data.finalText || accumulated;
+              if (data.done && !data.type) {
+                accumulated = data.finalText || accumulated;
+                const s = senderRef.current;
+                if (accumulated) {
+                  setReports(prev => {
+                    const copy = [...prev];
+                    const last = copy[copy.length - 1];
+                    if (last && last.role === s && !last.system) {
+                      copy[copy.length - 1] = { ...last, text: accumulated };
+                    } else {
+                      copy.push({ role: s as any, text: accumulated, timestamp: new Date().toISOString(), sender: s });
+                    }
+                    return copy;
+                  });
+                }
+              }
+              // Live update report setiap token/delta
+              if (accumulated && (data.type === "token" || data.type === "delta")) {
+                const s = senderRef.current;
+                setReports(prev => {
+                  const copy = [...prev];
+                  const last = copy[copy.length - 1];
+                  if (last && last.role === s && !last.system) {
+                    copy[copy.length - 1] = { ...last, text: accumulated };
+                  } else {
+                    copy.push({ role: s as any, text: accumulated, timestamp: new Date().toISOString(), sender: s });
+                  }
+                  return copy;
+                });
+              }
               // ECP-015: Tool events
               if (data.type === "tool") {
                 setToolEvents(prev => [...prev.slice(-10), { name: data.payload?.name || data.event, status: data.event, durationMs: data.durationMs }]);
@@ -136,16 +207,31 @@ export default function ExecutiveWorkspace() {
               // ECP-015: Pipeline state
               if (data.type === "system") {
                 setPipelineState(data.payload?.state || "");
+                setReports(prev => [...prev, {
+                  role: "System", text: `_⚙️ Pipeline: ${data.payload?.state || ""}_`,
+                  timestamp: new Date().toISOString(), system: true, sender: "Pipeline",
+                }]);
               }
               // ECP-015: Runtime events (delegation)
               if (data.type === "runtime") {
                 setPipelineState(`${data.runtime}: ${data.event} → ${data.payload?.to || ""}`);
+                setReports(prev => [...prev, {
+                  role: "System", text: `_🔀 ${data.runtime}: ${data.event} → ${data.payload?.to || ""}_`,
+                  timestamp: new Date().toISOString(), system: true, sender: data.runtime || "System",
+                }]);
               }
-              // Status remains as-is
+              // Status remains as-is + system log
               if (data.type === "status") {
                 setStatusMsg(data.message);
-                // ECP-047: Detect execution lifecycle phases from status messages
+                // System-to-User conversational log (skip very short or mission-creation messages)
                 const msg = data.message || String(data.state || "");
+                if (msg.length > 3 && !msg.startsWith("✅ Misi")) {
+                  setReports(prev => [...prev, {
+                    role: "System", text: `_${msg}_`,
+                    timestamp: new Date().toISOString(), system: true, sender: data.source || "System",
+                  }]);
+                }
+                // ECP-047: Detect execution lifecycle phases from status messages
                 if (msg.includes("Dispatching") || msg.includes("Mendelegasikan")) {
                   setMissionPhase("dispatching");
                 } else if (msg.includes("Synthesizing")) {
@@ -202,16 +288,13 @@ export default function ExecutiveWorkspace() {
             } catch {}
           }
         }
-        if (accumulated) {
-          setReports(prev => [...prev, { role: "CTO", text: accumulated, timestamp: new Date().toISOString() }]);
-        }
         // ECP-047: Synthesis complete — collapse card after delay
         setSynthesis(s => ({ ...s, active: false }));
         setMissionPhase("completed");
         setTimeout(() => { setExecCards([]); setMissionPhase("idle"); }, 3000);
       }
     } catch {
-      setReports(prev => [...prev, { role: "CTO", text: "Respons sedang diproses. Hasil akan muncul setelah refresh halaman.", timestamp: new Date().toISOString() }]);
+      setReports(prev => [...prev, { role: senderRef.current as any || "CTO", text: "Respons sedang diproses. Hasil akan muncul setelah refresh halaman.", timestamp: new Date().toISOString(), sender: senderRef.current }]);
     }
     setLoading(false);
   };
@@ -311,7 +394,8 @@ export default function ExecutiveWorkspace() {
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 md:px-5 lg:px-6 py-4">
+            <div className="max-w-[860px] mx-auto space-y-5">
             {reports.length === 0 && !loading && (
               <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
                 <Zap className="w-12 h-12 mb-3 opacity-20" />
@@ -327,10 +411,21 @@ export default function ExecutiveWorkspace() {
             {reports.map((r, i) => (
               <ExecutiveCard key={i} report={r} />
             ))}
-            {/* ECP-020: Loading indicator — belly Memproses... */}
+            {/* Loading indicator — seperti ChatGPT */}
             {loading && !execSnapshot && (
-              <div className="flex items-center gap-2 text-xs text-slate-400 animate-pulse px-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#1565FF]" /> Memproses...
+              <div className="flex flex-col gap-1">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-[#1565FF]" />
+                {currentSender && (
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{currentSender}</span>
+                )}
+                {currentSender && <span className="text-xs text-slate-400">·</span>}
+                <span className="text-xs text-slate-400">{new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+                <div className="flex items-center gap-2 text-xs text-slate-400 animate-pulse ml-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#1565FF]" />
+                  {statusMsg || "Memproses..."}
+                </div>
               </div>
             )}
             {/* RFC-010: Progress Card — prefer MissionProgress when available */}
@@ -342,22 +437,30 @@ export default function ExecutiveWorkspace() {
               />
             )}
             <div ref={chatEndRef} />
+            </div>
           </div>
 
           {/* Input */}
-          <footer className="px-6 pb-4 pt-2 border-t border-[#1565FF]/10">
-            <div className="flex items-center gap-2 bg-white dark:bg-white/[0.03] rounded-2xl border border-[#1565FF]/10 px-4 py-3">
-              <input
-                value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Apa yang bisa CEO bantu?"
-                disabled={loading}
-                className="flex-1 bg-transparent text-sm outline-none text-slate-700 dark:text-white placeholder:text-slate-400 disabled:opacity-50"
-              />
-              <button onClick={sendCommand} disabled={!input.trim() || loading} className="w-8 h-8 rounded-xl bg-[#1565FF] text-white flex items-center justify-center hover:bg-[#1565FF]/90 disabled:opacity-30 transition-all shrink-0">
-                <Send size={14} />
-              </button>
+          <footer className="px-4 md:px-5 lg:px-6 pb-4 pt-2 border-t border-[#1565FF]/10">
+            <div className="max-w-[860px] mx-auto">
+              <div className="flex items-end gap-2 bg-white dark:bg-white/[0.03] rounded-2xl border border-[#1565FF]/10 px-4 py-2">
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={e => { setInput(e.target.value); }}
+                  onKeyDown={e => {
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendCommand(); }
+                  }}
+                  placeholder="Apa yang bisa CEO bantu?"
+                  disabled={loading}
+                  rows={1}
+                  className="flex-1 bg-transparent text-sm outline-none resize-none text-slate-700 dark:text-white placeholder:text-slate-400 disabled:opacity-50"
+                  style={{ minHeight: "48px", maxHeight: "240px" }}
+                />
+                <button onClick={sendCommand} disabled={!input.trim() || loading} className="w-8 h-8 rounded-xl bg-[#1565FF] text-white flex items-center justify-center hover:bg-[#1565FF]/90 disabled:opacity-30 transition-all shrink-0 mb-0.5">
+                  <Send size={14} />
+                </button>
+              </div>
             </div>
           </footer>
         </div>
@@ -453,45 +556,75 @@ function StatusRow({ label, value, color }: { label: string; value: string; colo
 function ExecutiveCard({ report }: { report: ExecutiveReport }) {
   const [copied, setCopied] = React.useState(false);
 
-  const copy = (text: string) => {
-    const ta = document.createElement("textarea");
-    ta.value = text;
-    ta.style.position = "fixed"; ta.style.left = "-9999px";
-    ta.style.top = "0";
-    document.body.appendChild(ta);
-    ta.focus();
-    ta.select();
-    try { document.execCommand("copy"); } catch {}
-    document.body.removeChild(ta);
-    setCopied(true); setTimeout(() => setCopied(false), 1500);
-  };
-
-  const isUser = report.role === "CEO";
-
-  return (
-    <div className={`flex flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}>
-      {/* Icon + timestamp on top */}
-      <div className={`flex items-center gap-1.5 text-[10px] text-slate-400 ${isUser ? "flex-row-reverse" : ""}`}>
-        {isUser ? <Zap className="w-3 h-3 text-[#1565FF]" /> : <Brain className="w-3 h-3 text-[#1565FF]" />}
-        <span>{report.role}</span>
-        <span>·</span>
-        <span>{new Date(report.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
+  // System message — centered italic with sender
+  if (report.system) {
+    return (
+      <div className="flex flex-col items-start w-full py-1">
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-0.5">
+          <span className="font-medium">{report.sender || "System"}</span>
+          <span>·</span>
+          <span>{new Date(report.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
+        </div>
+        <div className="text-[10px] text-slate-400 italic text-left max-w-full break-words leading-relaxed">
+          {report.text.replace(/^_|_$/g, "")}
+        </div>
       </div>
+    );
+  }
 
-      {/* Wide bubble */}
-      <div className={`relative max-w-[90%] rounded-2xl px-4 py-3 text-sm ${
-        isUser
-          ? "bg-[#1565FF] text-white rounded-br-sm"
-          : "bg-white dark:bg-white/[0.05] border border-[#1565FF]/10 text-slate-700 dark:text-white rounded-bl-sm"
-      }`}>
-        <p className="whitespace-pre-wrap leading-relaxed pr-6">{report.text}</p>
-        {/* Copy button */}
-        <button type="button" onClick={() => copy(report.text)} className={`absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all active:scale-90 ${isUser ? "text-white/50 hover:text-white/80" : "text-slate-300 hover:text-slate-500"}`}>
-          {copied ? <Check size={13} /> : <Copy size={13} />}
+  const isUser = report.role === "User";
+
+  // User — bubble biru right-aligned (seperti ChatGPT)
+  if (isUser) {
+    return (
+      <div className="flex flex-col items-end gap-1">
+        <div className="flex items-center gap-1.5 text-[10px] text-slate-400 flex-row-reverse">
+          <Zap className="w-3 h-3 text-[#1565FF]" />
+          <span>{report.sender || "User"}</span>
+          <span>·</span>
+          <span>{new Date(report.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
+        </div>
+        <div className="relative max-w-[85%] md:max-w-[70%] rounded-2xl px-4 py-3 text-sm bg-[#1565FF] text-white rounded-br-sm">
+          <p className="whitespace-pre-wrap leading-relaxed pr-6">{report.text}</p>
+          <button type="button" onClick={() => copyText(report.text, setCopied)} className="absolute bottom-2 right-2 w-6 h-6 rounded-md flex items-center justify-center transition-all active:scale-90 text-white/50 hover:text-white/80">
+            {copied ? <Check size={13} /> : <Copy size={13} />}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Assistant — TANPA bubble, full-width markdown
+  return (
+    <div className="flex flex-col gap-1 relative">
+      {/* Header: Avatar + Sender + Timestamp */}
+      <div className="flex items-center gap-2">
+        <Brain className="w-5 h-5 text-[#1565FF]" />
+        <span className="text-sm font-semibold text-slate-700 dark:text-white">
+          {report.sender || report.role}
+        </span>
+        <span className="text-xs text-slate-400">·</span>
+        <span className="text-xs text-slate-400">
+          {new Date(report.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+        </span>
+      </div>
+      {/* Full-width markdown */}
+      <MarkdownRenderer content={report.text} />
+      {/* Copy button — pojok kanan bawah laporan */}
+      <div className="flex justify-end">
+        <button type="button" onClick={() => copyText(report.text, setCopied)} className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">
+          {copied ? <Check size={11} /> : <Copy size={11} />}
+          <span>{copied ? "Copied" : "Copy"}</span>
         </button>
       </div>
     </div>
   );
+}
+
+function copyText(text: string, setCopied: (v: boolean) => void) {
+  navigator.clipboard?.writeText(text);
+  setCopied(true);
+  setTimeout(() => setCopied(false), 1500);
 }
 
 function OrgMiniGraph({ nodes }: { nodes: any[] }) {

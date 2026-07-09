@@ -155,7 +155,7 @@ export function MissionDetail({ missionId, onClose }: { missionId: number; onClo
                 <CheckCircle2 size={12} /> Hasil
               </div>
               <div className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap bg-slate-50 dark:bg-slate-950/50 rounded-lg p-3 max-h-48 overflow-y-auto">
-                {mission.result.slice(0, 2000)}
+                {mission.result?.slice(0, 4000)}
               </div>
             </div>
           )}

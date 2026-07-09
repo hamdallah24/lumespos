@@ -11,11 +11,12 @@ interface ReplayOptions {
   chunkSize?: number;
   delayMs?: number;
   res: any;
+  runtime?: string;
 }
 
 /** Replay the execution timeline as SSE events to the frontend */
 export async function replayExecution(options: ReplayOptions): Promise<void> {
-  const { events, responseText, chunkSize = 5, delayMs = 20, res } = options;
+  const { events, responseText, chunkSize = 5, delayMs = 20, res, runtime } = options;
 
   // Step 1: Replay pipeline events with timing
   for (const ev of events) {
@@ -34,6 +35,11 @@ export async function replayExecution(options: ReplayOptions): Promise<void> {
     await sleep(delayMs);
   }
 
+  // Step 1.5: Kirim meta sender sebelum token streaming
+  if (runtime) {
+    res.write(`data: ${JSON.stringify({ type: "meta", sender: runtime })}\n\n`);
+  }
+
   // Step 2: Stream response text as tokens
   for (let i = 0; i < responseText.length; i += chunkSize) {
     const chunk = responseText.slice(i, i + chunkSize);
@@ -42,7 +48,9 @@ export async function replayExecution(options: ReplayOptions): Promise<void> {
   }
 
   // Step 3: Done
-  res.write(`data: ${JSON.stringify({ type: "done", finalText: responseText })}\n\n`);
+  const donePayload: Record<string, any> = { type: "done", finalText: responseText };
+  if (runtime) donePayload.sender = runtime;
+  res.write(`data: ${JSON.stringify(donePayload)}\n\n`);
   res.end();
 }
 

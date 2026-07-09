@@ -11,6 +11,43 @@ import { ceoRuntime } from "./ai/programs/ceo-runtime";
 import { ctoProgram } from "./ai/programs/cto-runtime";
 import { cooRuntime } from "./programs/coo-runtime";
 
+// ── Process-level crash handlers ──
+let server: ReturnType<typeof app.listen> | null = null;
+
+function gracefulShutdown(signal: string, error?: unknown) {
+  if (error) logger.error({ err: error }, `Fatal: ${signal}`);
+  else logger.warn({ signal }, "Shutdown requested");
+
+  const timeout = setTimeout(() => {
+    logger.error("Forced exit after timeout");
+    process.exit(1);
+  }, 10000);
+  timeout.unref();
+
+  if (server) {
+    server.close(() => {
+      logger.info("Server closed");
+      missionEngine.stop();
+      process.exit(error ? 1 : 0);
+    });
+  } else {
+    process.exit(error ? 1 : 0);
+  }
+}
+
+process.on("unhandledRejection", (reason) => {
+  // Log as error — don't crash process, let the pipeline catch it
+  logger.error({ err: reason instanceof Error ? reason : new Error(String(reason)) }, "Unhandled rejection — warning only, see pipeline error handling");
+});
+
+process.on("uncaughtException", (error) => {
+  logger.error({ err: error }, "Uncaught exception — initiating graceful shutdown");
+  gracefulShutdown("uncaughtException", error);
+});
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 const rawPort = process.env["PORT"];
 
 if (!rawPort) {
@@ -162,7 +199,7 @@ async function boot(): Promise<void> {
         const { learningEngine } = await import("./ai/runtime/learning/learning-engine");
         const result = learningEngine.cycle();
         logger.info({ decisions: result.decisionsAnalyzed, patterns: result.patternsDetected }, "Learning cycle complete");
-      } catch {}
+      } catch (e) { logger.warn({ err: e }, "Learning cycle error — non-critical"); }
     });
     logger.info("Learning cycle scheduled — daily at boot time + 24h");
 
@@ -220,10 +257,11 @@ async function boot(): Promise<void> {
 
 // ECP-036: Boot organization first, then start Express
 boot().then(() => {
-  app.listen(port, (err) => {
+  server = app.listen(port, (err) => {
     if (err) {
       logger.error({ err }, "Error listening on port");
-      process.exit(1);
+      gracefulShutdown("listen_error", err);
+      return;
     }
 
     logger.info({ port }, "Server listening");
@@ -234,6 +272,8 @@ boot().then(() => {
     import("./programs/consultant").then(({ consultantScheduler }) => {
       consultantScheduler.start();
       logger.info("CKO scheduler started — daily knowledge maintenance");
-    }).catch(() => {});
+    }).catch((e: unknown) => {
+      logger.warn({ err: e }, "CKO scheduler failed to start — non-critical");
+    });
   });
 });

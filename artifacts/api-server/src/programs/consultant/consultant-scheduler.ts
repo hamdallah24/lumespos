@@ -1,8 +1,9 @@
 // ECP-030: Consultant Scheduler — background task runner
-// Frozen. Runs Consultant maintenance cycles automatically.
-// 02:00 Knowledge Audit, 03:00 Architecture Review, 04:00 Weekly Report.
+// Runs CKO maintenance + project discovery nightly.
+// 02:00 Project Discovery, 02:30 Knowledge Audit, 03:00 Weekly Report.
 
 import { consultantRuntime } from "./consultant-runtime";
+import { consultantDiscovery } from "./consultant-discovery";
 
 class ConsultantScheduler {
   private _intervals: NodeJS.Timeout[] = [];
@@ -12,8 +13,29 @@ class ConsultantScheduler {
     if (this._running) return;
     this._running = true;
 
-    // Daily: knowledge maintenance at 02:00 UTC (~07:00 WIB)
+    // Run discovery immediately on startup (if no file-map yet), then nightly
+    try {
+      const existing = consultantDiscovery.load();
+      if (!existing) {
+        console.log("[CKO] No file map found — running initial project discovery...");
+        const map = consultantDiscovery.scan();
+        console.log(`[CKO] Initial discovery complete: ${Object.keys(map).length} keywords mapped`);
+      } else {
+        console.log(`[CKO] File map loaded: ${Object.keys(existing).length} keywords`);
+      }
+    } catch (e: any) {
+      console.log(`[CKO] Discovery skipped: ${e.message}`);
+    }
+
+    // Daily: project structure discovery at 02:00 UTC
     this.schedule(2, () => {
+      console.log("[CKO] Running nightly project discovery...");
+      const map = consultantDiscovery.scan();
+      console.log(`[CKO] Discovery complete: ${Object.keys(map).length} keywords mapped`);
+    });
+
+    // Daily: knowledge maintenance at 02:30 UTC
+    this.schedule(2.5, () => {
       const results = consultantRuntime.maintenance();
       console.log(`[CKO] Daily maintenance: ${results.map(r => r.result).join("; ")}`);
     });
@@ -35,13 +57,14 @@ class ConsultantScheduler {
   private schedule(hourUTC: number, task: () => void): void {
     const now = new Date();
     const next = new Date(now);
-    next.setUTCHours(hourUTC, 0, 0, 0);
+    const intHour = Math.floor(hourUTC);
+    const intMin = Math.round((hourUTC - intHour) * 60);
+    next.setUTCHours(intHour, intMin, 0, 0);
     if (next <= now) next.setDate(next.getDate() + 1);
 
     const msUntil = next.getTime() - now.getTime();
     setTimeout(() => {
       task();
-      // Re-schedule for next day
       this.schedule(hourUTC, task);
     }, msUntil);
 

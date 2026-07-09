@@ -10,12 +10,19 @@ class ExecutionStrategyEngine {
   private _complexity: string = "medium";
   private _cycleCount = 0;
   private _strategyCycleCount = 0; // reset tiap ganti strategy
+  private _needsImpl = false;
+
+  constructor(needsImpl = false) {
+    this._needsImpl = needsImpl;
+    console.log(`[STRATEGY:DEBUG] StrategyEngine constructed — needsImpl=${needsImpl}`);
+  }
 
   get strategy(): ExecutionStrategy { return this._strategy; }
   get cycleCount(): number { return this._cycleCount; }
 
   setComplexity(c: string): void { this._complexity = c; }
-  startAt(s: ExecutionStrategy): void { this._strategy = s; }
+  startAt(s: ExecutionStrategy): void { this._strategy = s; console.log(`[STRATEGY:DEBUG] startAt called — strategy=${s}`); }
+  setNeedsImpl(v: boolean): void { this._needsImpl = v; console.log(`[STRATEGY:DEBUG] setNeedsImpl called — value=${v}`); }
 
   infer(
     toolCalls: { name: string; durationMs: number }[],
@@ -45,7 +52,12 @@ class ExecutionStrategyEngine {
 
     // ── Per-cycle completion ──
     if (toolCalls.length === 0) {
-      // LLM produce text → advance
+      // LLM produce text → advance (kecuali CONCLUDE dengan needsImpl → EXECUTE)
+      if (this._strategy === "CONCLUDE" && this._needsImpl) {
+        this._strategy = "EXECUTE";
+        this._strategyCycleCount = 0;
+        return this._result(previous, `CONCLUDE→EXECUTE (needsImpl)`);
+      }
       this._advanceTextOnly();
       return this._result(previous, `Text response: ${previous} → ${this._strategy}`);
     }
@@ -86,13 +98,14 @@ class ExecutionStrategyEngine {
         this._strategyCycleCount = 0;
         return this._result(previous, `ANALYZE selesai: confidence=${confidence}, uniqueFiles=${uniqueFiles}`);
       }
-      return this._result(previous, "unchanged");
-    }
+    return this._result(previous, "unchanged");
+  }
 
     return this._result(previous, "unchanged");
   }
 
   private _advanceTextOnly(): void {
+    console.log(`[STRATEGY:DEBUG] _advanceTextOnly called — strategy=${this._strategy} needsImpl=${this._needsImpl}`);
     if (this._strategy === "EXPLORE") { this._strategy = "ANALYZE"; this._strategyCycleCount = 0; }
     else if (this._strategy === "ANALYZE") { this._strategy = "CONCLUDE"; this._strategyCycleCount = 0; }
   }
@@ -111,8 +124,22 @@ class ExecutionStrategyEngine {
     const d: Record<ExecutionStrategy, string> = {
       EXPLORE: "[GOVERNOR] SEKARANG: CYCLE 1 - EXPLORE. Cari file target. WAJIB GUNAKAN TOOLS. Pipeline: searchContent → cari file relevan. listDirectory → lihat struktur folder. WAJIB baca file yang ditemukan dengan readFile(). searchContent TANPA readFile = TIDAK LENGKAP. JANGAN gunakan execCommand untuk baca file.",
       ANALYZE: "[GOVERNOR] SEKARANG: CYCLE 2 - ANALYZE. Baca file dengan readFile(). Pahami isi kode. JANGAN pakai wc/grep/cat — pakai readFile(). WAJIB GUNAKAN TOOLS.",
-      CONCLUDE: "[GOVERNOR] SEKARANG: CYCLE 3 - CONCLUDE. Berikan analisis lengkap, rekomendasi. TIDAK PERLU TOOLS.",
-      EXECUTE: "[GOVERNOR] SEKARANG: CYCLE 4 - EXECUTE. Implementasi perubahan yg sudah disetujui. writeFile/editFile/execCommand.",
+      CONCLUDE: `[GOVERNOR] SEKARANG: CYCLE 3 - CONCLUDE. WAJIB output minimal 500 karakter.
+
+## Root Cause
+[JELASKAN penyebab utama dengan detail. Minimal 3 kalimat.]
+
+## Verified Evidence
+[Jelaskan temuan dan analisis. Kutip baris kode spesifik jika relevan. Minimal 5 kalimat.]
+
+## Rekomendasi Teknis
+1. [Langkah spesifik dengan justifikasi]
+2. [Langkah spesifik dengan justifikasi]
+3. [Langkah spesifik dengan justifikasi]
+
+## Confidence
+[XX]% — [alasan detail]`,
+      EXECUTE: "[GOVERNOR] SEKARANG: CYCLE 4 - EXECUTE. Implementasi perubahan yg sudah disetujui CEO/Founder. Anda SUDAH mendapat persetujuan. Gunakan analisis CONCLUDE Anda untuk menentukan file dan perubahan yang diperlukan. WAJIB: (1) BACA file target dengan readFile untuk verifikasi kondisi terkini. (2) Gunakan editFile untuk perubahan TERSARANG (oldString UNIK) atau writeFile untuk file baru. (3) JANGAN tulis ulang seluruh file jika hanya perlu edit beberapa baris. (4) Verifikasi hasil dengan readFile. (5) Laporkan perubahan yang dilakukan.",
       ESCALATE: "[GOVERNOR] ESCALATE. Tidak bisa diselesaikan. Laporkan temuan.",
     };
     return d[this._strategy];

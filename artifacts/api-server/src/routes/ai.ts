@@ -32,8 +32,8 @@ const router = Router();
   }
 })();
 
-function emitStatus(res: any, message: string) {
-  res.write(`data: ${JSON.stringify({ type: "status", message })}\n\n`);
+function emitStatus(res: any, message: string, source?: string) {
+  res.write(`data: ${JSON.stringify({ type: "status", message, source })}\n\n`);
 }
 
 // ── ROUTER ──
@@ -86,14 +86,51 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       });
       if (result.success && result.text) {
         // ECP-037 P3: events:[] — pipeline events streamed LIVE via onExecutionEvent SSE
-        if (isSSE) { await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 }); }
-        else { res.json({ reply: result.text }); }
+        if (isSSE) {
+          // Deteksi apakah misi baru dibuat — jika iya, jangan tutup koneksi, tunggu hasil CTO
+          const dbMatch = result.text.match(/DB#(\d+)/);
+          if (dbMatch) {
+            const missionId = parseInt(dbMatch[1]);
+            // Stream teks awal tanpa res.end()
+            res.write(`data: ${JSON.stringify({ type: "meta", sender: "CEO" })}\n\n`);
+            for (let i = 0; i < result.text.length; i += 5) {
+              res.write(`data: ${JSON.stringify({ type: "token", token: result.text.slice(i, i + 5) })}\n\n`);
+            }
+            emitStatus(res, "⏳ Menunggu hasil CTO...");
+            // Subscribe mission completion — stream hasil CTO otomatis
+            const { aiMissionService } = await import("../services/ai-mission-service");
+            let missionDone = false;
+            const unsub = aiMissionService.subscribe(missionId, (ev) => {
+              if (ev.type === "completed" && !missionDone) {
+                missionDone = true;
+                unsub();
+                const data = ev.data as any;
+                const fullResult = data.result || "";
+                emitStatus(res, "✅ Misi selesai — hasil CTO:", "CTO");
+                res.write(`data: ${JSON.stringify({ type: "meta", sender: "CTO" })}\n\n`);
+                for (let i = 0; i < Math.min(fullResult.length, 4000); i += 5) {
+                  res.write(`data: ${JSON.stringify({ type: "token", token: fullResult.slice(i, i + 5) })}\n\n`);
+                }
+                const combinedFinal = `✅ **Misi #${missionId} Selesai**\n\n${fullResult.slice(0, 4000)}`;
+                res.write(`data: ${JSON.stringify({ type: "done", finalText: combinedFinal })}\n\n`);
+                try { res.end(); } catch {}
+              }
+            });
+            // Timeout 10 menit
+            setTimeout(() => {
+              if (!missionDone) { unsub(); try { res.end(); } catch {} }
+            }, 600000).unref();
+            return;
+          }
+          // Tanpa misi baru — replay normal (res.end() di dalam replayExecution)
+          await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5, runtime: result.runtime });
+        } else { res.json({ reply: result.text }); }
         await remember(uid, m, clean, result.text);
         if (result.text.length > 20) await saveSharedContext(uid, m, result.text.slice(0, 500));
       } else if (result.text) {
-        if (isSSE) { await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5 }); } else { res.json({ reply: result.text }); }
+        if (isSSE) { await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5, runtime: result.runtime }); } else { res.json({ reply: result.text }); }
       } else {
-        if (isSSE) { await replayExecution({ events: [], responseText: "Runtime tidak bisa menjawab.", res, delayMs: 15, chunkSize: 5 }); }
+        if (isSSE) { await replayExecution({ events: [], responseText: "Runtime tidak bisa menjawab.", res, delayMs: 15, chunkSize: 5, runtime: result.runtime }); }
         else { res.json({ reply: "Runtime tidak bisa menjawab." }); }
       }
     } catch (e: any) {

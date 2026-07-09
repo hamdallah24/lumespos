@@ -35,6 +35,7 @@ class ExecutionGovernor {
     this._onEvent = onExecutionEvent;
     this.budget = new ExecutionBudget(complexity);
     this.strategyEngine.setComplexity(complexity);
+    this.strategyEngine.setNeedsImpl(needsImplementation);
     this.goalTree.build(domain, entities, objective, needsImplementation);
     this.journal.start(objective, complexity, this.budget.allocation);
     this._evidenceThreshold = executionPolicy.evidenceThresholds[complexity] || 2;
@@ -45,14 +46,15 @@ class ExecutionGovernor {
   shouldContinue(): boolean {
     // Goal tree complete → selesai
     if (this.goalTree.isComplete()) {
+      console.log(`[GOV:DEBUG] shouldContinue=false — goalTree complete (${this.goalTree.countByStatus(["COMPLETED"])}/${this.goalTree.total()})`);
       this._stopReason = "OBJECTIVE_COMPLETED"; return false;
     }
     // ESCALATE → tidak bisa lanjut
     if (this.strategyEngine.strategy === "ESCALATE") {
+      console.log(`[GOV:DEBUG] shouldContinue=false — ESCALATE`);
       this._stopReason = "OBJECTIVE_BLOCKED"; return false;
     }
-    // CONCLUDE bukan terminal — biar cycle 3 produce output natural
-    // Budget bukan hard stop — anti-loop adaptive di strategy-engine
+    console.log(`[GOV:DEBUG] shouldContinue=true — strategy=${this.strategyEngine.strategy} goals=${this.goalTree.countByStatus(["COMPLETED"])}/${this.goalTree.total()}`);
     return true;
   }
 

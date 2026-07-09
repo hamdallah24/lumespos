@@ -57,7 +57,19 @@ export function ActiveMissions({ onSelect }: { onSelect: (id: number) => void })
     } catch {} finally { setLoading(false); }
   }, []);
 
-  React.useEffect(() => { fetchMissions(); const iv = setInterval(fetchMissions, 8000); return () => clearInterval(iv); }, [fetchMissions]);
+  React.useEffect(() => {
+    fetchMissions();
+    const iv = setInterval(fetchMissions, 8000);
+    // EventSource for real-time updates
+    const es = new EventSource("/api/ai/mission/events", { withCredentials: true });
+    es.onmessage = (e) => {
+      try {
+        const d = JSON.parse(e.data);
+        if (d.type === "status_change" || d.type === "completed") fetchMissions();
+      } catch {}
+    };
+    return () => { clearInterval(iv); es.close(); };
+  }, [fetchMissions]);
 
   if (loading) return <div className="text-xs text-slate-400 px-3 py-2">Memuat misi...</div>;
   if (missions.length === 0) return null;
