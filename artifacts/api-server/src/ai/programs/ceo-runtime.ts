@@ -17,6 +17,7 @@ import { aiMissionService } from "../../services/ai-mission-service";
 import { missionRuntime } from "../runtime/mission-engine";
 import { missionEngine } from "../runtime/mission-background-engine";
 import { consultantRuntime } from "../../programs/consultant";
+import type { CKOTargets } from "../../programs/consultant";
 import { knowledgeBackbone } from "../../knowledge/KnowledgeBackbone";
 import { db, missionsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
@@ -118,7 +119,7 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   // Stage 2b: CKO — translate Founder's business intent → technical targets
   pipeline.push("CKOTranslate");
   ctx.onProgress?.("🧠 CKO menerjemahkan intent bisnis ke target teknis...");
-  let ckoTargets: import("../../programs/consultant").CKOTargets | null = null;
+  let ckoTargets: CKOTargets | null = null;
   try {
     ckoTargets = await consultantRuntime.translateToTargets(ctx.message);
     console.log(`[PIPELINE:CEO:CKO] domain="${ckoTargets.domain}" files=${ckoTargets.targetFiles.length} entities=${ckoTargets.entities.join(",")}`);
@@ -180,12 +181,21 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     pipeline.push("MissionQuery");
     const match = ctx.message.match(/misi\s*#?(\d+)/i);
     const targetId = match ? parseInt(match[1]) : -1;
-    const missionRows = await db.select({
-      id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
-    }).from(missionsTable)
-      .where(targetId > 0 ? eq(missionsTable.id, targetId) : undefined)
-      .orderBy(desc(missionsTable.id)).limit(5).catch(() => []);
-    const target = targetId > 0 ? missionRows.find(m => m.id === targetId) : missionRows[0];
+    const missionRows = targetId > 0
+      ? await db.select({
+          id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
+        }).from(missionsTable)
+          .where(eq(missionsTable.id, targetId))
+          .orderBy(desc(missionsTable.id))
+          .limit(5)
+          .catch(() => [])
+      : await db.select({
+          id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
+        }).from(missionsTable)
+          .orderBy(desc(missionsTable.id))
+          .limit(5)
+          .catch(() => []);
+    const target = missionRows[0] ?? null;
     if (target) {
       rawText = `Ringkasan Eksekutif\nMisi #${target.id} berstatus **${target.status}**.\n\nHasil Executive\n${target.result ? target.result.slice(0, 4000) : "Tidak ada output tersimpan."}`;
     } else {
@@ -302,16 +312,25 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
   if (refusalRe.test(rawText) && rawText.length < 3000) {
     const match = ctx.message.match(/misi\s*#?(\d+)/i);
     const targetId = match ? parseInt(match[1]) : -1;
-    const missionRows = await db.select({
-      id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
-    }).from(missionsTable)
-      .where(targetId > 0 ? eq(missionsTable.id, targetId) : undefined)
-      .orderBy(desc(missionsTable.id)).limit(5).catch(() => []);
+    const missionRows = targetId > 0
+      ? await db.select({
+          id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
+        }).from(missionsTable)
+          .where(eq(missionsTable.id, targetId))
+          .orderBy(desc(missionsTable.id))
+          .limit(5)
+          .catch(() => [])
+      : await db.select({
+          id: missionsTable.id, status: missionsTable.status, result: missionsTable.result,
+        }).from(missionsTable)
+          .orderBy(desc(missionsTable.id))
+          .limit(5)
+          .catch(() => []);
     if (missionRows.length > 0) {
-      const target = targetId > 0 ? missionRows.find(m => m.id === targetId) : missionRows[0];
+      const target = missionRows[0] ?? null;
       if (target) {
-      rawText = `Ringkasan Eksekutif\nMisi #${target.id} berstatus **${target.status}**.\n\nHasil Executive\n${target.result ? target.result.slice(0, 4000) : "Tidak ada output tersimpan."}`;
-      if (!pipeline.includes("MissionQuery")) pipeline.push("MissionQuery");
+        rawText = `Ringkasan Eksekutif\nMisi #${target.id} berstatus **${target.status}**.\n\nHasil Executive\n${target.result ? target.result.slice(0, 4000) : "Tidak ada output tersimpan."}`;
+        if (!pipeline.includes("MissionQuery")) pipeline.push("MissionQuery");
       }
     }
   }

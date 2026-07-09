@@ -66,7 +66,13 @@ class MissionRuntime {
     domains: string[],
     priority: MissionPriority = "normal",
     sponsor = "RUNTIME-001",
-    extended?: { missionType?: "analysis" | "implementation" | "legacy"; userId?: number; userMessage?: string; dbMissionId?: number },
+    extended?: {
+      missionType?: "analysis" | "implementation" | "legacy";
+      userId?: number;
+      userMessage?: string;
+      dbMissionId?: number;
+      ckoTargets?: { targetFiles: string[]; entities: string[]; domain: string; businessContext: string };
+    },
   ): MissionContract {
     this.counter++;
     const mission: MissionContract = {

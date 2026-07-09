@@ -10,4 +10,5 @@ export { healthMonitor } from "./consultant-health";
 export { kpiTracker } from "./consultant-kpi";
 export { reportGenerator } from "./consultant-report";
 export { formatFinding, formatRecommendation, formatWeeklyReport, formatMonthlyReport, formatProposal } from "./consultant-schema";
+export type { CKOTargets } from "./consultant-provider";
 export type { Finding, ConsultantRecommendation, WeeklyReport, MonthlyReport, ConsultantMode, ConsultantKPI, StrategicCache } from "./consultant-types";

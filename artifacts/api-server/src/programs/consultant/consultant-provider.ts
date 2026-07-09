@@ -1,6 +1,8 @@
 // ECP-030: Consultant Provider — Foundation domain extension
 // Activated per Founder request. CKO advises CEO based on Foundation knowledge.
 
+import { existsSync, readFileSync } from "fs";
+import { resolve } from "path";
 import { getFoundationProvider } from "../../ai/runtime/foundation";
 import { strategicCache } from "./consultant-cache";
 import type { StrategicCache, ConsultantMode, ConsultantKPI } from "./consultant-types";
@@ -17,6 +19,46 @@ export interface CKOTargets {
 }
 
 class ConsultantDomain {
+  private getRootProjectContext(): { targetFiles: string[]; entities: string[]; domain: string; businessContext: string } {
+    const rootFiles = [
+      "package.json",
+      "pnpm-workspace.yaml",
+      ".ai/PROJECT_CONTEXT.md",
+      ".ai/README.md",
+      "docs/PROJECT_CONTEXT.md",
+    ];
+    const foundFiles: string[] = [];
+    const entities = new Set<string>();
+    const summaries: string[] = [];
+
+    const cwd = process.cwd();
+    for (const rel of rootFiles) {
+      const full = resolve(cwd, rel);
+      if (!existsSync(full)) continue;
+      foundFiles.push(rel);
+      const content = readFileSync(full, "utf-8").slice(0, 2500);
+      const lower = content.toLowerCase();
+      if (lower.includes("point") || lower.includes("pos")) entities.add("pos");
+      if (lower.includes("pnpm") || lower.includes("workspace")) entities.add("pnpm-workspace");
+      if (lower.includes("artifacts")) entities.add("artifacts");
+      if (lower.includes("ai runtime") || lower.includes("ceo") || lower.includes("cto")) entities.add("ai-runtime");
+      if (lower.includes("project context") || lower.includes("architecture")) entities.add("project-context");
+      if (rel.endsWith("PROJECT_CONTEXT.md") || rel.endsWith("README.md")) {
+        const firstLine = content.split(/\r?\n/).find(Boolean)?.slice(0, 120) || rel;
+        summaries.push(`${rel}: ${firstLine}`);
+      }
+    }
+
+    return {
+      targetFiles: foundFiles,
+      entities: [...entities],
+      domain: foundFiles.length > 0 ? "architecture" : "general",
+      businessContext: foundFiles.length > 0
+        ? `Konteks root project: ${summaries.join(" | ")} | Struktur utama: artifacts/api-server, artifacts/pos-app, lib/, docs/, .ai/.`
+        : "",
+    };
+  }
+
   advisor(question: string, mode: ConsultantMode = "founder_advisory"): string {
     const cache = strategicCache.build(mode);
     const provider = getFoundationProvider();
@@ -141,11 +183,16 @@ scripts/                      — Build, generate, deploy utilities`;
       auth: { files: ["artifacts/api-server/src/routes/auth.ts", "artifacts/pos-app/src/pages/login.tsx"], entities: ["auth", "login", "otentikasi"], domain: "architecture" },
       database: { files: ["lib/db/src/schema/"], entities: ["database", "schema", "db"], domain: "architecture" },
       arsitektur: { files: [".ai/foundation/", "docs/architecture/"], entities: ["arsitektur", "architecture", "foundation"], domain: "architecture" },
+      ceo: { files: ["artifacts/api-server/src/ai/programs/ceo-runtime.ts", "artifacts/api-server/src/programs/ceo-runtime.ts"], entities: ["ceo", "executive-runtime"], domain: "architecture" },
+      semantic: { files: ["artifacts/api-server/src/ai/runtime/semantic-engine.ts"], entities: ["semantic-engine", "intent"], domain: "architecture" },
+      runtime: { files: ["artifacts/api-server/src/ai/programs/ceo-runtime.ts", "artifacts/api-server/src/ai/runtime/semantic-engine.ts"], entities: ["runtime", "pipeline"], domain: "architecture" },
+      root: { files: ["package.json", "pnpm-workspace.yaml", "docs/PROJECT_CONTEXT.md", ".ai/PROJECT_CONTEXT.md"], entities: ["root", "workspace"], domain: "architecture" },
     };
 
     // Try loading dynamic map from discovery; fall back to hardcoded
     const dynamicMap = consultantDiscovery.load();
     const keywordMap = dynamicMap || HARDCODED_MAP;
+    const rootContext = this.getRootProjectContext();
 
     for (const [keyword, mapping] of Object.entries(keywordMap)) {
       if (lower.includes(keyword)) {
@@ -155,13 +202,20 @@ scripts/                      — Build, generate, deploy utilities`;
       }
     }
 
+    if (rootContext.targetFiles.length > 0) {
+      matchedFiles.push(...rootContext.targetFiles);
+      matchedEntities.push(...rootContext.entities);
+      domainScores[rootContext.domain] = (domainScores[rootContext.domain] || 0) + 2;
+    }
+
     const uniqueFiles = [...new Set(matchedFiles)];
     const uniqueEntities = [...new Set(matchedEntities)];
     const topDomain = Object.entries(domainScores).sort((a, b) => b[1] - a[1])[0]?.[0] || "general";
 
-    const businessContext = uniqueFiles.length > 0
-      ? `Founder ingin: "${question}". File relevan: ${uniqueFiles.join(", ")}. Fokus domain: ${topDomain}.`
-      : "";
+    const businessContext = [
+      uniqueFiles.length > 0 ? `Founder ingin: "${question}". File relevan: ${uniqueFiles.join(", ")}. Fokus domain: ${topDomain}.` : "",
+      rootContext.businessContext || "",
+    ].filter(Boolean).join("\n");
 
     console.log(`[PIPELINE:CKO:TRANSLATE] question="${question.slice(0, 60)}" targetFiles=${uniqueFiles.length} domain="${topDomain}" entities=${uniqueEntities.join(",")}`);
 
