@@ -39,7 +39,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/csrf";
-import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle, ClipboardCheck, ChevronRight, ChevronLeft, Pencil, Copy } from "lucide-react";
+import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle, ClipboardCheck, ChevronRight, ChevronLeft, Pencil, Copy, Search } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { motion } from "framer-motion";
@@ -94,8 +94,14 @@ function StockTab({ branchId }: { branchId: number }) {
   const [qty, setQty] = useState("");
   const [price, setPrice] = useState("");
   const [notes, setNotes] = useState("");
+  const [search, setSearch] = useState("");
 
   const reset = () => { setSelectedItem(null); setAction(null); setQty(""); setPrice(""); setNotes(""); };
+  const filteredItems = (items as InventoryItem[]).filter((item) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return item.name.toLowerCase().includes(q);
+  });
 
   const submitAdj = () => {
     if (!selectedItem || !action || !branchId) return;
@@ -129,12 +135,28 @@ function StockTab({ branchId }: { branchId: number }) {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 md:p-6 space-y-3">
+        <div className="rounded-2xl border border-border/60 bg-background/80 p-3 md:p-4 shadow-sm">
+          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-muted/40 px-3 py-2.5">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari nama item / bahan"
+              className="h-9 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+            />
+          </div>
+          {search.trim() && (
+            <p className="mt-2 text-xs text-muted-foreground">Menampilkan {filteredItems.length} item</p>
+          )}
+        </div>
         {isLoading ? (
           [1, 2, 3, 4].map((i) => <div key={i} className="h-14 rounded-xl bg-muted animate-pulse" />)
-        ) : items.length === 0 ? (
-          <Empty icon={Boxes} text="Belum ada bahan/stok di cabang ini" />
+        ) : filteredItems.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+            {search.trim() ? "Tidak ada item yang cocok dengan pencarian ini." : "Belum ada bahan/stok di cabang ini"}
+          </div>
         ) : (
-          items.map((item) => {
+          filteredItems.map((item) => {
             const low = isLow(item);
             return (
               <motion.div
@@ -308,10 +330,17 @@ function IngredientsTab({ branchId }: { branchId: number }) {
   const [costPricePerUnit, setCostPricePerUnit] = useState("");
   const [minStock, setMinStock] = useState("");
   const [trackInShift, setTrackInShift] = useState(true);
+  const [search, setSearch] = useState("");
 
   const resetForm = () => {
     setName(""); setUnit(""); setCostPricePerUnit(""); setMinStock(""); setEditItem(null); setTrackInShift(true);
   };
+
+  const filteredIngredients = (ingredients as IngredientItem[]).filter((ing) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return ing.name.toLowerCase().includes(q);
+  });
 
   const openCreate = () => { resetForm(); setOpen(true); };
   const openEdit = (ing: IngredientItem) => {
@@ -397,17 +426,28 @@ function IngredientsTab({ branchId }: { branchId: number }) {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 md:p-6 space-y-3">
-        <div className="flex justify-end">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-background/80 px-3 py-2.5 shadow-sm sm:max-w-sm flex-1">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari bahan baku"
+              className="h-9 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+            />
+          </div>
           <Button size="sm" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-1.5" />Tambah Bahan
           </Button>
         </div>
         {isLoading ? (
           [1, 2, 3].map((i) => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)
-        ) : ingredients.length === 0 ? (
-          <Empty icon={Package} text="Belum ada bahan baku" />
+        ) : filteredIngredients.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+            {search.trim() ? "Tidak ada bahan baku yang cocok dengan pencarian ini." : "Belum ada bahan baku"}
+          </div>
         ) : (
-          (ingredients as IngredientItem[]).map((ing) => (
+          filteredIngredients.map((ing) => (
             <Card key={ing.id} className="hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => openEdit(ing)}>
               <CardContent className="card-responsive p-3 md:p-4 flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -530,6 +570,7 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
   const [yieldUnit, setYieldUnit] = useState("");
   const [deleteItem, setDeleteItem] = useState<SemiFinishedItem | null>(null);
   const [trackInShift, setTrackInShift] = useState(true);
+  const [search, setSearch] = useState("");
 
   // State produksi
   const [produceFor, setProduceFor] = useState<{ id: number; name: string; yieldUnit: string } | null>(null);
@@ -545,6 +586,12 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
   const resetForm = () => {
     setName(""); setUnit(""); setYieldQuantity(""); setYieldUnit(""); setEditItem(null); setTrackInShift(true);
   };
+
+  const filteredItems = (items as SemiFinishedItem[]).filter((sf) => {
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return sf.name.toLowerCase().includes(q);
+  });
 
   const openCreate = () => { resetForm(); setOpen(true); };
   const openEdit = (sf: SemiFinishedItem) => {
@@ -646,17 +693,28 @@ function SemiFinishedTab({ branchId }: { branchId: number }) {
   return (
     <ScrollArea className="h-full">
       <div className="p-4 md:p-6 space-y-3">
-        <div className="flex justify-end">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 rounded-xl border border-border/70 bg-background/80 px-3 py-2.5 shadow-sm sm:max-w-sm flex-1">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari item setengah jadi"
+              className="h-9 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+            />
+          </div>
           <Button size="sm" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-1.5" />Tambah SF<span className="hidden sm:inline"> | Setengah Jadi</span>
           </Button>
         </div>
         {isLoading ? (
           [1, 2, 3].map((i) => <div key={i} className="h-14 rounded-lg bg-muted animate-pulse" />)
-        ) : items.length === 0 ? (
-          <Empty icon={FlaskConical} text="Belum ada item setengah jadi" />
+        ) : filteredItems.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+            {search.trim() ? "Tidak ada item yang cocok dengan pencarian ini." : "Belum ada item setengah jadi"}
+          </div>
         ) : (
-          (items as SemiFinishedItem[]).map((sf) => (
+          filteredItems.map((sf) => (
             <Card key={sf.id} className="cursor-pointer" onClick={() => setMobileActionFor(sf)}>
               <CardContent className="card-responsive p-3 md:p-4 flex items-center gap-2 min-w-0">
                 <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
