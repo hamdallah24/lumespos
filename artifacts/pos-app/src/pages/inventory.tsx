@@ -968,7 +968,7 @@ export function RecipeDialog({
                     }}
                   >
                     <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" className="max-h-48">
                       {options.map((o) => (
                         <SelectItem key={`${o.type}:${o.id}`} value={`${o.type}:${o.id}`}>
                           {o.name} {o.type === "semi_finished" ? "(setengah jadi)" : ""} — {o.unit}
