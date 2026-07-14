@@ -10,6 +10,7 @@ export interface OperationalContext {
   branches?: { id: number; name: string; location?: string }[];
   pendingApprovals?: string[];
   missionProgress?: { planId: string; name: string; percent: number }[];
+  rawTexts: Record<string, string>;
   timestamp: string;
   source: "database" | "cache" | "error_fallback";
   confidence: number;

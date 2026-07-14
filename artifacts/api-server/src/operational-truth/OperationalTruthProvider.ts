@@ -101,7 +101,7 @@ function parseInventory(text: string): { itemType: string; items: { name: string
       currentType = typeMatch[1];
       currentItems = [];
     } else {
-      const itemMatch = line.match(/—\s*(.+?):\s*(\d+)\s*(.+)/);
+      const itemMatch = line.match(/[-—]\s*(.+?):\s*(\d+)\s*(.+)/);
       if (itemMatch && currentType) {
         currentItems.push({ name: itemMatch[1].trim(), stock: parseInt(itemMatch[2]), unit: itemMatch[3].trim() });
       }
@@ -116,17 +116,17 @@ function parseProducts(text: string): { name: string; price: string; isActive: b
   const products: { name: string; price: string; isActive: boolean; variants: { name: string; price: string }[] }[] = [];
   let currentProduct: { name: string; price: string; isActive: boolean; variants: { name: string; price: string }[] } | null = null;
   for (const line of text.split("\n")) {
-    const productMatch = line.match(/^(.+?):\s*Rp([0-9.]+)\s*\((✅ Aktif|⛔ Nonaktif)\)/);
+    const productMatch = line.match(/^(.+?):\s*Rp([0-9.]+)\s*\([✅⛔]/);
     if (productMatch) {
       if (currentProduct) products.push(currentProduct);
       currentProduct = {
         name: productMatch[1].trim(),
         price: productMatch[2],
-        isActive: productMatch[3] === "✅ Aktif",
+        isActive: !line.includes("⛔"),
         variants: [],
       };
     } else if (currentProduct) {
-      const variantMatch = line.match(/\s*-\s*(.+?):\s*Rp([0-9.]+)/);
+      const variantMatch = line.match(/[-—]\s*(.+?):\s*Rp([0-9.]+)/);
       if (variantMatch) {
         currentProduct.variants.push({ name: variantMatch[1].trim(), price: variantMatch[2] });
       }
@@ -160,6 +160,7 @@ export const OperationalTruthProvider = {
     if (cached) return this.buildContext(cached, query.domains, []);
 
     const data: Partial<OperationalContext> = {};
+    const rawTexts: Record<string, string> = {};
     const errors: { domain: OperationalDomain; error: string }[] = [];
     const missing: OperationalDomain[] = [];
 
@@ -190,6 +191,7 @@ export const OperationalTruthProvider = {
           if (tool === "get_top_products") params.limit = query.limit ?? 5;
           const result = await executeOperation(tool, params, branchId);
           if (!result || result === "Belum ada produk terdaftar." || result.includes("tidak tersedia")) continue;
+          rawTexts[domain] = result;
 
           if (domain === "sales") {
             if (tool === "get_sales_summary") data.todaySales = parseSalesSummary(result, branchId);
@@ -218,6 +220,7 @@ export const OperationalTruthProvider = {
     }
 
     setCache(key, data);
+    data.rawTexts = rawTexts;
     return this.buildContext(data, query.domains, errors, missing);
   },
 
