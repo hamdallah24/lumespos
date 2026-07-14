@@ -1,29 +1,45 @@
 import type { OperationalContext, OperationalDomain, OperationalQuery } from "./types";
-import { DOMAIN_TO_TOOLS } from "./types";
+import { DOMAIN_TO_TOOLS, DEFAULT_DOMAIN_TTL } from "./types";
 import { executeOperation } from "../routes/ai-business";
 import { PlanProvider } from "../execution-planner/providers";
 
 // ── Cache ──
-const cache = new Map<string, { data: Partial<OperationalContext>; expiresAt: number }>();
-const CACHE_TTL_MS = 30000; // 30s TTL
+interface CacheEntry {
+  data: Partial<OperationalContext>;
+  expiresAt: number;
+  domains: OperationalDomain[];
+  branchId: number;
+}
+const cache = new Map<string, CacheEntry>();
 
-function cacheKey(domains: OperationalDomain[], branchId: number, period: string): string {
-  return `${domains.sort().join(",")}|${branchId}|${period}`;
+function cacheKey(domains: OperationalDomain[], branchId: number, period: string, userId?: number): string {
+  const domainStr = [...domains].sort().join(",");
+  return `${domainStr}|b${branchId}|p${period}|u${userId ?? 0}`;
 }
 
-function getCached(key: string): Partial<OperationalContext> | null {
+function getCached(domains: OperationalDomain[], branchId: number, period: string, userId?: number): Partial<OperationalContext> | null {
+  const key = cacheKey(domains, branchId, period, userId);
   const entry = cache.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) { cache.delete(key); return null; }
   return entry.data;
 }
 
-function setCache(key: string, data: Partial<OperationalContext>): void {
-  cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
-  if (cache.size > 100) {
+function setCache(key: string, data: Partial<OperationalContext>, ttlMs: number): void {
+  cache.set(key, { data, expiresAt: Date.now() + ttlMs, domains: [], branchId: 0 });
+  if (cache.size > 200) {
     const first = cache.keys().next().value;
     if (first) cache.delete(first);
   }
+}
+
+function getTTL(domains: OperationalDomain[], overrides?: Partial<Record<OperationalDomain, number>>): number {
+  let maxTtl = 0;
+  for (const d of domains) {
+    const ttl = overrides?.[d] ?? DEFAULT_DOMAIN_TTL[d] ?? 30000;
+    if (ttl > maxTtl) maxTtl = ttl;
+  }
+  return maxTtl || 30000;
 }
 
 // ── Domain Intent Mapping (smart selection) ──
@@ -36,6 +52,7 @@ const KEYWORD_TO_DOMAIN: [RegExp, OperationalDomain][] = [
   [/misi|plan|progres|task|pekerjaan|tugas/i, "missions"],
   [/setuju|approve|pending|menunggu|persetujuan/i, "approvals"],
   [/produksi|produce|buat|bikin|racik/i, "production"],
+  [/keuangan|finance|revenue|profit|laba|rugi|margin|arus.kas|cash.flow|forecast|financial/i, "finance"],
 ];
 
 function inferDomains(query: string): OperationalDomain[] {
@@ -77,11 +94,18 @@ function parseTopProducts(text: string): { name: string; sold: number; revenue: 
   const products: { name: string; sold: number; revenue: number }[] = [];
   const lines = text.split("\n");
   for (const line of lines) {
-    const match = line.match(/(\d+)\.\s*(.+?)\s*[—–-]\s*(\d+)\s*terjual/i);
+    const match = line.match(/(\d+)\.\s*(.+?)\s*[—–-]\s*(\d+)\s*terjual\s*\(Rp([0-9.]+)\)/i);
+    const matchSimple = line.match(/(\d+)\.\s*(.+?)\s*[—–-]\s*(\d+)\s*terjual/i);
     if (match) {
       products.push({
         name: match[2].trim(),
         sold: parseInt(match[3]),
+        revenue: parseInt(match[4].replace(/\./g, "")),
+      });
+    } else if (matchSimple) {
+      products.push({
+        name: matchSimple[2].trim(),
+        sold: parseInt(matchSimple[3]),
         revenue: 0,
       });
     }
@@ -146,6 +170,22 @@ function parseExpenses(text: string): { total: number; count: number } | undefin
   };
 }
 
+function buildFinanceContext(sales: any, expenses: any, branchId: number, period: string): OperationalContext["finance"] {
+  const revenue = sales?.total ?? 0;
+  const totalOrders = sales?.count ?? 0;
+  const totalExpenses = expenses?.total ?? 0;
+  return {
+    revenue,
+    totalOrders,
+    averageOrderValue: totalOrders > 0 ? Math.round(revenue / totalOrders) : 0,
+    totalExpenses,
+    grossProfit: revenue - totalExpenses,
+    grossMargin: revenue > 0 ? Math.round(((revenue - totalExpenses) / revenue) * 100) : 0,
+    period,
+    branchId,
+  };
+}
+
 export const OperationalTruthProvider = {
   /** Smart select domains based on query text */
   inferDomains,
@@ -154,20 +194,24 @@ export const OperationalTruthProvider = {
   async getOperationalContext(query: OperationalQuery): Promise<OperationalContext> {
     const branchId = query.branchId ?? 1;
     const period = query.period ?? "today";
-    const key = cacheKey(query.domains, branchId, period);
+    const userId = query.userId;
+    const ttlMs = getTTL(query.domains, query.domainTTL);
 
-    const cached = getCached(key);
-    if (cached) return this.buildContext(cached, query.domains, []);
+    const cached = getCached(query.domains, branchId, period, userId);
+    if (cached) return this.buildContext({ ...cached, source: "cache" as const }, query.domains, []);
 
     const data: Partial<OperationalContext> = {};
     const rawTexts: Record<string, string> = {};
     const errors: { domain: OperationalDomain; error: string }[] = [];
     const missing: OperationalDomain[] = [];
 
+    // Temporary store for cross-domain calculations (e.g., finance uses sales + expenses)
+    let financeSales: any = null;
+    let financeExpenses: any = null;
+
     for (const domain of query.domains) {
       const tools = DOMAIN_TO_TOOLS[domain];
       if (tools.length === 0) {
-        // Non-tool domains — handle via other providers
         if (domain === "missions") {
           try {
             const plans = PlanProvider.getAll();
@@ -194,7 +238,7 @@ export const OperationalTruthProvider = {
           rawTexts[domain] = result;
 
           if (domain === "sales") {
-            if (tool === "get_sales_summary") data.todaySales = parseSalesSummary(result, branchId);
+            if (tool === "get_sales_summary") { data.todaySales = parseSalesSummary(result, branchId); financeSales = data.todaySales; }
             if (tool === "get_top_products") data.topProducts = parseTopProducts(result);
           } else if (domain === "inventory") {
             data.inventory = parseInventory(result);
@@ -202,7 +246,7 @@ export const OperationalTruthProvider = {
           } else if (domain === "products") {
             data.products = parseProducts(result);
           } else if (domain === "expenses") {
-            data.expenses = parseExpenses(result);
+            data.expenses = parseExpenses(result); financeExpenses = data.expenses;
           } else if (domain === "branches") {
             const branchLines = result.split("\n").filter(l => l.includes("ID:"));
             data.branches = branchLines.map(l => {
@@ -210,6 +254,9 @@ export const OperationalTruthProvider = {
               const nameMatch = l.match(/:\s*(.+?)(?:\s*\(|$)/);
               return { id: idMatch ? parseInt(idMatch[1]) : 0, name: nameMatch ? nameMatch[1].trim() : l };
             });
+          } else if (domain === "finance") {
+            if (tool === "get_sales_summary") financeSales = parseSalesSummary(result, branchId);
+            if (tool === "get_expenses") financeExpenses = parseExpenses(result);
           }
           domainData = true;
         } catch (e: any) {
@@ -219,9 +266,16 @@ export const OperationalTruthProvider = {
       if (!domainData) missing.push(domain);
     }
 
-    setCache(key, data);
+    // Build finance context if requested
+    if (query.domains.includes("finance")) {
+      data.finance = buildFinanceContext(financeSales, financeExpenses, branchId, period);
+      if (!financeSales && !financeExpenses) missing.push("finance");
+    }
+
+    const cacheKeyStr = cacheKey(query.domains, branchId, period, userId);
+    setCache(cacheKeyStr, { ...data, rawTexts }, ttlMs);
     data.rawTexts = rawTexts;
-    return this.buildContext(data, query.domains, errors, missing);
+    return this.buildContext({ ...data, source: "database" as const }, query.domains, errors, missing);
   },
 
   /** Build final context with metadata */
@@ -237,19 +291,20 @@ export const OperationalTruthProvider = {
       : 0;
 
     return {
+      version: 1,
       ...data,
       timestamp: new Date().toISOString(),
-      source: "database",
+      source: (data as any).source ?? "database",
       confidence,
       missingDomains: missing,
       errors,
-    };
+    } as OperationalContext;
   },
 
   /** Quick context for operational status queries */
-  async getStatusContext(query: string, branchId?: number): Promise<OperationalContext> {
+  async getStatusContext(query: string, branchId?: number, userId?: number): Promise<OperationalContext> {
     const domains = inferDomains(query);
-    return this.getOperationalContext({ domains, branchId, period: "today" });
+    return this.getOperationalContext({ domains, branchId, userId, period: "today" });
   },
 
   /** Clear cache */
