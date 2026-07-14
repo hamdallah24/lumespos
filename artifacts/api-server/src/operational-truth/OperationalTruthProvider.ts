@@ -307,6 +307,33 @@ export const OperationalTruthProvider = {
     return this.getOperationalContext({ domains, branchId, userId, period: "today" });
   },
 
+  /** Get finance-specific context */
+  async getFinanceContext(branchId?: number, period?: "today" | "yesterday" | "week" | "month", userId?: number): Promise<OperationalContext> {
+    return this.getOperationalContext({
+      domains: ["finance", "sales", "expenses", "branches", "products"],
+      branchId, userId, period: period ?? "today",
+      limit: 5,
+    });
+  },
+
+  /** Get branch context string for prompt */
+  async getBranchContextString(branchId: number): Promise<string> {
+    try {
+      const ctx = await this.getOperationalContext({ domains: ["branches"], branchId });
+      if (!ctx.branches || ctx.branches.length === 0) return "";
+      const active = ctx.branches.find(b => b.id === branchId);
+      const activeLine = active
+        ? `Kamu sedang menganalisis cabang **${active.name}** (ID:${active.id})${active.location ? ` — ${active.location}` : ""}`
+        : `Cabang aktif: ID ${branchId}`;
+      let text = `\n## Context Cabang\n${activeLine}\n\n### Daftar Semua Cabang:\n`;
+      for (const b of ctx.branches) {
+        const marker = b.id === branchId ? " ⬅️ AKTIF" : "";
+        text += `  - ID ${b.id}: ${b.name}${b.location ? ` (${b.location})` : ""}${marker}\n`;
+      }
+      return text;
+    } catch { return ""; }
+  },
+
   /** Clear cache */
   clearCache(): void { cache.clear(); },
 

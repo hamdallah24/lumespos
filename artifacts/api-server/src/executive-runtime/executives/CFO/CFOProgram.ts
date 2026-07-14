@@ -11,7 +11,6 @@ import { JSON_OUTPUT_SCHEMA } from "../../../routes/ai-prompts";
 import { ExecutionPipeline } from "../../../ai/runtime/execution/execution-pipeline";
 import type { ExecutionContract } from "../../../eios-runtime/contracts/PipelineContracts";
 import { consultantRuntime } from "../../../programs/consultant";
-import { LOCAL_TOOLS } from "../../../ai/tools/tool-adapter";
 import { GovernanceProvider } from "../../../governance/providers";
 import { KnowledgeProvider } from "../../../knowledge-platform/providers";
 import { auditEngine } from "../../../governance/core";
@@ -22,8 +21,7 @@ import { CFO_CONFIG } from "./CFO.config";
 import { CognitiveEngine, recordTrace } from "../../cognition";
 import { memoryProvider } from "../../memory-provider";
 import { writeDecisionToMemory } from "../../memory-provider/decision-hook";
-import { db, branchesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { OperationalTruthProvider } from "../../../operational-truth";
 
 const CFO_IDENTITY = getIdentity("CFO")!;
 const cfoCognitive = new CognitiveEngine();
@@ -45,29 +43,6 @@ interface ExecutiveResult {
   success: boolean;
   text: string;
   pipeline: string[];
-}
-
-async function getBranchContext(branchId: number): Promise<string> {
-  try {
-    const branches = await db
-      .select({ id: branchesTable.id, name: branchesTable.name, location: branchesTable.location })
-      .from(branchesTable)
-      .orderBy(branchesTable.id);
-    if (branches.length === 0) return "";
-    const active = branches.find(b => b.id === branchId);
-    const activeLine = active
-      ? `Kamu sedang menganalisis cabang **${active.name}** (ID:${active.id})${active.location ? ` — ${active.location}` : ""}`
-      : `Cabang aktif: ID ${branchId}`;
-    let text = `\n## Context Cabang\n${activeLine}\n\n### Daftar Semua Cabang:\n`;
-    for (const b of branches) {
-      const marker = b.id === branchId ? " ⬅️ AKTIF" : "";
-      text += `  - ID ${b.id}: ${b.name}${b.location ? ` (${b.location})` : ""}${marker}\n`;
-    }
-    text += `\nData keuangan bisa berbeda per cabang. Sertakan konteks cabang dalam analisa finansial.\n`;
-    return text;
-  } catch {
-    return "";
-  }
 }
 
 async function execute(task: ExecutiveTask, execContract?: ExecutionContract): Promise<ExecutiveResult> {
@@ -144,14 +119,14 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     console.log(`[PIPELINE:CFO:CognitiveEngine] error: ${e.message}`);
   }
 
-  // Planning context
-  pipeline.push("Context");
-  task.onProgress?.("📊 CFO: Mengumpulkan konteks finansial");
+  // T6.7: Get financial intelligence from OperationalTruthProvider
+  pipeline.push("FinanceContext");
+  task.onProgress?.("💰 CFO: Mengambil data keuangan dari provider");
+  const finCtx = await OperationalTruthProvider.getFinanceContext(branchId, "today", task.userId);
   const plans = PlanProvider.getAll();
-  const knowledge = KnowledgeProvider.searchAll(task.message);
 
-  // Branch context
-  const branchContext = await getBranchContext(branchId);
+  // Branch context from provider (no direct SQL)
+  const branchContext = await OperationalTruthProvider.getBranchContextString(branchId);
 
   // Decision: structured report from LLM via ExecutionPipeline
   pipeline.push("PipelineLLM");
@@ -169,13 +144,37 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   }
   if (branchContext) systemPrompt += `\n${branchContext}\n`;
   if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n`;
-  systemPrompt += `\n\n## Plans Context\n${plans.slice(0, 3).map(p => `- Plan ${p.graph.id}: ${p.criticalPath.length} steps`).join("\n") || "Tidak ada plan aktif"}`;
-  systemPrompt += `\n\n## Knowledge\n${knowledge.slice(0, 5).map(k => `- ${k.summary}`).join("\n") || "Tidak ada pengetahuan relevan"}`;
+
+  // Finance Intelligence Context (replaces direct tool/SQL access)
+  systemPrompt += `\n\n## Finance Context\n`;
+  if (finCtx.finance) {
+    const f = finCtx.finance;
+    systemPrompt += `- Revenue: Rp${f.revenue.toLocaleString("id-ID")}\n`;
+    systemPrompt += `- Total Orders: ${f.totalOrders}\n`;
+    systemPrompt += `- Average Order Value: Rp${f.averageOrderValue.toLocaleString("id-ID")}\n`;
+    systemPrompt += `- Total Expenses: Rp${f.totalExpenses.toLocaleString("id-ID")}\n`;
+    systemPrompt += `- Gross Profit: Rp${f.grossProfit.toLocaleString("id-ID")}\n`;
+    systemPrompt += `- Gross Margin: ${f.grossMargin}%\n`;
+  } else {
+    systemPrompt += `Data keuangan tidak tersedia.\n`;
+  }
+  if (finCtx.topProducts && finCtx.topProducts.length > 0) {
+    systemPrompt += `\n## Top Products\n${finCtx.topProducts.slice(0, 5).map(p => `- ${p.name}: ${p.sold} sold (Rp${p.revenue.toLocaleString("id-ID")})`).join("\n")}\n`;
+  }
+  systemPrompt += `\n## Plans Context\n${plans.slice(0, 3).map(p => `- Plan ${p.graph.id}: ${p.criticalPath.length} steps`).join("\n") || "Tidak ada plan aktif"}`;
+
+  // Grounding policy
+  systemPrompt += `\n\n## ATURAN GROUNDING KEUANGAN\n`;
+  systemPrompt += `- JANGAN mengarang angka keuangan.\n`;
+  systemPrompt += `- Semua angka harus berasal dari Finance Context di atas.\n`;
+  systemPrompt += `- Jika Finance Context kosong, nyatakan data tidak tersedia.\n`;
+  systemPrompt += `- JANGAN membuat estimasi revenue, expense, atau profit.\n`;
+  systemPrompt += `- JANGAN membuat asumsi produk atau harga.\n`;
 
   const messages = [{ role: "system" as const, content: systemPrompt }, { role: "user" as const, content: task.message }];
   const execResult = await ExecutionPipeline.execute(
     { role: "CFO" as any, intent: spec.intent, domain: spec.domain },
-    messages, LOCAL_TOOLS, spec.estimatedTokens || 16000, task.userId, "cfo", task.message, true,
+    messages, [], spec.estimatedTokens || 16000, task.userId, "cfo", task.message, true,
     { onProgress: task.onProgress },
     { complexity: spec.estimatedComplexity || "simple", domain: spec.domain, objective: spec.objective },
   );
