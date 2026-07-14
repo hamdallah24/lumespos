@@ -1,0 +1,30 @@
+{
+  "asset_type": "foundation",
+  "id": "foundation-knowledge-knowledge-lifecycle",
+  "canonical": true,
+  "metadata": {
+    "title": "Foundation: executive-runtime\\knowledge\\KNOWLEDGE_LIFECYCLE",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "6c079679aed16fbe67575915dc2d16ec6b67de062ae761ea6e1e633f058fc1c5",
+    "compiled_at": "2026-07-14T07:56:39.071Z",
+    "source_hash": "a959b23c20e6dcaa35912a271031113e6273d2a5c8299a46749583350bd51c39",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\KNOWLEDGE_LIFECYCLE.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "foundational",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-knowledge-lifecycle",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 5: Knowledge Lifecycle\n  Sources: knowledge-card.ts, knowledge-lifecycle.ts, knowledge-platform/learning/,\n           learning/learning-engine.ts, intelligence/organizational-memory.ts\n  DO NOT EDIT MANUALLY.\n-->\n\n# Knowledge Lifecycle\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\nDefines the unified lifecycle that ALL knowledge follows, from acquisition to retirement.\n\n---\n\n## Unified Lifecycle Diagram\n\n```\nACQUIRE → VALIDATE → NORMALIZE → CATEGORIZE → STORE → INDEX → RETRIEVE → REASON → DECISION → LEARNING → ARCHIVE → RETIRE\n    ↑                                                                                                                                       │\n    └───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘\n                                                                    (Feedback loop)\n```\n\n---\n\n## Stage 01: ACQUIRE\n\nKnowledge enters the system through one of these channels:\n\n| Acquisition Channel | Source | Trigger | Owner |\n|--------------------|--------|---------|-------|\n| Executive Execution | Any executive action | After execute() completes | All executives |\n| Pipeline Observer | EIOS observers | decision.made, council.resolved, pipeline.completed | EIOS Runtime |\n| User Input | Founder/Operator message | Direct message or command | CEO / COO |\n| External Fetch | CMO market research | Scheduled or on-demand | CMO |\n| System Event | Kernel heartbeat, health check | System event | Kernel |\n| Learning Engine | Experience → Knowledge | LearningEngine.cycle() | Learning Engine |\n| Knowledge Fusion | Cross-executive synthesis | CrossExecutiveLearning | Intelligence Engine |\n\n### Acquisition Rules\n1. Every execution MUST produce at least one knowledge episode\n2. Failed executions are equally valuable as successful ones\n3. External knowledge requires source attribution\n4. User-provided knowledge requires explicit validation\n\n---\n\n## Stage 02: VALIDATE\n\nKnowledge is validated before it can be used for decisions.\n\n| Validation Method | Criteria | Used For |\n|------------------|----------|----------|\n| Source Count | >=3 sources with confidence >60 | Knowledge cards |\n| Multi-Source | >=2 independent sources | Organizational memory |\n| Executive Authority | CEO validation | Strategic knowledge |\n| Self-Consistency | No contradictions with existing | All knowledge |\n| Cross-Reference | Matches known facts | Business data |\n| Temporal Check | Not expired (if has expiration) | Time-sensitive data |\n| Governance Check | Passes GovernanceProvider.canExecute() | Decision knowledge |\n\n### Validation Levels\n| Level | Code | Criteria |\n|-------|------|----------|\n| Unvalidated | RAW | Single observation, no checks |\n| Partially Validated | OBS | Recorded, 1 source |\n| Validated | VAL | 2+ sources or CEO validation |\n| Fully Validated | ACT | 3+ sources, no contradictions, confidence >70 |\n\n### Validation Rules\n1. Knowledge used for HIGH-confidence decisions MUST be at least VALIDATED\n2. Knowledge used for CRITICAL decisions MUST be FULLY VALIDATED\n3. Conflicting knowledge cannot both be ACTIVE — one must be flagged as contradiction\n4. Validation status is stored with the knowledge and updated over time\n\n---\n\n## Stage 03: NORMALIZE\n\nKnowledge is transformed into a standard format.\n\n| Source Format | Normalized To | Transform |\n|--------------|---------------|-----------|\n| Episode (eventType, context, outcome) | KnowledgeBlock (episode type) | Extract features |\n| Semantic (fact, source, verifiedAt) | KnowledgeBlock (semantic type) | Normalize identifiers |\n| LLM output (free text) | KnowledgeBlock (procedural type) | Parse structured fields |\n| Mission output (artifacts) | KnowledgeArtifact | Summarize key insights |\n| Experience (missionId, outcome, lessons) | KnowledgeNode | Classify type (PATTERN/INSIGHT/etc.) |\n| External data (market report) | KnowledgeBlock (semantic) | Extract structured facts |\n\n### Normalizat"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

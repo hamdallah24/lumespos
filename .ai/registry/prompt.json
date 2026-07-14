@@ -1,0 +1,85 @@
+{
+  "assets": {
+    "global-prompt": {
+      "artifact": "prompt",
+      "version": "0.0.0",
+      "checksum": "7e1162c4d78c95a21d12828d13f3cc5e2ac0b4b45c28b40bac984e8c3a57abfc",
+      "consumer": [
+        "*"
+      ],
+      "owner": "FOUNDER"
+    },
+    "cto-prompt": {
+      "artifact": "prompt",
+      "version": "0.0.0",
+      "checksum": "21a21560769f89bea2096cad808bd2dbe85a98b663c3c2a96f5281d78e972453",
+      "consumer": [
+        "cto-runtime"
+      ],
+      "owner": "CTO"
+    },
+    "coo-prompt": {
+      "artifact": "prompt",
+      "version": "0.0.0",
+      "checksum": "0cc9b05f6c58d605a96b53e7a6337e90a27ae0e2bc5a4296c76f46558c42efb2",
+      "consumer": [
+        "coo-runtime"
+      ],
+      "owner": "COO"
+    },
+    "cmo-prompt": {
+      "artifact": "prompt",
+      "version": "0.0.0",
+      "checksum": "fe187cc604861e1de90f1651fed4e4c6a7704edddcd0ac35cb8cfef9dd1f7421",
+      "consumer": [
+        "cmo-runtime"
+      ],
+      "owner": "CMO"
+    },
+    "cko-prompt": {
+      "artifact": "prompt",
+      "version": "0.0.0",
+      "checksum": "b6dd52d82f6ea8ff62403ba44be486aaa91e6545ed890668e41c36fe9be66071",
+      "consumer": [
+        "cko-runtime"
+      ],
+      "owner": "CKO"
+    },
+    "chro-prompt": {
+      "artifact": "prompt",
+      "version": "0.0.0",
+      "checksum": "bd2d1f4871da144b98ebae9b6ffbc2dd88d8d87b6704777d742ff5c9c056c11e",
+      "consumer": [
+        "chro-runtime"
+      ],
+      "owner": "CHRO"
+    },
+    "cfo-prompt": {
+      "artifact": "prompt",
+      "version": "0.0.0",
+      "checksum": "4426ce8b011b52db2bfd626e98abe9d15f89cd83b943b7c17231403088dddf93",
+      "consumer": [
+        "cfo-runtime"
+      ],
+      "owner": "CFO"
+    },
+    "ceo-prompt": {
+      "artifact": "prompt",
+      "version": "0.0.0",
+      "checksum": "39856a21c552ab31ca8f5ca8250b40f3dd39a2d849b9862d37fe298e837cf438",
+      "consumer": [
+        "ceo-runtime"
+      ],
+      "owner": "CEO"
+    },
+    "caio-prompt": {
+      "artifact": "prompt",
+      "version": "0.0.0",
+      "checksum": "aee9011c78ab5d44dd0de458c8633fb6a41e3b4fea47c2688b97cd3e8b2222f3",
+      "consumer": [
+        "caio-runtime"
+      ],
+      "owner": "CAIO"
+    }
+  }
+}

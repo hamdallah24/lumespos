@@ -19,6 +19,24 @@ export const ALL_TOOLS: ToolDef[] = [
   { name: "fetchGitHubFile", description: "Read file. VPS dulu, fallback GitHub. Path bisa absolute atau relative.", parameters: { type: "object", properties: { path: { type: "string" }, branch: { type: "string" } }, required: ["path"] } },
   { name: "fetchGitHubDir", description: "List directory from GitHub (fallback only).", parameters: { type: "object", properties: { path: { type: "string" }, branch: { type: "string" } }, required: ["path"] } },
   { name: "sshExec", description: "Run shell command on VPS via SSH.", parameters: { type: "object", properties: { command: { type: "string" } }, required: ["command"] } },
+
+  // ── Business Data Tools ──
+  { name: "getSalesSummary", description: "Get today's sales summary (revenue, orders, expenses, comparisons).", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" } } } },
+  { name: "getFinancialReport", description: "Get financial report (gross revenue, COGS, expenses, profit, margins) for a date range.", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" }, startDate: { type: "string", description: "ISO date string (optional, default 30 days ago)" }, endDate: { type: "string", description: "ISO date string (optional, default today)" } } } },
+  { name: "getTopProducts", description: "Get top selling products by quantity/revenue.", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" }, limit: { type: "number", description: "Number of products (default 5)" }, period: { type: "string", description: "Period: today, week, month (default today)" } } } },
+  { name: "getSalesChart", description: "Get sales chart data (daily/hourly revenue, orders, expenses).", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" }, startDate: { type: "string", description: "ISO date string (optional)" }, endDate: { type: "string", description: "ISO date string (optional)" } } } },
+  { name: "getCashierPerformance", description: "Get cashier performance summary (total orders, revenue per cashier).", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" }, startDate: { type: "string", description: "ISO date string (optional)" }, endDate: { type: "string", description: "ISO date string (optional)" } } } },
+  { name: "getLowStockItems", description: "Get items with stock below minimal threshold.", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" } } } },
+  { name: "getInventoryLevels", description: "Get all inventory levels (ingredients + semi-finished).", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" } } } },
+  { name: "getOrderHistory", description: "Get recent orders list.", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" }, limit: { type: "number", description: "Number of orders (default 20)" } } } },
+  { name: "getExpenseList", description: "Get list of expenses.", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" }, limit: { type: "number", description: "Number of expenses (default 20)" }, startDate: { type: "string", description: "ISO date string (optional)" }, endDate: { type: "string", description: "ISO date string (optional)" } } } },
+  { name: "getShiftAuditSummary", description: "Get shift audit summary (opening/closing, discrepancies).", parameters: { type: "object", properties: { branchId: { type: "number", description: "Branch ID (optional)" } } } },
+];
+
+export const BUSINESS_TOOL_NAMES = [
+  "getSalesSummary", "getFinancialReport", "getTopProducts", "getSalesChart",
+  "getCashierPerformance", "getLowStockItems", "getInventoryLevels",
+  "getOrderHistory", "getExpenseList", "getShiftAuditSummary",
 ];
 
 export const READ_TOOLS: ToolDef[] = ALL_TOOLS.filter(t =>

@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-source-of-truth-matrix",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\SOURCE_OF_TRUTH_MATRIX",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "5f4afcf453bea29412b9c71e7d0ea229eafc81611f701dc841d93d092ced48cc",
+    "compiled_at": "2026-07-14T07:56:39.075Z",
+    "source_hash": "85656fbe5facad4a8715708661feb087957df97068e58aaca5190705612fe9c1",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\SOURCE_OF_TRUTH_MATRIX.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-source-of-truth-matrix",
+    "content_type": "cognition",
+    "body": "# SOURCE OF TRUTH MATRIX — Canonical vs Derived\n\n## Classification\n\n| Status | Meaning |\n|---|---|\n| **Canonical** | Primary source of truth — single authority |\n| **Derived** | Generated or summarized from Canonical |\n| **Reference** | Human-readable description of Canonical |\n| **Generated** | Produced by tooling (TypeScript compiler, etc.) |\n| **Deprecated** | Should not be used |\n\n---\n\n## Domains and Their Source of Truth\n\n### Domain: Executive Identity\n\n| Asset | Status | Notes |\n|---|---|---|\n| `src/ai/runtime/identity.ts` | **Canonical** | Hardcoded IDENTITIES map |\n| `docs/executive-runtime/EXECUTIVE_RUNTIME_HANDBOOK.md` | Reference | Human description |\n| **Verdict**: ✅ Single canonical (code) — but missing CAIO, CKO | | |\n\n### Domain: Capability Matrix\n\n| Asset | Status | Notes |\n|---|---|---|\n| `docs/executive-runtime/EXECUTIVE_CAPABILITY_MATRIX.md` | **Canonical (should be)** | Doc defines full matrix |\n| `src/ai/runtime/foundation/domains/capability-domain.ts` | **Duplicate** | Hardcoded subset (CEO/CTO/COO only) |\n| `docs/executive-runtime/executives/*/EXECUTIVE_SPEC.md` | Reference | Per-executive description |\n| **Verdict**: ⚠️ **DUAL CANONICAL** — doc and code disagree | | |\n\n### Domain: Runtime Directives\n\n| Asset | Status | Notes |\n|---|---|---|\n| `.ai/foundation/*` (expected) | **Canonical (intended)** | YAML frontmatter expected |\n| `src/ai/runtime/foundation/domains/runtime-domain.ts` | **Canonical (actual)** | Hardcoded ROLE_DIRECTIVE_MAP |\n| `docs/executive-runtime/executives/*/EXECUTIVE_SPEC.md` | Reference | Human description |\n| **Verdict**: ⚠️ DUAL CANONICAL — .ai/ expected but not present; code uses hardcoded IDs | | |\n\n### Domain: System Prompt\n\n| Asset | Status | Notes |\n|---|---|---|\n| `docs/executive-runtime/executives/*/SYSTEM_PROMPT.md` | **Canonical** | Per-role prompt |\n| `docs/executive-runtime/prompts/GLOBAL_SYSTEM_PROMPT.md` | **Canonical** | Global prompt |\n| `src/ai/runtime/prompt-assembler.ts` | **Consumer** | Reads via Foundation Loader |\n| **Verdict**: ✅ Single canonical per role — but NOT loaded by foundation-loader (no .ai/ YAML) | | |\n\n### Domain: Mental Model Library\n\n| Asset | Status | Notes |\n|---|---|---|\n| `docs/executive-runtime/knowledge/EXECUTIVE_MENTAL_MODEL_LIBRARY.md` | **Canonical (EKS)** | 46 models |\n| `src/executive-runtime/cognition/MentalModelSelector.ts` | **Duplicate (ECS)** | 20 models |\n| `docs/executive-runtime/cognition/MENTAL_MODEL_LIBRARY.md` | Reference | ECS summary |\n| **Verdict**: ⚠️ **DUAL CANONICAL** — EKS has 46 models, ECS has 20; content differs | | |\n\n### Domain: Framework Library\n\n| Asset | Status | Notes |\n|---|---|---|\n| `docs/executive-runtime/knowledge/EXECUTIVE_FRAMEWORK_LIBRARY.md` | **Canonical (EKS)** | 29 frameworks |\n| `src/executive-runtime/cognition/FrameworkSelector.ts` | **Duplicate (ECS)** | 27 frameworks |\n| `docs/executive-runtime/cognition/FRAMEWORK_LIBRARY.md` | Reference | ECS summary |\n| **Verdict**: ⚠️ **DUAL CANONICAL** — EKS has 29 frameworks, ECS has 27; content differs | | |\n\n### Domain: Knowledge Taxonomy\n\n| Asset | Status | Notes |\n|---|---|---|\n| `docs/executive-runtime/knowledge/EXECUTIVE_KNOWLEDGE_TAXONOMY.md` | **Canonical** | 15-branch hierarchy |\n| `src/ai/runtime/knowledge-graph.ts` | Not consuming | Graph uses domain from .ai/ YAML, not taxonomy |\n| **Verdict**: ⚠️ Canonical defined but NOT adopted by runtime | | |\n\n### Domain: Knowledge Lifecycle\n\n| Asset | Status | Notes |\n|---|---|---|\n| `docs/executive-runtime/knowledge/KNOWLEDGE_LIFECYCLE.md` | **Canonical** | 12-stage lifecycle |\n| `src/ai/runtime/knowledge/knowledge-lifecycle.ts` | **Derived** | Implements different logic |\n| **Verdict**: ⚠️ Canonical doc ≠ runtime implementation | | |\n\n### Domain: Decision Pattern\n\n| Asset | Status | Notes |\n|---|---|---|\n| `src/executive-runtime/cognition/DecisionPattern.ts` | **Canonical** | TypeScript implementation |\n| `docs/executive-runtime/cognition/DECISION_PATTERN_REFERENCE.md` | Reference | Human-readable |\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "asset_type": "foundation",
+  "id": "foundation-knowledge-knowledge-retrieval-model",
+  "canonical": true,
+  "metadata": {
+    "title": "Foundation: executive-runtime\\knowledge\\KNOWLEDGE_RETRIEVAL_MODEL",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "f2c7ab3fa62058504e275302620f7cc310aa23f8643ae4c1fdbe407753d2f669",
+    "compiled_at": "2026-07-14T07:56:39.070Z",
+    "source_hash": "c60767ef2c66925b3313d0a2aab445c3f5a736fdd2e3010806fc130648387784",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\KNOWLEDGE_RETRIEVAL_MODEL.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "foundational",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-knowledge-retrieval-model",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 8: Knowledge Retrieval Model\n  Sources: PROMPT_COMPOSITION_ENGINE.md, learning/retrieval-engine.ts,\n           knowledge-platform/providers/KnowledgeProvider.ts,\n           knowledge/KnowledgeBackbone.ts\n  DO NOT EDIT MANUALLY.\n-->\n\n# Knowledge Retrieval Model\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\n---\n\n## Retrieval Pipeline\n\n```\nUser Request\n     │\n     ▼\n┌─────────────┐\n│  INTENT     │ ← Classify: approve/status/action/question/strategic/technical/financial/marketing/AI/knowledge\n│  ANALYSIS   │\n└──────┬──────┘\n       │\n       ▼\n┌─────────────┐\n│  CAPABILITY │ ← Can the executive handle this? GovernanceProvider.canExecute()\n│  CHECK      │\n└──────┬──────┘\n       │\n       ▼\n┌─────────────┐\n│  KNOWLEDGE  │ ← Which knowledge domain? (taxonomy path)\n│  DOMAIN     │\n└──────┬──────┘\n       │\n       ▼\n┌─────────────┐\n│  PRIORITY   │ ← How important is this? (HIGH/MEDIUM/LOW)\n│  ASSESSMENT │\n└──────┬──────┘\n       │\n       ▼\n┌─────────────┐\n│  EXECUTIVE  │ ← Which executive(s) should handle this?\n│  ROUTING    │\n└──────┬──────┘\n       │\n       ▼\n┌─────────────┐\n│  KNOWLEDGE  │ ← Which knowledge layers to include?\n│  LAYER      │\n│  SELECTION  │\n└──────┬──────┘\n       │\n       ▼\n┌─────────────┐\n│  EVIDENCE   │ ← Collect supporting evidence\n│  COLLECTION │\n└──────┬──────┘\n       │\n       ▼\n┌─────────────┐\n│  REASONING  │ ← Synthesize knowledge → decision\n│  & DECISION │\n└─────────────┘\n```\n\n---\n\n## Stage 1: Intent Analysis\n\nClassify the user message into one of these intents:\n\n| Intent | Description | Primary Executive |\n|--------|-------------|-------------------|\n| strategic | Strategic direction, vision, org change | CEO |\n| approval | Plan approval, permission request | CEO |\n| technical | Code analysis, implementation, architecture | CTO |\n| financial | Cost analysis, margin, pricing, budget | CFO |\n| operational | Inventory, sales, production, expenses | COO |\n| marketing | Campaign, market analysis, customer insight | CMO |\n| health | System health, performance, anomalies | CAIO |\n| knowledge | Knowledge query, curation, advisory | CKO |\n| council | Council session, minutes, decisions | CKO |\n| general | General query, conversation | Depends on context |\n\n### Intent Detection Rules\n1. Match against known intent patterns (keyword-based first, semantic fallback)\n2. If intent is ambiguous, classify as \"general\" + route to best-matching executive\n3. If no executive matches, route to CEO (default handler)\n4. Intent classification is recorded as part of the knowledge episode\n\n---\n\n## Stage 2: Capability Check\n\nVerify the executive can handle the request:\n\n```typescript\nconst canExecute = GovernanceProvider.canExecute(executiveRole, action, domain);\nif (!canExecute) {\n  // Log audit: denied\n  // Route to appropriate executive or escalate\n}\n```\n\n### Capability → Intent Mapping\n| Intent | Required Capability | Executive |\n|--------|-------------------|-----------|\n| strategic | strategic-decision | CEO |\n| approval | proposal-review | CEO |\n| technical | code-analysis | CTO |\n| financial | financial-analysis | CFO |\n| operational | inventory-management | COO |\n| marketing | market-analysis | CMO |\n| health | ai-health-monitoring | CAIO |\n| knowledge | knowledge-curation | CKO |\n\n---\n\n## Stage 3: Knowledge Domain Selection\n\nMap the intent to the appropriate knowledge domain (from taxonomy):\n\n| Intent | Primary Taxonomy Branch | Secondary Branch |\n|--------|------------------------|-----------------|\n| strategic | 01 Foundation | 04 Executive (CEO) |\n| approval | 06 Decision | 04 Executive (CEO) |\n| technical | 03 Runtime | 07 Framework |\n| financial | 05 Domain (Financials) | 04 Executive (CFO) |\n| operational | 05 Domain (Inventory, Sales, etc.) | 10 Experience |\n| marketing | 05 Domain (Market, Customers) | 13 External |\n| health | 03 Runtime | 04 Executive (CAIO) |\n| knowledge | 04 Executive (CKO) | 02 Organization |\n| general | 14 User | 15 Conversation |\n\n---\n\n## Stage 4: Priority Assessment\n\nDetermine ret"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

@@ -3,6 +3,8 @@ import { db, semiFinishedTable, currentInventoryTable, ingredientsTable } from "
 import { and, eq, sql } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, requireRole, canAccessBranch } from "../middlewares/requireAuth";
 import { adjustInventory, getRecipeRows, getInventoryStock, type Executor } from "../services/inventory";
+import { EventPublisher } from "../event-bus";
+import { createIngredientConsumedEvent, createBatchProducedEvent } from "../events";
 
 const router = Router();
 
@@ -196,29 +198,32 @@ router.post("/semi-finished/:id/produce", requireRole("owner", "manager"), async
   }
 
   try {
+    let produceResult: {
+      branchId: number;
+      recipe: { componentType: string; componentId: number; quantity: number }[];
+      totalCost: number;
+      newHpp: number;
+      sfName: string;
+    };
+
     await db.transaction(async (tx: Executor) => {
-      // 1. Ambil data semi finished
       const [sf] = await tx
         .select()
         .from(semiFinishedTable)
         .where(eq(semiFinishedTable.id, id));
       if (!sf) throw new Error("Not found");
 
-      // Check branch access
       if (sf.branchId && !(await canAccessBranch(req as any, sf.branchId))) {
         throw new Error("Forbidden branch");
       }
 
       const branchId = sf.branchId!;
-
-      // 2. Ambil resep (BOM) dari semi_finished ini
       const recipe = await getRecipeRows(tx, "semi_finished", id);
 
       if (recipe.length === 0) {
         throw new Error("Resep belum diisi. Silakan isi BOM terlebih dahulu.");
       }
 
-      // 3. Validasi ketersediaan stok bahan baku sebelum dikurangi (Guard Rail)
       for (const r of recipe) {
         const currentStock = await getInventoryStock(tx, branchId, r.componentType, r.componentId);
         if (currentStock < r.quantity) {
@@ -234,35 +239,53 @@ router.post("/semi-finished/:id/produce", requireRole("owner", "manager"), async
         }
       }
 
-      // 4. Hitung total biaya bahan baku yang terpakai (untuk 1 batch) dan kurangi stok
       let totalCost = 0;
       for (const r of recipe) {
         const componentCost = await getComponentCost(tx, r.componentType, r.componentId);
         totalCost += componentCost * r.quantity;
-        
-        // Kurangi stok bahan baku
         await adjustInventory(tx, branchId, r.componentType, r.componentId, -r.quantity);
       }
 
-      // 5. Hitung HPP baru berdasarkan hasil timbangan riil
       const newHpp = totalCost / producedWeight;
-
-      // 6. Ambil stok lama sebelum ditambah untuk perhitungan moving average
       const oldStock = await getCurrentStock(tx, branchId, id);
-
-      // 7. Tambah stok setengah jadi sebesar hasil timbangan
       await adjustInventory(tx, branchId, "semi_finished", id, producedWeight);
 
-      // 8. Update costPricePerUnit dengan HPP yang baru (moving average)
       const oldTotalValue = (parseFloat(sf.costPricePerUnit) || 0) * oldStock;
       const newTotalValue = newHpp * producedWeight;
       const avgHpp = (oldTotalValue + newTotalValue) / (oldStock + producedWeight);
-      
+
       await tx
         .update(semiFinishedTable)
         .set({ costPricePerUnit: String(avgHpp) })
         .where(eq(semiFinishedTable.id, id));
+
+      produceResult = {
+        branchId,
+        recipe: recipe.map(r => ({ componentType: r.componentType, componentId: r.componentId, quantity: r.quantity })),
+        totalCost,
+        newHpp,
+        sfName: sf.name,
+      };
     });
+
+    for (const r of produceResult!.recipe) {
+      EventPublisher.publish(createIngredientConsumedEvent({
+        branchId: produceResult!.branchId,
+        semiFinishedId: id,
+        componentType: r.componentType as "ingredient" | "semi_finished",
+        componentId: r.componentId,
+        quantity: r.quantity,
+      }));
+    }
+
+    EventPublisher.publish(createBatchProducedEvent({
+      branchId: produceResult!.branchId,
+      semiFinishedId: id,
+      semiFinishedName: produceResult!.sfName,
+      producedWeight,
+      totalCost: produceResult!.totalCost,
+      newHpp: produceResult!.newHpp,
+    }));
 
     return res.json({ 
       success: true, 

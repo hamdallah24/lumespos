@@ -1,0 +1,1 @@
+export { KnowledgeProvider } from "./KnowledgeProvider";

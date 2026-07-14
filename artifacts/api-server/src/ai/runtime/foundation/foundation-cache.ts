@@ -6,8 +6,10 @@ import { foundationLoader } from "../foundation-loader";
 import type { FoundationCache } from "./types/foundation-types";
 import { readFileSync, existsSync } from "fs";
 import { join } from "path";
+import { redisService } from "../../../lib/redis";
 
 let _cache: FoundationCache | null = null;
+const REDIS_KEY_PREFIX = "foundation:cache:";
 
 function loadFingerprint(): { fingerprint: string; generatedAt: string; documentCount: number } | null {
   const candidates = [
@@ -39,7 +41,7 @@ export function getCache(): FoundationCache {
     id: a.id,
     title: a.title,
     artifact_type: a.artifact_type,
-    lifecycle: "", // derived from stability
+    lifecycle: "",
     stability: a.stability,
     version: a.version,
     knowledge_level: a.knowledge_level,
@@ -58,6 +60,15 @@ export function getCache(): FoundationCache {
   };
 
   return _cache;
+}
+
+/** Seed Redis cache with current foundation data — call after boot */
+export async function preloadFoundationCache(): Promise<void> {
+  if (!redisService.initialized) return;
+  const cache = getCache();
+  const key = REDIS_KEY_PREFIX + cache.fingerprint;
+  await redisService.cache.set(key, cache, 3600);
+  console.log("[FoundationCache] Preloaded into Redis");
 }
 
 export function invalidateCache(): void {

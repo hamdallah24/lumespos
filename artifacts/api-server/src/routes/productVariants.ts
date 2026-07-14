@@ -2,6 +2,8 @@ import { Router } from "express";
 import { db, productVariantsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAuth, requireRole } from "../middlewares/requireAuth";
+import { EventPublisher } from "../event-bus";
+import { createPriceChangedEvent } from "../events";
 
 const router = Router();
 
@@ -66,7 +68,14 @@ router.patch("/product-variants/:id", requireRole("owner", "manager"), async (re
       return res.status(400).json({ error: "id required" });
     }
 
-     const updateData: Record<string, string | boolean> = {};
+     const [before] = await db
+      .select({ price: productVariantsTable.price })
+      .from(productVariantsTable)
+      .where(eq(productVariantsTable.id, id));
+
+    const oldPrice = before ? parseFloat(before.price) : 0;
+
+    const updateData: Record<string, string | boolean> = {};
     if (name !== undefined && name.trim()) updateData.name = name.trim();
     if (price !== undefined && parseFloat(price) > 0) updateData.price = String(price);
     if (requiresStock !== undefined) updateData.requiresStock = requiresStock;
@@ -83,6 +92,16 @@ router.patch("/product-variants/:id", requireRole("owner", "manager"), async (re
 
     if (!variant) {
       return res.status(404).json({ error: "Variant not found" });
+    }
+
+    if (price !== undefined && parseFloat(price) !== oldPrice) {
+      EventPublisher.publish(createPriceChangedEvent({
+        productVariantId: variant.id,
+        productId: variant.productId,
+        variantName: variant.name,
+        oldPrice,
+        newPrice: parseFloat(variant.price),
+      }));
     }
 
     return res.json({

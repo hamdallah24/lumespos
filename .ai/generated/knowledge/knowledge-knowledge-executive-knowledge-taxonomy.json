@@ -1,0 +1,41 @@
+{
+  "asset_type": "knowledge",
+  "id": "knowledge-knowledge-executive-knowledge-taxonomy",
+  "canonical": true,
+  "metadata": {
+    "title": "Knowledge: executive-runtime\\knowledge\\EXECUTIVE_KNOWLEDGE_TAXONOMY",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "e7d41e277c1aa5715b4824802c371039435e4a24ed60a9bcf26d3a9843ec88d9",
+    "compiled_at": "2026-07-14T07:56:39.074Z",
+    "source_hash": "a473e8311918723e70f683e4cd9a8a29e6690119d2f4b0b1864b99bd31ed70c7",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\EXECUTIVE_KNOWLEDGE_TAXONOMY.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "canonical",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-executive-knowledge-taxonomy",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 3: Executive Knowledge Taxonomy\n  Sources: All EROS documents, SRC audit, knowledge-platform types,\n           learning types, intelligence types, governance types\n  DO NOT EDIT MANUALLY.\n-->\n\n# Executive Knowledge Taxonomy\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\nA hierarchical classification of ALL knowledge within the Executive Knowledge System.\n\n---\n\n## Taxonomy Structure\n\n```\nKnowledge (root)\n├── 01 Foundation\n├── 02 Organization\n├── 03 Runtime\n├── 04 Executive\n├── 05 Domain (Business)\n├── 06 Decision\n├── 07 Framework\n├── 08 Mental Model\n├── 09 Playbook\n├── 10 Experience\n├── 11 Evidence\n├── 12 Temporary\n├── 13 External\n├── 14 User\n└── 15 Conversation\n```\n\n---\n\n## 01 — Foundation Knowledge\n\nImmutable knowledge that defines the system's core identity, principles, and boundaries.\n\n```\nFoundation\n├── Philosophy          # Core beliefs, design philosophy, architectural principles\n├── Covenant            # Agreements between system components, behavioral contracts\n├── Constitution        # Executive Constitution (6 principles, ethics, escalation)\n│   ├── Core Principles     # Runtime Purity, Domain Sovereignty, Dispatch Only, etc.\n│   ├── Executive Ethics    # Honesty, Accountability, Respect Boundaries, Privacy, Fairness\n│   └── Decision Principles # Evidence-based, Confidence-gated, Verifiable, etc.\n├── North Star          # Ultimate objectives, system purpose, long-term direction\n├── Architecture Rules  # Frozen rules from ArchitectureRegistry (ADR-derived)\n│   ├── ADR-001 through ADR-008 (Set B)  # EIOS architecture decisions\n│   └── ADR-001 through ADR-008 (Set A)  # World A architecture decisions\n├── Identity            # Agent identities, roles, authority levels\n│   ├── IDENTITIES map      # 9 roles: CEO, CTO, COO, CFO, CMO, CAIO, CKO, CHRO, CIO, Founder, Chat\n│   ├── knowledgeDomains    # Per-role knowledge access boundaries\n│   └── trustScores         # Initial trust weights per executive\n├── Directives          # Per-role directives (authority, forbidden actions, required behaviors)\n├── Capability Matrix   # Capability definitions per role with minMaturity, requiresEvidence\n├── Delegation Matrix   # Routing matrix: domain -> runtime target\n└── Governance Gates    # Confidence gates (stop=25, warn=50, execute=80)\n```\n\n---\n\n## 02 — Organization Knowledge\n\nKnowledge about the organizational structure, relationships, and operational hierarchy.\n\n```\nOrganization\n├── Executive Registry       # All registered executives, their status, version\n├── Collaboration Pairs      # 21 documented executive pair relationships\n│   ├── Purpose                  # Why this pair exists\n│   ├── Decision Authority       # Who decides what\n│   ├── Escalation Path          # How conflicts escalate\n│   ├── Conflict Resolution      # How disputes are resolved\n│   ├── Shared Context           # What knowledge they share\n│   └── Approval Flow            # How approvals work between them\n├── Hierarchy               # Reporting structure, delegation chains\n├── Department Boundaries   # Domain sovereignty boundaries per executive\n├── Organization State      # OrgLifecycle: BOOT → READY → ACTIVE → MAINTENANCE → RECOVERY → SHUTDOWN\n├── Org Intelligence        # Organizational memory, reputation, consensus history\n│   ├── OrgKnowledgeNode        # Validated knowledge (2+ sources)\n│   ├── ExecutiveReputation     # Per-executive accuracy, success rate, specialties\n│   ├── ConsensusHistory        # Multi-executive decision records\n│   └── DecisionHistory          # All past decisions with outcomes\n└── Org Health             # Governance quality scores, compliance status, risk levels\n```\n\n---\n\n## 03 — Runtime Knowledge\n\nKnowledge about the EIOS Runtime Core and Executive Runtime infrastructure.\n\n```\nRuntime\n├── Runtime Core (FROZEN)    # 12 frozen components\n│   ├── PipelineEngine           # Pipeline execution engine\n│   ├── ExecutiveDispatchRegistry # Cross-executive dispatch\n│   ├── RuntimeFacade            # Public API (13 method",
+    "knowledge_fingerprint": {
+      "mental_models": [
+        "knowledge-executive-mental-model-library"
+      ],
+      "frameworks": [
+        "knowledge-executive-framework-library"
+      ],
+      "taxonomy": "knowledge-executive-knowledge-taxonomy",
+      "confidence": 0.9,
+      "source_hash": "a473e8311918723e70f683e4cd9a8a29e6690119d2f4b0b1864b99bd31ed70c7"
+    }
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "asset_type": "foundation",
+  "id": "foundation-knowledge-executive-framework-library",
+  "canonical": true,
+  "metadata": {
+    "title": "Foundation: executive-runtime\\knowledge\\EXECUTIVE_FRAMEWORK_LIBRARY",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "8a9bc89bff0b0ceaabd2d8f1568f1334be87470cfd378b64f9e3f87b63f36251",
+    "compiled_at": "2026-07-14T07:56:39.072Z",
+    "source_hash": "1a1941c965e0e586c4ff1018dbe270d2f3d56c66994f3641f0f1489a4b5d554a",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\EXECUTIVE_FRAMEWORK_LIBRARY.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "foundational",
+    "status": "STABLE"
+  },
+  "structure": {
+    "source_id": "knowledge-executive-framework-library",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 7: Executive Framework Library\n  Sources: All EROS documents, governance, learning, intelligence code\n  DO NOT EDIT MANUALLY.\n-->\n\n# Executive Framework Library\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\n---\n\n## Framework Index\n\n| ID | Framework | Owner | Type | Status |\n|----|-----------|-------|------|--------|\n| FW-001 | SWOT Analysis | CEO | Strategic | Documented |\n| FW-002 | OKR Framework | CEO | Strategic | Referenced |\n| FW-003 | Lean Canvas | CEO | Strategic | Referenced |\n| FW-004 | Porter's Five Forces | CEO | Strategic | Referenced |\n| FW-005 | McKinsey MECE Principle | CEO | Strategic | Referenced |\n| FW-006 | Balanced Scorecard | CEO | Strategic | Referenced |\n| FW-007 | C4 Model | CTO | Architecture | Documented |\n| FW-008 | Domain-Driven Design | CTO | Architecture | Documented |\n| FW-009 | ADR (Architecture Decision Record) | CTO | Architecture | Implemented |\n| FW-010 | RFC Process | CTO | Engineering | Implemented |\n| FW-011 | Engineering Standards | CTO | Engineering | Referenced |\n| FW-012 | COSO Framework | CFO | Financial | Referenced |\n| FW-013 | GAAP/IFRS | CFO | Financial | Referenced |\n| FW-014 | Zero-Based Budgeting | CFO | Financial | Referenced |\n| FW-015 | ABC (Activity-Based Costing) | CFO | Financial | Referenced |\n| FW-016 | ISO 9001 | COO | Quality | Referenced |\n| FW-017 | ITIL | COO | Operations | Referenced |\n| FW-018 | S.M.A.R.T. Goals | ALL | Strategy | Referenced |\n| FW-019 | RACI Matrix | ALL | Management | Referenced |\n| FW-020 | Eisenhower Matrix | CEO | Priority | Referenced |\n| FW-021 | MoSCoW Method | CTO | Priority | Referenced |\n| FW-022 | EPF v1.0 (Executive Prompt Framework) | SYSTEM | Framework | Implemented |\n| FW-023 | EROS v1.0 (Executive Runtime OS) | SYSTEM | Framework | Implemented |\n| FW-024 | ECP-044 Learning Framework | SYSTEM | Learning | Implemented |\n| FW-025 | ECP-045 Intelligence Framework | SYSTEM | Intelligence | Implemented |\n| FW-026 | ECP-046 Governance Framework | SYSTEM | Governance | Implemented |\n| FW-027 | ECP-035 Kernel Framework | SYSTEM | Kernel | Implemented |\n| FW-028 | EKS (Executive Knowledge System) | CKO | Knowledge | Documenting (this EPIC) |\n| FW-029 | EIOS Pipeline Framework | SYSTEM | Runtime | Implemented |\n\n---\n\n## CEO Frameworks\n\n### FW-001: SWOT Analysis\n- **Type:** Strategic Analysis\n- **Purpose:** Evaluate Strengths, Weaknesses, Opportunities, Threats\n- **ERP Context:** CEO uses SWOT when evaluating strategic direction or organizational change\n- **Source:** EXECUTIVE_SPEC: strategic-decision capability\n- **Trigger:** Strategic planning, organizational assessment, major decisions\n\n### FW-002: OKR Framework (Objectives and Key Results)\n- **Type:** Strategic Planning\n- **Purpose:** Set and track measurable goals\n- **ERP Context:** CEO sets OKRs for each executive, tracks progress via knowledge episodes\n- **Source:** EXECUTIVE_SPEC: mission-planning, strategic-planning\n- **Trigger:** Quarterly/annual planning, mission creation\n\n### FW-003: Lean Canvas\n- **Type:** Business Model\n- **Purpose:** One-page business model documentation\n- **ERP Context:** CEO uses Lean Canvas for new initiatives or business model evaluation\n- **Source:** EXECUTIVE_SPEC: business-analysis\n\n### FW-004: Porter's Five Forces\n- **Type:** Competitive Strategy\n- **Purpose:** Analyze competitive environment\n- **ERP Context:** CEO evaluates market positioning via CMO collaboration\n- **Source:** COLLABORATION_MODEL: CEO-CMO pair\n\n### FW-005: McKinsey MECE (Mutually Exclusive, Collectively Exhaustive)\n- **Type:** Problem Structuring\n- **Purpose:** Break down problems without overlap or gaps\n- **ERP Context:** CEO applies MECE when delegating complex problems across executives\n- **Source:** EXECUTIVE_SPEC: strategic-decision\n\n### FW-006: Balanced Scorecard\n- **Type:** Performance Measurement\n- **Purpose:** Financial, Customer, Internal Process, Learning & Growth\n- **ERP Context:** CEO monitors executive KPIs across all 4 perspectives\n- **Source:** EX"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

@@ -9,7 +9,7 @@ import { logSystem } from "./logger";
 import { metricsSystem } from "./metrics";
 import { traceSystem } from "./trace";
 import { healthMonitor } from "./health-monitor";
-import { circuitBreakerSystem } from "./circuit-breaker";
+
 import { healthPolicy } from "./health-policy";
 import { authorityGate } from "../governance/authority-gate";
 import { constitutionalValidator } from "../governance/constitutional-validator";
@@ -18,6 +18,7 @@ import { evolutionBudget } from "../governance/evolution-budget";
 import { classificationSystem } from "../security/classification";
 import { llmProviderSystem } from "../security/llm-provider";
 import { foundationLoader } from "./foundation-loader";
+import { ExecutiveDispatchRegistry } from "../../eios-runtime";
 import { contextBuilder } from "./context-builder";
 import { promptAssembler } from "./prompt-assembler";
 import { knowledgeGraph } from "./knowledge-graph";
@@ -43,15 +44,14 @@ import { authorizationRuntime } from "./authorization";
 import { multiTrustRuntime } from "./multi-trust";
 import { missionScope } from "./mission-scope";
 import { engineeringCertification } from "./engineering-certification";
-import { ctoProgram } from "../programs/cto-runtime";
 import { organizationEngine } from "./organization-engine";
 import { missionEngineComponent } from "./mission-engine";
 import { missionBackgroundEngine } from "./mission-background-engine";
 import { capabilityEngineComponent } from "./capability-runtime";
 import { trustRuntimeComponent } from "./trust-engine";
 import { consultantRuntime } from "../../programs/consultant";
-import { cfoRuntime } from "../programs/executive-runtime";
 import { proposalExecutor } from "../programs/proposal-executor";
+import { redisHealthComponent } from "../../lib/redis";
 
 interface RuntimeComponentMeta {
   name: string;
@@ -93,6 +93,13 @@ export function health(): Record<string, any> {
   const result: Record<string, any> = {};
   for (const [name, c] of _components) {
     result[name] = c.health ? c.health() : { status: "unknown" };
+  }
+  // Supplement with executive health from EIOS Dispatch Registry
+  const execs = ExecutiveDispatchRegistry.getAll();
+  for (const h of execs) {
+    if (!result[h.role]) {
+      result[h.role] = { status: "healthy", source: "eios-dispatch" };
+    }
   }
   return result;
 }
@@ -160,7 +167,7 @@ register(logSystem);
 register(metricsSystem);
 register(traceSystem);
 register(healthMonitor);
-register(circuitBreakerSystem);
+
 register(healthPolicy);
 register(authorityGate);
 register(constitutionalValidator);
@@ -194,15 +201,14 @@ register(authorizationRuntime);
 register(multiTrustRuntime);
 register(missionScope);
 register(engineeringCertification);
-register(ctoProgram);
 register(organizationEngine);
 register(missionEngineComponent);
 register(missionBackgroundEngine);
 register(capabilityEngineComponent);
 register(trustRuntimeComponent);
 register(consultantRuntime);
-register(cfoRuntime);
 register(proposalExecutor);
+register(redisHealthComponent);
 
 // Re-export for backward compat
 export { llmGateway, toolExecutor, validator };

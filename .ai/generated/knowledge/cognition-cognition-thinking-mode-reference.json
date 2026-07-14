@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-thinking-mode-reference",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\THINKING_MODE_REFERENCE",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "657a8c83fda3b8df9ac4ca27acff73e07a3ee07aab8d53cd08507d914bbee053",
+    "compiled_at": "2026-07-14T07:56:39.075Z",
+    "source_hash": "eeae3eac04311a30dd2395ecdb8620daf4dfc10740911202dec7e5c9d253d276",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\THINKING_MODE_REFERENCE.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-thinking-mode-reference",
+    "content_type": "cognition",
+    "body": "# Thinking Mode Reference\n\n## CEO (7 modes)\n\n| Mode | Description |\n|---|---|\n| Vision | Long-term direction and future state envisioning |\n| Strategy | Competitive positioning and strategic moves |\n| Investment | Capital allocation and resource commitment |\n| Negotiation | Stakeholder alignment and deal structuring |\n| Growth | Scalability and expansion planning |\n| Risk | Threat assessment and mitigation planning |\n| Organization | Organizational structure and culture design |\n\n## CTO (7 modes)\n\n| Mode | Description |\n|---|---|\n| Architecture | System structure and component design |\n| Debugging | Root cause analysis and defect resolution |\n| Tradeoff | Technical compromise evaluation |\n| Refactoring | Code and system improvement planning |\n| System Design | End-to-end system architecture creation |\n| Technology Selection | Technology and tool evaluation and choice |\n| Execution Planning | Implementation roadmap and milestone planning |\n\n## CFO (7 modes)\n\n| Mode | Description |\n|---|---|\n| Capital Allocation | Financial resource distribution and investment planning |\n| Forecasting | Financial prediction and trend analysis |\n| Budget | Budget planning and expense management |\n| Cash Flow | Liquidity management and cash optimization |\n| Investment | Investment analysis and portfolio management |\n| Risk | Financial risk assessment and mitigation |\n| Scenario Analysis | What-if modeling and sensitivity analysis |\n\n## CMO (7 modes)\n\n| Mode | Description |\n|---|---|\n| Brand | Brand strategy, identity, and positioning |\n| Campaign | Marketing campaign planning and optimization |\n| Growth | Customer acquisition and growth strategies |\n| Customer | Customer experience and relationship management |\n| Positioning | Market positioning and differentiation |\n| Market | Market research and competitive analysis |\n| Pricing | Pricing strategy and revenue optimization |\n\n## CAIO (7 modes)\n\n| Mode | Description |\n|---|---|\n| AI Strategy | High-level AI vision and roadmap |\n| Automation | Process automation and efficiency analysis |\n| Model Selection | Model evaluation and selection for tasks |\n| Agent Design | Multi-agent system architecture and coordination |\n| Inference | Model inference optimization and management |\n| Knowledge | Knowledge representation and reasoning |\n| Optimization | AI system performance and resource optimization |\n\n## CKO (7 modes)\n\n| Mode | Description |\n|---|---|\n| Knowledge | Knowledge management and capture strategy |\n| Learning | Learning systems and continuous improvement |\n| Research | Research methodology and investigation |\n| Documentation | Documentation strategy and information architecture |\n| Ontology | Ontology and taxonomy design |\n| Taxonomy | Knowledge categorization and structure |\n| Knowledge Quality | Quality assurance for knowledge assets |\n\n## COO (7 modes)\n\n| Mode | Description |\n|---|---|\n| Operation | Day-to-day operational management |\n| Process | Process design and improvement |\n| Workflow | Workflow orchestration and coordination |\n| Execution | Execution monitoring and delivery management |\n| Scaling | Operational scaling and capacity planning |\n| Resource Allocation | Resource distribution and utilization optimization |\n| Monitoring | Performance monitoring and alerting |\n\n## Selection Algorithm\n\n1. Score each mode by problem type match (40%)\n2. Score by keyword overlap with query (60%)\n3. Return top 3 modes sorted by score\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

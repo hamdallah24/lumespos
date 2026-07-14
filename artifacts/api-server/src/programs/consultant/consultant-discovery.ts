@@ -38,12 +38,21 @@ const SCAN_DIRS = [
   "artifacts/api-server/src/routes",
   "artifacts/api-server/src/ai/programs",
   "artifacts/api-server/src/ai/runtime",
+  "artifacts/api-server/src/ai/llm",
+  "artifacts/api-server/src/ai/tools",
   "artifacts/api-server/src/programs",
   "artifacts/api-server/src/services",
+  "artifacts/api-server/src/middlewares",
+  "artifacts/api-server/src/executive-runtime/executives",
+  "artifacts/api-server/src/executive-runtime/cognition",
+  "artifacts/api-server/src/eios-runtime",
+  "artifacts/api-server/src/governance",
+  "artifacts/api-server/src/knowledge",
+  "artifacts/api-server/src/communication-runtime",
+  "artifacts/api-server/src/learning",
   "artifacts/pos-app/src/components",
   ".ai/foundation",
   ".ai/runtime",
-  "docs",
   "scripts",
 ];
 
@@ -52,7 +61,6 @@ const ROOT_CONTEXT_FILES = [
   "pnpm-workspace.yaml",
   ".ai/PROJECT_CONTEXT.md",
   ".ai/README.md",
-  "docs/PROJECT_CONTEXT.md",
 ];
 
 const EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx", ".json", ".sql", ".md"]);
@@ -65,37 +73,47 @@ const DOMAIN_KEYWORDS: Record<string, string[]> = {
   users: ["user", "pengguna", "profile", "customer", "pelanggan", "karyawan", "staff"],
 };
 
+const IGNORE_DIRS = new Set(["node_modules", ".git", ".pnpm", "dist", "build", "coverage", ".cache", ".local", "vendor", "tmp"]);
+
 function scanFiles(dir: string): { path: string; content: string }[] {
   const fullPath = join(ROOT, dir);
   if (!existsSync(fullPath)) return [];
   const results: { path: string; content: string }[] = [];
   try {
-    const entries = readdirSync(fullPath, { withFileTypes: true });
+    const entries = readdirSync(fullPath, { withFileTypes: true, recursive: true });
     for (const e of entries) {
-      if (e.isFile() && EXTENSIONS.has(extname(e.name).toLowerCase())) {
-        const filePath = join(fullPath, e.name);
-        try {
-          const content = readFileSync(filePath, "utf-8").slice(0, 3000);
-          results.push({ path: `${dir}/${e.name}`, content });
-        } catch {}
-      }
+      if (!e.isFile() || !EXTENSIONS.has(extname(e.name).toLowerCase())) continue;
+      // Skip files inside ignored directories (e.g., node_modules)
+      const parts = e.parentPath.replace(/\\/g, "/").split("/");
+      if (parts.some(p => IGNORE_DIRS.has(p))) continue;
+      // Normalize to forward slashes first (Windows has backslashes in parentPath)
+      const parentNormalized = e.parentPath.replace(/\\/g, "/");
+      const fullNormalized = fullPath.replace(/\\/g, "/");
+      const relativeDir = parentNormalized
+        .replace(fullNormalized, "")
+        .replace(/^\//, "");
+      const prelative = relativeDir ? `${dir}/${relativeDir}` : dir;
+      try {
+        const fileContent = readFileSync(join(e.parentPath, e.name), "utf-8").slice(0, 3000);
+        results.push({ path: `${prelative}/${e.name}`, content: fileContent });
+      } catch {}
     }
   } catch {}
   return results;
 }
 
 function extractKeywords(filename: string, content: string): string[] {
-  const keywords: string[] = [];
+  const keywords: (string | undefined)[] = [];
   const name = basename(filename, extname(filename)).toLowerCase();
 
   const nameParts = name.split(/[.\-_]/);
-  keywords.push(...nameParts.filter(p => p.length > 2));
+  keywords.push(...nameParts.filter(p => p && p.length > 2));
 
   const importMatch = content.match(/import\s+(?:\{[^}]*\}|\w+)\s+from\s+['"]([^'"]+)['"]/g);
   if (importMatch) {
     for (const im of importMatch) {
       const p = im.match(/from\s+['"]([^'"]+)['"]/)?.[1] || "";
-      const parts = p.split("/").filter(part => part.length > 2 && !part.startsWith(".") && !part.startsWith("@"));
+      const parts = p.split("/").filter(part => part && part.length > 2 && !part.startsWith(".") && !part.startsWith("@"));
       keywords.push(...parts);
     }
   }
@@ -104,12 +122,17 @@ function extractKeywords(filename: string, content: string): string[] {
   if (compMatch) keywords.push(...compMatch.map(c => c.slice(1).toLowerCase()));
 
   const routeMatch = content.match(/(?:router|app)\.(?:get|post|put|delete|patch)\s*\(\s*['"]([^'"]+)['"]/g);
-  if (routeMatch) keywords.push(...routeMatch.map(r => r.split(/['"]/)[1]?.split("/").filter(Boolean).join("-")));
+  if (routeMatch) {
+    for (const r of routeMatch) {
+      const path = r.split(/['"]/)[1];
+      if (path) keywords.push(path.split("/").filter(Boolean).join("-"));
+    }
+  }
 
   const textWords = content.match(/\b[a-zA-Z]{3,}\b/g) || [];
   keywords.push(...textWords.filter(w => !["this", "that", "with", "from", "into", "your", "have", "will", "about"].includes(w.toLowerCase())));
 
-  return [...new Set(keywords)].filter(k => k.length > 2 && k.length < 30);
+  return [...new Set(keywords)].filter((k): k is string => !!k && k.length > 2 && k.length < 30);
 }
 
 function classifyDomain(filename: string, content: string): string {
@@ -130,7 +153,7 @@ function classifyDomain(filename: string, content: string): string {
 }
 
 function buildFileMap(): FileMap {
-  const map: FileMap = {};
+  const map: FileMap = Object.create(null) as FileMap;
 
   for (const scanDir of SCAN_DIRS) {
     const files = scanFiles(scanDir);
@@ -139,6 +162,7 @@ function buildFileMap(): FileMap {
       const domain = classifyDomain(file.path, file.content);
 
       for (const kw of keywords) {
+        if (!kw) continue;
         if (!map[kw]) {
           map[kw] = { files: [], entities: [], domain: "general", lastVerified: new Date().toISOString() };
         }

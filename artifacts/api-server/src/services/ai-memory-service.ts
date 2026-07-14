@@ -4,9 +4,15 @@
 
 import { db, conversationsTable, messagesTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { redisService } from "../lib/redis";
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 const MAX_MEMORY = 10;
+const CACHE_TTL = 300; // 5 minutes
+
+function historyCacheKey(userId: number, mode: string): string {
+  return `memory:history:${userId}:${mode}`;
+}
 
 export async function getOrCreateConversation(userId: number, mode: string): Promise<number> {
   const result = await db.execute(
@@ -20,17 +26,31 @@ export async function getOrCreateConversation(userId: number, mode: string): Pro
 
 export async function getHistory(userId: number, mode: string, maxContentLength?: number): Promise<ChatMsg[]> {
   try {
+    // Try Redis cache first
+    const cacheKey = historyCacheKey(userId, mode);
+    if (redisService.initialized) {
+      const cached = await redisService.cache.get<ChatMsg[]>(cacheKey);
+      if (cached) return cached;
+    }
+
     const convId = await getOrCreateConversation(userId, mode);
     const rows = await db.select().from(messagesTable)
       .where(eq(messagesTable.conversationId, convId))
       .orderBy(messagesTable.id)
       .limit(MAX_MEMORY * 2);
-    return rows.map(r => ({
+    const history = rows.map(r => ({
       role: r.role as "user" | "assistant",
       content: maxContentLength && r.content.length > maxContentLength
         ? r.content.slice(0, maxContentLength) + "…"
         : r.content,
     }));
+
+    // Cache in Redis
+    if (redisService.initialized) {
+      redisService.cache.set(cacheKey, history, CACHE_TTL);
+    }
+
+    return history;
   } catch (e) {
     console.error("[ai] DB getHistory error:", e);
     return [];
@@ -59,6 +79,11 @@ export async function remember(userId: number, mode: string, userMsg: string, as
         .set({ updatedAt: new Date() })
         .where(eq(conversationsTable.id, convId));
     });
+
+    // Invalidate cache so next getHistory fetches fresh data
+    if (redisService.initialized) {
+      redisService.cache.del(historyCacheKey(userId, mode));
+    }
   } catch (e) {
     console.error("[ai] DB remember error:", e);
   }
@@ -73,6 +98,11 @@ export async function clearMemory(userId: number, mode: string) {
       await db.delete(messagesTable)
         .where(eq(messagesTable.conversationId, existing[0].id));
       await db.delete(conversationsTable).where(eq(conversationsTable.id, existing[0].id));
+    }
+
+    // Clear cache
+    if (redisService.initialized) {
+      redisService.cache.del(historyCacheKey(userId, mode));
     }
   } catch (e) {
     console.error("[ai] DB clearMemory error:", e);

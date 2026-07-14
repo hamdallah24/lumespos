@@ -9,6 +9,8 @@ import { readdir, stat, readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname, resolve } from "path";
 import { promisify } from "util";
 import { execSync } from "child_process";
+import { db, ordersTable, orderItemsTable, expensesTable, productsTable, ingredientsTable, semiFinishedTable, currentInventoryTable, shiftAuditsTable } from "@workspace/db";
+import { eq, gte, lte, and, sum, count, sql, desc } from "drizzle-orm";
 
 const execP = promisify(exec);
 
@@ -335,6 +337,205 @@ export async function mergeDeploy(onStep?: (step: string, detail: string) => voi
   }
 }
 
+// ── Business Data Tool Handlers ──
+
+function todayRange() {
+  const s = new Date(); s.setHours(0,0,0,0);
+  const e = new Date(); e.setHours(23,59,59,999);
+  return { s, e };
+}
+
+function makeBranchFilter(branchId?: number, table?: any) {
+  const t = table || ordersTable;
+  return branchId ? eq(t.branchId, branchId) : undefined;
+}
+
+async function handleGetSalesSummary(args: Record<string, any>): Promise<string> {
+  try {
+    const { s, e } = todayRange();
+    const bf = makeBranchFilter(args.branchId);
+    const [stats] = await db.select({
+      revenue: sum(ordersTable.total), orders: count(ordersTable.id),
+    }).from(ordersTable).where(and(gte(ordersTable.createdAt, s), lte(ordersTable.createdAt, e), bf));
+    const [exp] = await db.select({ total: sum(expensesTable.amount) })
+      .from(expensesTable)
+      .where(and(gte(expensesTable.createdAt, s), lte(expensesTable.createdAt, e), args.branchId ? eq(expensesTable.branchId, args.branchId) : undefined));
+    return JSON.stringify({
+      todayRevenue: parseFloat(stats?.revenue ?? "0"),
+      todayOrders: stats?.orders ?? 0,
+      todayExpenses: parseFloat(exp?.total ?? "0"),
+    }, null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+async function handleGetFinancialReport(args: Record<string, any>): Promise<string> {
+  try {
+    const start = args.startDate ? new Date(args.startDate) : (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0,0,0,0); return d; })();
+    const end = args.endDate ? new Date(args.endDate) : (() => { const d = new Date(); d.setHours(23,59,59,999); return d; })();
+    const bf = makeBranchFilter(args.branchId);
+    const [stats] = await db.select({
+      grossRevenue: sum(ordersTable.total), totalCogs: sum(ordersTable.totalCogs),
+    }).from(ordersTable).where(and(gte(ordersTable.createdAt, start), lte(ordersTable.createdAt, end), bf));
+    const [exp] = await db.select({ total: sum(expensesTable.amount) })
+      .from(expensesTable)
+      .where(and(gte(expensesTable.createdAt, start), lte(expensesTable.createdAt, end), args.branchId ? eq(expensesTable.branchId, args.branchId) : undefined));
+    const gr = parseFloat(stats?.grossRevenue ?? "0");
+    const tc = parseFloat(stats?.totalCogs ?? "0");
+    const te = parseFloat(exp?.total ?? "0");
+    const gp = gr - tc;
+    const np = gp - te;
+    return JSON.stringify({ grossRevenue: gr, totalCogs: tc, totalExpenses: te, grossProfit: gp, netProfit: np, grossMarginPct: gr > 0 ? (gp/gr)*100 : 0, netMarginPct: gr > 0 ? (np/gr)*100 : 0 }, null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+async function handleGetTopProducts(args: Record<string, any>): Promise<string> {
+  try {
+    const limit = args.limit || 5;
+    const { s, e } = todayRange();
+    const bf = makeBranchFilter(args.branchId);
+    if (args.period === "week") { s.setDate(s.getDate() - 7); }
+    else if (args.period === "month") { s.setMonth(s.getMonth() - 1); }
+    const rows = await db.select({
+      productId: orderItemsTable.productId, productName: orderItemsTable.productName,
+      totalSold: sum(orderItemsTable.quantity), totalRevenue: sum(orderItemsTable.subtotal),
+    }).from(orderItemsTable).innerJoin(ordersTable, eq(ordersTable.id, orderItemsTable.orderId))
+      .where(and(gte(ordersTable.createdAt, s), lte(ordersTable.createdAt, e), bf))
+      .groupBy(orderItemsTable.productId, orderItemsTable.productName)
+      .orderBy(sql`sum(${orderItemsTable.quantity}) desc`).limit(limit);
+    return JSON.stringify(rows.map(r => ({ productId: r.productId, productName: r.productName, totalSold: Number(r.totalSold ?? 0), totalRevenue: parseFloat(r.totalRevenue ?? "0") })), null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+async function handleGetLowStockItems(args: Record<string, any>): Promise<string> {
+  try {
+    const bf = args.branchId ? eq(ingredientsTable.branchId, args.branchId) : undefined;
+    const rows = await db.select({
+      id: ingredientsTable.id, name: ingredientsTable.name, unit: ingredientsTable.unit,
+      currentStock: currentInventoryTable.currentStock, minimalStock: ingredientsTable.minimalStock,
+    }).from(ingredientsTable).leftJoin(currentInventoryTable,
+      and(eq(currentInventoryTable.itemType, "ingredient"), eq(currentInventoryTable.itemId, ingredientsTable.id), bf ? eq(currentInventoryTable.branchId, args.branchId) : undefined))
+      .where(and(bf, sql`${currentInventoryTable.currentStock} <= ${ingredientsTable.minimalStock}`))
+      .limit(50);
+    const sfRows = await db.select({
+      id: semiFinishedTable.id, name: semiFinishedTable.name, unit: semiFinishedTable.unit,
+      currentStock: currentInventoryTable.currentStock,
+    }).from(semiFinishedTable).leftJoin(currentInventoryTable,
+      and(eq(currentInventoryTable.itemType, "semi_finished"), eq(currentInventoryTable.itemId, semiFinishedTable.id), bf ? eq(currentInventoryTable.branchId, args.branchId) : undefined))
+      .where(and(sql`${currentInventoryTable.currentStock} <= 0`, bf)).limit(50);
+    return JSON.stringify({ lowIngredients: rows, lowSemiFinished: sfRows }, null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+async function handleGetInventoryLevels(args: Record<string, any>): Promise<string> {
+  try {
+    const bf = args.branchId ? eq(ingredientsTable.branchId, args.branchId) : undefined;
+    const ing = await db.select({
+      id: ingredientsTable.id, name: ingredientsTable.name, unit: ingredientsTable.unit,
+      currentStock: currentInventoryTable.currentStock, minimalStock: ingredientsTable.minimalStock,
+    }).from(ingredientsTable).leftJoin(currentInventoryTable,
+      and(eq(currentInventoryTable.itemType, "ingredient"), eq(currentInventoryTable.itemId, ingredientsTable.id)))
+      .where(bf).limit(100);
+    const sf = await db.select({
+      id: semiFinishedTable.id, name: semiFinishedTable.name, unit: semiFinishedTable.unit,
+      currentStock: currentInventoryTable.currentStock,
+    }).from(semiFinishedTable).leftJoin(currentInventoryTable,
+      and(eq(currentInventoryTable.itemType, "semi_finished"), eq(currentInventoryTable.itemId, semiFinishedTable.id)))
+      .limit(100);
+    return JSON.stringify({ ingredients: ing, semiFinished: sf }, null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+async function handleGetOrderHistory(args: Record<string, any>): Promise<string> {
+  try {
+    const limit = args.limit || 20;
+    const bf = makeBranchFilter(args.branchId);
+    const rows = await db.select({
+      id: ordersTable.id, total: ordersTable.total, paymentMethod: ordersTable.paymentMethod,
+      cashierName: ordersTable.cashierName, createdAt: ordersTable.createdAt,
+    }).from(ordersTable).where(bf).orderBy(desc(ordersTable.id)).limit(limit);
+    return JSON.stringify(rows.map(r => ({ ...r, total: parseFloat(r.total ?? "0") })), null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+async function handleGetExpenseList(args: Record<string, any>): Promise<string> {
+  try {
+    const limit = args.limit || 20;
+    const conditions: any[] = [];
+    if (args.branchId) conditions.push(eq(expensesTable.branchId, args.branchId));
+    if (args.startDate) conditions.push(gte(expensesTable.createdAt, new Date(args.startDate)));
+    if (args.endDate) conditions.push(lte(expensesTable.createdAt, new Date(args.endDate)));
+    const rows = await db.select().from(expensesTable)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(expensesTable.id)).limit(limit);
+    return JSON.stringify(rows.map(r => ({ ...r, amount: parseFloat(r.amount ?? "0") })), null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+async function handleGetShiftAuditSummary(args: Record<string, any>): Promise<string> {
+  try {
+    const bf = args.branchId ? eq(shiftAuditsTable.branchId, args.branchId) : undefined;
+    const rows = await db.select().from(shiftAuditsTable).where(bf).orderBy(desc(shiftAuditsTable.id)).limit(10);
+    return JSON.stringify(rows.map(r => ({
+      id: r.id, cashierId: r.cashierId, shiftStart: r.shiftStart, shiftEnd: r.shiftEnd,
+      openingBalance: parseFloat(r.openingBalance ?? "0"), closingBalance: parseFloat(r.closingBalance ?? "0"),
+      expectedBalance: parseFloat(r.expectedBalance ?? "0"), status: r.status, notes: r.notes,
+    })), null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+async function handleGetCashierPerformance(args: Record<string, any>): Promise<string> {
+  try {
+    const bf = makeBranchFilter(args.branchId);
+    const conditions: any[] = [sql`${ordersTable.cashierId} is not null`, bf];
+    if (args.startDate) conditions.push(gte(ordersTable.createdAt, new Date(args.startDate)));
+    if (args.endDate) conditions.push(lte(ordersTable.createdAt, new Date(args.endDate)));
+    const rows = await db.select({
+      cashierId: ordersTable.cashierId, cashierName: ordersTable.cashierName,
+      totalOrders: count(ordersTable.id), totalRevenue: sum(ordersTable.total),
+    }).from(ordersTable).where(and(...conditions))
+      .groupBy(ordersTable.cashierId, ordersTable.cashierName)
+      .orderBy(sql`sum(${ordersTable.total}) desc`);
+    return JSON.stringify(rows.map(r => ({ cashierId: r.cashierId, cashierName: r.cashierName ?? "Unknown", totalOrders: r.totalOrders, totalRevenue: parseFloat(r.totalRevenue ?? "0") })), null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+async function handleGetSalesChart(args: Record<string, any>): Promise<string> {
+  try {
+    const start = args.startDate ? new Date(args.startDate) : (() => { const d = new Date(); d.setDate(d.getDate() - 6); d.setHours(0,0,0,0); return d; })();
+    const end = args.endDate ? new Date(args.endDate) : (() => { const d = new Date(); d.setHours(23,59,59,999); return d; })();
+    const bf = makeBranchFilter(args.branchId);
+    const days: any[] = [];
+    const diffDays = Math.ceil((end.getTime() - start.getTime()) / 86400000);
+    for (let i = 0; i <= Math.min(diffDays, 31); i++) {
+      const d = new Date(start); d.setDate(d.getDate() + i);
+      const dS = new Date(d); dS.setHours(0,0,0,0);
+      const dE = new Date(d); dE.setHours(23,59,59,999);
+      const [stats] = await db.select({ revenue: sum(ordersTable.total), orders: count(ordersTable.id) })
+        .from(ordersTable).where(and(gte(ordersTable.createdAt, dS), lte(ordersTable.createdAt, dE), bf));
+      days.push({ date: dS.toISOString().split("T")[0], revenue: parseFloat(stats?.revenue ?? "0"), orders: stats?.orders ?? 0 });
+    }
+    return JSON.stringify(days, null, 2);
+  } catch (e: any) { return `Error: ${e.message}`; }
+}
+
+// ── Business handler dispatch ──
+
+function getBusinessData(name: string, args: Record<string, any>): Promise<string> {
+  switch (name) {
+    case "getSalesSummary": return handleGetSalesSummary(args);
+    case "getFinancialReport": return handleGetFinancialReport(args);
+    case "getTopProducts": return handleGetTopProducts(args);
+    case "getLowStockItems": return handleGetLowStockItems(args);
+    case "getInventoryLevels": return handleGetInventoryLevels(args);
+    case "getOrderHistory": return handleGetOrderHistory(args);
+    case "getExpenseList": return handleGetExpenseList(args);
+    case "getShiftAuditSummary": return handleGetShiftAuditSummary(args);
+    case "getCashierPerformance": return handleGetCashierPerformance(args);
+    case "getSalesChart": return handleGetSalesChart(args);
+    default: return Promise.resolve(`Error: Unknown business tool "${name}"`);
+  }
+}
+
 // ── Tool Registry ──
 
 export const LOCAL_TOOLS: ToolDef[] = [
@@ -344,6 +545,17 @@ export const LOCAL_TOOLS: ToolDef[] = [
   { name: "writeFile", description: "Create a new file or overwrite an existing file. Creates parent directories automatically.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to new file" }, content: { type: "string", description: "Full file content" } }, required: ["path", "content"] } },
   { name: "editFile", description: "Edit an existing file by replacing a specific text block. Search text must be EXACT match (including whitespace) and unique in the file.", parameters: { type: "object", properties: { path: { type: "string", description: "Path to file to edit" }, search: { type: "string", description: "Exact text to find (must appear exactly once)" }, replace: { type: "string", description: "Replacement text" } }, required: ["path", "search", "replace"] } },
   { name: "execCommand", description: "Execute a safe shell command. Allowed: git, pnpm, npm, pm2, node, tsc, npx, ls, cat, echo, uptime. Max 30s timeout.", parameters: { type: "object", properties: { command: { type: "string", description: "Command to run, e.g., git status, pnpm build, pm2 restart pos-api" } }, required: ["command"] } },
+  // Business data tools
+  { name: "getSalesSummary", description: "Get today's sales summary (revenue, orders, expenses).", parameters: { type: "object", properties: { branchId: { type: "number" } } } },
+  { name: "getFinancialReport", description: "Get financial report (gross revenue, COGS, expenses, profit, margins).", parameters: { type: "object", properties: { branchId: { type: "number" }, startDate: { type: "string" }, endDate: { type: "string" } } } },
+  { name: "getTopProducts", description: "Get top selling products.", parameters: { type: "object", properties: { branchId: { type: "number" }, limit: { type: "number" }, period: { type: "string" } } } },
+  { name: "getSalesChart", description: "Get sales chart data (daily/hourly).", parameters: { type: "object", properties: { branchId: { type: "number" }, startDate: { type: "string" }, endDate: { type: "string" } } } },
+  { name: "getCashierPerformance", description: "Get cashier performance data.", parameters: { type: "object", properties: { branchId: { type: "number" }, startDate: { type: "string" }, endDate: { type: "string" } } } },
+  { name: "getLowStockItems", description: "Get items with stock below minimal threshold.", parameters: { type: "object", properties: { branchId: { type: "number" } } } },
+  { name: "getInventoryLevels", description: "Get all inventory levels.", parameters: { type: "object", properties: { branchId: { type: "number" } } } },
+  { name: "getOrderHistory", description: "Get recent orders.", parameters: { type: "object", properties: { branchId: { type: "number" }, limit: { type: "number" } } } },
+  { name: "getExpenseList", description: "Get expense list.", parameters: { type: "object", properties: { branchId: { type: "number" }, limit: { type: "number" }, startDate: { type: "string" }, endDate: { type: "string" } } } },
+  { name: "getShiftAuditSummary", description: "Get shift audit summary.", parameters: { type: "object", properties: { branchId: { type: "number" } } } },
 ];
 
 // ── Tool Labels ──
@@ -443,7 +655,13 @@ export async function executeToolCall(name: string, args: Record<string, any>): 
       const r = await sshExec(args.command || "");
       return r || "Error: SSH command gagal atau tidak ada output.";
     }
-    default: return `Error: Unknown tool "${name}"`;
+    // Business data tools
+    default: {
+      if (["getSalesSummary","getFinancialReport","getTopProducts","getSalesChart","getCashierPerformance","getLowStockItems","getInventoryLevels","getOrderHistory","getExpenseList","getShiftAuditSummary"].includes(name)) {
+        return getBusinessData(name, args);
+      }
+      return `Error: Unknown tool "${name}"`;
+    }
   }
 }
 

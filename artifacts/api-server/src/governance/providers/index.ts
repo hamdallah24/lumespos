@@ -1,0 +1,1 @@
+export { GovernanceProvider } from "./GovernanceProvider";

@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-document-consumer-matrix",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\DOCUMENT_CONSUMER_MATRIX",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "40a63666a741414df4bfb554e2ec61e8c9a2113a622147c6d2ce412d3b3adb85",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "852879ce023a963244036282167f9c68eb8b4af74c63688054d7c5b4753c9b35",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\DOCUMENT_CONSUMER_MATRIX.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-document-consumer-matrix",
+    "content_type": "cognition",
+    "body": "# DOCUMENT CONSUMER MATRIX — Who reads what\n\n## Consumer Types\n\n| Code | Consumer | Description |\n|---|---|---|\n| PC | Prompt Composer | Prompt Assembler + Foundation Loader (runtime) |\n| CE | Cognitive Engine | CognitivePipeline (runtime, src/executive-runtime/cognition/) |\n| KE | Knowledge Engine | Knowledge Loader + Knowledge Graph (runtime) |\n| ER | Executive Runtime | Executive programs (CEOProgram, CTOProgram, etc.) |\n| RF | RuntimeFacade | EIOS public API (eios-runtime/public/) |\n| DV | Developer | Human reading docs for understanding |\n| HO | Human Only | Documents intended for human operators |\n| NO | Nobody | No identified consumer |\n\n---\n\n## Consumer Matrix (96 documents)\n\n| # | Document | Category | Consumer(s) | Status |\n|---|---|---|---|---|\n| H1 | EXECUTIVE_RUNTIME_HANDBOOK | Handbook | HO | Human Only |\n| H2 | EXECUTIVE_KNOWLEDGE_HANDBOOK_STRUCTURE | Handbook | DV | Developer Only (implementation guide) |\n| H3 | EXECUTIVE_COGNITIVE_HANDBOOK | Handbook | HO | Human Only |\n| C1 | EXECUTIVE_CONSTITUTION | Constitution | DV, HO | Human + Developer |\n| B1 | SYSTEM_PROMPT_BLUEPRINT | Blueprint | DV | Developer Only |\n| B2 | PROMPT_BLUEPRINT | Blueprint | DV | Developer Only |\n| B3 | PROMPT_COMPOSITION_ENGINE | Blueprint | DV | Developer Only |\n| B4 | COGNITIVE_PIPELINE | Blueprint | CE | Runtime *(CognitivePipeline.ts implements it)* |\n| B5 | KNOWLEDGE_COMPOSITION_ENGINE | Blueprint | KE | Runtime *(Knowledge Loader reference)* |\n| S1-S7 | EXECUTIVE_SPEC (all 7) | Spec | PC, ER | Runtime *(used by Prompt Assembler fields)* |\n| P1 | GLOBAL_SYSTEM_PROMPT | Prompt | PC | Runtime *(used by Prompt Assembler)* |\n| P2-P8 | SYSTEM_PROMPT (per executive) | Prompt | PC | Runtime *(role-specific prompt injection)* |\n| A1 | ADR-009 (knowledge unification) | ADR | DV | Developer Only (PROPOSED) |\n| A2-A9 | ADR-001 through ADR-008 (Set A) | ADR | DV, RF | Runtime *(architecture decisions adopted)* |\n| K1 | EXECUTIVE_KNOWLEDGE_TAXONOMY | Knowledge | DV | Developer Only (not loaded by FS) |\n| K2 | KNOWLEDGE_LIFECYCLE | Knowledge | DV | Developer Only |\n| K3 | KNOWLEDGE_VALIDATION_RULES | Knowledge | DV | Developer Only |\n| K4 | KNOWLEDGE_QUALITY_MODEL | Knowledge | DV | Developer Only |\n| K5 | KNOWLEDGE_RETRIEVAL_MODEL | Knowledge | DV | Developer Only |\n| K6 | KNOWLEDGE_CLASSIFICATION | Knowledge | DV | Developer Only |\n| CG1 | COGNITIVE_CONTRACTS | Cognitive | DV | Developer Only |\n| CG2 | COGNITIVE_ENGINE | Cognitive | DV | Developer Only |\n| CG3 | COGNITIVE_PIPELINE | Cognitive | DV | Developer Only |\n| PL1-PL7 | PLAYBOOK (all 7) | Playbook | HO | Human Only (operator instructions) |\n| M1 | EXECUTIVE_CAPABILITY_MATRIX | Matrix | PC, ER | Runtime *(partially — only CEO, CTO, COO in code)* |\n| M2 | EROS_GOVERNANCE_MATRIX | Matrix | DV, ER | Developer + Partial Runtime |\n| M3 | KNOWLEDGE_OWNERSHIP_MATRIX | Matrix | DV | Developer Only |\n| M4 | EPIC_S_FINAL_REPORT | Matrix | DV | Developer Only |\n| L1 | EXECUTIVE_MENTAL_MODEL_LIBRARY | Library | CE | Runtime *(MentalModelSelector)* |\n| L2 | EXECUTIVE_FRAMEWORK_LIBRARY | Library | CE | Runtime *(FrameworkSelector)* |\n| L3 | MENTAL_MODEL_LIBRARY (cognition) | Library | CE | Runtime *(duplicates L1)* |\n| L4 | FRAMEWORK_LIBRARY (cognition) | Library | CE | Runtime *(duplicates L2)* |\n| L5 | THINKING_MODE_REFERENCE | Library | CE | Runtime *(ThinkingMode.ts)* |\n| R1 | EXECUTIVE_OPERATING_MODEL | Reference | HO | Human Only |\n| R2 | EXECUTIVE_DECISION_MODEL | Reference | HO | Human Only |\n| R3 | EXECUTIVE_COMMUNICATION_PROTOCOL | Reference | HO | Human Only |\n| R4 | EROS_EXECUTIVE_SUMMARY | Reference | HO | Human Only |\n| R5 | EROS_DEPENDENCY_DIAGRAM | Reference | DV | Developer Only |\n| R6 | EXECUTIVE_COLLABORATION_MODEL | Reference | HO | Human Only |\n| R7 | EXECUTIVE_KNOWLEDGE_ARCHITECTURE | Reference | DV | Developer Only |\n| R8 | KNOWLEDGE_DEPENDENCY_DIAGRAM | Reference | DV | Developer Only |\n| R9 | PROMPT_VALIDATION | Reference | DV | Developer Only |\n| R10 | PROMPT_INHERITANCE | R"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

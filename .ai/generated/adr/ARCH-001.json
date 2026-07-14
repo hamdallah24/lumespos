@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-001",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\ADR-001-foundation-v2",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "0f71e95f8693513a91144900b64a0376709b0d0651b99771defd34245e986e58",
+    "compiled_at": "2026-07-14T07:56:39.087Z",
+    "source_hash": "552d59aa3f901fabc8457bef40467f543cf02c4a29836bb5f5123da02968871b",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\ADR-001-foundation-v2.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "ACCEPTED"
+  },
+  "structure": {
+    "original_id": "architecture-adr-001-foundation-v2",
+    "prefixed_id": "ARCH-001",
+    "domain": "architecture",
+    "title": "architecture\\ADR-001-foundation-v2",
+    "status": "ACCEPTED",
+    "body": "# ADR-001: Foundation v2.0\n\n**Status:** ACCEPTED\n**Date:** ECP-039–ECP-040\n**Supersedes:** Foundation v1.0\n\n## Context\n\nLumé CMN needs a stable execution foundation. Every AI agent in the organization must execute through the same pipeline with the same governance rules.\n\n## Decision\n\nFoundation v2.0 consists of these frozen modules:\n\n| Module | Owner | Responsibility |\n|--------|-------|---------------|\n| `ExecutionGovernor` | execution-governor.ts | Single Source of Truth for all execution policy |\n| `ExecutionPipeline` | execution-pipeline.ts | Single entry point for all execution |\n| `ExecutionDriver` | execution-driver.ts | Single lifecycle controller (Governor loop) |\n| `ExecutionContract` | execution-manifest.ts | Immutable contract between Governor and Runtime |\n| `LLM Adapter` | llm-adapter.ts | Stateless DeepSeek communication |\n| `Tool Adapter` | tool-adapter.ts | Stateless tool execution |\n\n## Rules\n\n1. Foundation modules **MUST NOT** be modified without a new ADR\n2. Only allowed changes: bug fixes, security fixes, performance optimization, non-breaking interface extension\n3. **FORBIDDEN**: moving ownership, changing lifecycle, changing dependency graph, changing main flow\n4. All new features **MUST** be built as extensions above Foundation\n\n## Dependencies\n\nFoundation depends on nothing above it. Only on `llm/` and `tools/` sub-layers.\n\n## Violations\n\nAny change to Foundation without ADR approval = Architecture Compliance FAIL.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

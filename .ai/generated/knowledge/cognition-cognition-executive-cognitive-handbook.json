@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-executive-cognitive-handbook",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\EXECUTIVE_COGNITIVE_HANDBOOK",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "9e9cb955369b04350102a867579a28dab5d74e507df466882fd1ff7e6bce6ea8",
+    "compiled_at": "2026-07-14T07:56:39.080Z",
+    "source_hash": "c2a5bf64e70738c11f1dec6c03904a5acdbf33857c330dd10a1a0413a01c5b58",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\EXECUTIVE_COGNITIVE_HANDBOOK.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-executive-cognitive-handbook",
+    "content_type": "cognition",
+    "body": "# Executive Cognitive System (ECS) Handbook\n\n## What is ECS?\n\nThe Executive Cognitive System is a deterministic reasoning layer\nthat sits between the Prompt Framework and the Knowledge System.\n\nIt defines **how** executives think — not what they know.\n\n## Architecture Position\n\n```\nKernel\n  │\n  ▼\nEIOS Runtime (FROZEN)\n  │\n  ▼\nExecutive Runtime (EROS)\n  │\n  ▼\nExecutive Prompt Framework\n  │\n  ▼\nExecutive Cognitive System ◄──── YOU ARE HERE\n  │\n  ▼\nExecutive Knowledge System\n  │\n  ▼\nFuture Memory Engine\n```\n\n## Core Principles\n\n1. **Determinism** — Same input always produces same output\n2. **Immutability** — All contracts are readonly\n3. **Traceability** — Every decision has a full cognitive trace\n4. **No Runtime Dependency** — ECS never imports eios-runtime/internal/*\n5. **Separation of Concerns** — Thinking (ECS) vs Knowing (EKS) vs Acting (Prompt)\n\n## Module Structure\n\n```\nsrc/executive-runtime/cognition/\n├── CognitiveContracts.ts         ← All contracts\n├── ThinkingMode.ts               ← 49 thinking modes (7 per executive)\n├── MentalModelSelector.ts        ← 20 mental models\n├── FrameworkSelector.ts          ← 27 frameworks\n├── ReasoningStrategy.ts          ← 9 strategy templates\n├── EvidenceBuilder.ts            ← Multi-source evidence\n├── ConfidenceEngine.ts           ← 5-factor confidence\n├── DecisionPattern.ts            ← Decision structuring\n├── CognitivePipeline.ts          ← 9-step pipeline\n├── CognitiveEngine.ts            ← Public orchestration API\n├── ExecutiveThinkingProfiles.ts  ← 7 executive profiles\n└── index.ts                      ← Public exports\n```\n\n## Key Files\n\n| File | Phase | Lines |\n|---|---|---|\n| CognitiveContracts.ts | 1 | ~200 |\n| ThinkingMode.ts | 2 | ~240 |\n| MentalModelSelector.ts | 3 | ~200 |\n| FrameworkSelector.ts | 4 | ~260 |\n| ReasoningStrategy.ts | 5 | ~150 |\n| EvidenceBuilder.ts | 6 | ~80 |\n| ConfidenceEngine.ts | 7 | ~110 |\n| DecisionPattern.ts | 8 | ~100 |\n| CognitivePipeline.ts | 9 | ~130 |\n| CognitiveEngine.ts | 10 | ~60 |\n| ExecutiveThinkingProfiles.ts | 11 | ~120 |\n| index.ts | — | ~40 |\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-cognitive-contracts",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\COGNITIVE_CONTRACTS",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "5ccc68a45f93203ec8e6ece0fe8eec0ba9894e24c3e97652ef1c7261b1eb7949",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "a7f85907d18a83a2abe7922c0736aa0bfe6c7edcb5803e9ae4ff5f4099787630",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\COGNITIVE_CONTRACTS.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-cognitive-contracts",
+    "content_type": "cognition",
+    "body": "# Cognitive Contracts — Executive Cognitive System\n\n| Contract | Type | Description |\n|---|---|---|\n| ExecutiveQuestion | Interface | Input question from executive |\n| ExecutiveIntent | Interface | Parsed intent with problem type |\n| ExecutiveThinkingMode | Interface | Selected thinking mode |\n| ExecutiveReasoningPlan | Interface | Multi-step reasoning plan |\n| ExecutiveEvidence | Interface (EvidenceSet) | Collected evidence |\n| ExecutiveDecision | Interface | Decision with alternatives |\n| ExecutiveConfidence | Interface (ConfidenceReport) | Confidence with factors |\n| ExecutiveRecommendation | Interface | Final recommendation |\n\n## Immutability\n\nAll contracts use `readonly` modifiers on all properties. No contract depends on\nRuntime Core internals (`eios-runtime/internal/*`).\n\n## Dependency Chain\n\n```\nExecutiveQuestion → ExecutiveIntent → ThinkingModeSelection →\nMentalModelRef[] → FrameworkRef[] → ReasoningPlan →\nEvidenceSet → ConfidenceReport → ExecutiveDecision →\nExecutiveRecommendation\n```\n\n## Public Exports\n\nExported from `src/executive-runtime/cognition/CognitiveContracts.ts`\n\n- `ExecutiveRole` — union type\n- `ProblemType` — union type\n- `EvidenceSource` — union type\n- `CognitiveStatus` — union type\n- All interfaces listed above\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

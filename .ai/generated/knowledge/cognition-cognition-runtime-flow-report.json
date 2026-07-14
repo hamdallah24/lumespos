@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-runtime-flow-report",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\RUNTIME_FLOW_REPORT",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "1f02a11cdee75d09a2fe0268f929e970876dadaf00377c64f3ec0ccaf761dd8a",
+    "compiled_at": "2026-07-14T07:56:39.075Z",
+    "source_hash": "b954c191c6c5fbfdc5153d4d9729be5a8f0967155b437dae5f73ab6f93dc765b",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\RUNTIME_FLOW_REPORT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-runtime-flow-report",
+    "content_type": "cognition",
+    "body": "# RUNTIME_FLOW_REPORT.md\n## EPIC S.7 Phase 8 — Runtime Flow Verification\n\n### Full Runtime Flow Diagram\n\n```\n┌─────────────────────────────────────────────────────────────────────────────┐\n│                          APPLICATION LAYER                                  │\n│                                                                             │\n│  User Request                                                                │\n│       │                                                                     │\n│       ▼                                                                     │\n│  routes/ai.ts                                                               │\n│       │                                                                     │\n│       ├── Single-executive: applicationRuntime.executeMessage(target)       │\n│       └── Multi-executive:  applicationRuntime.executeForTargets(targets)   │\n│                                                                             │\n└─────────────────────────────────────────────────────────────────────────────┘\n       │\n       ▼\n┌─────────────────────────────────────────────────────────────────────────────┐\n│                   APPLICATION RUNTIME ADAPTER                               │\n│                                                                             │\n│  application-runtime-adapter.ts                                             │\n│       │                                                                     │\n│       └──→ Executive.execute()                                              │\n│                                                                             │\n└─────────────────────────────────────────────────────────────────────────────┘\n       │\n       ▼\n┌─────────────────────────────────────────────────────────────────────────────┐\n│                     EXECUTIVE PIPELINE (per-executive)                       │\n│                                                                             │\n│  ┌──────────┐                                                              │\n│  │ Identity  │  getIdentity(role) — AgentIdentity with role, auth, caps    │\n│  └────┬─────┘                                                              │\n│       ▼                                                                    │\n│  ┌───────────┐                                                             │\n│  │ Directive  │  getDirective(role) — Foundation directive from .ai/       │\n│  └────┬──────┘                                                             │\n│       ▼                                                                    │\n│  ┌───────────────┐                                                         │\n│  │ Foundation     │  foundationLoader.load() → KnowledgeAsset[]             │\n│  │ Context        │  buildFoundationContext(assets) → AI-ready string      │\n│  └────┬──────────┘                                                         │\n│       ▼                                                                    │\n│  ┌───────────────┐                                                         │\n│  │ Knowledge      │  loadKnowledge() / KnowledgeProvider.searchAll()       │\n│  │ Loader         │  knowledgeGraph.buildGraph() from foundationLoader     │\n│  └────┬──────────┘                                                         │\n│       ▼                                                                    │\n│  ┌──────────────────┐                                                      │\n│  │ Cognitive Engine  │  CognitiveEngine.think()                             │\n│  │                   │                                                      │\n│  │  ┌──────────────────┐                                                   │\n│  │  │ Thinking Mode     │  selectThinkingModes(profile)                     │\n│  │  └────────┬─────────┘                                                   │\n│  │           ▼                                                             │\n│  │  ┌──────────────────┐        "
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

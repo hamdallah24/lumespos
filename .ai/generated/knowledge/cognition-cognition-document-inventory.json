@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-document-inventory",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\DOCUMENT_INVENTORY",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "e128f0d6f15007472a6a9799d6d3add4adb092d02ed1ba58b0cecf1dc0075a2d",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "65bb3a17b03850d1785822b6dad34d71d3d2b7bfca89fd77fc5008c9d86d0727",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\DOCUMENT_INVENTORY.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-document-inventory",
+    "content_type": "cognition",
+    "body": "# DOCUMENT INVENTORY — Executive Runtime Documentation Adoption Audit\n\n## Scope\n\nAudited directories:\n- `docs/executive-runtime/` (all recursive)\n- `Point-Of-Sale/docs/` (recursive)\n- `docs/` (top-level, workspace root)\n- `src/executive-runtime/` (cognition module docs)\n- `src/ai/runtime/` (embedded .md files)\n- `eios-runtime/public/` (public API docs)\n\n## Total: 96 documentation assets discovered\n\n---\n\n## Category A: Handbook (3 docs)\n\n| # | Path | Size | Owner |\n|---|---|---|---|\n| H1 | `docs/executive-runtime/EXECUTIVE_RUNTIME_HANDBOOK.md` | 10.6 KB | EROS |\n| H2 | `docs/executive-runtime/knowledge/EXECUTIVE_KNOWLEDGE_HANDBOOK_STRUCTURE.md` | 13.1 KB | EKS |\n| H3 | `docs/executive-runtime/cognition/EXECUTIVE_COGNITIVE_HANDBOOK.md` | 2.2 KB | ECS |\n\n## Category B: Constitution (1 doc)\n\n| # | Path | Size | Owner |\n|---|---|---|---|\n| C1 | `docs/executive-runtime/EXECUTIVE_CONSTITUTION.md` | 5.9 KB | EROS |\n\n## Category C: Blueprint (5 docs)\n\n| # | Path | Size | Owner |\n|---|---|---|---|\n| B1 | `docs/executive-runtime/SYSTEM_PROMPT_BLUEPRINT.md` | 14.8 KB | Prompt |\n| B2 | `docs/executive-runtime/prompts/PROMPT_BLUEPRINT.md` | 8.6 KB | Prompt |\n| B3 | `docs/executive-runtime/prompts/PROMPT_COMPOSITION_ENGINE.md` | 8.4 KB | Prompt |\n| B4 | `docs/executive-runtime/cognition/COGNITIVE_PIPELINE.md` | 2.2 KB | ECS |\n| B5 | `docs/executive-runtime/knowledge/KNOWLEDGE_COMPOSITION_ENGINE.md` | 9.8 KB | EKS |\n\n## Category D: Spec (7 docs)\n\n| # | Path | Size | Owner |\n|---|---|---|---|\n| S1 | `docs/executive-runtime/executives/CEO/EXECUTIVE_SPEC.md` | 4.4 KB | CEO |\n| S2 | `docs/executive-runtime/executives/CTO/EXECUTIVE_SPEC.md` | 4.1 KB | CTO |\n| S3 | `docs/executive-runtime/executives/COO/EXECUTIVE_SPEC.md` | 4.3 KB | COO |\n| S4 | `docs/executive-runtime/executives/CFO/EXECUTIVE_SPEC.md` | 3.5 KB | CFO |\n| S5 | `docs/executive-runtime/executives/CMO/EXECUTIVE_SPEC.md` | 3.5 KB | CMO |\n| S6 | `docs/executive-runtime/executives/CAIO/EXECUTIVE_SPEC.md` | 3.9 KB | CAIO |\n| S7 | `docs/executive-runtime/executives/CKO/EXECUTIVE_SPEC.md` | 4.0 KB | CKO |\n\n## Category E: Prompt (8 docs)\n\n| # | Path | Size | Owner |\n|---|---|---|---|\n| P1 | `docs/executive-runtime/prompts/GLOBAL_SYSTEM_PROMPT.md` | 4.6 KB | Global |\n| P2 | `docs/executive-runtime/executives/CEO/SYSTEM_PROMPT.md` | 6.8 KB | CEO |\n| P3 | `docs/executive-runtime/executives/CTO/SYSTEM_PROMPT.md` | 6.6 KB | CTO |\n| P4 | `docs/executive-runtime/executives/COO/SYSTEM_PROMPT.md` | 6.4 KB | COO |\n| P5 | `docs/executive-runtime/executives/CFO/SYSTEM_PROMPT.md` | 5.9 KB | CFO |\n| P6 | `docs/executive-runtime/executives/CMO/SYSTEM_PROMPT.md` | 5.6 KB | CMO |\n| P7 | `docs/executive-runtime/executives/CAIO/SYSTEM_PROMPT.md` | 5.7 KB | CAIO |\n| P8 | `docs/executive-runtime/executives/CKO/SYSTEM_PROMPT.md` | 6.1 KB | CKO |\n\n## Category F: ADR (10 docs)\n\n| # | Path | Size | Owner |\n|---|---|---|---|\n| A1 | `docs/executive-runtime/knowledge/ADR-009-knowledge-system-unification.md` | 4.4 KB | EKS |\n| A2 | `Point-Of-Sale/docs/architecture/ADR-001-foundation-v2.md` | 1.5 KB | EIOS |\n| A3 | `Point-Of-Sale/docs/architecture/ADR-002-governor-ssot.md` | 1.3 KB | EIOS |\n| A4 | `Point-Of-Sale/docs/architecture/ADR-003-pipeline-ownership.md` | 1.5 KB | EIOS |\n| A5 | `Point-Of-Sale/docs/architecture/ADR-004-runtime-purity.md` | 1.4 KB | EIOS |\n| A6 | `Point-Of-Sale/docs/architecture/ADR-005-ai-facade.md` | 1.7 KB | EIOS |\n| A7 | `Point-Of-Sale/docs/architecture/ADR-006-organization-layer.md` | 1.5 KB | EIOS |\n| A8 | `Point-Of-Sale/docs/architecture/ADR-007-learning-layer.md` | 1.5 KB | EIOS |\n| A9 | `Point-Of-Sale/docs/architecture/ADR-008-governance-layer.md` | 1.2 KB | EIOS |\n| — | `Point-Of-Sale/artifacts/api-server/docs/architecture/ADR-001 through ADR-008` | — | (duplicate set, not counted) |\n\n## Category G: Knowledge (6 docs)\n\n| # | Path | Size | Owner |\n|---|---|---|---|\n| K1 | `docs/executive-runtime/knowledge/EXECUTIVE_KNOWLEDGE_TAXONOMY.md` | 26.9 KB | EKS |\n| K2 | `docs/executive-runtime/knowl"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

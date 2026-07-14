@@ -5,10 +5,14 @@ import type { IRuntimeDomain } from "../types/provider-interfaces";
 import { getAssetContent, getAsset } from "../foundation-cache";
 
 const ROLE_DIRECTIVE_MAP: Record<string, string> = {
-  CEO: "ceo-directive-v1",
-  CTO: "cto-directive-v1",
-  COO: "coo-directive-v1",
-  CFO: "cfo-directive-v1",
+  CEO: "ceo-directive",
+  CTO: "cto-directive",
+  COO: "coo-directive",
+  CFO: "cfo-directive",
+  CMO: "cmo-directive",
+  CAIO: "caio-directive",
+  CKO: "cko-directive",
+  CHRO: "chro-directive",
 };
 
 class RuntimeDomain implements IRuntimeDomain {
@@ -17,7 +21,13 @@ class RuntimeDomain implements IRuntimeDomain {
     if (!doc) return false;
     const consumers = doc.authorized_consumers;
     if (consumers.length === 0) return true;
-    return consumers.includes(role) || consumers.includes("All Runtimes");
+    const roleLower = role.toLowerCase();
+    return consumers.some(c =>
+      c === role ||
+      c.toLowerCase() === roleLower ||
+      c === "All Runtimes" ||
+      c.toLowerCase() === roleLower + "-runtime"
+    );
   }
 
   directive(role: string): { directive: string; authority: string; forbiddenActions: string[]; requiredBehaviors: string[]; delegates: Record<string, string> } | null {
@@ -43,6 +53,9 @@ class RuntimeDomain implements IRuntimeDomain {
     if (r === "CTO") return "limited";
     if (r === "COO") return "limited";
     if (r === "CFO") return "limited";
+    if (r === "CMO") return "limited";
+    if (r === "CAIO") return "limited";
+    if (r === "CKO") return "limited";
     return null;
   }
 
@@ -52,6 +65,9 @@ class RuntimeDomain implements IRuntimeDomain {
     if (r === "CTO") return ["foundation_modification", "override_ceo"];
     if (r === "COO") return ["engineering_decisions", "code_modification", "deployment", "foundation_modification"];
     if (r === "CFO") return ["engineering_decisions", "code_modification", "deployment", "foundation_modification", "tool_execution"];
+    if (r === "CMO") return ["engineering_decisions", "code_modification", "deployment", "foundation_modification"];
+    if (r === "CAIO") return ["business_decisions", "code_modification", "financial_operations"];
+    if (r === "CKO") return ["business_decisions", "code_modification", "financial_operations"];
     return [];
   }
 
@@ -61,6 +77,9 @@ class RuntimeDomain implements IRuntimeDomain {
     if (r === "CTO") return ["governed_pipeline", "identity_enforcement", "tool_governance"];
     if (r === "COO") return ["business_planner_first", "llm_fallback_only", "never_engineer"];
     if (r === "CFO") return ["financial_analysis_first", "llm_only", "never_engineer"];
+    if (r === "CMO") return ["data_driven_marketing", "customer_first", "campaign_tracking"];
+    if (r === "CAIO") return ["monitor_ai_health", "knowledge_driven", "automation_first"];
+    if (r === "CKO") return ["knowledge_quality_first", "curator_mindset", "evidence_based"];
     return [];
   }
 

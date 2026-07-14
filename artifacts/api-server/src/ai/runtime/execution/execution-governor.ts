@@ -13,7 +13,7 @@ import { ExecutionMetrics } from "./execution-metrics";
 import { ExecutionJournal } from "./execution-journal";
 import { delegationEngine } from "./delegation-engine";
 import { executionPolicy } from "./execution-policy";
-import { EXECUTION_COMPLETION_POLICY_V1 } from "./execution-completion-policy-v1";
+import { EXECUTION_COMPLETION_POLICY } from "./execution-policy";
 
 class ExecutionGovernor {
   readonly tracker = new ObjectiveTracker();
@@ -121,7 +121,7 @@ class ExecutionGovernor {
         this._goalEvidenceCycles.set(goal.id, cycles);
 
         if (cycles >= this._evidenceThreshold
-            && this.metrics.evidenceQuality >= EXECUTION_COMPLETION_POLICY_V1.minimumEvidence) {
+            && this.metrics.evidenceQuality >= EXECUTION_COMPLETION_POLICY.minimumEvidence) {
           this.goalTree.markCompleteById(goal.id);
           this._goalEvidenceCycles.set(goal.id, 0);
         }

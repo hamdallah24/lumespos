@@ -1,7 +1,10 @@
 import { Router } from "express";
-import { db, productsTable, categoriesTable, semiFinishedTable, currentInventoryTable, recipesTable } from "@workspace/db";
+import { db, productsTable, categoriesTable, semiFinishedTable, currentInventoryTable, recipesTable, productVariantsTable } from "@workspace/db";
 import { eq, and, ilike, sql, inArray } from "drizzle-orm";
+
 import { requireAuth, requireBranchAccess, requireRole, canAccessBranch } from "../middlewares/requireAuth";
+import { EventPublisher } from "../event-bus";
+import { createProductCreatedEvent } from "../events";
 
 const router = Router();
 
@@ -128,6 +131,7 @@ router.get("/products", requireAuth, requireBranchAccess((req) => Number(req.que
     let recipeRows: { parentId: number; componentId: number; quantity: string | number }[] = [];
     let costRows: { id: number; costPricePerUnit: string | number }[] = [];
     let stockRows: { itemId: number; currentStock: string | number }[] = [];
+    const variantMap = new Map<number, { min: number; max: number }>();
 
     if (productIds.length > 0) {
       recipeRows = await db
@@ -170,6 +174,26 @@ router.get("/products", requireAuth, requireBranchAccess((req) => Number(req.que
             )
           );
       }
+
+      // Batch query variants per product
+      const variantRows = await db
+        .select({
+          productId: productVariantsTable.productId,
+          price: productVariantsTable.price,
+        })
+        .from(productVariantsTable)
+        .where(inArray(productVariantsTable.productId, productIds));
+
+      for (const v of variantRows) {
+        const p = parseFloat(v.price);
+        const existing = variantMap.get(v.productId);
+        if (!existing) {
+          variantMap.set(v.productId, { min: p, max: p });
+        } else {
+          if (p < existing.min) existing.min = p;
+          if (p > existing.max) existing.max = p;
+        }
+      }
     }
 
     const costMap = new Map(costRows.map(r => [r.id, typeof r.costPricePerUnit === 'string' ? parseFloat(r.costPricePerUnit) : Number(r.costPricePerUnit)]));
@@ -204,6 +228,8 @@ router.get("/products", requireAuth, requireBranchAccess((req) => Number(req.que
         }
       }
 
+      const vInfo = variantMap.get(row.id);
+
       return {
         id: row.id,
         name: row.name,
@@ -214,6 +240,9 @@ router.get("/products", requireAuth, requireBranchAccess((req) => Number(req.que
         stock,
         imageUrl: row.imageUrl,
         isActive: row.isActive,
+        hasVariants: !!vInfo,
+        minPrice: vInfo?.min ?? null,
+        maxPrice: vInfo?.max ?? null,
       };
     });
 
@@ -255,6 +284,20 @@ router.get("/products/:id", requireAuth, requireBranchAccess((req) => Number(req
     const stock = await getProductStock(id, branchId);
     const costPrice = await getProductCost(id, branchId);
 
+    const variantRows = await db
+      .select({ price: productVariantsTable.price })
+      .from(productVariantsTable)
+      .where(eq(productVariantsTable.productId, id));
+
+    const hasVariants = variantRows.length > 0;
+    let minPrice: number | null = null;
+    let maxPrice: number | null = null;
+    if (hasVariants) {
+      const prices = variantRows.map(v => parseFloat(v.price));
+      minPrice = Math.min(...prices);
+      maxPrice = Math.max(...prices);
+    }
+
     return res.json({
       id: row.id,
       name: row.name,
@@ -265,6 +308,9 @@ router.get("/products/:id", requireAuth, requireBranchAccess((req) => Number(req
       stock,
       imageUrl: row.imageUrl,
       isActive: row.isActive,
+      hasVariants,
+      minPrice,
+      maxPrice,
     });
   } catch (error) {
     console.error("GET /products/:id error:", error);
@@ -304,6 +350,13 @@ router.post("/products", requireRole("owner", "manager"), requireBranchAccess((r
         isActive: isActive ?? true,
       }) // Temporary: gunakan as any sampai schema diupdate
       .returning();
+
+    EventPublisher.publish(createProductCreatedEvent({
+      branchId: branchId!,
+      productId: prod.id,
+      name: name.trim(),
+      price: price,
+    }));
 
     return res.status(201).json({
       id: prod.id,

@@ -26,14 +26,16 @@ export async function getUnitCost(tx: Executor, itemType: ItemType, itemId: numb
   return row ? parseFloat(row.c) : 0;
 }
 
-/** Upsert current_inventory by delta (can be negative). Returns the new stock level. */
+export type AdjustInventoryResult = { newStock: number; previousStock: number };
+
+/** Upsert current_inventory by delta (can be negative). Returns the new stock level and previous stock. */
 export async function adjustInventory(
   tx: Executor,
   branchId: number,
   itemType: ItemType,
   itemId: number,
   delta: number,
-): Promise<number> {
+): Promise<AdjustInventoryResult> {
   const [existing] = await tx
     .select()
     .from(currentInventoryTable)
@@ -53,15 +55,16 @@ export async function adjustInventory(
       itemId,
       currentStock: String(newStock),
     });
-    return newStock;
+    return { newStock, previousStock: 0 };
   }
 
-  const newStock = Math.max(0, parseFloat(existing.currentStock) + delta);
+  const previousStock = parseFloat(existing.currentStock);
+  const newStock = Math.max(0, previousStock + delta);
   await tx
     .update(currentInventoryTable)
     .set({ currentStock: String(newStock) })
     .where(eq(currentInventoryTable.id, existing.id));
-  return newStock;
+  return { newStock, previousStock };
 }
 
 export async function getInventoryStock(

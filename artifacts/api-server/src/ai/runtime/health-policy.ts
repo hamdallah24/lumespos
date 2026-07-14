@@ -1,13 +1,18 @@
-// SPRINT 4: Health Policy — weighted health score with breakdown
-// Not just "healthy/unhealthy" — scores + explains deductions
+// ECP-048: Health Policy — weighted health score with breakdown
 
 interface ScoreComponent {
   name: string;
-  weight: number;       // 0-100
-  score: number;        // 0-100 within this component
+  weight: number;
+  score: number;
   status: "healthy" | "degraded" | "unhealthy";
-  detail: string;       // human-readable explanation
+  detail: string;
 }
+
+const _breakerState: Record<string, { state: string; failureCount: number }> = {
+  DeepSeek: { state: "CLOSED", failureCount: 0 },
+  GitHub: { state: "CLOSED", failureCount: 0 },
+  SSH: { state: "CLOSED", failureCount: 0 },
+};
 
 let _lastScore: { total: number; components: ScoreComponent[]; timestamp: string } | null = null;
 
@@ -15,49 +20,19 @@ let _lastScore: { total: number; components: ScoreComponent[]; timestamp: string
 export async function computeHealthScore(): Promise<{ total: number; components: ScoreComponent[]; timestamp: string }> {
   const components: ScoreComponent[] = [];
 
-  // 1. DeepSeek (weight: 35)
-  try {
-    const { deepseekBreaker } = await import("./circuit-breaker");
-    const ds = deepseekBreaker.status();
-    const dsScore = ds.state === "CLOSED" ? 100 : ds.state === "HALF_OPEN" ? 50 : 0;
+  function addComponent(name: string, weight: number, breakerName: string) {
+    const st = _breakerState[breakerName] || { state: "CLOSED", failureCount: 0 };
+    const score = st.state === "CLOSED" ? 100 : st.state === "HALF_OPEN" ? 50 : 0;
     components.push({
-      name: "DeepSeek",
-      weight: 35,
-      score: dsScore,
-      status: dsScore >= 80 ? "healthy" : dsScore >= 40 ? "degraded" : "unhealthy",
-      detail: ds.state === "CLOSED" ? "OK" : `${ds.state} (${ds.failureCount} failures)`,
+      name, weight, score,
+      status: score >= 80 ? "healthy" : score >= 40 ? "degraded" : "unhealthy",
+      detail: st.state === "CLOSED" ? "OK" : `${st.state}${st.failureCount ? ` (${st.failureCount} failures)` : ""}`,
     });
-  } catch {
-    components.push({ name: "DeepSeek", weight: 35, score: 0, status: "unhealthy", detail: "Not initialized" });
   }
 
-  // 2. GitHub (weight: 15)
-  try {
-    const { githubBreaker } = await import("./circuit-breaker");
-    const gh = githubBreaker.status();
-    const ghScore = gh.state === "CLOSED" ? 100 : gh.state === "HALF_OPEN" ? 50 : 0;
-    components.push({
-      name: "GitHub", weight: 15, score: ghScore,
-      status: ghScore >= 80 ? "healthy" : ghScore >= 40 ? "degraded" : "unhealthy",
-      detail: gh.state === "CLOSED" ? "OK" : `${gh.state}`,
-    });
-  } catch {
-    components.push({ name: "GitHub", weight: 15, score: 80, status: "healthy", detail: "Not tracked" });
-  }
-
-  // 3. SSH (weight: 15)
-  try {
-    const { sshBreaker } = await import("./circuit-breaker");
-    const sh = sshBreaker.status();
-    const shScore = sh.state === "CLOSED" ? 100 : sh.state === "HALF_OPEN" ? 50 : 0;
-    components.push({
-      name: "SSH", weight: 15, score: shScore,
-      status: shScore >= 80 ? "healthy" : shScore >= 40 ? "degraded" : "unhealthy",
-      detail: sh.state === "CLOSED" ? "OK" : `${sh.state}`,
-    });
-  } catch {
-    components.push({ name: "SSH", weight: 15, score: 80, status: "healthy", detail: "Not tracked" });
-  }
+  addComponent("DeepSeek", 35, "DeepSeek");
+  addComponent("GitHub", 15, "GitHub");
+  addComponent("SSH", 15, "SSH");
 
   // 4. System Resources (weight: 20)
   try {

@@ -1,0 +1,41 @@
+{
+  "asset_type": "knowledge",
+  "id": "knowledge-knowledge-executive-knowledge-audit",
+  "canonical": true,
+  "metadata": {
+    "title": "Knowledge: executive-runtime\\knowledge\\EXECUTIVE_KNOWLEDGE_AUDIT",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "ba3aadf1b30c621641b99b9bea8a33b3e490e293e660bf32a9f28984030114c6",
+    "compiled_at": "2026-07-14T07:56:39.075Z",
+    "source_hash": "6a5a043324d112ee56d5dadfb3c860d61d278cafa85a6447e7384f14a68487fe",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\EXECUTIVE_KNOWLEDGE_AUDIT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "canonical",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-executive-knowledge-audit",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 1: Executive Knowledge Audit\n  Auditor: Principal Knowledge Architect\n  Date: 2026-07-13\n  Status: COMPLETE\n-->\n\n# Executive Knowledge Audit\n\n**Version:** 1.0.0  \n**Scope:** Entire repository — docs/, src/, root files, ADRs, prompts, handbooks, playbooks  \n**Method:** Manual audit of 100+ files across 15+ directories  \n**Runtime Core:** FROZEN (v4.1.0) — NOT audited for modification, only for knowledge extraction  \n\n---\n\n## Audit Methodology\n\nEvery audited item was classified by:\n- **Knowledge Type** (see taxonomy below)\n- **Source** (file path + line range)\n- **Owner** (which executive or system)\n- **Status** (documented, undocumented, duplicate, conflicting, missing)\n- **Confidence** (certainty that this finding is accurate)\n\n---\n\n## Knowledge Inventory Summary\n\n| Category | Count | Description |\n|----------|-------|-------------|\n| EROS documentation files | 29 | 15 root-level + 7 SPECs + 7 PLAYBOOKs |\n| Prompt framework files | 9 | EPF docs + GLOBAL + index/version/validation/inheritance |\n| System prompts | 7 | CEO/CTO/CFO/CMO/CAIO/CKO/COO |\n| ADR files | 16+ | 2 sets of 8 + 1 code registry + 4 root-level |\n| Source code files (knowledge-related) | 50+ | Knowledge platforms, learning, intelligence, governance |\n| Executable runtimes | 9 | 7 active + 2 dormant (CHRO, CIO) |\n| Root-level architecture docs | 4 | ARCHITECTURE_DISCOVERY, COO_RUNTIME_FOUNDATION, EIOS_BLUEPRINT, EIOS_IMPLEMENTATION_PLAN |\n| Missing critical documents | 5 | README, FOUNDATION, CONSTITUTION, AGENTS, PROJECT_CONTEXT (at wrong location) |\n\n---\n\n## Finding 1: Dual ADR Systems — CRITICAL\n\n**Severity:** CRITICAL  \n**Type:** Knowledge Duplication + Conflicting Knowledge  \n**Sources:** 3 different ADR collections with overlapping numbers\n\n### ADR Set A (World A — Original)\n**Location:** `Point-Of-Sale/docs/architecture/`\n| # | Title | Status |\n|---|-------|--------|\n| ADR-001 | Foundation v2.0 | ACCEPTED |\n| ADR-002 | Governor SSOT | ACCEPTED |\n| ADR-003 | Pipeline Ownership | ACCEPTED |\n| ADR-004 | Runtime Purity | ACCEPTED |\n| ADR-005 | AI Facade & Barrel | ACCEPTED |\n| ADR-006 | Organization Layer | ACCEPTED |\n| ADR-007 | Learning Layer | ACCEPTED |\n| ADR-008 | Governance Layer | ACCEPTED |\n\n### ADR Set B (EIOS — New)\n**Location:** `Point-Of-Sale/artifacts/api-server/docs/architecture/`\n| # | Title | Status |\n|---|-------|--------|\n| ADR-001 | Single Runtime Architecture | ACCEPTED (Frozen) |\n| ADR-002 | PipelineEngine Ownership | ACCEPTED (Frozen) |\n| ADR-003 | Executive Dispatch | ACCEPTED (Frozen) |\n| ADR-004 | Observability Ownership | ACCEPTED (Frozen) |\n| ADR-005 | Scheduler Ownership | ACCEPTED |\n| ADR-006 | Governance Ownership | ACCEPTED |\n| ADR-007 | Execution Ownership | ACCEPTED |\n| ADR-008 | RuntimeFacade Philosophy | ACCEPTED |\n\n### ADR Set C (Code Registry)\n**Location:** `src/knowledge/ArchitectureRegistry.ts`  \n**Claims:** ADR-001 through ADR-010, all ACCEPTED — but contains only 9 rules, not the ADR texts themselves.\n\n### Impact\n- ADR-001 Set A says \"Foundation v2.0 Frozen\". ADR-001 Set B says \"Single Runtime Architecture Frozen\". **Different decisions, same number.**\n- ADR-006 Set A says \"Governance Layer (OrganizationEngine etc.)\". ADR-006 Set B says \"Governance Ownership (split between EIOS and World A)\". **Related but different content.**\n- ADR-007 Set A says \"Learning Layer\". ADR-007 Set B says \"Execution Ownership\". **Totally different topics.**\n- ArchitectureRegistry.ts references 10 ADRs but only 9 rules are documented.\n- Neither ADR set is referenced in EROS documentation.\n\n### Recommendation\nADR-001 through ADR-008 in Set A should be renumbered (e.g., WADR-001 through WADR-008) to avoid collision with Set B. Both sets should be cataloged in a unified ADR index.\n\n---\n\n## Finding 2: Five Overlapping Knowledge Systems — CRITICAL\n\n**Severity:** CRITICAL  \n**Type:** Framework Overlap + Knowledge Duplication  \n**Sources:** 5+ directories with overlapping knowledge responsibilities\n\n### Knowledge System 1: `kn",
+    "knowledge_fingerprint": {
+      "mental_models": [
+        "knowledge-executive-mental-model-library"
+      ],
+      "frameworks": [
+        "knowledge-executive-framework-library"
+      ],
+      "taxonomy": "knowledge-executive-knowledge-taxonomy",
+      "confidence": 0.9,
+      "source_hash": "6a5a043324d112ee56d5dadfb3c860d61d278cafa85a6447e7384f14a68487fe"
+    }
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

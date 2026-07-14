@@ -10,13 +10,18 @@ export const CAPABILITY_TOOLS: Record<string, string[]> = {
   INSPECT_RUNTIME:      ["listDirectory", "fetchGitHubDir"],
   EXECUTE_COMMAND:      ["execCommand", "sshExec"],
   WRITE_SOURCE:         ["writeFile", "editFile"],
+  // Business data capabilities
+  READ_SALES:           ["getSalesSummary", "getTopProducts", "getSalesChart", "getCashierPerformance"],
+  READ_FINANCIAL:       ["getFinancialReport", "getExpenseList", "getShiftAuditSummary"],
+  READ_INVENTORY:       ["getLowStockItems", "getInventoryLevels"],
+  READ_OPERATIONS:      ["getOrderHistory", "getExpenseList", "getInventoryLevels"],
 };
 
 export const ROLE_DEFAULT_CAPABILITIES: Record<string, string[]> = {
-  CEO:  [],
+  CEO:  ["READ_SALES", "READ_FINANCIAL", "READ_INVENTORY"],
   CTO:  ["READ_SOURCE", "SEARCH_SOURCE", "ANALYZE_DEPENDENCY", "INSPECT_RUNTIME", "EXECUTE_COMMAND", "WRITE_SOURCE"],
-  COO:  [],
-  CFO:  [],
+  COO:  ["READ_INVENTORY", "READ_OPERATIONS", "READ_SALES"],
+  CFO:  ["READ_FINANCIAL", "READ_SALES"],
   CMO:  [],
   CHRO: [],
   CIO:  [],

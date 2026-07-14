@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-gap-analysis",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\GAP_ANALYSIS",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "6812f566f606c66d58e47121eaa2f9f16ca00efc34c38d05b30c832672255c28",
+    "compiled_at": "2026-07-14T07:56:39.079Z",
+    "source_hash": "abc2a090ad45e2a5858abacfdb79e45e8482c37a6b63bd89f230113cb580bb45",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\GAP_ANALYSIS.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-gap-analysis",
+    "content_type": "cognition",
+    "body": "# GAP ANALYSIS — Between documentation and runtime adoption\n\n## Gap 1: Foundation Loader — .ai/ Directory Missing\n\n**Severity**: CRITICAL — P0\n**Scope**: Foundation Loader, Knowledge Graph, Knowledge Loader, Prompt Assembler\n**Detail**: `foundation-loader.ts` reads from `.ai/` directory which does not exist. This cascading failure means:\n- Foundation Loader returns empty assets\n- Knowledge Graph has zero nodes\n- Knowledge Loader returns no content\n- Prompt Assembler injects empty Foundation Context\n- Runtime Domain cannot find directives\n- Capability Domain silently falls back to hardcoded values\n**Fix**: Create `.ai/` directory structure with YAML frontmatter in markdown files, OR reconfigure foundation-loader to read from `docs/executive-runtime/`\n\n## Gap 2: No YAML Frontmatter in Documentation\n\n**Severity**: CRITICAL — P0\n**Scope**: All 70+ docs in `docs/executive-runtime/`\n**Detail**: Foundation Loader requires YAML frontmatter with `id` field. None of the 70+ docs have this. Even if `.ai/` were created, the docs would not be loaded.\n**Fix**: Add YAML frontmatter to all runtime-relevant documents\n\n## Gap 3: Cognitive Engine NOT Wired to Runtime\n\n**Severity**: CRITICAL — P0\n**Scope**: `src/executive-runtime/cognition/` vs `src/executive-runtime/index.ts`\n**Detail**: `executive-runtime/index.ts` exports from `core/` and `executives/` but NOT from `cognition/`. No executive program imports or uses `CognitiveEngine.think()`. The entire cognitive layer exists as dead code.\n**Fix**: Wire CognitiveEngine into executive-runtime/index.ts and integrate into CEOProgram, CTOProgram, etc.\n\n## Gap 4: Mental Model Library — Dual Canonical (46 vs 20)\n\n**Severity**: HIGH — P1\n**Scope**: EKS doc (46 models) vs ECS TypeScript (20 models)\n**Detail**: `EXECUTIVE_MENTAL_MODEL_LIBRARY.md` defines 46 mental models. `MentalModelSelector.ts` implements only 20. The doc and code are both treated as canonical but disagree.\n**Fix**: Reconcile — either add all 46 models to TypeScript, or reduce doc to match implementation.\n\n## Gap 5: Framework Library — Dual Canonical (29 vs 27)\n\n**Severity**: HIGH — P1\n**Scope**: EKS doc (29 frameworks) vs ECS TypeScript (27 frameworks)\n**Detail**: `EXECUTIVE_FRAMEWORK_LIBRARY.md` defines 29 frameworks. `FrameworkSelector.ts` implements 27. Missing 2 frameworks.\n**Fix**: Reconcile — add missing 2 frameworks to TypeScript.\n\n## Gap 6: Capability Domain Missing 6 Executives\n\n**Severity**: HIGH — P1\n**Scope**: `capability-domain.ts`\n**Detail**: Capability matrix hardcoded for CEO (6), CTO (7), COO (4) only. CFO, CMO, CAIO, CKO, CHRO, CIO have zero capabilities in the code. `EXECUTIVE_CAPABILITY_MATRIX.md` has the full matrix but is not consumed.\n**Fix**: Add capabilities for all 9 roles (7 executives + CHRO + CIO) to capability-domain.ts\n\n## Gap 7: Runtime Domain Missing 3 Executives\n\n**Severity**: HIGH — P1\n**Scope**: `runtime-domain.ts`\n**Detail**: `ROLE_DIRECTIVE_MAP` only has CEO, CTO, COO, CFO. CMO, CAIO, CKO have no directives, authority levels, or forbidden actions.\n**Fix**: Add CMO, CAIO, CKO to runtime-domain.ts\n\n## Gap 8: Identity Missing CAIO and CKO\n\n**Severity**: HIGH — P1\n**Scope**: `identity.ts`\n**Detail**: `IDENTITIES` map has CTO, COO, CEO, Founder, Chat, CFO, CMO, CHRO, CIO but NOT CAIO or CKO.\n**Fix**: Add CAIO and CKO identities.\n\n## Gap 9: ADR Dual Sets (ADR-001 through ADR-008 overlapping)\n\n**Severity**: HIGH — P1\n**Scope**: `Point-Of-Sale/docs/architecture/` vs `Point-Of-Sale/artifacts/api-server/docs/architecture/`\n**Detail**: Two sets of ADRs using ADR-001 through ADR-008 with different content. This creates ambiguity about which is canonical.\n**Fix**: Rename Set A to WADR-001 through WADR-008 (Working ADR).\n\n## Gap 10: Knowledge Taxonomy Not Used\n\n**Severity**: MEDIUM — P2\n**Scope**: `EXECUTIVE_KNOWLEDGE_TAXONOMY.md` vs `knowledge-graph.ts`\n**Detail**: The 15-branch taxonomy defined in the knowledge doc is not used by the knowledge graph. Graph domains come from .ai/ YAML, not from taxonomy.\n**Fi"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

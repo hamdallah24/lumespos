@@ -2,6 +2,8 @@ import { Router } from "express";
 import { db, expensesTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { canAccessBranch, requireAuth, requireBranchAccess, requireRole } from "../middlewares/requireAuth";
+import { EventPublisher } from "../event-bus";
+import { createExpenseRecordedEvent } from "../events";
 
 const router = Router();
 
@@ -45,6 +47,14 @@ router.post("/expenses", requireAuth, requireBranchAccess((req) => Number(req.bo
       category: category ? String(category).trim() : null,
       notes: notes ? String(notes).trim() : null,
     }).returning();
+
+    EventPublisher.publish(createExpenseRecordedEvent({
+      branchId: Number(branchId),
+      expenseId: result.id,
+      amount: toSafeNumber(amount),
+      category: category ? String(category).trim() : null,
+      description: String(description).trim(),
+    }));
 
     return res.status(201).json(result);
   } catch (err: any) {

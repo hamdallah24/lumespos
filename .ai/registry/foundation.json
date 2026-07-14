@@ -1,0 +1,123 @@
+{
+  "assets": {
+    "foundation-executive-constitution": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "599f488310fa6a033d2628570b88c491828563722575bd0fe201a8f2e076c1b7",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-knowledge-validation-rules": {
+      "artifact": "foundation",
+      "version": "0.0.0",
+      "checksum": "f251a7dedafbc4c63f3142fdf472a9f871316841664bbe755c661755c4cac016",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-knowledge-retrieval-model": {
+      "artifact": "foundation",
+      "version": "0.0.0",
+      "checksum": "f2c7ab3fa62058504e275302620f7cc310aa23f8643ae4c1fdbe407753d2f669",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-knowledge-quality-model": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "d6d49541628705c80c029c7220bdb43941f22b598f8c1d19fb4eaade267337c1",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-knowledge-ownership-matrix": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "63ce15f692aa9ddc276cd02b373d375a09bea899c808a7c8180f5015e7dbde6e",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-knowledge-lifecycle": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "6c079679aed16fbe67575915dc2d16ec6b67de062ae761ea6e1e633f058fc1c5",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-knowledge-dependency-diagram": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "9ac419c7bd0d47e3d24131c538de8f6b9ea3e8f3784b993d90f277ebfcc105ac",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-knowledge-composition-engine": {
+      "artifact": "foundation",
+      "version": "0.0.0",
+      "checksum": "4083ff93ed311e6b82708843c1873e7b820d0f3f864175bf0a4f7432973f8b92",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-knowledge-classification": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "dbcde916ba2e7bb566e66091e5da6a94a1476c26f43dcd8788bdf92a393eb54d",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-final-audit-report": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "c1491771a26ca388f3f59ef21b52aa326f14c516931fc5af0cbd336a72dbfcda",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-executive-mental-model-library": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "8e57155c9e14c52077c1bc1d1042a8df969f88d053d7ad2a5aae22079504bc5c",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-executive-knowledge-taxonomy": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "a7ab14e85a838727c1589b51f7e0d0367d779c4c714e9936341618072ff07e78",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-executive-knowledge-handbook-structure": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "8c6936023c8f05113c82359845a7c5faa1aa0a883d10403fe2297efa4b03ab5e",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-executive-knowledge-audit": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "05e610be06784988edeba1cf0a30948859d0ba444a6526010d1d0ebc2a2ea3d3",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-executive-framework-library": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "8a9bc89bff0b0ceaabd2d8f1568f1334be87470cfd378b64f9e3f87b63f36251",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-executive-capability-matrix": {
+      "artifact": "foundation",
+      "version": "1.0.0",
+      "checksum": "4a2994f59ac2343877f18b52c8a20a11b08ffe54b0248c7aa58e13c6f85e0bc4",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "foundation-knowledge-adr-009-knowledge-system-unification": {
+      "artifact": "foundation",
+      "version": "0.0.0",
+      "checksum": "179e5c6b7c5762af9c92687058cdcc7d0b315a9c9e6187373a31108113e27b9d",
+      "consumer": [],
+      "owner": "unknown"
+    }
+  }
+}

@@ -1,0 +1,354 @@
+{
+  "assets": {
+    "knowledge-knowledge-knowledge-validation-rules": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "27dcfc7aa75c6121e033c3ee020b7de85d9f4838faa93f88099f17b46915548d",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-knowledge-retrieval-model": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "c8141c2f6c1f73a3beafed973b69b5642f4195df37deee9bbe4f0b9de86a08b9",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-knowledge-quality-model": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "103efa119efc11f5613eb423353977a91b25037308a7130507c7b02c1b58e20d",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-knowledge-ownership-matrix": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "7029a9fbb91bd34103265b17b849f291957c4393001fb3badcc0c72eb1850e55",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-knowledge-lifecycle": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "60f8664f3c50bd7d936c84d50fa7aa7c639ab49cc9958c7cb050966c46c69706",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-knowledge-dependency-diagram": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "b1bb3c6fd190deccc7045bab52aa783be015ce30efe880a4e39c0d42c5cdda1c",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-knowledge-composition-engine": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "cd23f0807d2bf4adc85cc30629b45943ce276d27b909aac5f228cf45ef2f5cd6",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-knowledge-classification": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "9246ef73bb6dc13bd623d0b7aa4fa3ba4ee4962a1a4f377cbaa74a378b75e9cb",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-final-audit-report": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "9577404cd6a48a14acb1bf592baa13d2d5aa2300ba294c0935c85e66e49f2fb1",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-executive-mental-model-library": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "ac618852dc55410aa3a97967b5688a48d3c39b6274cf91f3d4bccab855fc1de6",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-executive-knowledge-taxonomy": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "e7d41e277c1aa5715b4824802c371039435e4a24ed60a9bcf26d3a9843ec88d9",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-executive-knowledge-handbook-structure": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "da40ebc2b2e1dea3ba12294da288b8b2643cec7a2692acadf88ccc6fe4855a14",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-executive-knowledge-audit": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "ba3aadf1b30c621641b99b9bea8a33b3e490e293e660bf32a9f28984030114c6",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-executive-framework-library": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "8e397afc1031c57f0fd8df25e8afdc6b580821f51a17a3c5accee9d90b369a6e",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-executive-capability-matrix": {
+      "artifact": "knowledge",
+      "version": "1.0.0",
+      "checksum": "b30a659105c3441db034a5d80287b72f5d1bd74b74eee8064015b38521cab62e",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "knowledge-knowledge-adr-009-knowledge-system-unification": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "777f2181ccba11cedd9f3f3a7eef2f7726446fc6ee78bf88bb87a9a8e6827158",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-thinking-mode-reference": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "657a8c83fda3b8df9ac4ca27acff73e07a3ee07aab8d53cd08507d914bbee053",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-source-of-truth-matrix": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "5f4afcf453bea29412b9c71e7d0ea229eafc81611f701dc841d93d092ced48cc",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-runtime-loader-audit": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "bb3cbf90de62ece1cac148af199603aaed09a7041e3c115d4b9ba90792368539",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-runtime-flow-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "1f02a11cdee75d09a2fe0268f929e970876dadaf00377c64f3ec0ccaf761dd8a",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-runtime-adoption-coverage": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "0b4cc5af3b3f1ca7c442bed7478aa1372be4c801994fc421887dbbd6f8db6197",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-reasoning-trace-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "f887b21d1876e9b83931b3d7177926a1953f378e25bd721bd5f23096e910f92d",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-prompt-runtime-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "9b1a36448a6bf34cb31f28216ff3f067c9a9359cedadc937c10840635f3cb2ad",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-orphan-document-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "4f068b951fe77ac01869256b03c79c65a1ca87cf7a06b715194acdb611326cad",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-mental-model-library": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "9555a66e076bb722aa82a8456ce05a911098ab60bdfb0ea3ea514daddbbc924b",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-knowledge-runtime-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "9dab43f68d80e494e8bd1f797a6c2bffc59107dae01dc0a5d2833cf3e5c21052",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-knowledge-adoption-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "db22a111c7819d6c3c492be6a90969d440de047ea8ced7e71311634954bcff4b",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-gap-analysis": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "6812f566f606c66d58e47121eaa2f9f16ca00efc34c38d05b30c832672255c28",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-framework-library": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "53cbdcec59754ec68e980d6d6de40f9aece5b2fb0ac8c77707847bb6fea9cbb2",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-foundation-runtime-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "97f7f6d95f4806f58a7e8f6b75e9378971d0aac840e7b2422aff582ab0994bc1",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-final-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "8fa967ba3fdb952bd488fc0714f9c5dc1346d8c0f3d4439da86ed4700729ec5c",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-final-certification-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "041b1cd1c96c540e945c8d1c264590b8bde21634a46a2d7bba092d3115d8aa13",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-final-audit-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "798341d68f377705db5177480e274206e20bf5f19d7a1b68a12c2bec14de14d3",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-executive-scenario-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "8d370f73f4a8eb3e29b598b9ce2a3270b129cb6865d704971fb71cac763df1e4",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-executive-readiness-score": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "47fc70d4550ab4b2d4cec90ec1bc4d8d819d62c5d60bb045b2e884cc96fc6a04",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-executive-entry-verification": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "5fe7dcd3948a7deca2b3ce98cb0003bbaae3f53d58d39e023f68eb31e66b342b",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-executive-cognitive-handbook": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "9e9cb955369b04350102a867579a28dab5d74e507df466882fd1ff7e6bce6ea8",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-executive-adoption-matrix": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "d3011e85febe7345f51f58ba4abc3a7eca69459c1c3553dde72779fdddc9a8a7",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-erai-adoption-reaudit": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "926a0c24ace4a842cd0c77bba1f16d6cf1a2b8dd7be5ae2f7f1d7f0958c81c0f",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-document-inventory": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "e128f0d6f15007472a6a9799d6d3add4adb092d02ed1ba58b0cecf1dc0075a2d",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-document-consumer-matrix": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "40a63666a741414df4bfb554e2ec61e8c9a2113a622147c6d2ce412d3b3adb85",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-document-adoption-graph": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "92fb987c974a867d4cfb59c41e761129d35e3739b657d7bb54d79186c0e48390",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-decision-pattern-reference": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "f4a4c39542362881b67b53a4ab2a482e27020f817a66b869fb9f60baaf9572ea",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-dead-asset-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "835db166422aca5976513343aae3221751e8a6c5b46d3f2622f1577af383127c",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-cognitive-runtime-report": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "e868ae75b8b89636a7254de863b0fe40e0e3f3612e0de5dec6be95ff67799bb1",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-cognitive-pipeline": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "546d2c023c8987b5d38bcc1fcd1468e87a8123f76d445d1d07e424381142aa2f",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-cognitive-engine": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "e18377b84620654346e0c2cce5e1e4f7156218fdf288f16f273bb64d3f4e868c",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-cognitive-contracts": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "5ccc68a45f93203ec8e6ece0fe8eec0ba9894e24c3e97652ef1c7261b1eb7949",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-adoption-verification": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "7ffdaa44d4739db1a89e1a8b2631716ea926f57d6bb6632422f0a6469c895255",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "cognition-cognition-adoption-roadmap": {
+      "artifact": "knowledge",
+      "version": "0.0.0",
+      "checksum": "f468e8481ea215a7d2c91dec453b03342d3e3dcb2c7ff669f742efaaf1b4d72a",
+      "consumer": [],
+      "owner": "unknown"
+    }
+  }
+}

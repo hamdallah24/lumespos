@@ -1,7 +1,3 @@
-// ECP-040: Pipeline Context — Single Source of Truth for execution state
-// Mutasi seluruh state execution hanya terjadi di sini.
-// Governor membaca/menulis state via context. Runtime membaca contract dari context.
-
 import type {
   ExecutionContract,
   ExecutionStrategy,
@@ -64,5 +60,3 @@ export class PipelineContext {
   recordTool(): void { this.budget.used.tools++; }
   addJournal(entry: JournalEntry): void { this.journal.push(entry); }
 }
-
-

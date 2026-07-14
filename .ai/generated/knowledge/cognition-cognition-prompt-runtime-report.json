@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-prompt-runtime-report",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\PROMPT_RUNTIME_REPORT",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "9b1a36448a6bf34cb31f28216ff3f067c9a9359cedadc937c10840635f3cb2ad",
+    "compiled_at": "2026-07-14T07:56:39.076Z",
+    "source_hash": "b5232e4ea0f4ac0ece36b647fcaca595b6645773434e8b9fe8c234c8104fa459",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\PROMPT_RUNTIME_REPORT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-prompt-runtime-report",
+    "content_type": "cognition",
+    "body": "# PROMPT_RUNTIME_REPORT.md\n## EPIC S.7 Phase 5 — Prompt Verification\n\n### Prompt Composer Architecture\n\n```\nassemble(input: PromptAssemblyInput)\n    │\n    ├── BLOCK 1: Identity         ← AgentIdentity (role, authority, memory scope)\n    ├── BLOCK 2: Directive        ← Foundation directive content (1500 chars)\n    ├── BLOCK 3: Foundation Context ← foundationLoader.load() → buildFoundationContext()\n    ├── BLOCK 4: Decision Context ← CognitiveEngine trace (metadata only)\n    ├── BLOCK 5: Output Schema    ← Executive-specific JSON schema\n    ├── BLOCK 6: Executive Results ← context string (CKO reports, mission data)\n    ├── BLOCK 7: Tool Rules       ← Optional tool governance\n    └── BLOCK 8: Footer           ← Stream policy, error policy, token budget\n```\n\n### Per-Executive Prompt Composition Analysis\n\n| Executive | `assemble()` Parameters | BLOCK 1 Identity | BLOCK 2 Directive | BLOCK 3 Foundation | BLOCK 4 Decision | BLOCK 5 Schema | BLOCK 6 Context | BLOCK 7 Tools |\n|-----------|------------------------|------------------|-------------------|-------------------|------------------|----------------|-----------------|---------------|\n| CEO | `{identity, directive, context, decision, outputSchema, mode}` | ✅ CEO | ✅ ceo-directive-v1 | ✅ via `foundationLoader` | ✅ cognitive trace | ✅ EXECUTIVE_OUTPUT_SCHEMA | ✅ memory + missions | ❌ none |\n| CTO | `{identity, directive, decision, outputSchema, context, mode}` | ✅ CTO | ✅ cto-directive-v1 | ✅ via `foundationLoader` | ✅ cognitive trace | ✅ CTO_OUTPUT_SCHEMA | ✅ file context + CKO | ✅ inline tool rules |\n| COO | Manual prompt (not via `assemble()`) | ✅ Inline | ✅ `directiveContent` string | ✅ `foundationCharter` string | ⚠️ Cognitive summary string | ✅ COO_EXECUTION_SCHEMA | ✅ brief + CKO | ❌ none |\n| CFO | `{identity, directive, decision, outputSchema, mode}` | ✅ CFO | ✅ cfo-directive-v1 | ✅ via `foundationLoader` | ✅ cognitive trace | ✅ JSON_OUTPUT_SCHEMA | ✅ plans + knowledge | ✅ inline |\n| CMO | `{identity, directive, decision, outputSchema, mode}` | ✅ CMO | ✅ cmo-directive-v1 | ✅ via `foundationLoader` | ✅ cognitive trace | ✅ JSON_OUTPUT_SCHEMA | ✅ plans + knowledge | ✅ inline |\n| CAIO | `{identity, directive, decision, outputSchema, mode}` | ✅ CAIO | ✅ caio-directive-v1 | ✅ via `foundationLoader` | ✅ cognitive trace | ✅ JSON_OUTPUT_SCHEMA | ✅ plans + stats + knowledge | ✅ inline |\n| CKO | Direct LLM (not via `assemble()`) | ✅ Inline | N/A | ✅ via `foundationLoader` fallback | ⚠️ Cognitive summary string | ❌ None | ✅ KnowledgeProvider search | ❌ none |\n\n### Prompt Source Verification\n\nIs the prompt built from reasoning, not directly from user question?\n\n| Executive | Query → Prompt Flow | Evidence |\n|-----------|-------------------|----------|\n| CEO | User Query → Semantic → Spec → Verify → **Cognitive.think()** → **assemble(decision=trace)** → LLM | `CEOProgram.ts:163-275` |\n| CTO | User Query → Semantic → Spec → Verify → Plan → Knowledge → CKO → **Cognitive.think()** → **assemble(decision=trace)** → LLM | `CTOProgram.ts:218-257` |\n| COO | User Query → Cog.think() → Intent Classify → **Manual prompt + cognitive summary** → LLM | `COOProgram.ts:243-295` |\n| CFO | User Query → Semantic → Spec → Verify → CKO → **Cognitive.think()** → **assemble(decision=trace)** → LLM | `CFOProgram.ts:80-97` |\n| CMO | User Query → Semantic → Spec → Verify → CKO → **Cognitive.think()** → **assemble(decision=trace)** → LLM | `CMOProgram.ts:80-97` |\n| CAIO | User Query → Semantic → Spec → Verify → CKO → **Cognitive.think()** → **assemble(decision=trace)** → LLM | `CAIOProgram.ts:80-99` |\n| CKO | User Query → Cog.think() → Council/Advisory/Direct LLM → response | `CKOProgram.ts:32-88` |\n\n### Block Composition Verification\n\n| Prompt Block | CEO | CTO | COO | CFO | CMO | CAIO | CKO |\n|-------------|-----|-----|-----|-----|-----|------|-----|\n| Identity (full role) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| Directive (Foundation) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | N/A |\n| Foundation Context (knowledge) | ✅ | ✅ | ✅ | ✅ | ✅ |"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

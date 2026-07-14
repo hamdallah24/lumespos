@@ -31,7 +31,7 @@ const CONSTITUTIONAL_RULES = [
   {
     rule: "Foundation requires Founder",
     check: (p: any) => {
-      const foundation = ["north-star-v1", "constitution-v1"];
+      const foundation = ["foundation-executive-constitution", "ceo-directive"];
       const touches = p.affectedAssets?.some((a: string) => foundation.includes(a));
       if (touches && !p.requiresFounder) {
         return { passed: false, violation: "Constitution Ch.4: Foundation changes require Founder approval. Set requiresFounder=true." };

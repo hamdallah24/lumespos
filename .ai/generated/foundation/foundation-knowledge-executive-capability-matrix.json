@@ -1,0 +1,30 @@
+{
+  "asset_type": "foundation",
+  "id": "foundation-knowledge-executive-capability-matrix",
+  "canonical": true,
+  "metadata": {
+    "title": "Foundation: executive-runtime\\knowledge\\EXECUTIVE_CAPABILITY_MATRIX",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "4a2994f59ac2343877f18b52c8a20a11b08ffe54b0248c7aa58e13c6f85e0bc4",
+    "compiled_at": "2026-07-14T07:56:39.072Z",
+    "source_hash": "21596baef809df51ed2bc3c8428249316e1a6c96a32684b62c579a9a0dd17545",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\EXECUTIVE_CAPABILITY_MATRIX.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "foundational",
+    "status": "Architecture v4.1"
+  },
+  "structure": {
+    "source_id": "knowledge-executive-capability-matrix",
+    "content_type": "knowledge",
+    "body": "# Executive Capability Matrix\n\n**Version:** 1.0.0  \n**Status:** Architecture v4.1  \n**Last Updated:** 2026-07-13\n\n---\n\n## Capability Overview\n\n| Capability | Owner | Shared | Delegatable | Requires Approval | Requires Review | Runtime Dependency | Business Dependency |\n|-----------|-------|--------|-------------|------------------|----------------|--------------------|--------------------|\n| mission-planning | CEO | CTO | Yes | No | Yes | PipelineScheduler | MissionEngine |\n| delegation | CEO | All | Yes | No | Yes | ExecutiveDispatchRegistry | OrganizationEngine |\n| proposal-review | CEO | CTO | Yes | No | Yes | DispatchRegistry | None |\n| organization-management | CEO | None | No | Founder | Yes | RuntimeFacade | OrganizationEngine |\n| business-analysis | CEO | CFO | Yes | No | Yes | KnowledgeProvider | Foundation |\n| strategic-decision | CEO | None | No | Founder | Yes | RuntimeFacade | None |\n| report-aggregation | CEO | CKO | Yes | No | No | KnowledgeProvider | None |\n| code-analysis | CTO | None | No | No | Yes | RuntimeFacade | FileSystem |\n| implementation | CTO | None | No | CEO | Yes | ExecutionPipeline | FileSystem |\n| architecture-review | CTO | CAIO | Yes | No | Yes | DispatchRegistry | KnowledgePlatform |\n| devops | CTO | None | No | No | Yes | RuntimeFacade | System |\n| proposal-generation | CTO | CKO | Yes | No | Yes | KnowledgeProvider | None |\n| knowledge-evolution | CTO | CKO | Yes | No | Yes | KnowledgeProvider | None |\n| financial-analysis | CFO | None | No | No | Yes | KnowledgeProvider | FinanceData |\n| budget-review | CFO | CEO | Yes | CEO | Yes | PlanProvider | FinanceData |\n| cost-optimization | CFO | COO | Yes | CEO | Yes | KnowledgeProvider | OperationsData |\n| margin-analysis | CFO | None | No | No | Yes | KnowledgeProvider | FinanceData |\n| market-analysis | CMO | None | No | No | Yes | KnowledgeProvider | MarketData |\n| campaign-strategy | CMO | COO | Yes | CEO | Yes | PlanProvider | MarketData |\n| customer-insight | CMO | CKO | Yes | No | Yes | KnowledgeProvider | CustomerData |\n| product-trend | CMO | CTO | Yes | No | Yes | KnowledgeProvider | ProductData |\n| ai-health-monitoring | CAIO | None | No | No | Yes | RuntimeFacade.health | SystemMetrics |\n| system-architecture | CAIO | CTO | Yes | No | Yes | DispatchRegistry | System |\n| knowledge-management | CAIO | CKO | Yes | No | Yes | KnowledgeProvider | KnowledgePlatform |\n| automation-oversight | CAIO | COO | Yes | CEO | Yes | PipelineScheduler | Operations |\n| knowledge-curation | CKO | None | No | No | No | KnowledgeProvider | KnowledgePlatform |\n| council-secretary | CKO | None | No | No | No | CouncilSessionManager | None |\n| best-practices | CKO | All | Yes | No | No | KnowledgeProvider | KnowledgePlatform |\n| advisory | CKO | All | Yes | No | No | ConsultantRuntime | KnowledgePlatform |\n| learning-recommendation | CKO | CEO | Yes | No | Yes | KnowledgeProvider | KnowledgePlatform |\n| inventory-management | COO | None | No | CEO | Yes | RuntimeFacade | OperationsData |\n| sales-tracking | COO | CMO | Yes | No | No | KnowledgeProvider | OperationsData |\n| product-management | COO | CTO | Yes | No | Yes | RuntimeFacade | ProductData |\n| branch-operations | COO | None | No | CEO | Yes | RuntimeFacade | OperationsData |\n| approval-handling | COO | CEO | No | Founder | Yes | GovernanceProvider | None |\n\n---\n\n## Capability Distribution by Executive\n\n### CEO (7 capabilities)\n```\nmission-planning, delegation, proposal-review, organization-management,\nbusiness-analysis, strategic-decision, report-aggregation\n```\n\n### CTO (6 capabilities)\n```\ncode-analysis, implementation, architecture-review, devops,\nproposal-generation, knowledge-evolution\n```\n\n### CFO (4 capabilities)\n```\nfinancial-analysis, budget-review, cost-optimization, margin-analysis\n```\n\n### CMO (4 capabilities)\n```\nmarket-analysis, campaign-strategy, customer-insight, product-trend\n```\n\n### CAIO (4 capabilities)\n```\nai-health-monitoring, system-architecture, knowledge-management, automat"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

@@ -3,6 +3,7 @@
 // Different from Observability: Monitor = current state. Trace = past events.
 
 import * as os from "os";
+import { redisService, isRedisEnabled } from "../../lib/redis";
 
 interface HealthCheck {
   name: string;
@@ -180,6 +181,17 @@ addCheck("PM2", async () => {
     : { status: "healthy" as const, value: `${Math.floor(uptime / 3600)}h up` };
 });
 
+// Redis check
+addCheck("Redis", async () => {
+  if (!isRedisEnabled()) return { status: "healthy" as const, value: "not configured" };
+  const connected = redisService.connection.isConnected();
+  if (!connected) return { status: "degraded" as const, value: "disconnected" };
+  const ok = await redisService.connection.ping();
+  return ok
+    ? { status: "healthy" as const, value: "PONG" }
+    : { status: "degraded" as const, value: "no ping" };
+});
+
 // ── Public API ──
 
 export const healthMonitor = {
@@ -217,6 +229,14 @@ export const healthMonitor = {
       });
     }, 60000);
   },
+
+  /** Stop periodic health check */
+  stop: (): void => {
+    if (_interval) {
+      clearInterval(_interval);
+      _interval = null;
+    }
+  },
 };
 
 // Auto-start health monitor
@@ -225,4 +245,9 @@ export function startHealthMonitor(): void {
   if (_interval) return;
   _interval = healthMonitor.start();
   console.log("[HealthMonitor] Started — checking every 60s");
+}
+
+export function stopHealthMonitor(): void {
+  healthMonitor.stop();
+  console.log("[HealthMonitor] Stopped");
 }

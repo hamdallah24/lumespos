@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-004",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\ADR-004-runtime-purity",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "fe9a26c2932385c08d1e2558ec111ca84f049111c6503ca6a44bc36c1d59c756",
+    "compiled_at": "2026-07-14T07:56:39.087Z",
+    "source_hash": "786311227b20481b71c552497270d3466f98c29c2fd1f71f3012c97cd9c12697",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\ADR-004-runtime-purity.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "ACCEPTED"
+  },
+  "structure": {
+    "original_id": "architecture-adr-004-runtime-purity",
+    "prefixed_id": "ARCH-004",
+    "domain": "architecture",
+    "title": "architecture\\ADR-004-runtime-purity",
+    "status": "ACCEPTED",
+    "body": "# ADR-004: Runtime Purity\n\n**Status:** ACCEPTED\n**Date:** ECP-039–ECP-041\n**Supersedes:** Runtime-embedded policy decisions\n\n## Context\n\nRuntimes (CEO, CTO, COO) previously contained hardcoded policy: tool lists, budget numbers, exit conditions. This violated the Governor SSOT principle.\n\n## Decision\n\nAll Runtimes are **pure executors**. They only receive `ExecutionContract` and execute through the pipeline.\n\n| Runtime | Mode | Tools Source | LLM Call |\n|---------|------|--------------|----------|\n| CEO | REASONING | None (empty) | `callDeepSeek` (single call) |\n| CTO | EXECUTION | `execContract.allowedTools` | `callDeepSeekWithTools` → Pipeline |\n| COO | REASONING | None (empty) | `ExecutionPipeline.execute()` |\n\n## Rules\n\nRuntime **MUST NOT**:\n- Create `ExecutionGovernor`\n- Set budget (`maxTokens`, `maxCycles`)\n- Choose tools (`READ_TOOLS`, `DEVOPS_TOOLS`, `isDevOps ? ...`)\n- Determine exit policy (`IMMEDIATE`, `OBJECTIVE_COMPLETED`)\n- Determine verification policy (`LIGHT`, `STRICT`)\n- Run lifecycle loops (`while`, `beforeCycle`, `afterCycle`)\n\nRuntime **MUST**:\n- Accept `ExecutionContract` parameter\n- Read `contract.allowedTools` for tool list\n- Delegate to `ExecutionPipeline` or `callDeepSeek`/`callDeepSeekWithTools`\n\n## Violations\n\nAny policy decision (budget, tools, exit, verification) in `src/ai/programs/` or `src/programs/` = Architecture Compliance FAIL.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-005",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\ADR-005-ai-facade",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "9deb2ae3af9aabc7ff6f8bf22718bfb946869f2c3ba02ed7a2f5a14e01f19876",
+    "compiled_at": "2026-07-14T07:56:39.087Z",
+    "source_hash": "0686323397d6b09f2d3d0561009b08b4262f115973e8fa2fbadf349fb2c1db7d",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\ADR-005-ai-facade.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "ACCEPTED"
+  },
+  "structure": {
+    "original_id": "architecture-adr-005-ai-facade",
+    "prefixed_id": "ARCH-005",
+    "domain": "architecture",
+    "title": "architecture\\ADR-005-ai-facade",
+    "status": "ACCEPTED",
+    "body": "# ADR-005: AI Facade & Barrel\n\n**Status:** ACCEPTED\n**Date:** ECP-046A (Fix Pack A)\n**Supersedes:** Direct Runtime → routes/ imports\n\n## Context\n\n`routes/ai-helpers.ts` evolved from a monolithic helper file (898 lines, 42 exports) into a compatibility barrel. However, DB memory functions (`remember`, `getHistory`, etc.) lived in `routes/`, forcing the `ai/` layer to import upward.\n\n## Decision\n\n1. DB memory functions moved to `services/ai-memory-service.ts` — single owner of conversation persistence\n2. `ai-helpers.ts` becomes a **barrel only**: LLM re-exports, Tool re-exports, Memory re-exports\n3. No implementations in `ai-helpers.ts`\n4. Future: `ai-helpers.ts` → `src/ai/index.ts` as the official AI facade\n\n## Rules\n\n1. `ai-helpers.ts` **MUST NOT** contain new business logic\n2. All DB operations **MUST** live in `services/`\n3. `src/ai/` **MUST NOT** import DB functions from `src/routes/`\n4. Runtime **MUST** use Gateway → Adapter chain, not direct Adapter imports\n\n## Current Barrel Structure\n\n```\nai-helpers.ts\n  ├── LLM re-exports   → llm/llm-adapter.ts\n  ├── Tool re-exports  → tools/tool-adapter.ts\n  ├── Memory re-exports → services/ai-memory-service.ts\n  ├── Shared context   (kept — routes-specific utility)\n  ├── Checklist        (kept — routes-specific utility)\n  └── Rate limiter     (kept — routes-specific utility)\n```\n\n## Migration to `src/ai/index.ts`\n\n**When**: All `src/ai/` consumers migrated to import from actual source files.\n**Trigger**: Zero remaining `import...from.*routes/ai-helpers` in `src/ai/`.\n\n## Violations\n\nNew function definitions in `ai-helpers.ts` = Architecture Compliance FAIL.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

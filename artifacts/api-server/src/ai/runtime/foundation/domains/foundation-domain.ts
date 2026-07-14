@@ -6,23 +6,23 @@ import { getAssetContent } from "../foundation-cache";
 
 class FoundationDomain implements IFoundationDomain {
   getPhilosophy(): string {
-    return getAssetContent("founder-philosophy-v1");
+    return getAssetContent("foundation-executive-constitution");
   }
 
   getCovenant(): string {
-    return getAssetContent("founder-covenant-v1");
+    return getAssetContent("foundation-executive-constitution");
   }
 
   getConstitution(): string {
-    return getAssetContent("constitution-v1");
+    return getAssetContent("foundation-executive-constitution");
   }
 
   getNorthStar(): string {
-    return getAssetContent("north-star-v1");
+    return getAssetContent("foundation-executive-constitution");
   }
 
   getManifesto(): string {
-    return getAssetContent("engineering-os-manifesto-v1");
+    return getAssetContent("foundation-executive-constitution");
   }
 }
 

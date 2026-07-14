@@ -1,5 +1,4 @@
-// SPRINT 7.1: Foundation Loader — reads .ai/Foundation docs with metadata
-// Parses YAML frontmatter, resolves dependencies, builds ordered context
+// FoundationLoader — loads KnowledgeAssets from DGPS compiled registry (.ai/registry + .ai/generated/)
 
 import { readFileSync, existsSync, readdirSync } from "fs";
 import { join, resolve } from "path";
@@ -17,7 +16,7 @@ export interface KnowledgeAsset {
   stability: string;
   version: string;
   content: string;
-  metadataRaw: string; // raw YAML for debugging
+  metadataRaw: string;
 }
 
 /** Parse YAML frontmatter from markdown — lightweight, no dependency */
@@ -71,7 +70,11 @@ function parseMetadata(content: string): { metadata: Record<string, any>; body: 
       if (value === "[]") metadata[currentKey] = [];
       else if (value === "null" || value === "") metadata[currentKey] = value === "null" ? null : value;
       else if (value.startsWith("[") && value.endsWith("]")) {
-        try { metadata[currentKey] = JSON.parse(value); } catch { metadata[currentKey] = value; }
+        try { metadata[currentKey] = JSON.parse(value); } catch {
+          // Handle unquoted YAML tokens: [CEO] → ["CEO"]
+          const quoted = value.replace(/([[,]\s*)(\w+)(\s*[\],])/g, '$1"$2"$3');
+          try { metadata[currentKey] = JSON.parse(quoted); } catch { metadata[currentKey] = value; }
+        }
       }
       else metadata[currentKey] = value;
     }
@@ -87,47 +90,6 @@ function aiFolderPath(): string {
   const cwd = process.cwd();
   if (cwd.includes("api-server")) return resolve(cwd, "..", "..", ".ai");
   return resolve(cwd, ".ai");
-}
-
-/** Load all Knowledge Assets from a directory, recursively */
-function loadAssetsFromDir(dir: string, domain: string): KnowledgeAsset[] {
-  const assets: KnowledgeAsset[] = [];
-  if (!existsSync(dir)) return assets;
-
-  const entries = readdirSync(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const fullPath = join(dir, entry.name);
-    if (entry.isDirectory()) {
-      assets.push(...loadAssetsFromDir(fullPath, entry.name));
-    } else if (entry.name.endsWith(".md") && !entry.name.includes(".deprecated")) {
-      try {
-        const raw = readFileSync(fullPath, "utf-8");
-        const { metadata, body } = parseMetadata(raw);
-        if (metadata.id) {
-          assets.push({
-            id: metadata.id,
-            title: metadata.title || entry.name,
-            domain: metadata.domain || domain,
-            artifact_type: metadata.artifact_type || "unknown",
-            knowledge_level: metadata.knowledge_level || "reference",
-            context_priority: metadata.context_priority || "normal",
-            loading_strategy: metadata.loading_strategy || "on-demand",
-            depends_on: Array.isArray(metadata.depends_on) ? metadata.depends_on : [],
-            consumers: Array.isArray(metadata.consumers) ? metadata.consumers : [],
-            stability: metadata.stability || "unstable",
-            version: metadata.version || "0.0.0",
-            content: body.trim(),
-            metadataRaw: raw.slice(0, 500),
-          });
-        }
-      } catch {
-        // Skip files that can't be read
-      }
-    }
-  }
-
-  return assets;
 }
 
 /** Topological sort — items with no unmet dependencies come first */
@@ -171,55 +133,60 @@ function resolveDependencies(assets: KnowledgeAsset[]): KnowledgeAsset[] {
 /** Load Foundation documents in dependency-resolved order */
 function loadFoundation(): KnowledgeAsset[] {
   const root = aiFolderPath();
-  const allAssets: KnowledgeAsset[] = [];
+  const registryDir = join(root, "registry");
+  const manifestPath = join(registryDir, "manifest.json");
 
-  // Load from foundation/ directory
-  const foundationDir = join(root, "foundation");
-  allAssets.push(...loadAssetsFromDir(foundationDir, "foundation"));
+  if (!existsSync(manifestPath)) {
+    throw new Error(`[FoundationLoader] DGPS registry not found at ${manifestPath}. Run \`dgps publish\` first.`);
+  }
 
-  // Load from runtime/ (blueprints, specs)
-  allAssets.push(...loadAssetsFromDir(join(root, "runtime"), "runtime"));
+  return loadFromRegistry(root, registryDir);
+}
 
-  // Load from adr/ (architecture decision records)
-  allAssets.push(...loadAssetsFromDir(join(root, "adr"), "adr"));
+/** Load assets from DGPS compiled registry + generated JSON */
+function loadFromRegistry(aiRoot: string, registryDir: string): KnowledgeAsset[] {
+  const assets: KnowledgeAsset[] = [];
+  const registryTypes = ["foundation", "executive", "knowledge", "prompt", "adr"];
 
-  // Load root-level Foundation docs (CONSTITUTION, PROJECT_CONTEXT, README)
-  const rootAssets = loadAssetsFromDir(root, "foundation");
-  for (const a of rootAssets) {
-    if (!allAssets.find(existing => existing.id === a.id)) {
-      allAssets.push(a);
+  for (const type of registryTypes) {
+    const registryPath = join(registryDir, `${type}.json`);
+    if (!existsSync(registryPath)) continue;
+
+    const registry = JSON.parse(readFileSync(registryPath, "utf-8"));
+    const registryAssets: Record<string, { artifact: string; version: string; checksum: string }> = registry.assets || {};
+    const ids = new Set(Object.keys(registryAssets));
+    if (ids.size === 0) continue;
+
+    const generatedDir = join(aiRoot, "generated", type);
+    if (!existsSync(generatedDir)) continue;
+
+    const generatedFiles = readdirSync(generatedDir).filter(f => f.endsWith(".json"));
+    for (const file of generatedFiles) {
+      const compiledAsset = JSON.parse(readFileSync(join(generatedDir, file), "utf-8"));
+      if (!compiledAsset.id || !ids.has(compiledAsset.id)) continue;
+
+      const meta = compiledAsset.metadata || {};
+      assets.push({
+        id: compiledAsset.id,
+        title: meta.title || compiledAsset.id,
+        domain: type,
+        artifact_type: compiledAsset.asset_type || type,
+        knowledge_level: meta.knowledge_level || "reference",
+        context_priority: meta.context_priority || "normal",
+        loading_strategy: "always",
+        depends_on: Array.isArray(meta.dependencies) ? meta.dependencies : [],
+        consumers: Array.isArray(meta.consumer) ? meta.consumer : [],
+        stability: meta.stability || "stable",
+        version: meta.version || "0.0.0",
+        content: compiledAsset.asset_type === "directive"
+          ? Object.values(compiledAsset.structure?.prompt || {}).map((l: any) => l.content).filter(Boolean).join("\n\n")
+          : (compiledAsset.structure?.body || ""),
+        metadataRaw: JSON.stringify(meta),
+      });
     }
   }
 
-  // Fallback: explicit load for critical Foundation files that YAML parser might miss
-  const criticalRootFiles = ["CONSTITUTION.md", "PROJECT_CONTEXT.md"];
-  for (const fileName of criticalRootFiles) {
-    const filePath = join(root, fileName);
-    if (!existsSync(filePath)) continue;
-    try {
-      const raw = readFileSync(filePath, "utf-8");
-      const { metadata, body } = parseMetadata(raw);
-      if (metadata.id && !allAssets.find(a => a.id === metadata.id)) {
-        allAssets.push({
-          id: metadata.id,
-          title: metadata.title || fileName,
-          domain: metadata.domain || "foundation",
-          artifact_type: metadata.artifact_type || "unknown",
-          knowledge_level: metadata.knowledge_level || "governing",
-          context_priority: metadata.context_priority || "critical",
-          loading_strategy: metadata.loading_strategy || "always",
-          depends_on: Array.isArray(metadata.depends_on) ? metadata.depends_on : [],
-          consumers: Array.isArray(metadata.consumers) ? metadata.consumers : [],
-          stability: metadata.stability || "locked",
-          version: metadata.version || "1.0.0",
-          content: body.trim(),
-          metadataRaw: raw.slice(0, 500),
-        });
-      }
-    } catch { /* skip */ }
-  }
-
-  return resolveDependencies(allAssets);
+  return resolveDependencies(assets);
 }
 
 /** Build a context string from Foundation docs ready for AI injection */

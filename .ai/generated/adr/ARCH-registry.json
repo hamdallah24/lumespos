@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-registry",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\module-registry",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "7d2b82a2c8b3fa4422a4d0c37778d03fc1c165d10d3e1f42373d5f0369c535c9",
+    "compiled_at": "2026-07-14T07:56:39.086Z",
+    "source_hash": "b86f7091940d654ecfc68e5963fe6cf5a31bd953827cdf64308241249d167d52",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\module-registry.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "unknown"
+  },
+  "structure": {
+    "original_id": "architecture-module-registry",
+    "prefixed_id": "ARCH-registry",
+    "domain": "architecture",
+    "title": "architecture\\module-registry",
+    "status": "unknown",
+    "body": "# Module Registry — Lumé CMN v1.0\n\n## Foundation Layer (Layer 1)\n\n| Module | Owner | Status |\n|--------|-------|--------|\n| `execution-governor.ts` | ExecutionGovernor | ACTIVE |\n| `execution-driver.ts` | ExecutionDriver | ACTIVE |\n| `execution-pipeline.ts` | ExecutionPipeline | ACTIVE |\n| `execution-manifest.ts` | Types | ACTIVE |\n| `execution-context.ts` | PipelineContext | ACTIVE |\n| `execution-policy.ts` | Policy config | ACTIVE |\n| `tool-registry.ts` | Tool Registry | ACTIVE |\n| `execution-capabilities.ts` | Capability Registry | ACTIVE |\n| `llm-adapter.ts` | LLM Adapter | ACTIVE |\n| `tool-adapter.ts` | Tool Adapter | ACTIVE |\n\n## Intelligence Layer (Layer 2)\n\n| Module | Owner | Status |\n|--------|-------|--------|\n| `mission-profile.ts` | Types | ACTIVE |\n| `mission-analyzer.ts` | MissionAnalyzer | ACTIVE |\n| `strategy-selector.ts` | StrategySelector | ACTIVE |\n| `elastic-budget.ts` | ElasticBudgetEngine | ACTIVE |\n| `tool-strategy.ts` | ToolStrategyEngine | ACTIVE |\n| `verification-profile.ts` | VerificationProfileEngine | ACTIVE |\n| `exit-strategy.ts` | ExitStrategyEngine | ACTIVE |\n\n## Organization Layer (Layer 3)\n\n| Module | Owner | Status |\n|--------|-------|--------|\n| `organization-engine.ts` | OrganizationEngine | ACTIVE |\n| `executive-task.ts` | Task format | ACTIVE |\n| `executive-board.ts` | ExecutiveBoard | ACTIVE |\n| `executive-collaboration.ts` | CollaborationEngine | ACTIVE |\n| `executive-voting.ts` | VotingEngine | ACTIVE |\n| `executive-debate.ts` | DebateEngine | ACTIVE |\n| `executive-report.ts` | Report format | ACTIVE |\n\n## Learning Layer (Layer 4)\n\n| Module | Owner | Status |\n|--------|-------|--------|\n| `learning-types.ts` | Types | ACTIVE |\n| `learning-engine.ts` | LearningEngine | ACTIVE |\n| `experience-engine.ts` | ExperienceEngine | ACTIVE |\n| `reflection-engine.ts` | ReflectionEngine | ACTIVE |\n| `knowledge-engine.ts` | KnowledgeEngine | ACTIVE |\n| `knowledge-graph.ts` | KnowledgeGraph | ACTIVE |\n| `memory-index.ts` | MemoryIndex | ACTIVE |\n| `knowledge-queue.ts` | KnowledgeQueue | ACTIVE |\n| `retrieval-engine.ts` | RetrievalEngine | ACTIVE |\n| `executive-memory.ts` | ExecutiveMemoryStore | ACTIVE |\n\n## Collective Intelligence Layer (Layer 5)\n\n| Module | Owner | Status |\n|--------|-------|--------|\n| `intelligence-types.ts` | Types | ACTIVE |\n| `organization-intelligence.ts` | OrganizationIntelligence | ACTIVE |\n| `organizational-memory.ts` | OrganizationalMemory | ACTIVE |\n| `knowledge-fusion.ts` | KnowledgeFusion | ACTIVE |\n| `executive-reputation.ts` | ExecutiveReputationTracker | ACTIVE |\n| `consensus-engine.ts` | ConsensusEngine | ACTIVE |\n| `decision-history.ts` | DecisionHistoryStore | ACTIVE |\n| `cross-executive-learning.ts` | CrossExecutiveLearning | ACTIVE |\n\n## Governance Layer (Layer 6)\n\n| Module | Owner | Status |\n|--------|-------|--------|\n| `governance-types.ts` | Types | ACTIVE |\n| `governance-engine.ts` | GovernanceEngine | ACTIVE |\n| `compliance-engine.ts` | ComplianceEngine | ACTIVE |\n| `quality-engine.ts` | QualityEngine | ACTIVE |\n| `architecture-auditor.ts` | ArchitectureAuditor | ACTIVE |\n| `executive-auditor.ts` | ExecutiveAuditor | ACTIVE |\n| `policy-engine.ts` | PolicyEngine | ACTIVE |\n| `improvement-engine.ts` | ImprovementEngine | ACTIVE |\n| `risk-engine.ts` | RiskEngine | ACTIVE |\n\n## Service Layer\n\n| Module | Owner | Status |\n|--------|-------|--------|\n| `ai-memory-service.ts` | AIMemoryService | ACTIVE |\n\n## Compatibility Barrel\n\n| Module | Owner | Status |\n|--------|-------|--------|\n| `ai-helpers.ts` | Barrel (routes/) | ACTIVE — migration to `src/ai/index.ts` planned |\n\n**Total: 56 modules across 7 layers**\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

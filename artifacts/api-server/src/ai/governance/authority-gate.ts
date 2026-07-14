@@ -40,7 +40,7 @@ export function submit(proposal: Proposal): GateDecision {
   }
 
   // Auto-reject: governance or security affecting Foundation
-  const foundationAssets = ["north-star-v1", "constitution-v1", "project-context-v1", "op-model-v1", "cto-directive-v1", "foundation-index-v1"];
+  const foundationAssets = ["foundation-executive-constitution", "ceo-directive", "cto-directive", "coo-directive", "cfo-directive", "cmo-directive", "caio-directive", "cko-directive", "chro-directive", "global-prompt"];
   const touchesFoundation = proposal.affectedAssets.some(a => foundationAssets.includes(a));
   if ((proposal.type === "governance" || proposal.type === "security") && touchesFoundation && !proposal.requiresFounder) {
     return {

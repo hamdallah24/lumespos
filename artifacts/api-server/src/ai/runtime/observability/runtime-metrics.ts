@@ -1,72 +1,61 @@
-// ECP-032.5: Runtime Metrics — KPI aggregation per runtime
-// Frozen. Aggregates latency, delegation rate, confidence, tokens.
-
+// ECP-048: Runtime Metrics — KPI aggregation per runtime
+// Backed by EIOS MetricsEngine counters, gauges, histograms
 import type { RuntimeKPISnapshot } from "./types";
+import { MetricsEngine } from "../../../eios-runtime";
+
+function metricKey(runtime: string, name: string): string {
+  return `runtime.${runtime}.${name}`;
+}
 
 class RuntimeMetricsAggregator {
-  private _data = new Map<string, {
-    latencyTotal: number; latencyCount: number;
-    delegationCount: number; totalRequests: number;
-    verificationPasses: number; verificationTotal: number;
-    confidenceTotal: number; confidenceCount: number;
-    tokenTotal: number; tokenCount: number;
-    missionCount: number; lastActive: string;
-  }>();
-
-  ensure(runtime: string): void {
-    if (!this._data.has(runtime)) {
-      this._data.set(runtime, {
-        latencyTotal: 0, latencyCount: 0,
-        delegationCount: 0, totalRequests: 0,
-        verificationPasses: 0, verificationTotal: 0,
-        confidenceTotal: 0, confidenceCount: 0,
-        tokenTotal: 0, tokenCount: 0,
-        missionCount: 0, lastActive: new Date().toISOString(),
-      });
-    }
-  }
-
   recordRequest(runtime: string, latencyMs: number, tokens: number, delegated: boolean, verified: boolean, confidence: number): void {
-    this.ensure(runtime);
-    const d = this._data.get(runtime)!;
-    d.totalRequests++;
-    d.latencyTotal += latencyMs;
-    d.latencyCount++;
-    d.tokenTotal += tokens;
-    d.tokenCount++;
-    if (delegated) d.delegationCount++;
-    d.verificationTotal++;
-    if (verified) d.verificationPasses++;
-    d.confidenceTotal += confidence;
-    d.confidenceCount++;
-    d.lastActive = new Date().toISOString();
+    MetricsEngine.histogram(metricKey(runtime, "latency_ms")).record(latencyMs);
+    MetricsEngine.counter(metricKey(runtime, "tokens")).inc(tokens);
+    MetricsEngine.histogram(metricKey(runtime, "confidence")).record(confidence);
+    MetricsEngine.gauge(metricKey(runtime, "last_active")).set(Date.now());
+    MetricsEngine.counter(metricKey(runtime, "requests")).inc(1);
+    if (delegated) MetricsEngine.counter(metricKey(runtime, "delegations")).inc(1);
+    MetricsEngine.counter(metricKey(runtime, "verifications")).inc(1);
+    if (verified) MetricsEngine.counter(metricKey(runtime, "verifications_passed")).inc(1);
   }
 
   recordMission(runtime: string): void {
-    this.ensure(runtime);
-    this._data.get(runtime)!.missionCount++;
+    MetricsEngine.counter(metricKey(runtime, "missions")).inc(1);
   }
 
   snapshot(runtime: string): RuntimeKPISnapshot {
-    const d = this._data.get(runtime);
-    if (!d || d.totalRequests === 0) {
+    const reqs = MetricsEngine.counter(metricKey(runtime, "requests")).value();
+    if (reqs === 0) {
       return { runtime, avgLatencyMs: 0, delegationRate: 0, verificationPassRate: 100, avgConfidence: 0, avgTokens: 0, missionCount: 0, lastActive: "-", status: "idle" };
     }
+    const deleg = MetricsEngine.counter(metricKey(runtime, "delegations")).value();
+    const verifTotal = MetricsEngine.counter(metricKey(runtime, "verifications")).value();
+    const verifPass = MetricsEngine.counter(metricKey(runtime, "verifications_passed")).value();
+    const missions = MetricsEngine.counter(metricKey(runtime, "missions")).value();
+    const tokens = MetricsEngine.counter(metricKey(runtime, "tokens")).value();
+    const latHist = MetricsEngine.histogram(metricKey(runtime, "latency_ms"));
+    const confHist = MetricsEngine.histogram(metricKey(runtime, "confidence"));
+    const lastActiveVal = MetricsEngine.gauge(metricKey(runtime, "last_active")).value();
     return {
       runtime,
-      avgLatencyMs: Math.round(d.latencyTotal / d.latencyCount),
-      delegationRate: Math.round((d.delegationCount / d.totalRequests) * 100),
-      verificationPassRate: d.verificationTotal > 0 ? Math.round((d.verificationPasses / d.verificationTotal) * 100) : 100,
-      avgConfidence: Math.round(d.confidenceTotal / d.confidenceCount),
-      avgTokens: Math.round(d.tokenTotal / d.tokenCount),
-      missionCount: d.missionCount,
-      lastActive: d.lastActive,
-      status: "healthy" as const,
+      avgLatencyMs: Math.round(latHist.percentile(50)),
+      delegationRate: Math.round((deleg / reqs) * 100),
+      verificationPassRate: verifTotal > 0 ? Math.round((verifPass / verifTotal) * 100) : 100,
+      avgConfidence: Math.round(confHist.percentile(50)),
+      avgTokens: Math.round(tokens / reqs),
+      missionCount: missions,
+      lastActive: lastActiveVal > 0 ? new Date(lastActiveVal).toISOString() : "-",
+      status: "healthy",
     };
   }
 
   allSnapshots(): RuntimeKPISnapshot[] {
-    return [...this._data.keys()].map(r => this.snapshot(r));
+    const names = new Set(
+      Object.keys(MetricsEngine.snapshot().counters)
+        .filter(k => k.startsWith("runtime."))
+        .map(k => k.split(".")[1])
+    );
+    return [...names].map(r => this.snapshot(r));
   }
 }
 

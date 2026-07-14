@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-executive-adoption-matrix",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\EXECUTIVE_ADOPTION_MATRIX",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "d3011e85febe7345f51f58ba4abc3a7eca69459c1c3553dde72779fdddc9a8a7",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "c7867d9c81485c325f7ea0d68ef5b0bd094d991af7a6dcb15eaa592b32d799cd",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\EXECUTIVE_ADOPTION_MATRIX.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-executive-adoption-matrix",
+    "content_type": "cognition",
+    "body": "# EXECUTIVE ADOPTION MATRIX — Per-Executive Audit\n\n## Legend\n\n| Symbol | Meaning |\n|---|---|\n| ✅ | Adopted (runtime consumer exists) |\n| ⚠️ | Partial (adopted with gaps) |\n| ❌ | Not adopted |\n| 📄 | Document exists but not consumed |\n| — | No document or implementation |\n\n---\n\n## CEO\n\n| Asset | Status | Details |\n|---|---|---|\n| System Prompt | ✅ | SYSTEM_PROMPT.md exists; Prompt Assembler can inject via identity |\n| Constitution | ❌ 📄 | EXECUTIVE_CONSTITUTION.md exists but NOT loaded by foundation-loader |\n| Thinking Modes | ✅ | ceo-vision, ceo-strategy, etc. defined in ThinkingMode.ts |\n| Mental Models | ✅ | circle-of-competence, pareto, etc. in MentalModelSelector.ts |\n| Framework Library | ✅ | SWOT, 5-forces, BCG, etc. in FrameworkSelector.ts |\n| Knowledge Taxonomy | ❌ 📄 | EXECUTIVE_KNOWLEDGE_TAXONOMY.md exists but NOT loaded |\n| Decision Pattern | ✅ | DecisionPattern.ts generates CEO decisions |\n| Communication Protocol | ❌ 📄 | EXECUTIVE_COMMUNICATION_PROTOCOL.md exists, NOT consumed |\n| Capability Matrix | ⚠️ | capability-domain.ts has CEO capabilities (6) but hardcoded — ignores EXECUTIVE_CAPABILITY_MATRIX.md |\n| Runtime Directive | ⚠️ | runtime-domain.ts has CEO → \"ceo-directive-v1\" but expects .ai/ YAML |\n\n**CEO Adoption Score: 5/10 (50%)**\n\n---\n\n## CTO\n\n| Asset | Status | Details |\n|---|---|---|\n| System Prompt | ✅ | SYSTEM_PROMPT.md exists |\n| Constitution | ❌ 📄 | Not loaded |\n| Thinking Modes | ✅ | cto-architecture, cto-tradeoff, etc. in ThinkingMode.ts |\n| Mental Models | ✅ | dependency-graph, systems-thinking, etc. in MentalModelSelector.ts |\n| Framework Library | ✅ | DDD, SOLID, CAP, C4, etc. in FrameworkSelector.ts |\n| Knowledge Taxonomy | ❌ 📄 | Not loaded |\n| Decision Pattern | ✅ | DecisionPattern.ts generates CTO decisions |\n| Communication Protocol | ❌ 📄 | Not consumed |\n| Capability Matrix | ⚠️ | capability-domain.ts has CTO capabilities (7) but hardcoded |\n| Runtime Directive | ⚠️ | runtime-domain.ts has CTO → \"cto-directive-v1\" but expects .ai/ YAML |\n\n**CTO Adoption Score: 5/10 (50%)**\n\n---\n\n## COO\n\n| Asset | Status | Details |\n|---|---|---|\n| System Prompt | ✅ | SYSTEM_PROMPT.md exists |\n| Constitution | ❌ 📄 | Not loaded |\n| Thinking Modes | ✅ | coo-operation, coo-process, etc. in ThinkingMode.ts |\n| Mental Models | ✅ | constraint-theory, premortem, etc. in MentalModelSelector.ts |\n| Framework Library | ✅ | OKR, OODA, Mckinsey 7S, etc. in FrameworkSelector.ts |\n| Knowledge Taxonomy | ❌ 📄 | Not loaded |\n| Decision Pattern | ✅ | DecisionPattern.ts generates COO decisions |\n| Communication Protocol | ❌ 📄 | Not consumed |\n| Capability Matrix | ⚠️ | capability-domain.ts has COO capabilities (4) but hardcoded |\n| Runtime Directive | ⚠️ | runtime-domain.ts has COO → \"coo-directive-v1\" but expects .ai/ YAML |\n\n**COO Adoption Score: 5/10 (50%)**\n\n---\n\n## CFO\n\n| Asset | Status | Details |\n|---|---|---|\n| System Prompt | ✅ | SYSTEM_PROMPT.md exists |\n| Constitution | ❌ 📄 | Not loaded |\n| Thinking Modes | ✅ | cfo-capital-allocation, cfo-forecasting, etc. in ThinkingMode.ts |\n| Mental Models | ✅ | probabilistic-thinking, scenario-analysis, etc. in MentalModelSelector.ts |\n| Framework Library | ✅ | cost-benefit, risk-matrix, etc. in FrameworkSelector.ts |\n| Knowledge Taxonomy | ❌ 📄 | Not loaded |\n| Decision Pattern | ✅ | DecisionPattern.ts generates CFO decisions |\n| Communication Protocol | ❌ 📄 | Not consumed |\n| Capability Matrix | ❌ | capability-domain.ts MISSING CFO entirely |\n| Runtime Directive | ⚠️ | runtime-domain.ts has CFO → \"cfo-directive-v1\" but expects .ai/ YAML |\n\n**CFO Adoption Score: 5/10 (50%)**\n\n---\n\n## CMO\n\n| Asset | Status | Details |\n|---|---|---|\n| System Prompt | ✅ | SYSTEM_PROMPT.md exists |\n| Constitution | ❌ 📄 | Not loaded |\n| Thinking Modes | ✅ | cmo-brand, cmo-campaign, etc. in ThinkingMode.ts |\n| Mental Models | ✅ | lateral-thinking, pareto, etc. in MentalModelSelector.ts |\n| Framework Library | ✅ | SWOT, pirate-metrics, JTBD, etc. in FrameworkSelector.ts |\n| Knowledge Taxono"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

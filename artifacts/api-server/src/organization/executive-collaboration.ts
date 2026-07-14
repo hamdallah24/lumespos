@@ -5,8 +5,19 @@
 
 import { createTask } from "./executive-task";
 import type { ExecutiveRole, ExecutiveTask, ExecutiveResult } from "./executive-task";
-import type { IRuntime, RuntimeContext } from "../ai/runtime/orchestrator/runtime-interface";
 import { knowledgeBackbone } from "../knowledge/KnowledgeBackbone";
+import { ExecutiveDispatchRegistry } from "../eios-runtime";
+
+type RuntimeContext = {
+  message: string;
+  userId: string | number;
+  mode: string;
+  branchId: number;
+  onProgress?: (msg: string) => void;
+  onTool?: (ev: { name: string; status: string; durationMs: number; [key: string]: unknown }) => void;
+  onState?: (state: string) => void;
+  onExecutionEvent?: (ev: unknown) => void;
+};
 
 export type CollaborationState = "CREATED" | "RUNNING" | "COLLECTING" | "COMPLETED" | "FAILED";
 
@@ -106,8 +117,8 @@ export class ExecutiveCollaboration {
     const session = this.createSession();
     session.state = "RUNNING";
 
-    // Create tasks and resolve runtimes
-    const dispatchList: { exec: DelegationEntry; task: ExecutiveTask; runtime: IRuntime }[] = [];
+    // Create tasks and resolve handlers via ExecutiveDispatchRegistry
+    const dispatchList: { exec: DelegationEntry; task: ExecutiveTask }[] = [];
 
     for (const exec of executives) {
       const task = createTask(
@@ -119,11 +130,9 @@ export class ExecutiveCollaboration {
       );
       this.assignTask(session, task);
 
-      // Resolve runtime from SSOT registry (internal dispatch, NOT resolver)
-      const { orchestrator } = await import("../ai/runtime/orchestrator");
-      const runtime = orchestrator.getRuntime(exec.runtime);
-      if (runtime) {
-        dispatchList.push({ exec, task, runtime });
+      const handler = ExecutiveDispatchRegistry.get(exec.runtime);
+      if (handler) {
+        dispatchList.push({ exec, task });
       }
     }
 
@@ -132,33 +141,38 @@ export class ExecutiveCollaboration {
       return { executiveResults: [], synthesisContext: "" };
     }
 
-    // Parallel dispatch — each runtime runs its own Pipeline/Driver/Governor lifecycle
+    // Parallel dispatch via ExecutiveDispatchRegistry
     const toolEvents: { name: string; durationMs: number; status: "ok" | "error" }[] = [];
     const results = await Promise.all(
-      dispatchList.map(async ({ exec, task, runtime }) => {
+      dispatchList.map(async ({ exec, task }) => {
         const t0 = Date.now();
         try {
-          const execCtx: RuntimeContext = {
+          const context = {
             ...ctx,
             message: `[Executive Task: ${exec.runtime}] ${objective}`,
-            onProgress: (msg) => ctx.onProgress?.(`[${exec.runtime}] ${msg}`),
-            onTool: (ev) => {
+            onProgress: (msg: string) => ctx.onProgress?.(`[${exec.runtime}] ${msg}`),
+            onTool: (ev: any) => {
               toolEvents.push({ name: ev.name || "unknown", durationMs: ev.durationMs || 0, status: ev.status === "completed" ? "ok" : "error" });
               ctx.onTool?.({ ...ev, name: `[${exec.runtime}] ${ev.name}` });
             },
-            onState: (state) => ctx.onState?.((`${exec.runtime}: ${state}`) as any),
+            onState: (state: string) => ctx.onState?.((`${exec.runtime}: ${state}`) as any),
           };
-          const runtimeResult = await runtime.execute(execCtx);
-          console.log("[CTO-IN]", execCtx.message.slice(0, 200));
-          console.log("[CTO-OUT]", runtimeResult.text?.slice(0, 300));
+          const brief = {
+            id: task.id, role: exec.runtime,
+            title: `Executive Analysis: ${objective.slice(0, 60)}`,
+            date: new Date().toISOString(), summary: objective,
+            sections: [], actionItems: [], pendingApprovals: [],
+          };
+          const decision = await ExecutiveDispatchRegistry.dispatch(exec.runtime, brief, context as any);
+          console.log("[EXEC-IN]", brief.title.slice(0, 200));
+          console.log("[EXEC-OUT]", decision?.reasoning?.slice(0, 300));
           const execResult: ExecutiveResult = {
             taskId: task.id,
             executive: exec.runtime as ExecutiveRole,
-            status: runtimeResult.success ? "COMPLETED" : "FAILED",
-            content: runtimeResult.text?.slice(0, 8000) || "",
-            confidence: runtimeResult.metrics?.confidence || 70,  // ECP-014R: read from metrics, fallback 70
+            status: decision ? "COMPLETED" : "FAILED",
+            content: decision?.reasoning?.slice(0, 8000) || "",
+            confidence: decision?.confidence || 70,
             durationMs: Date.now() - t0,
-            findings: (runtimeResult as any).findings || undefined,  // ECP-014R
           };
           this.submitResult(session, execResult);
           return execResult;

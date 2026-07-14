@@ -51,8 +51,16 @@ export const evidenceThresholds: Record<string, number> = {
   simple: 1, medium: 2, complex: 3, critical: 4,
 };
 
+// RFC-010: Execution Completion Policy v1
+export const EXECUTION_COMPLETION_POLICY = {
+  version: 1,
+  minimumEvidence: 0.40,
+  minimumConfidence: 0.50,
+  minimumSuccessRate: 0.70,
+};
+
 export const executionPolicy = {
   resolveBudget, getAntiLoopThreshold,
   budgetMatrix, globalSafety, antiLoop, schedulerWeights, schedulerConstraints, completionWeights,
-  evidenceThresholds,
+  evidenceThresholds, EXECUTION_COMPLETION_POLICY,
 };

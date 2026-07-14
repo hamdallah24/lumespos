@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-runtime-loader-audit",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\RUNTIME_LOADER_AUDIT",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "bb3cbf90de62ece1cac148af199603aaed09a7041e3c115d4b9ba90792368539",
+    "compiled_at": "2026-07-14T07:56:39.075Z",
+    "source_hash": "a308a9a198f4d671d2fc21f592021da9dda7f13c2931436d356636ffcc59d4e9",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\RUNTIME_LOADER_AUDIT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-runtime-loader-audit",
+    "content_type": "cognition",
+    "body": "# RUNTIME LOADER AUDIT — What runtime loaders actually read\n\n## Loader 1: Foundation Loader (`src/ai/runtime/foundation-loader.ts`)\n\n### What it reads\n- `.ai/foundation/` directory — all .md files with YAML frontmatter\n- `.ai/runtime/` directory — blueprints and specs\n- `.ai/adr/` directory — architecture decision records\n- `.ai/CONSTITUTION.md` — if exists\n- `.ai/PROJECT_CONTEXT.md` — if exists\n\n### What it expects\n- YAML frontmatter: `id`, `title`, `domain`, `artifact_type`, `knowledge_level`, `context_priority`, `loading_strategy`, `depends_on`, `consumers`, `stability`, `version`\n- Files must have `id` in frontmatter to be loaded\n\n### What it does NOT read\n- ❌ `docs/executive-runtime/prompts/GLOBAL_SYSTEM_PROMPT.md` — no .ai/ path, no YAML\n- ❌ `docs/executive-runtime/executives/*/SYSTEM_PROMPT.md` — same reason\n- ❌ `docs/executive-runtime/executives/*/EXECUTIVE_SPEC.md` — same reason\n- ❌ `docs/executive-runtime/executives/*/PLAYBOOK.md` — same reason\n- ❌ `docs/executive-runtime/knowledge/*.md` — same reason\n- ❌ `docs/executive-runtime/cognition/*.md` — same reason\n- ❌ `docs/executive-runtime/EXECUTIVE_CONSTITUTION.md` — same reason\n- ❌ `docs/executive-runtime/EXECUTIVE_CAPABILITY_MATRIX.md` — same reason\n- ❌ `docs/Point-Of-Sale/PROJECT_CONTEXT.md` — wrong location (expected at root `.ai/`)\n\n### Gap Analysis\n| Gap | Severity | Detail |\n|---|---|---|\n| .ai/ directory does NOT exist | **CRITICAL** | Foundation loader returns empty assets; no knowledge loaded |\n| No docs have YAML frontmatter | **CRITICAL** | Even if .ai/ existed, docs lack required metadata |\n| No knowledge doc mapping | **HIGH** | All 6 knowledge docs inaccessible to runtime |\n| No cognitive doc mapping | **HIGH** | All cognitive docs inaccessible to runtime |\n| PROJECT_CONTEXT.md misplaced | MEDIUM | At `Point-Of-Sale/docs/` instead of root |\n\n---\n\n## Loader 2: Knowledge Loader (`src/ai/runtime/knowledge-loader.ts`)\n\n### What it reads\n- `knowledge-graph.ts` — built from foundation-loader assets\n- `knowledge-repository.ts` — cache layer\n\n### What it expects\n- `KnowledgeNode` objects with: id, domain, knowledgeLevel, loadingStrategy, artifactType, etc.\n- Strategy parameter: \"always\", \"conditional\", \"on-demand\", \"all\"\n\n### What it does NOT read\n- ❌ `knowledge/*.md` — no direct filesystem reads\n- ❌ Content — uses `foundationLoader.load()` for content (which returns empty)\n- ❌ Knowledge taxonomy — no taxonomy-based filtering\n- ❌ Knowledge quality — no quality filtering\n- ❌ Mental models — no mental model awareness\n- ❌ Frameworks — no framework awareness\n\n### Gap Analysis\n| Gap | Severity | Detail |\n|---|---|---|\n| Returns empty (foundation-loader empty) | **CRITICAL** | Cascading from foundation-loader |\n| No taxonomy-based filtering | MEDIUM | Knowledge graph not organized by taxonomy |\n| No quality-aware filtering | LOW | Knowledge quality not factored |\n| No cognitive integration | MEDIUM | Not called by CognitiveEngine |\n| No content returned | **CRITICAL** | loadWithContent() returns empty assets |\n\n---\n\n## Loader 3: Prompt Assembler (`src/ai/runtime/prompt-assembler.ts`)\n\n### What it reads\n- `identity.ts` — AgentIdentity for role info\n- `foundation-loader.ts` — KnowledgeAsset[] for foundation context\n- `context-builder.ts` — ContextPackageV1 for context assembly\n\n### What it does NOT read\n- ❌ SYSTEM_PROMPT.md files — NOT directly; identity block is built from identity.ts\n- ❌ GLOBAL_SYSTEM_PROMPT.md — NOT directly; foundation context comes from .ai/\n- ❌ Executive SPEC docs — NOT directly\n- ❌ Mental Model Library — NOT referenced\n- ❌ Framework Library — NOT referenced\n- ❌ Knowledge Taxonomy — NOT referenced\n- ❌ Decision Pattern — NOT referenced\n\n### Gap Analysis\n| Gap | Severity | Detail |\n|---|---|---|\n| Prompt assembler constructs identity from code, not docs | MEDIUM | SYSTEM_PROMPT.md content should inform prompt assembly |\n| Foundation context empty (cascading) | **CRITICAL** | No knowledge reaches the LLM |\n| No mental model injection | MEDIUM | Mental"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

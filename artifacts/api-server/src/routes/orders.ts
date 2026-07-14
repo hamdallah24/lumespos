@@ -3,6 +3,8 @@ import { db, ordersTable, orderItemsTable, productsTable, productVariantsTable, 
 import { eq, and, gte, lte, count, sql } from "drizzle-orm";
 import { canAccessBranch, requireAuth } from "../middlewares/requireAuth";
 import { getRecipeRows, adjustInventory, type Executor } from "../services/inventory";
+import { EventPublisher } from "../event-bus";
+import { createOrderCreatedEvent, createOrderCompletedEvent } from "../events";
 
 const router = Router();
 
@@ -268,6 +270,30 @@ router.post("/orders", requireAuth, async (req, res) => {
 
       return { ...created, itemCount: itemRows.length };
     });
+
+    const itemsPayload = items.map((item) => ({
+      productId: item.productId,
+      productVariantId: item.productVariantId ?? null,
+      quantity: item.quantity,
+      price: 0,
+    }));
+
+    EventPublisher.publish(createOrderCreatedEvent({
+      branchId: validBranchId,
+      orderId: order.id,
+      total: parseFloat(order.total),
+      totalCogs: parseFloat(order.totalCogs),
+      paymentMethod: order.paymentMethod,
+      cashierName: cashierName ?? null,
+      items: itemsPayload,
+    }));
+
+    EventPublisher.publish(createOrderCompletedEvent({
+      branchId: validBranchId,
+      orderId: order.id,
+      total: parseFloat(order.total),
+      paymentMethod: order.paymentMethod,
+    }));
 
     return res.status(201).json(toOrder(order));
   } catch (err) {

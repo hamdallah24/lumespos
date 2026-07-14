@@ -1,0 +1,17 @@
+export const THREAT_MODEL = [
+  { id: "T-001", title: "Unauthorized plugin execution", threat: "Plugin bypasses capability check", mitigation: "RuntimeFacade enforces PermissionToken + Authorization", severity: "critical", status: "mitigated" },
+  { id: "T-002", title: "Token forgery", threat: "Attacker crafts fake PermissionToken", mitigation: "Signature verification in PermissionTokenManager.verify()", severity: "critical", status: "mitigated" },
+  { id: "T-003", title: "Manifest tampering", threat: "Compromised manifest with malicious dependencies", mitigation: "ManifestVerifier checks checksum, warns on unsigned", severity: "high", status: "mitigated" },
+  { id: "T-004", title: "Secret leakage via logs", threat: "Sensitive values written to log output", mitigation: "SecretManager never exposes values to RuntimeLogger", severity: "high", status: "mitigated" },
+  { id: "T-005", title: "Brute force on internal API", threat: "Repeated permission failures", mitigation: "SecurityMonitor.detectBruteForce after 3 failures", severity: "high", status: "mitigated" },
+  { id: "T-006", title: "Insecure configuration defaults", threat: "Dev mode or permissive CORS in production", mitigation: "SecureConfiguration.auditInsecureDefaults() warns on insecure", severity: "medium", status: "mitigated" },
+  { id: "T-007", title: "Rate limit bypass", threat: "DoS via excessive requests", mitigation: "APIHardener.rateLimit() per key", severity: "medium", status: "mitigated" },
+  { id: "T-008", title: "Input injection", threat: "XSS or prototype pollution via plugin payload", mitigation: "APIHardener.sanitize() strips script tags and $ keys", severity: "medium", status: "mitigated" },
+  { id: "T-009", title: "Untrusted dependency", threat: "Dependency with range version or unpinned", mitigation: "SupplyChainAuditor flags range/unpinned deps", severity: "medium", status: "mitigated" },
+  { id: "T-010", title: "Identity spoofing", threat: "Fake runtime or plugin identity", mitigation: "RuntimeIdentity.verifyIdentity() checks issuedAt within 24h", severity: "high", status: "mitigated" },
+  { id: "T-011", title: "Audit trail tampering", threat: "Attacker modifies audit logs", mitigation: "AuditTrail is append-only (push), no delete API", severity: "medium", status: "mitigated" },
+  { id: "T-012", title: "Privilege escalation", threat: "Plugin accesses resources beyond granted capabilities", mitigation: "Authorization.assert() checks permission before every operation", severity: "critical", status: "mitigated" },
+  { id: "T-013", title: "Secret rotation failure", threat: "Expired or never-rotated secrets", mitigation: "SecretManager enforces ttlMs expiry, auto-deletes on get", severity: "high", status: "mitigated" },
+  { id: "T-014", title: "Supply chain via transitive deps", threat: "Indirect dependency vulnerability", mitigation: "SupplyChainAuditor audits all deps in dependency map", severity: "medium", status: "documented" },
+  { id: "T-015", title: "Observer event injection", threat: "Malicious event payload triggers side effects", mitigation: "APIHardener.sanitize() on event payloads via RuntimeFacade", severity: "medium", status: "mitigated" },
+];

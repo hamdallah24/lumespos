@@ -20,11 +20,17 @@ interface CycleContract {
 
 const CYCLE_CONTRACT: Record<string, CycleContract> = {
   EXPLORE: {
-    allowedTools: ["searchContent", "listDirectory", "fetchGitHubDir", "readFile", "fetchGitHubFile", "glob"],
+    allowedTools: ["searchContent", "listDirectory", "fetchGitHubDir", "readFile", "fetchGitHubFile", "glob",
+      "getSalesSummary", "getFinancialReport", "getTopProducts", "getSalesChart",
+      "getCashierPerformance", "getLowStockItems", "getInventoryLevels",
+      "getOrderHistory", "getExpenseList", "getShiftAuditSummary"],
     mustUseTools: true,
   },
   ANALYZE: {
-    allowedTools: ["readFile", "searchContent", "getDependencies"],
+    allowedTools: ["readFile", "searchContent", "getDependencies",
+      "getSalesSummary", "getFinancialReport", "getTopProducts", "getSalesChart",
+      "getCashierPerformance", "getLowStockItems", "getInventoryLevels",
+      "getOrderHistory", "getExpenseList", "getShiftAuditSummary"],
     mustUseTools: true,
   },
   CONCLUDE: {
@@ -171,13 +177,13 @@ export class ExecutionDriver {
             const filePath = targetMatch?.[1]?.trim();
             if (toolName === "editFile" && filePath && oldMatch && newMatch) {
               console.log(`[DRIVER:EXEC] Direct editFile: ${filePath}`);
-              await executeToolWithResult("editFile", { filePath, oldString: oldMatch[1].trim(), newString: newMatch[1].trim() });
+              await executeToolWithResult("editFile", { path: filePath, search: oldMatch[1].trim(), replace: newMatch[1].trim() });
               context.result = `✅ ${filePath} berhasil diperbaiki.`;
               await remember(userId, mode, user, context.result);
               console.log(`[DRIVER:EXEC] editFile SUCCESS`);
             } else if (toolName === "writeFile" && filePath && newMatch) {
               console.log(`[DRIVER:EXEC] Direct writeFile: ${filePath}`);
-              await executeToolWithResult("writeFile", { filePath, content: newMatch[1].trim() });
+              await executeToolWithResult("writeFile", { path: filePath, content: newMatch[1].trim() });
               context.result = `✅ ${filePath} berhasil dibuat/diperbarui.`;
               await remember(userId, mode, user, context.result);
               console.log(`[DRIVER:EXEC] writeFile SUCCESS`);

@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-framework-library",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\FRAMEWORK_LIBRARY",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "53cbdcec59754ec68e980d6d6de40f9aece5b2fb0ac8c77707847bb6fea9cbb2",
+    "compiled_at": "2026-07-14T07:56:39.080Z",
+    "source_hash": "81b11aec99dbc3726f07d3763975f36110cf10f4a985d1357261de67ed88a04b",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\FRAMEWORK_LIBRARY.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-framework-library",
+    "content_type": "cognition",
+    "body": "# Framework Library — Executive Cognitive System\n\n## Complete Index (27 frameworks)\n\n| Framework | Category | Roles |\n|---|---|---|\n| SWOT Analysis | strategic | CEO, CMO |\n| RICE Prioritization | prioritization | CEO, CTO, COO, CMO |\n| ICE Score | prioritization | CEO, CTO, CMO |\n| Domain-Driven Design | architecture | CTO, CAIO |\n| SOLID Principles | architecture | CTO |\n| CAP Theorem | architecture | CTO, CAIO |\n| Flywheel Effect | strategic | CEO, CMO |\n| Jobs to Be Done | strategic | CMO, CEO |\n| McKinsey 7S | strategic | CEO, COO |\n| OODA Loop | decision | CEO, CTO, COO |\n| Cynefin Framework | decision | CEO, CTO, COO, CAIO |\n| First Principles Thinking | reasoning | CEO, CTO, CAIO |\n| Cost-Benefit Analysis | financial | CEO, CFO, CTO |\n| Pirate Metrics (AARRR) | growth | CMO, CEO |\n| OKR Framework | execution | CEO, COO, CTO |\n| Balanced Scorecard | strategic | CEO, CFO, COO |\n| PESTEL Analysis | strategic | CEO, CMO |\n| Economic Moat Analysis | strategic | CEO, CFO |\n| Event Storming | architecture | CTO, CAIO |\n| C4 Model | architecture | CTO |\n| Risk Matrix | risk | CEO, CFO, CTO, COO |\n| BCG Growth-Share Matrix | strategic | CEO, CMO |\n| Porter's 5 Forces | strategic | CEO, CMO |\n| Value Chain Analysis | strategic | CEO, COO |\n| Gap Analysis | strategic | CEO, CTO, COO, CMO, CAIO |\n| KPI Framework | measurement | CEO, CFO, COO, CMO, CAIO, CKO |\n| WSJF Prioritization | prioritization | CTO, COO |\n\n## Selection\n\n1. Filter frameworks by role\n2. Score by problem type match (50%)\n3. Score by keyword overlap (30%)\n4. Bonus for complex reasoning contexts (10%)\n5. Return top 4 frameworks\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

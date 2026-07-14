@@ -10,6 +10,8 @@ import {
   type Executor,
   type ItemType,
 } from "../services/inventory";
+import { EventPublisher } from "../event-bus";
+import { createStockAdjustedEvent, createPurchaseReceivedEvent } from "../events";
 
 const router = Router();
 
@@ -128,6 +130,31 @@ router.post("/stock-adjustments", requireRole("owner", "manager"), requireBranch
       .returning();
     return row;
   });
+
+  const newStock = created.adjustmentType === "in"
+    ? parseFloat(created.quantity)
+    : 0;
+
+  if (created.adjustmentType === "in") {
+    EventPublisher.publish(createStockAdjustedEvent({
+      branchId: created.branchId,
+      itemType: created.itemType as "ingredient" | "semi_finished",
+      itemId: created.itemId,
+      delta: parseFloat(created.quantity),
+      newStock,
+      previousStock: newStock - parseFloat(created.quantity),
+    }));
+  }
+
+  if (created.adjustmentType === "in" && created.purchasePriceTotal) {
+    EventPublisher.publish(createPurchaseReceivedEvent({
+      branchId: created.branchId,
+      ingredientId: created.itemId,
+      quantity: parseFloat(created.quantity),
+      purchaseTotal: parseFloat(created.purchasePriceTotal),
+      newAverageCost: 0,
+    }));
+  }
 
   res.status(201).json({
     id: created.id,

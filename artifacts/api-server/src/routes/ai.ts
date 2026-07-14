@@ -1,36 +1,15 @@
-// ECP-031: AI Gateway — transport layer + Orchestrator dispatch
-// No Runtime logic. All dispatch through RuntimeOrchestrator.
+// ECP-047: AI Gateway — transport layer only. Routes call ApplicationRuntimeFacade.
+// No orchestration. No runtime dispatch. No executive instantiation.
 import { Router } from "express";
 import { requireRole, requireAuth } from "../middlewares/requireAuth";
 import { mergeDeploy, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation, remember, clearMemory } from "./ai-helpers";
-import { orchestrator } from "../ai/runtime/orchestrator";
+import { applicationRuntime } from "../ai/runtime/application-runtime-adapter";
 import { computeHealthScore } from "../ai/runtime/health-policy";
 import { registryStatus } from "../ai/runtime/registry";
 import { emitToolEvent, emitStateEvent } from "../ai/runtime/execution-stream";
 import { replayExecution } from "../ai/runtime/replay-engine";
 
 const router = Router();
-
-// ECP-036: Emergency fallback — Kernel handles normal bootstrap in index.ts
-(async () => {
-  const { organizationKernel } = await import("../kernel");
-  if (!organizationKernel.isReady()) {
-    console.warn("[Gateway] Kernel not ready — emergency bootstrap");
-    const { ceoRuntime } = await import("../ai/programs/ceo-runtime");
-    orchestrator.register({
-      name: "CEO", version: "1.0.0",
-      capabilities: ["strategy", "delegation"],
-      identity: { id: "ceo-v1", role: "CEO", authority: "full" },
-      health: () => ({ status: "degraded", uptime: 0, version: "1.0.0" }),
-      canHandle: () => true,
-      execute: async (ctx) => {
-        const result = await (ceoRuntime as any).execute({ message: ctx.message, userId: ctx.userId });
-        return { success: result.success, text: result.text, runtime: "CEO", pipeline: [], metrics: { runtime: "CEO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false } };
-      },
-    });
-    console.log("[Gateway] Emergency bootstrap: CEO only. Consultant, Council, Learning OFFLINE.");
-  }
-})();
 
 function emitStatus(res: any, message: string, source?: string) {
   res.write(`data: ${JSON.stringify({ type: "status", message, source })}\n\n`);
@@ -39,27 +18,37 @@ function emitStatus(res: any, message: string, source?: string) {
 // ── ROUTER ──
 router.post("/ai/chat", requireRole("owner"), async (req, res) => {
   try {
-    const { message, mode, action, proposalId } = req.body as { message?: string; mode?: string; action?: string; proposalId?: string };
+    const { message, mode, action, proposalId, targetRuntime } = req.body as { message?: string; mode?: string; action?: string; proposalId?: string; targetRuntime?: string };
     if (!message || typeof message !== "string" || !message.trim()) {
       res.status(400).json({ error: "Message is required" });
       return;
     }
 
     const user = req.user!;
-    const clean = message.trim();
+    const rawClean = message.trim();
     const defaultBranchId = user.branchId || 1;
     const m = mode || "bisnis";
     const uid = user.id;
 
+    // ── Parse @mention, targetRuntime, or multi-mention ──
+    const mentionMatches = [...rawClean.matchAll(/@(CEO|COO|CFO|CTO)\b/gi)];
+    const allMentions = mentionMatches.map(m => m[1].toUpperCase());
+    const uniqueMentions = [...new Set(allMentions)];
+    const resolvedTarget = targetRuntime || (uniqueMentions.length === 1 ? uniqueMentions[0] : null);
+    const isMultiMention = uniqueMentions.length >= 2 && !targetRuntime;
+    const clean = mentionMatches.length > 0
+      ? rawClean.replace(/@(CEO|COO|CFO|CTO)\b/gi, '').trim()
+      : rawClean;
+
     // Rate limit
     const maxReqs = m === "cto" ? 30 : (m === "vps" ? 30 : 20);
-    const rl = checkRateLimit(uid, m, maxReqs);
+    const rl = await checkRateLimit(uid, m, maxReqs);
     if (!rl.ok) {
       res.status(429).json({ error: `Terlalu banyak permintaan. Coba lagi ${rl.retryAfter} detik lagi.` });
       return;
     }
 
-    // ECP-038: COO (bisnis) = JSON. All others = SSE through CEO orchestrator.
+    // SSE = streaming for all modes except "bisnis"
     const isSSE = m !== "bisnis";
     if (isSSE) {
       res.setHeader("Content-Type", "text/event-stream");
@@ -68,73 +57,129 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
       res.setHeader("X-Accel-Buffering", "no");
       res.flushHeaders();
     }
-    try {
-      const result = await orchestrator.execute({
-        message: clean, userId: uid, mode: m, branchId: defaultBranchId,
-        onExecutionEvent: (snapshot: any) => {
-          if (isSSE) res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`);
-        },
-        onTool: (ev: any) => {
-          if (isSSE) emitToolEvent(res, "CEO", "ToolExecutor", ev.status, ev.name, ev.durationMs);
-        },
-        onState: (state: string) => {
-          if (isSSE) emitStateEvent(res, "CEO", state);
-        },
-        onProgress: (msg: string) => {
-          if (isSSE) emitStatus(res, msg);
-        },
-      });
+
+    // Helper: send result back via SSE or JSON
+    async function sendResult(result: { success: boolean; text: string; runtime: string }, isFromCEO: boolean) {
       if (result.success && result.text) {
-        // ECP-037 P3: events:[] — pipeline events streamed LIVE via onExecutionEvent SSE
         if (isSSE) {
-          // Deteksi apakah misi baru dibuat — jika iya, jangan tutup koneksi, tunggu hasil CTO
-          const dbMatch = result.text.match(/DB#(\d+)/);
-          if (dbMatch) {
-            const missionId = parseInt(dbMatch[1]);
-            // Stream teks awal tanpa res.end()
-            res.write(`data: ${JSON.stringify({ type: "meta", sender: "CEO" })}\n\n`);
-            for (let i = 0; i < result.text.length; i += 5) {
-              res.write(`data: ${JSON.stringify({ type: "token", token: result.text.slice(i, i + 5) })}\n\n`);
-            }
-            emitStatus(res, "⏳ Menunggu hasil CTO...");
-            // Subscribe mission completion — stream hasil CTO otomatis
-            const { aiMissionService } = await import("../services/ai-mission-service");
-            let missionDone = false;
-            const unsub = aiMissionService.subscribe(missionId, (ev) => {
-              if (ev.type === "completed" && !missionDone) {
-                missionDone = true;
-                unsub();
-                const data = ev.data as any;
-                const fullResult = data.result || "";
-                emitStatus(res, "✅ Misi selesai — hasil CTO:", "CTO");
-                res.write(`data: ${JSON.stringify({ type: "meta", sender: "CTO" })}\n\n`);
-                for (let i = 0; i < Math.min(fullResult.length, 4000); i += 5) {
-                  res.write(`data: ${JSON.stringify({ type: "token", token: fullResult.slice(i, i + 5) })}\n\n`);
-                }
-                const combinedFinal = `✅ **Misi #${missionId} Selesai**\n\n${fullResult.slice(0, 4000)}`;
-                res.write(`data: ${JSON.stringify({ type: "done", finalText: combinedFinal })}\n\n`);
-                try { res.end(); } catch {}
+          // CEO-specific: mission creation subscription
+          if (isFromCEO) {
+            const dbMatch = result.text.match(/DB#(\d+)/);
+            if (dbMatch) {
+              const missionId = parseInt(dbMatch[1]);
+              res.write(`data: ${JSON.stringify({ type: "meta", sender: "CEO" })}\n\n`);
+              for (let i = 0; i < result.text.length; i += 5) {
+                res.write(`data: ${JSON.stringify({ type: "token", token: result.text.slice(i, i + 5) })}\n\n`);
               }
-            });
-            // Timeout 10 menit
-            setTimeout(() => {
-              if (!missionDone) { unsub(); try { res.end(); } catch {} }
-            }, 600000).unref();
-            return;
+              emitStatus(res, "⏳ Menunggu hasil CTO...");
+              const { aiMissionService } = await import("../services/ai-mission-service");
+              let missionDone = false;
+              const unsub = aiMissionService.subscribe(missionId, (ev) => {
+                if (ev.type === "completed" && !missionDone) {
+                  missionDone = true; unsub();
+                  const data = ev.data as any;
+                  const fullResult = data.result || "";
+                  emitStatus(res, "✅ Misi selesai — hasil CTO:", "CTO");
+                  res.write(`data: ${JSON.stringify({ type: "meta", sender: "CTO" })}\n\n`);
+                  for (let i = 0; i < Math.min(fullResult.length, 4000); i += 5) {
+                    res.write(`data: ${JSON.stringify({ type: "token", token: fullResult.slice(i, i + 5) })}\n\n`);
+                  }
+                  res.write(`data: ${JSON.stringify({ type: "done", finalText: `✅ **Misi #${missionId} Selesai**\n\n${fullResult.slice(0, 4000)}`, sender: "CTO" })}\n\n`);
+                  try { res.end(); } catch {}
+                }
+              });
+              setTimeout(() => { if (!missionDone) { unsub(); try { res.end(); } catch {} } }, 600000).unref();
+              return true; // handled
+            }
           }
-          // Tanpa misi baru — replay normal (res.end() di dalam replayExecution)
           await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5, runtime: result.runtime });
-        } else { res.json({ reply: result.text }); }
-        await remember(uid, m, clean, result.text);
-        if (result.text.length > 20) await saveSharedContext(uid, m, result.text.slice(0, 500));
-      } else if (result.text) {
-        if (isSSE) { await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5, runtime: result.runtime }); } else { res.json({ reply: result.text }); }
+        } else {
+          res.json({ reply: result.text });
+        }
+        return false;
+      }
+      if (result.text) {
+        if (isSSE) { await replayExecution({ events: [], responseText: result.text, res, delayMs: 15, chunkSize: 5, runtime: result.runtime }); }
+        else { res.json({ reply: result.text }); }
       } else {
         if (isSSE) { await replayExecution({ events: [], responseText: "Runtime tidak bisa menjawab.", res, delayMs: 15, chunkSize: 5, runtime: result.runtime }); }
         else { res.json({ reply: "Runtime tidak bisa menjawab." }); }
       }
+      return false;
+    }
+
+    try {
+      // ── MULTI-MENTION PATH ──
+      if (isMultiMention) {
+        const validTargets = uniqueMentions.filter(t => applicationRuntime.getExecutive(t));
+        if (validTargets.length === 0) {
+          const fallback = await applicationRuntime.executeMessage({
+            message: clean, userId: uid, mode: m, branchId: defaultBranchId,
+            onExecutionEvent: (snapshot: any) => { if (isSSE) res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`); },
+            onTool: (ev: any) => { if (isSSE) emitToolEvent(res, "CEO", "ToolExecutor", ev.status, ev.name, ev.durationMs); },
+            onState: (state: string) => { if (isSSE) emitStateEvent(res, "CEO", state); },
+            onProgress: (msg: string) => { if (isSSE) emitStatus(res, msg); },
+          });
+          await sendResult(fallback, true);
+          if (fallback.text?.length > 20) await saveSharedContext(uid, m, fallback.text.slice(0, 500));
+        } else {
+          const results = await applicationRuntime.executeForTargets(validTargets, {
+            message: clean, userId: uid, mode: m, branchId: defaultBranchId,
+          });
+          if (isSSE) {
+            for (const target of validTargets) {
+              const r = results.get(target);
+              const txt = r?.text || `_${target}: Gagal memproses_`;
+              res.write(`data: ${JSON.stringify({ type: "meta", sender: target })}\n\n`);
+              res.write(`data: ${JSON.stringify({ type: "done", finalText: txt, sender: target })}\n\n`);
+            }
+            try { res.end(); } catch {}
+          } else {
+            const parts = validTargets.map(t => {
+              const r = results.get(t);
+              if (r?.success && r.text) return `> **${t}** — ${r.text}`;
+              return `> **${t}** — _Gagal memproses_`;
+            });
+            res.json({ reply: parts.join("\n\n---\n\n") });
+          }
+          await remember(uid, m, rawClean, validTargets.map(t => {
+            const r = results.get(t);
+            return r?.text ? `[${t}] ${r.text}` : `[${t}] Error`;
+          }).join("\n"));
+        }
+      } else {
+        let result = { success: false, text: "", runtime: "" };
+        let isFromCEO = false;
+
+        if (resolvedTarget) {
+          result = await applicationRuntime.executeMessage({
+            message: clean, userId: uid, mode: m, branchId: defaultBranchId,
+            target: resolvedTarget,
+            onProgress: (msg: string) => { if (isSSE) emitStatus(res, msg); },
+            onTool: (ev: any) => { if (isSSE) emitToolEvent(res, resolvedTarget, "ToolExecutor", ev.status, ev.name, ev.durationMs); },
+            onState: (state: string) => { if (isSSE) emitStateEvent(res, resolvedTarget, state); },
+            onExecutionEvent: (snapshot: any) => { if (isSSE) res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`); },
+          });
+          isFromCEO = resolvedTarget === "CEO";
+        } else {
+          result = await applicationRuntime.executeMessage({
+            message: clean, userId: uid, mode: m, branchId: defaultBranchId,
+            onExecutionEvent: (snapshot: any) => { if (isSSE) res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`); },
+            onTool: (ev: any) => { if (isSSE) emitToolEvent(res, "CEO", "ToolExecutor", ev.status, ev.name, ev.durationMs); },
+            onState: (state: string) => { if (isSSE) emitStateEvent(res, "CEO", state); },
+            onProgress: (msg: string) => { if (isSSE) emitStatus(res, msg); },
+          });
+          isFromCEO = true;
+        }
+
+        const missionHandled = await sendResult(result, isFromCEO);
+        if (!missionHandled) {
+          await remember(uid, m, rawClean, `{SENDER:${result.runtime}}${result.text}`);
+          if (result.text?.length > 20) await saveSharedContext(uid, m, result.text.slice(0, 500));
+        }
+      }
     } catch (e: any) {
-      console.error("[ai] Orchestrator error:", e);
+      console.error("[ai] Execution error:", e);
       if (isSSE) { await replayExecution({ events: [], responseText: `Error: ${e.message?.slice(0, 200) || "unknown"}`, res, delayMs: 15, chunkSize: 5 }); }
       else { if (!res.headersSent) res.status(500).json({ error: "Internal server error" }); }
     }

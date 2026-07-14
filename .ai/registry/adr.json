@@ -1,0 +1,102 @@
+{
+  "assets": {
+    "ARCH-registry": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "7d2b82a2c8b3fa4422a4d0c37778d03fc1c165d10d3e1f42373d5f0369c535c9",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-er-rules": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "26b5e8acee4a11a1f9fa60b8e5cd8c172d1cd205e6d72bc5bda0217872b9ddc1",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH--modules": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "1fe757be07c2d58728290d51d866269ad27f8f949ad942d08e730c8db018e07e",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-cy-rules": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "fc82c28fa85e075003e4352f02bdbe69f111adb2723fefeae4301a908fee2605",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-tibility": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "c83639948119a98e0b909e4b22c96d48572b8fdd614e99b806ec3c1bfad3d9fa",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-hecklist": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "4a8eb987e99f66ad5b076e4fc07ff8ba03d99e3d357e271e3cf68edfa50fb735",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-008": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "638c91da2bdde0f88e54b4d0f93574972b192e454238e15856ef97bc34de170c",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-007": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "01aab09046fb63de681a6e6f29ea4bd842284e62ed074c50801ed431a95f9da5",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-006": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "9796ba2b5c467e49abbc53f2cd73c76e385ae5777a50cb0493e502e63c0ae92b",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-005": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "9deb2ae3af9aabc7ff6f8bf22718bfb946869f2c3ba02ed7a2f5a14e01f19876",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-004": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "fe9a26c2932385c08d1e2558ec111ca84f049111c6503ca6a44bc36c1d59c756",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-003": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "ce15874f4c780ed33e9d5a4dc49a59f2c85cfb1f57f429ec2058e47c5a06105d",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-002": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "3b5ae45a4b0f36263e1313eed4f8969130ce936f211294108fddd207eb35a15c",
+      "consumer": [],
+      "owner": "unknown"
+    },
+    "ARCH-001": {
+      "artifact": "adr",
+      "version": "0.0.0",
+      "checksum": "0f71e95f8693513a91144900b64a0376709b0d0651b99771defd34245e986e58",
+      "consumer": [],
+      "owner": "unknown"
+    }
+  }
+}

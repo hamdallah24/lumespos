@@ -1,8 +1,5 @@
-// ECP-019: Execution Journal — structured per-cycle artifact
-// Frozen. Official artifact for replay, audit, reflection, learning.
-// Detail goes here. Summary goes in ExecutionManifest.
-
 import type { JournalEntry, ExecutionManifest, BudgetAllocation, BudgetUsage, CompletionResult } from "./execution-manifest";
+import { recordAudit } from "../../../eios-runtime";
 
 class ExecutionJournal {
   private _manifest: Partial<ExecutionManifest> = {};
@@ -23,6 +20,7 @@ class ExecutionJournal {
 
   log(entry: JournalEntry): void {
     this._cycles.push(entry);
+    recordAudit(`execution-cycle-${entry.cycle}`, "completed", 0);
   }
 
   finalize(

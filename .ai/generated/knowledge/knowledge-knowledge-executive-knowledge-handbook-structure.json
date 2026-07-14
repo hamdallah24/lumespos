@@ -1,0 +1,41 @@
+{
+  "asset_type": "knowledge",
+  "id": "knowledge-knowledge-executive-knowledge-handbook-structure",
+  "canonical": true,
+  "metadata": {
+    "title": "Knowledge: executive-runtime\\knowledge\\EXECUTIVE_KNOWLEDGE_HANDBOOK_STRUCTURE",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "da40ebc2b2e1dea3ba12294da288b8b2643cec7a2692acadf88ccc6fe4855a14",
+    "compiled_at": "2026-07-14T07:56:39.075Z",
+    "source_hash": "d4ead3ff963de39c648d713c62e29e804c108c245cb8dcb85dbf291e6a6f4c19",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\EXECUTIVE_KNOWLEDGE_HANDBOOK_STRUCTURE.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "canonical",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-executive-knowledge-handbook-structure",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 13: Executive Knowledge Handbook Structure\n  Sources: EXECUTIVE_RUNTIME_HANDBOOK.md, EROS_DOCUMENTATION_INDEX.md,\n           ALL EKS documents created in EPIC R Phases 1-12\n  DO NOT EDIT MANUALLY.\n-->\n\n# Executive Knowledge Handbook Structure\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\n---\n\n## Directory Structure\n\n```\ndocs/executive-knowledge/\n├── README.md                           # Entry point for EKS\n├── EXECUTIVE_KNOWLEDGE_HANDBOOK.md     # This document — overview + usage guide\n├── KNOWLEDGE_CONSTITUTION.md           # Core principles, ethics, rules\n├── EXECUTIVE_KNOWLEDGE_TAXONOMY.md     # 15-branch hierarchical taxonomy\n├── KNOWLEDGE_CLASSIFICATION.md         # 5-dimensional classification system\n├── KNOWLEDGE_LIFECYCLE.md              # 12-stage lifecycle (Acquire → Retire)\n├── KNOWLEDGE_VALIDATION.md             # 9 validation rules + flow\n├── EXECUTIVE_MENTAL_MODEL_LIBRARY.md   # 46 mental models by executive\n├── EXECUTIVE_FRAMEWORK_LIBRARY.md      # 29 frameworks by executive\n├── KNOWLEDGE_RETRIEVAL_MODEL.md        # 8-stage retrieval pipeline\n├── KNOWLEDGE_COMPOSITION_ENGINE.md     # 10-layer composition order\n├── KNOWLEDGE_QUALITY_MODEL.md          # 9 quality dimensions + scoring\n├── KNOWLEDGE_DEPENDENCY_DIAGRAM.md     # Dependency graph + rules\n├── KNOWLEDGE_GOVERNANCE.md             # Knowledge-specific governance rules\n├── KNOWLEDGE_RUNTIME.md               # Runtime integration + service interfaces\n├── KNOWLEDGE_INDEX.md                  # Master knowledge index\n│\n├── knowledge-files/                    # Original audit-level documents\n│   ├── EXECUTIVE_KNOWLEDGE_AUDIT.md    # Phase 1: 15 findings\n│   └── KNOWLEDGE_OWNERSHIP_MATRIX.md   # Phase 2: Ownership per domain\n│\n└── legacy/                             # Pre-EKS knowledge documents (superseded)\n    └── (moved from old locations)\n```\n\n---\n\n## Document Descriptions\n\n### 01: README.md\n**Purpose:** Entry point for anyone (human or AI) approaching EKS\n**Contents:**\n- What is EKS? (1-paragraph definition)\n- How to use this handbook\n- Quick start: \"I need to find knowledge about X\"\n- Relationship to EROS, EIOS, EPF\n- File index\n\n### 02: EXECUTIVE_KNOWLEDGE_HANDBOOK.md\n**Purpose:** Complete executive-level overview of the knowledge system\n**Contents:**\n- Knowledge System Architecture (diagram)\n- All 6 subsystems and their relationships\n- Key interfaces (KnowledgeProvider, KnowledgeBackbone, etc.)\n- Data flow from acquisition to execution\n- Ownership and governance model\n- Migration guide (from pre-EKS to EKS)\n\n### 03: KNOWLEDGE_CONSTITUTION.md\n**Purpose:** Immutable principles for knowledge handling\n**Contents:**\n- 10 Knowledge Principles (based on audit findings)\n- Knowledge Ethics (accuracy, honesty, attribution, privacy)\n- Knowledge Sovereignty (domain boundaries)\n- Knowledge Purity (no direct modification of other executives' knowledge)\n- Knowledge Transparency (all knowledge is traceable)\n- Anti-Hallucination rules for knowledge (stronger than prompt level)\n- Conflict resolution hierarchy\n\n### 04: EXECUTIVE_KNOWLEDGE_TAXONOMY.md\n**Purpose:** Hierarchical classification of all knowledge\n**Contents:**\n- 15 top-level branches\n- Full tree depth (3-5 levels)\n- Classification rules\n- Cross-reference to EROS 7 knowledge types\n- Usage examples\n\n### 05: KNOWLEDGE_CLASSIFICATION.md\n**Purpose:** 5-dimensional knowledge classification\n**Contents:**\n- Immutability (Immutable/Stable/Dynamic/Ephemeral)\n- Source (12 source types with confidence weights)\n- Validation (9 validation levels)\n- Persistence (5 retention classes)\n- Access (6 access levels)\n- Classification matrix with examples\n\n### 06: KNOWLEDGE_LIFECYCLE.md\n**Purpose:** Complete knowledge lifecycle from acquisition to retirement\n**Contents:**\n- 12-stage lifecycle diagram\n- Each stage: purpose, inputs, process, outputs, owner\n- State machine diagram\n- Transition rules between stages\n- Feedback loop (learning feeds back into acquisition)\n\n### 07: KNOWLEDGE_VALIDATION.md\n**Purpose:** 9 vali",
+    "knowledge_fingerprint": {
+      "mental_models": [
+        "knowledge-executive-mental-model-library"
+      ],
+      "frameworks": [
+        "knowledge-executive-framework-library"
+      ],
+      "taxonomy": "knowledge-executive-knowledge-taxonomy",
+      "confidence": 0.9,
+      "source_hash": "d4ead3ff963de39c648d713c62e29e804c108c245cb8dcb85dbf291e6a6f4c19"
+    }
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

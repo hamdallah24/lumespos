@@ -1,0 +1,650 @@
+{
+  "nodes": {
+    "project-context": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "governance-policies": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "executive-configuration": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "epic-o-final-deliverable": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "epic-lmn-final-deliverable": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eios-v4-1-implementation": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eios-phase2-summary": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eios-operations-guide": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eios-event-catalog": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eios-architecture": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eios-api-reference": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "system-prompt-blueprint": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "situation-context": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "executive-runtime-handbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "executive-operating-model": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "executive-knowledge-architecture": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "executive-decision-model": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "executive-constitution": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "executive-communication-protocol": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "executive-collaboration-model": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eros-versioning-strategy": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eros-maintenance-guide": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eros-governance-matrix": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eros-executive-summary": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eros-documentation-index": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "eros-dependency-diagram": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "prompts-prompt-versioning": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "prompts-prompt-validation": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "prompts-prompt-inheritance": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "prompts-prompt-index": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "prompts-prompt-composition-engine": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "prompts-prompt-blueprint": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "prompts-prompt-audit": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "prompts-global-system-prompt": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "prompts-executive-prompt-framework": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-knowledge-validation-rules": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-knowledge-retrieval-model": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-knowledge-quality-model": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-knowledge-ownership-matrix": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-knowledge-lifecycle": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-knowledge-dependency-diagram": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-knowledge-composition-engine": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-knowledge-classification": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-final-audit-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-executive-mental-model-library": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-executive-knowledge-taxonomy": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-executive-knowledge-handbook-structure": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-executive-knowledge-audit": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-executive-framework-library": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-executive-capability-matrix": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "knowledge-adr-009-knowledge-system-unification": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cto-system-prompt": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cto-playbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cto-executive-spec": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "coo-system-prompt": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "coo-playbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "coo-executive-spec": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cmo-system-prompt": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cmo-playbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cmo-executive-spec": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cko-system-prompt": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cko-playbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cko-executive-spec": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "chro-system-prompt": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "chro-playbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "chro-executive-spec": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cfo-system-prompt": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cfo-playbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cfo-executive-spec": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "ceo-system-prompt": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "ceo-playbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "ceo-executive-spec": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "caio-system-prompt": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "caio-playbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "caio-executive-spec": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-thinking-mode-reference": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-source-of-truth-matrix": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-runtime-loader-audit": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-runtime-flow-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-runtime-adoption-coverage": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-reasoning-trace-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-prompt-runtime-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-orphan-document-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-mental-model-library": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-knowledge-runtime-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-knowledge-adoption-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-gap-analysis": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-framework-library": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-foundation-runtime-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-final-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-final-certification-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-final-audit-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-executive-scenario-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-executive-readiness-score": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-executive-entry-verification": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-executive-cognitive-handbook": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-executive-adoption-matrix": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-erai-adoption-reaudit": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-document-inventory": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-document-consumer-matrix": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-document-adoption-graph": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-decision-pattern-reference": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-dead-asset-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-cognitive-runtime-report": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-cognitive-pipeline": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-cognitive-engine": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-cognitive-contracts": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-adoption-verification": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "cognition-adoption-roadmap": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "archive-rfc-audit-002-findings": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "archive-rfc-audit-002-executive-summary": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "archive-eios-implementation-plan": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "archive-eios-blueprint-v4-0": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "archive-coo-runtime-foundation": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "archive-architecture-discovery-v1-0": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-module-registry": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-layer-rules": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-future-modules": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-dependency-rules": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-compatibility": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-audit-checklist": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-adr-008-governance-layer": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-adr-007-learning-layer": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-adr-006-organization-layer": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-adr-005-ai-facade": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-adr-004-runtime-purity": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-adr-003-pipeline-ownership": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-adr-002-governor-ssot": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    },
+    "architecture-adr-001-foundation-v2": {
+      "depends_on": [],
+      "inherits": [],
+      "consumers": []
+    }
+  },
+  "edges": []
+}

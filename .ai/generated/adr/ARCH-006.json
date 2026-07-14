@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-006",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\ADR-006-organization-layer",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "9796ba2b5c467e49abbc53f2cd73c76e385ae5777a50cb0493e502e63c0ae92b",
+    "compiled_at": "2026-07-14T07:56:39.086Z",
+    "source_hash": "2b6bd6c244cd080278c3f36b99a87446ba743791f8cdcac263e88b425ca32dd3",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\ADR-006-organization-layer.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "ACCEPTED"
+  },
+  "structure": {
+    "original_id": "architecture-adr-006-organization-layer",
+    "prefixed_id": "ARCH-006",
+    "domain": "architecture",
+    "title": "architecture\\ADR-006-organization-layer",
+    "status": "ACCEPTED",
+    "body": "# ADR-006: Organization Layer\n\n**Status:** ACCEPTED\n**Date:** ECP-041–ECP-042\n**Supersedes:** Ad-hoc runtime registration and delegation\n\n## Context\n\nMulti-executive collaboration required a formal organization layer above the Execution Foundation.\n\n## Decision\n\n| Module | Owner | Responsibility |\n|--------|-------|---------------|\n| `OrganizationEngine` | organization-engine.ts | Single dispatcher for executive routing (SSOT) |\n| `ExecutiveBoard` | executive-board.ts | Single registry for all executives (SSOT) |\n| `ExecutiveCollaboration` | executive-collaboration.ts | Session lifecycle, task distribution, result collection |\n| `ExecutiveTask` | executive-task.ts | Standard task format for all executives |\n| `ExecutiveVoting` | executive-voting.ts | YES/NO/ABSTAIN voting with tally |\n| `ExecutiveDebate` | executive-debate.ts | Multi-turn discussion with moderator |\n| `ExecutiveReport` | executive-report.ts | Output format + CEO synthesis prompt |\n\n## Rules\n\n1. `OrganizationEngine.delegate()` is the **single** executive dispatcher\n2. No component may have a local executive routing map\n3. `ExecutiveBoard` is the **single** executive registry\n4. Collaboration Engine **MUST NOT** reason, vote, or synthesize\n5. CEO is the **single** synthesizer of executive reports\n6. Runtimes **MUST NOT** call other runtimes directly\n\n## Dependencies\n\nOrganization Layer → Execution Foundation → LLM Adapter → Tool Adapter\n\n## Violations\n\nDirect Runtime-to-Runtime calls = Architecture Compliance FAIL.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

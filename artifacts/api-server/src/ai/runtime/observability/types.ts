@@ -1,33 +1,3 @@
-// ECP-032.5: Observability Types — canonical telemetry types
-// Frozen. Shared by all observability components.
-
-export interface TraceSpan {
-  id: string;
-  traceId: string;
-  parentSpanId?: string;
-  name: string;
-  runtime: string;
-  startTime: number;
-  endTime?: number;
-  durationMs?: number;
-  status: "running" | "completed" | "failed" | "cancelled";
-  metadata: Record<string, unknown>;
-  children: TraceSpan[];
-}
-
-export interface TraceRecord {
-  traceId: string;
-  requestId: string;
-  runtime: string;
-  startedAt: number;
-  completedAt?: number;
-  rootSpan: TraceSpan;
-  spans: TraceSpan[];
-  decisionCount: number;
-  missionId?: string;
-  tokenUsage?: { total: number; layers: { layer: string; used: number }[] };
-}
-
 export interface DecisionEntry {
   id: string;
   traceId: string;

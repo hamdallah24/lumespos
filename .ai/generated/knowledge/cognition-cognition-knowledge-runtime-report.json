@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-knowledge-runtime-report",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\KNOWLEDGE_RUNTIME_REPORT",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "9dab43f68d80e494e8bd1f797a6c2bffc59107dae01dc0a5d2833cf3e5c21052",
+    "compiled_at": "2026-07-14T07:56:39.076Z",
+    "source_hash": "3c027b969705c92736ba7bbe4ea31e2d13db2cf930bea0662b432f1b2ab7ed0d",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\KNOWLEDGE_RUNTIME_REPORT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-knowledge-runtime-report",
+    "content_type": "cognition",
+    "body": "# KNOWLEDGE_RUNTIME_REPORT.md\n## EPIC S.7 Phase 3 — Knowledge Verification\n\n### Knowledge Loading Pipeline\n\n```\nfoundationLoader.load()  ← reads .ai/ directory\n    │\n    ▼\nknowledgeGraph.buildGraph()  ← builds KnowledgeGraphV1 from assets\n    │\n    ▼\nknowledge-loader.ts:\n    ├── loadKnowledge(options) → KnowledgeNode[] (filtered, sorted)\n    └── loadKnowledgeWithContent(options) → KnowledgeAsset[] (with content)\n```\n\n### Knowledge Asset Inventory\n\n| Category | .ai/ Files | IDs | Loaded by Knowledge Loader | Consumed by Runtime |\n|----------|-----------|-----|---------------------------|---------------------|\n| Foundation Principles | 3 | constitution-v1, north-star-v1, founder-covenant-v1 | ✅ | ✅ (assemble BLOCK 2) |\n| Executive Directives | 7 | ceo/cto/coo/cfo/cmo/caio/cko-directive-v1 | ✅ | ✅ (runtime-domain directive lookup) |\n| Capability Matrix | 1 | executive-capability-matrix-v1 | ✅ | ✅ (capability-domain reads) |\n| Knowledge Taxonomy | 1 | knowledge-taxonomy-v1 | ✅ | ✅ (knowledge-graph domain filter) |\n| Mental Model Index | 1 | mental-model-library-v1 | ✅ | ✅ (MentalModelSelector docs) |\n| Framework Index | 1 | framework-library-v1 | ✅ | ✅ (FrameworkSelector docs) |\n| Global System Prompt | 1 | global-system-prompt-v1 | ✅ | ✅ (prompt-assembler) |\n| ADR Records | 21 | adr-001 through adr-020 | ✅ | ⚠️ (used by Developer, not by runtime LLM) |\n| Architecture Docs | 6+ | no `id:` frontmatter | ❌ (skipped by parser) | ❌ |\n| Specifications | 7+ | no `id:` frontmatter | ❌ (skipped by parser) | ❌ |\n| Standards | 5+ | no `id:` frontmatter | ❌ (skipped by parser) | ❌ |\n| Playbooks | 7 | 2 with `id:`, 5 without | ⚠️ partial | ⚠️ partial |\n\n### Per-Executive Knowledge Consumption\n\n| Executive | Knowledge Loader Called | Knowledge Domains | Knowledge Type | Evidence in Pipeline |\n|-----------|----------------------|-------------------|----------------|---------------------|\n| CEO | ✅ Indirect via `assemble()` BLOCK 2 | foundation, governance, adr | Foundation context | `pipeline.push(\"FoundationContext\")` |\n| CTO | ✅ Direct: `loadKnowledgeWithContent()` at `CTOProgram.ts:236` | foundation, architecture, adr, specs, runtime | Knowledge graph query | `pipeline.push(\"KnowledgeLoader\")` |\n| COO | ✅ Via `KnowledgeProvider.searchAll()` at `handleQuestion():218` | foundation, business | Knowledge platform search | `pipeline.push(\"KnowledgeRecorder\")` |\n| CFO | ✅ Via `KnowledgeProvider.searchAll()` at `CFOProgram.ts:88` | foundation, business, finance | Knowledge platform search | `pipeline.push(\"Context\")` |\n| CMO | ✅ Via `KnowledgeProvider.searchAll()` at `CMOProgram.ts:88` | foundation, business | Knowledge platform search | `pipeline.push(\"Context\")` |\n| CAIO | ✅ Via `KnowledgeProvider.searchAll()` at `CAIOProgram.ts:89` | foundation, architecture, ai, knowledge | Stats + search | `pipeline.push(\"Context\")` |\n| CKO | ✅ Via `KnowledgeProvider.searchAll()` at `CKOProgram.ts:88` | foundation, knowledge, governance | Full platform query | `pipeline.push(\"KnowledgeRecording\")` |\n\n### Knowledge Selection Mechanism\n\n| Mechanism | Used By | Evidence |\n|-----------|---------|----------|\n| `foundationLoader.load()` loader filter | prompt-assembler BLOCK 2 | Filters by `loading_strategy` (always/conditional/on-demand) |\n| `loadKnowledge()` strategy filter | CTO | Filters by `strategy` param (always/conditional/all) |\n| `loadKnowledge()` domain filter | Knowledge graph queries | Filters by `domain` metadata field |\n| `loadKnowledge()` level sort | All knowledge consumers | Sorts by `knowledge_level` priority order |\n| `KnowledgeProvider.searchAll()` | CFO, CMO, CAIO, COO, CKO | Semantic search across knowledge platform |\n| `briefContext` assembly | COO, CKO | BriefGenerator aggregates knowledge into ExecutiveBrief |\n\n### Knowledge Consumption Verification\n\n| Knowledge Asset | Requested By | Loaded | Selected | Used | Evidence File |\n|----------------|-------------|--------|----------|------|---------------|\n| ceo-directive-v1 | CEOProgram | ✅ | ✅"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

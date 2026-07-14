@@ -4,6 +4,8 @@
 export { getFoundationProvider, FoundationProvider } from "./foundation-provider";
 export type { IFoundationProvider } from "./types/provider-interfaces";
 export { getCache, invalidateCache } from "./foundation-cache";
+export { foundationRegistry } from "./FoundationRegistry";
+export type { FoundationDocument, RegistryIndex } from "./FoundationRegistry";
 
 // Domain providers
 export { foundationDomain } from "./domains/foundation-domain";

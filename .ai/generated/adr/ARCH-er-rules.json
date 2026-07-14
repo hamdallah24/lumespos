@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-er-rules",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\layer-rules",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "26b5e8acee4a11a1f9fa60b8e5cd8c172d1cd205e6d72bc5bda0217872b9ddc1",
+    "compiled_at": "2026-07-14T07:56:39.086Z",
+    "source_hash": "87e17c05f78deab3d24d417d50c3701c66f174a2b9a0d7b2c821aeaa9fcb86bf",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\layer-rules.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "unknown"
+  },
+  "structure": {
+    "original_id": "architecture-layer-rules",
+    "prefixed_id": "ARCH-er-rules",
+    "domain": "architecture",
+    "title": "architecture\\layer-rules",
+    "status": "unknown",
+    "body": "# Layer Rules — Lumé CMN v1.0\n\n## Layer Stack (bottom to top)\n\n```\nLayer 1 — Foundation       Execution, Pipeline, Governor, Driver\nLayer 2 — Intelligence     Adaptive Planning, Elastic Budget\nLayer 3 — Organization     Multi-Executive, Collaboration, Board\nLayer 4 — Learning         Experience → Reflection → Knowledge → Retrieval\nLayer 5 — Collective       Consensus, Fusion, Reputation, Decisions\nLayer 6 — Governance       Audit, Quality, Policy, Risk, Improvement\n```\n\n## Dependency Direction\n\n**ONLY downward.** Lower layer MUST NOT import from upper layer.\n\n```\n✅ Allowed:         Learning → Execution\n✅ Allowed:         Governance → Collective → Learning\n❌ Forbidden:       Execution → Learning\n❌ Forbidden:       Learning → Governance\n```\n\n## Layer-Specific Rules\n\n### Foundation (Layer 1)\n- FROZEN. No changes without ADR.\n- `ExecutionGovernor` instantiated ONLY in `ExecutionDriver`\n- `ExecutionContract` is IMMUTABLE\n\n### Intelligence (Layer 2)\n- Reads from Foundation, never modifies\n- All modules: extension only, above frozen layer\n- MissionAnalyzer, StrategySelector, ElasticBudget, etc.\n\n### Organization (Layer 3)\n- `OrganizationEngine.delegate()` is SSOT dispatcher\n- `ExecutiveBoard` is SSOT registry\n- No Runtime-to-Runtime direct calls\n\n### Learning (Layer 4)\n- `LearningEngine.cycle()` is single orchestrator\n- Knowledge is graph, not text\n- Executive memory is isolated\n\n### Collective (Layer 5)\n- Consensus weighted by reputation\n- Knowledge fusion requires 2+ sources for validation\n- All org decisions recorded\n\n### Governance (Layer 6)\n- `PolicyEngine` is single policy source — no magic numbers\n- `GovernanceEngine.audit()` is single orchestrator\n- All improvements flow through Governance\n\n## Cross-Cutting Rules\n\n| Rule | Applies To |\n|------|-----------|\n| No `new ExecutionGovernor` outside ExecutionDriver | ALL |\n| No lifecycle loop outside ExecutionDriver | ALL |\n| No DB operation outside services/ | ALL |\n| No business logic in routes/ | ALL |\n| No magic numbers — all from PolicyEngine | ALL |\n| Public interfaces are stable | ALL |\n\n## Verification\n\nRun before every merge:\n\n```bash\n# Governor SSOT\nrg \"new ExecutionGovernor\" src/ | wc -l  # must be 1 (execution-driver.ts)\n\n# Reverse deps\nrg \"routes/ai-helpers\" src/ai/ --files-with-matches  # must be 0 for DB functions\n\n# TypeScript\npnpm --filter ./artifacts/api-server run typecheck  # must be 0 new errors\n```\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

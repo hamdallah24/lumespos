@@ -5,8 +5,7 @@
 
 import { missionRuntime } from "./mission-engine";
 import { organizationEngine } from "./organization-engine";
-import { ctoProgram } from "../programs/cto-runtime";
-import { ceoRuntime } from "../programs/ceo-runtime";
+import { applicationRuntime } from "./application-runtime-adapter";
 import { aiMissionService } from "../../services/ai-mission-service";
 import { db, missionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -135,12 +134,12 @@ class MissionEngine {
       const enrichedMessage = (mission.ckoTargets?.targetFiles?.length ?? 0) > 0
         ? `${mission.userMessage || mission.title}\n\n📌 TARGET ANALISIS DARI CKO: ${mission.ckoTargets.targetFiles.join(", ")}\n${mission.ckoTargets.businessContext || ""}`
         : (mission.userMessage || mission.title);
-      const result = await ctoProgram.execute({
+      const result = await applicationRuntime.executeMessage({
+        target: "CTO",
         message: enrichedMessage,
         userId: mission.userId,
         onProgress: (msg) => { /* bisa ditambahkan snapshot */ },
         onExecutionEvent: async (snapshot: any) => {
-          // Save snapshot & progress ke DB via aiMissionService
           if (mission.dbMissionId && snapshot?.progress?.overall !== undefined) {
             await aiMissionService.saveSnapshot(mission.dbMissionId, snapshot.metrics?.cyclesExecuted || 0, {
               strategy: snapshot.strategy, stage: snapshot.stage, progress: snapshot.progress.overall,
@@ -158,7 +157,7 @@ class MissionEngine {
         else errMsg = `CTO output terlalu pendek (${short.length} chars)`;
       } else if (result.toolsUsed === 0) {
         errMsg = "CTO tidak menggunakan tools — output tanpa data dari file";
-      } else if (result.filesRead.length === 0) {
+      } else if (!result.filesRead || result.filesRead.length === 0) {
         errMsg = "CTO tidak membaca file apapun";
       } else {
         const quality = isQualityOutput(result.text);
@@ -202,7 +201,8 @@ class MissionEngine {
         ceoPrompt = ceoPrompt.slice(0, 2500);
 
         const memoryContext = ceoMemory ? `\n\n## Konteks Eksekusi Sebelumnya\n${ceoMemory}` : "";
-        const ceoFeedback = await ceoRuntime.execute({
+        const ceoFeedback = await applicationRuntime.executeMessage({
+          target: "CEO",
           message: `[CEO APPROVAL] CTO telah selesai menganalisis. Berikut hasilnya:\n\n${ceoPrompt}${memoryContext}\n\nSetujui hasil ini untuk dikirim ke Founder? Balas dengan SETUJUI jika kualitas memadai.`,
           userId: mission.userId || 1,
           onProgress: () => {},
@@ -242,7 +242,8 @@ class MissionEngine {
       // CEO: generate simple-language summary for founder
       let ceoSummary = "";
       try {
-        const ceoExplain = await ceoRuntime.execute({
+        const ceoExplain = await applicationRuntime.executeMessage({
+          target: "CEO",
           message: `[CEO EXPLAIN] CTO baru saja selesai menganalisis. Berikut hasil analisis teknisnya:\n\n${result.text.slice(0, 3000)}\n\nTugasmu: jelaskan hasil ini ke Founder (pemilik toko) dalam BAHASA INDONESIA SEDERHANA. Founder bukan programmer. Jelaskan:\n1. Apa yang ditemukan? (dengan analogi sederhana)\n2. Apa dampaknya ke bisnis?\n3. Apa rekomendasi selanjutnya?\n\nGunakan bahasa sehari-hari, hindari istilah teknis. Maksimal 3 paragraf.`,
           userId: mission.userId || 1,
           onProgress: () => {},
@@ -256,7 +257,7 @@ class MissionEngine {
 
       const founderMessage = ceoSummary
         ? `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n${ceoSummary}`
-        : `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n**Tools:** ${result.toolsUsed} tool calls, ${result.filesRead.length} file dibaca\n\n${fullText}`;
+        : `✅ **Misi #${mission.dbMissionId || mission.id} Selesai**\n\n**Tools:** ${result.toolsUsed} tool calls, ${(result.filesRead || []).length} file dibaca\n\n${fullText}`;
 
       if (mission.dbMissionId) {
         await db.update(missionsTable).set({ status: "COMPLETED", updatedAt: new Date(), completedAt: new Date(), result: result.text.slice(0, 4000) }).where(eq(missionsTable.id, mission.dbMissionId));

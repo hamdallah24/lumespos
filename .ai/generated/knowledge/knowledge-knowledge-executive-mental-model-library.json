@@ -1,0 +1,41 @@
+{
+  "asset_type": "knowledge",
+  "id": "knowledge-knowledge-executive-mental-model-library",
+  "canonical": true,
+  "metadata": {
+    "title": "Knowledge: executive-runtime\\knowledge\\EXECUTIVE_MENTAL_MODEL_LIBRARY",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "ac618852dc55410aa3a97967b5688a48d3c39b6274cf91f3d4bccab855fc1de6",
+    "compiled_at": "2026-07-14T07:56:39.074Z",
+    "source_hash": "06a2834ccb5ae267a64de2b901eef60a7bb496fef2aa5776094c1928a7dade78",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\EXECUTIVE_MENTAL_MODEL_LIBRARY.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "canonical",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-executive-mental-model-library",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 6: Executive Mental Model Library\n  Sources: All EROS documents, SPECs, PLAYBOOKs, code observations,\n           common mental model libraries\n  DO NOT EDIT MANUALLY.\n-->\n\n# Executive Mental Model Library\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\n---\n\n## Mental Model Index\n\n| ID | Model | Primary Executive | Type | Complexity |\n|----|-------|-------------------|------|------------|\n| MM-001 | First Principles | CEO | Reasoning | Advanced |\n| MM-002 | OODA Loop | CEO | Decision | Intermediate |\n| MM-003 | Second-Order Thinking | CEO | Reasoning | Advanced |\n| MM-004 | Expected Value | CEO | Decision | Intermediate |\n| MM-005 | Flywheel Effect | CEO | Strategy | Intermediate |\n| MM-006 | Systems Thinking | CEO | Analysis | Advanced |\n| MM-007 | SOLID Principles | CTO | Design | Fundamental |\n| MM-008 | Domain-Driven Design | CTO | Design | Advanced |\n| MM-009 | Clean Architecture | CTO | Architecture | Advanced |\n| MM-010 | CAP Theorem | CTO | Architecture | Intermediate |\n| MM-011 | YAGNI | CTO | Decision | Fundamental |\n| MM-012 | KISS | CTO | Design | Fundamental |\n| MM-013 | Event-Driven Architecture | CTO | Architecture | Advanced |\n| MM-014 | CQRS | CTO | Architecture | Advanced |\n| MM-015 | Performance Patterns | CTO | Optimization | Intermediate |\n| MM-016 | Security Patterns | CTO | Security | Intermediate |\n| MM-017 | Cash Flow Analysis | CFO | Financial | Fundamental |\n| MM-018 | Financial Forecasting | CFO | Financial | Advanced |\n| MM-019 | Scenario Planning | CFO | Strategy | Advanced |\n| MM-020 | Capital Allocation | CFO | Decision | Advanced |\n| MM-021 | Unit Economics | CFO | Analysis | Intermediate |\n| MM-022 | Lean Operations | COO | Operations | Intermediate |\n| MM-023 | Six Sigma | COO | Quality | Advanced |\n| MM-024 | Theory of Constraints | COO | Analysis | Intermediate |\n| MM-025 | Bottleneck Analysis | COO | Analysis | Intermediate |\n| MM-026 | Operational Excellence | COO | Culture | Intermediate |\n| MM-027 | AARRR Pirate Metrics | CMO | Analytics | Intermediate |\n| MM-028 | Jobs To Be Done | CMO | Strategy | Advanced |\n| MM-029 | Brand Strategy | CMO | Strategy | Intermediate |\n| MM-030 | Positioning | CMO | Strategy | Intermediate |\n| MM-031 | Prompt Engineering | CAIO | AI | Fundamental |\n| MM-032 | Chain-of-Thought | CAIO | AI | Intermediate |\n| MM-033 | ReAct Pattern | CAIO | AI | Advanced |\n| MM-034 | Tree-of-Thoughts | CAIO | AI | Advanced |\n| MM-035 | Verification Patterns | CAIO | AI | Intermediate |\n| MM-036 | Evidence-Based Reasoning | CAIO | AI | Fundamental |\n| MM-037 | Knowledge Graph Reasoning | CAIO | AI | Advanced |\n| MM-038 | Knowledge Management | CKO | KM | Fundamental |\n| MM-039 | Ontology Design | CKO | KM | Advanced |\n| MM-040 | Taxonomy Development | CKO | KM | Intermediate |\n| MM-041 | Knowledge Graphs | CKO | KM | Advanced |\n| MM-042 | Learning Cycles | CKO | KM | Intermediate |\n| MM-043 | Composition over Inheritance | ALL | Design | Fundamental |\n| MM-044 | Single Source of Truth | ALL | Architecture | Fundamental |\n| MM-045 | Least Privilege | ALL | Security | Fundamental |\n| MM-046 | Defense in Depth | ALL | Security | Intermediate |\n\n---\n\n## CEO Mental Models\n\n### MM-001: First Principles\n- **Type:** Reasoning\n- **Usage:** Breaking down complex strategic problems into fundamental truths\n- **ERP Context:** CEO decomposes Founder vision into fundamental business objectives, derives executable missions from first principles rather than analogy\n- **Trigger:** Strategic ambiguity, novel situations, conflicting advice\n- **Example:** Instead of \"we need better inventory management\" → \"what is the fundamental purpose of inventory? to match supply with demand at minimum cost\"\n- **Evidence:** EXECUTIVE_SPEC: \"Translate Founder vision into actionable missions\"\n\n### MM-002: OODA Loop (Observe, Orient, Decide, Act)\n- **Type:** Decision cycle\n- **Usage:** Rapid decision-making in dynamic environments\n- **ERP Context:** CEO executive lifecycle mirrors OODA: Observ",
+    "knowledge_fingerprint": {
+      "mental_models": [
+        "knowledge-executive-mental-model-library"
+      ],
+      "frameworks": [
+        "knowledge-executive-framework-library"
+      ],
+      "taxonomy": "knowledge-executive-knowledge-taxonomy",
+      "confidence": 0.9,
+      "source_hash": "06a2834ccb5ae267a64de2b901eef60a7bb496fef2aa5776094c1928a7dade78"
+    }
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

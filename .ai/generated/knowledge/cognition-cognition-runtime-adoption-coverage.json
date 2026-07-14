@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-runtime-adoption-coverage",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\RUNTIME_ADOPTION_COVERAGE",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "0b4cc5af3b3f1ca7c442bed7478aa1372be4c801994fc421887dbbd6f8db6197",
+    "compiled_at": "2026-07-14T07:56:39.076Z",
+    "source_hash": "cdcb5863c34adcae1a92789eb7972818164f19be384d4d02a385fde3c9df7983",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\RUNTIME_ADOPTION_COVERAGE.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-runtime-adoption-coverage",
+    "content_type": "cognition",
+    "body": "# RUNTIME ADOPTION COVERAGE — What the runtime actually consumes\n\n## Coverage by System Layer\n\n### Layer 1: Prompt System (8 docs)\n\n| Document | Adopted? | Consumer |\n|---|---|---|\n| GLOBAL_SYSTEM_PROMPT.md | ❌ | Not loaded by foundation-loader |\n| SYSTEM_PROMPT_CEO.md | ❌ | Not loaded individually |\n| SYSTEM_PROMPT_CTO.md | ❌ | Not loaded individually |\n| SYSTEM_PROMPT_COO.md | ❌ | Not loaded individually |\n| SYSTEM_PROMPT_CFO.md | ❌ | Not loaded individually |\n| SYSTEM_PROMPT_CMO.md | ❌ | Not loaded individually |\n| SYSTEM_PROMPT_CAIO.md | ❌ | Not loaded individually |\n| SYSTEM_PROMPT_CKO.md | ❌ | Not loaded individually |\n\n**Prompt Adoption: 0%** (0/8 — Prompt Assembler builds identity from code, not docs)\n\n### Layer 2: Knowledge System (6 docs)\n\n| Document | Adopted? | Consumer |\n|---|---|---|\n| EXECUTIVE_KNOWLEDGE_TAXONOMY.md | ❌ | Not loaded by knowledge-graph |\n| KNOWLEDGE_LIFECYCLE.md | ❌ | Not loaded by knowledge-lifecycle.ts |\n| KNOWLEDGE_VALIDATION_RULES.md | ❌ | Not enforced by any validator |\n| KNOWLEDGE_QUALITY_MODEL.md | ❌ | Not used by knowledge-metrics |\n| KNOWLEDGE_RETRIEVAL_MODEL.md | ❌ | Not implemented in knowledge-loader |\n| KNOWLEDGE_CLASSIFICATION.md | ❌ | Not used by knowledge-graph |\n\n**Knowledge Adoption: 0%** (0/6 — all exist as blueprints only)\n\n### Layer 3: Cognitive System (6 assets)\n\n| Asset | Adopted? | Consumer |\n|---|---|---|\n| CognitiveEngine (TS) | ❌ | NOT WIRED to executive-runtime/index.ts |\n| ThinkingMode (TS) | ⚠️ | Code exists but NOT consumed by any executive |\n| MentalModelSelector (TS) | ⚠️ | Code exists but NOT consumed by any executive |\n| FrameworkSelector (TS) | ⚠️ | Code exists but NOT consumed by any executive |\n| ReasoningStrategy (TS) | ⚠️ | Code exists but NOT consumed by any executive |\n| DecisionPattern (TS) | ⚠️ | Code exists but NOT consumed by any executive |\n\n**Cognitive Adoption: 0%** (0/6 — code exists but NOT wired into runtime flow)\n\n### Layer 4: Executive Runtime (10 assets per executive × 7 = 70)\n\n| Asset | CEO | CTO | COO | CFO | CMO | CAIO | CKO | Avg |\n|---|---|---|---|---|---|---|---|---|\n| Identity | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | 71% |\n| Capabilities | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | 43% |\n| Runtime Directive | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ❌ | ❌ | ❌ | 29% |\n| Program (config.ts) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 100% |\n\n**Executive Runtime Adoption: 64%** (18/28 code-level assets)\n\n### Layer 5: Foundation Loader + Knowledge Graph\n\n| Component | Status |\n|---|---|\n| .ai/ directory exists? | ❌ NO |\n| YAML frontmatter in docs? | ❌ NO |\n| Foundation Loader returns assets? | ❌ Empty |\n| Knowledge Graph has nodes? | ❌ Empty |\n| Knowledge Loader returns content? | ❌ Empty |\n\n**Foundation Adoption: 0%**\n\n### Layer 6: eios-runtime/public/\n\n| Component | Status |\n|---|---|\n| RuntimeFacade | ✅ Adopted |\n| PipelineContracts | ✅ Adopted |\n| ExecutiveDispatchRegistry | ✅ Adopted |\n| PipelineContext | ✅ Adopted |\n| PipelineResolver | ✅ Adopted |\n\n**EIOS Public API Adoption: 100%**\n\n---\n\n## Overall Coverage Scores\n\n| System | Total Assets | Adopted | Score |\n|---|---|---|---|\n| Prompt System | 8 docs | 0 | **0%** |\n| Knowledge System | 6 docs | 0 | **0%** |\n| Cognitive System | 6 TS modules | 0 | **0%** |\n| Executive Runtime | 28 code-level | 18 | **64%** |\n| Foundation Loader | 1 component | 0 | **0%** |\n| eios-runtime/public | 5 components | 5 | **100%** |\n| Memory Engine (future) | — | — | **N/A** |\n| **Weighted Overall** | **—** | **—** | **~23%** |\n\n---\n\n## Weighted Score Calculation\n\n```\nPrompt        = 0%   × 0.10 = 0.0%\nKnowledge     = 0%   × 0.20 = 0.0%\nCognitive     = 0%   × 0.25 = 0.0%  ← Not yet wired\nExec Runtime  = 64%  × 0.30 = 19.2%\nFoundation    = 0%   × 0.05 = 0.0%\neios-runtime  = 100% × 0.10 = 10.0%\nMemory        = N/A\n────────────────────────────────\nWeighted     = 29.2%\n```\n\n## Adjusted Weighted Overall: **~30%**\n\n### Trend\n\n| Component | Previous (EPIC R) | Current (EPIC S.5) | Change |\n|---|---|---|---|\n| Documentation existence | 96% | 100% | +4% |\n| Runtime adoption "
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

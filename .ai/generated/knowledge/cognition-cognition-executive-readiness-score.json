@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-executive-readiness-score",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\EXECUTIVE_READINESS_SCORE",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "47fc70d4550ab4b2d4cec90ec1bc4d8d819d62c5d60bb045b2e884cc96fc6a04",
+    "compiled_at": "2026-07-14T07:56:39.080Z",
+    "source_hash": "02a9a3b035058196db224b4a5b6b6a9fe46cb6f6e8d6261d0c6715e1213fad5d",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\EXECUTIVE_READINESS_SCORE.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-executive-readiness-score",
+    "content_type": "cognition",
+    "body": "# EXECUTIVE_READINESS_SCORE.md\n## EPIC S.7 Phase 11 — Executive Readiness Score\n\n### Scoring Rubric (0-100 per category)\n\n| Category | Weight | Description |\n|-----------|--------|-------------|\n| Foundation Integration | 15% | Directive loaded, runtime domain mapped, asset IDs validated |\n| Knowledge Integration | 15% | Knowledge consumed from `loadKnowledge()` or `KnowledgeProvider` |\n| Cognitive Integration | 20% | `cognitiveEngine.think()` called, profile defined, all 8 pipeline steps |\n| Prompt Integration | 10% | `assemble()` used with cognitive trace as decision context |\n| Trace Integration | 10% | `recordTrace()` called with complete 8-step pipeline |\n| Runtime Path Verification | 15% | Code path complete from entry → LLM → decision; no bypass |\n| Compilation Status | 10% | Zero new errors introduced; existing errors not worsened |\n| Dead Asset Status | 5% | No dead assets in reachable set for this executive |\n\n---\n\n### CEO — Readiness Score: 99/100\n\n| Category | Score | Notes |\n|----------|-------|-------|\n| Foundation | 100 | ceo-directive-v1 mapped, charter loaded, context built |\n| Knowledge | 100 | `loadKnowledge()` called line 134, context in spec |\n| Cognitive | 100 | `ceoCognitive.think()` line 163, 3 modes, 3 models, 5 frameworks |\n| Prompt | 100 | `assemble(decision=cognitiveResult.trace)` line 271, all 5 blocks |\n| Trace | 100 | `recordTrace()` in CognitiveEngine callback, 8 steps |\n| Runtime Path | 100 | Identity→Directive→CKO→Semantic→Spec→Verify→Cognitive→Org→Governance→Prompt→LLM→Report |\n| Compilation | 95 | CEO references `role` in delegate — minor scoping, no error |\n| Dead Assets | 100 | All CEO-relevant assets reachable and referenced |\n\n---\n\n### CTO — Readiness Score: 100/100\n\n| Category | Score | Notes |\n|----------|-------|-------|\n| Foundation | 100 | cto-directive-v1 mapped, directive loaded |\n| Knowledge | 100 | `loadKnowledgeWithContent()` line 236, full context |\n| Cognitive | 100 | `ctoCognitive.think()` line 218, 3 modes, 3 models, 4 frameworks |\n| Prompt | 100 | `assemble(decision=cognitiveResult.trace)` line 255 |\n| Trace | 100 | `recordTrace()` complete |\n| Runtime Path | 100 | Full 16-stage pipeline with tools + reflection + knowledge evolution |\n| Compilation | 100 | Zero errors |\n| Dead Assets | 100 | All CTO-relevant assets reachable |\n\n---\n\n### COO — Readiness Score: 93/100\n\n| Category | Score | Notes |\n|----------|-------|-------|\n| Foundation | 100 | coo-directive mapped, foundation charter loaded |\n| Knowledge | 100 | `loadKnowledge()` and `KnowledgeProvider.searchAll()` |\n| Cognitive | 100 | `cooCognitive.think()` line 243, 3 modes, 3 models, 4 frameworks |\n| Prompt | 80 | Manual prompt construction (not `assemble()`). Includes cognitive summary text, uses same 5 concept blocks |\n| Trace | 100 | `recordTrace()` complete |\n| Runtime Path | 100 | Identity→Cognitive→Intent→LLM→Parse→Action→Governance |\n| Compilation | 100 | Zero errors |\n| Dead Assets | 80 | COO references `sop-directive.md` via mental models — indirectly referenced |\n\n**Deduction**: Prompt assembly is manual (not via `assemble()`), losing structured decision block. No output schema enforcement.\n\n---\n\n### CFO — Readiness Score: 100/100\n\n| Category | Score | Notes |\n|----------|-------|-------|\n| Foundation | 100 | cfo-directive-v1 mapped |\n| Knowledge | 100 | `loadKnowledge()` + KnowledgeProvider |\n| Cognitive | 100 | `cfoCognitive.think()` line 83 |\n| Prompt | 100 | `assemble(decision=cognitiveResult.trace)` line 96 |\n| Trace | 100 | Complete |\n| Runtime Path | 100 | Full pipeline: Identity→Directive→Semantic→Spec→Verify→Governance→CKO→Cognitive→Context→Prompt→LLM→Result |\n| Compilation | 100 | Zero errors |\n| Dead Assets | 100 | All reachable |\n\n---\n\n### CMO — Readiness Score: 100/100\n\n| Category | Score | Notes |\n|----------|-------|-------|\n| Foundation | 100 | cmo-directive-v1 mapped |\n| Knowledge | 100 | `KnowledgeProvider.searchAll()` |\n| Cognitive | 100 | `cmoCognitive.think()` line 83 |\n| Prompt | 100 | "
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

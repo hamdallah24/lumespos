@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-cognitive-engine",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\COGNITIVE_ENGINE",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "e18377b84620654346e0c2cce5e1e4f7156218fdf288f16f273bb64d3f4e868c",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "00d6a4889d711fd1e2e14954054b1a7647b3c3db9d417f6f9c5b392111c92db4",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\COGNITIVE_ENGINE.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-cognitive-engine",
+    "content_type": "cognition",
+    "body": "# Cognitive Engine\n\n## API\n\n```typescript\nclass CognitiveEngine {\n  async think(options: ThinkOptions): Promise<ThinkResult>\n}\n\ninterface ThinkOptions {\n  role: ExecutiveRole;\n  query: string;\n  context?: Record<string, unknown>;\n  sessionId?: string;\n}\n\ninterface ThinkResult {\n  decision: ExecutiveDecision;\n  recommendation: ExecutiveRecommendation;\n  trace: CognitiveTrace;\n}\n```\n\n## Usage\n\n```typescript\nimport { CognitiveEngine } from \"../executive-runtime/cognition\";\n\nconst engine = new CognitiveEngine();\nconst result = await engine.think({\n  role: \"CTO\",\n  query: \"Should we migrate from monolith to microservices?\",\n  context: { teamSize: 15, currentTech: \"Node.js\" },\n});\n\nconsole.log(result.decision.chosenAlternative.label);\nconsole.log(`Confidence: ${result.decision.confidence.overall}/100`);\nconsole.log(`Recommendation: ${result.decision.confidence.recommendation}`);\n```\n\n## Architecture\n\n```\nCognitiveEngine.think()\n    │\n    ▼\n  build ExecutiveQuestion\n    │\n    ▼\n  get ThinkingProfile (preferences)\n    │\n    ▼\n  runPipeline(question, context)\n    │\n    ▼\n  return { decision, recommendation, trace }\n```\n\n## Thread Safety\n\nThe CognitiveEngine is stateless — all state lives in CognitiveContext\npassed through the pipeline. A single engine instance can handle\nconcurrent `think()` calls.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

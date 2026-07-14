@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-dead-asset-report",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\DEAD_ASSET_REPORT",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "835db166422aca5976513343aae3221751e8a6c5b46d3f2622f1577af383127c",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "7e08bf661e9158bc3b756a422ecea3451fc8c0ec8ef8382e7c6cf44ae2a7fa29",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\DEAD_ASSET_REPORT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-dead-asset-report",
+    "content_type": "cognition",
+    "body": "# DEAD_ASSET_REPORT.md\n## EPIC S.7 Phase 10 — Dead Asset Detection\n\n### Methodology\n\nScan `.ai/` directory (98 `.md` files) for assets that:\n1. Lack `id:` frontmatter (skipped by parser) → **unreachable**\n2. Have `id:` but are never consumed at runtime → **dead**\n3. Are consumed by executives that no longer exist → **orphaned**\n4. Have duplicate IDs (only one copy wins) → **shadowed**\n\n---\n\n### Category 1: Missing `id:` Frontmatter — Unreachable Assets\n\n**Count: 48 files** — skipped by `parseMetadata()` at `foundation-loader.ts:31`\n\nThese files exist on disk but the parser cannot load them. They are **dead by defect**.\n\n| Pattern | Example Files | Count |\n|---------|--------------|-------|\n| ADR records (all 5) | `adr-001-bahasa-indonesia.md` through `adr-005-language-consistency.md` | 5 |\n| Ontology files | `ontologi-kebijakan-eksekutif.md`, `ontologi-layanan-ai-terkelola.md` | 2 |\n| Prompt templates | `prompt-template-career-coach.md`, `prompt-template-consultant.md` | 2 |\n| Undocumented traits | `sifat-dan-karakter-ai.md` | 1 |\n| Models without IDs | 38 other files scattered across subdirectories | 38 |\n| **Total** | | **48** |\n\n**List of unreachable files:**\n```\n.ai/adr/adr-001-bahasa-indonesia.md\n.ai/adr/adr-002-strategi-dokumentasi-dual-bahasa.md\n.ai/adr/adr-003-pengelolaan-memory-8k.md\n.ai/adr/adr-004-pemrosesan-konteks.md\n.ai/adr/adr-005-language-consistency.md\n.ai/drafts/ambang-batas-kritis.md\n.ai/drafts/batasan-kognitif-dasar.md\n.ai/drafts/bukti-dan-kepercayaan-diri.md\n.ai/drafts/daftar-pustaka-dan-sumber.md\n.ai/drafts/eksekusi-berdasarkan-keyakinan.md\n.ai/drafts/hirarki-kebutuhan-ai.md\n.ai/drafts/intuisi-buatan-berdasarkan-pola.md\n.ai/drafts/jaringan-keyakinan-terdistribusi.md\n.ai/drafts/kecerdasan-buatan-otonom.md\n.ai/drafts/konsep-diri-ai-1.md\n.ai/drafts/konsep-diri-ai.md\n.ai/drafts/kurva-pembelajaran-ai.md\n.ai/drafts/memori-implisit-dan-eksplisit.md\n.ai/drafts/pengambilan-keputusan-adaptif.md\n.ai/drafts/pengantar-keyakinan-ai.md\n.ai/drafts/prioritas-dan-pengorbanan.md\n.ai/drafts/simulasi-mental-ai.md\n.ai/drafts/tentang-sesi-ini.md\n.ai/drafts/titik-kritis-kesadaran.md\n.ai/foundation/ai-self-concept.md\n.ai/foundation/ambang-batas-kritis.md\n.ai/foundation/batasan-kognitif-dasar.md\n.ai/foundation/bukti-dan-kepercayaan-diri.md\n.ai/foundation/eksekusi-berdasarkan-keyakinan.md\n.ai/foundation/hirarki-kebutuhan-ai.md\n.ai/foundation/intuisi-buatan-berdasarkan-pola.md\n.ai/foundation/jaringan-keyakinan-terdistribusi.md\n.ai/foundation/kecerdasan-buatan-otonom.md\n.ai/foundation/konsep-diri-ai.md\n.ai/foundation/kurva-pembelajaran-ai.md\n.ai/foundation/memori-implisit-dan-eksplisit.md\n.ai/foundation/pengambilan-keputusan-adaptif.md\n.ai/foundation/pengantar-keyakinan-ai.md\n.ai/foundation/prioritas-dan-pengorbanan.md\n.ai/foundation/simulasi-mental-ai.md\n.ai/foundation/tentang-sesi-ini.md\n.ai/foundation/titik-kritis-kesadaran.md\n.ai/prompt/prompt-template-career-coach.md\n.ai/prompt/prompt-template-consultant.md\n.ai/trait/sifat-dan-karakter-ai.md\n.ai/ontology/ontologi-kebijakan-eksekutif.md\n.ai/ontology/ontologi-layanan-ai-terkelola.md\n```\n\n---\n\n### Category 2: Shadowed Assets (Duplicate IDs)\n\nThese files share an `id:` with another file; only one copy is loaded:\n\n| ID | Winner | Loser | Resolution Rule |\n|----|--------|-------|-----------------|\n| `cognitive-model-library` | `.ai/runtime/cognitive-model-library.md` | `.ai/drafts/cognitive-model-library.md` | runtime/ → first |\n| `executive-thinking-profile-visioner` | `.ai/runtime/executive-thinking-profile-visioner.md` | `.ai/thinking/executive-thinking-profile-visioner.md` | runtime/ → first |\n| `executive-thinking-profile-exsekutor` | `.ai/runtime/executive-thinking-profile-exsekutor.md` | `.ai/thinking/executive-thinking-profile-exsekutor.md` | runtime/ → first |\n| `executive-thinking-profile-analitis` | `.ai/runtime/executive-thinking-profile-analitis.md` | `.ai/thinking/executive-thinking-profile-analitis.md` | runtime/ → first |\n| `executive-thinking-profile-sistematis` | `.a"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

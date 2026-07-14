@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-cy-rules",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\dependency-rules",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "fc82c28fa85e075003e4352f02bdbe69f111adb2723fefeae4301a908fee2605",
+    "compiled_at": "2026-07-14T07:56:39.086Z",
+    "source_hash": "44fd42b15931efe3faae8cbab83937671da1083678831c638510f87afc6e4ef8",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\dependency-rules.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "unknown"
+  },
+  "structure": {
+    "original_id": "architecture-dependency-rules",
+    "prefixed_id": "ARCH-cy-rules",
+    "domain": "architecture",
+    "title": "architecture\\dependency-rules",
+    "status": "unknown",
+    "body": "# Dependency Rules — Lumé CMN v1.0\n\n## Allowed Dependencies\n\n```\nRoute (ai.ts)\n    ↓\nAI Barrel (ai-helpers.ts)\n    ↓\nRuntime (CEO / CTO / COO)\n    ↓\nGateway (llm-gateway.ts)\n    ↓\nAdapter (llm-adapter.ts)\n    ↓\nService (ai-memory-service.ts)\n    ↓\nDatabase\n```\n\n## Allowed by Layer\n\n| From | May Import From |\n|------|----------------|\n| Governance | Collective, Learning, Organization, Execution, AI/runtime |\n| Intelligence (Collective) | Learning, Execution, AI/runtime |\n| Learning | AI/runtime |\n| Organization | AI/runtime |\n| Execution | AI/runtime, LLM, Tools |\n| LLM | runtime, tools, services |\n| Tools | Node.js stdlib only |\n| Services | @workspace/db only |\n| Routes | AI barrel, services |\n\n## Forbidden Dependencies\n\n| Pattern | Reason |\n|---------|--------|\n| `src/ai/` → `src/routes/` (DB functions) | Layer violation — routes cannot host business services |\n| `src/execution/` → `src/governance/` | Reverse layer dependency |\n| `src/learning/` → `src/governance/` | Reverse layer dependency |\n| Runtime → `ExecutionGovernor` import | Governor SSOT violation |\n| LLM adapter → `ExecutionGovernor` import | Lifecycle violation |\n| Tool adapter → any upper layer import | Tool adapter must remain stateless |\n| Services → any business logic layer | Services are data-only |\n| Routes → business logic | Routes are HTTP transport only |\n\n## Runtime → LLM Chain\n\n```\nRuntime\n    ↓\nGateway (llm-gateway.ts)    ← abstraction layer\n    ↓\nAdapter (llm-adapter.ts)    ← stateless communication\n    ↓\nProvider (DeepSeek API)     ← HTTP fetch\n```\n\n**Rule**: Runtime MUST NOT import llm-adapter directly. Use Gateway or barrel.\n\n## Runtime → Tool Chain\n\n```\nRuntime\n    ↓\nTool Executor (tool-executor.ts)  ← abstraction layer\n    ↓\nTool Adapter (tool-adapter.ts)    ← stateless execution\n```\n\n**Rule**: Runtime MUST NOT import tool-adapter directly. Use Tool Executor or barrel.\n\n## Verification\n\n```bash\n# Check: no DB function imports from ai/ to routes/\nrg \"from.*routes/ai-helpers\" src/ai/ --files-with-matches\n\n# Check: governor only in execution-driver\nrg \"new ExecutionGovernor\" src/ | grep -v execution-driver\n\n# Check: no lifecycle in llm/\nrg \"while|shouldContinue|beforeCycle|afterCycle\" src/ai/llm/\n```\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

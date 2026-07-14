@@ -1,11 +1,13 @@
-// ECP-044 Sprint 5: Retrieval Engine
-// Retrieves relevant experience and knowledge before executive reasoning.
+// ECP-044 Sprint 5: Retrieval Engine — now Unified Retrieval Facade (T5.3)
+// Retrieves relevant knowledge from ALL learning engines before executive reasoning.
 // Context-aware: domain, executive, keywords.
+// Backward compatible — old retrieve() still works.
 
 import type { ExecutiveRole, Experience, KnowledgeNode, RetrievalResult } from "./learning-types";
+import type { UnifiedEvidence, UnifiedRetrievalQuery } from "./unified-types";
 import { memoryIndex } from "./memory-index";
 import { knowledgeGraph } from "./knowledge-graph";
-import type { ExperienceEngine } from "./experience-engine";
+import { UnifiedLearningLayer } from "./unified-learning-layer";
 
 export interface RetrievalContext {
   mission: string;
@@ -17,16 +19,14 @@ export interface RetrievalContext {
 
 export class RetrievalEngine {
 
-  /** Retrieve relevant context for a mission */
+  /** Legacy retrieve — backward compatible, queries Org Learning only */
   retrieve(ctx: RetrievalContext): RetrievalResult {
     const maxExp = ctx.maxExperiences || 5;
     const maxKnowledge = ctx.maxKnowledge || 10;
 
-    // Search index for relevant knowledge
     const indexResults = memoryIndex.search(ctx.mission, maxKnowledge);
     const knowledgeIds = indexResults.map(e => e.nodeId);
 
-    // Get actual knowledge nodes from graph
     const knowledge: KnowledgeNode[] = [];
     for (const id of new Set(knowledgeIds)) {
       const node = knowledgeGraph.getNode(id);
@@ -34,7 +34,6 @@ export class RetrievalEngine {
       if (knowledge.length >= maxKnowledge) break;
     }
 
-    // Get domain knowledge
     const domainNodes = knowledgeGraph.findByDomain(ctx.domain).slice(0, 3);
     for (const node of domainNodes) {
       if (!knowledge.find(k => k.id === node.id)) {
@@ -42,7 +41,6 @@ export class RetrievalEngine {
       }
     }
 
-    // Get executive-specific knowledge
     const execNodes = knowledgeGraph.findByExecutive(ctx.executive).slice(0, 5);
     for (const node of execNodes) {
       if (!knowledge.find(k => k.id === node.id)) {
@@ -51,19 +49,22 @@ export class RetrievalEngine {
       if (knowledge.length >= maxKnowledge) break;
     }
 
-    // Compute retrieval confidence
     const confidence = knowledge.length > 0
       ? Math.min(100, Math.round(
         knowledge.reduce((s, n) => s + n.confidence * (n.reinforced / 10), 0) / knowledge.length
       ))
       : 0;
 
-    // Experiences are external — returned from learning engine's store
     return {
-      experiences: [], // Filled by LearningEngine when calling retrieve
+      experiences: [],
       knowledge,
       confidence,
     };
+  }
+
+  /** Unified retrieve — queries ALL engines, returns ranked evidence */
+  retrieveUnified(query: UnifiedRetrievalQuery): UnifiedEvidence[] {
+    return UnifiedLearningLayer.retrieve(query);
   }
 
   /** Build retrieval prompt for LLM context */
@@ -90,6 +91,31 @@ export class RetrievalEngine {
 
     return parts.join("\n");
   }
+
+  /** Build unified context prompt from UnifiedEvidence */
+  buildUnifiedContextPrompt(evidence: UnifiedEvidence[]): string {
+    if (evidence.length === 0) return "";
+    const parts: string[] = ["## Unified Knowledge"];
+    const bySource = new Map<string, UnifiedEvidence[]>();
+    for (const e of evidence) {
+      const list = bySource.get(e.source) ?? [];
+      list.push(e);
+      bySource.set(e.source, list);
+    }
+    for (const [source, items] of bySource) {
+      parts.push(`\n### ${source}`);
+      for (const item of items.slice(0, 5)) {
+        parts.push(`- [${item.confidence}%] ${item.content.slice(0, 200)}`);
+      }
+    }
+    return parts.join("\n");
+  }
 }
 
+/**
+ * Unified Retrieval Facade — queries Org Learning, Knowledge Platform,
+ * Council Learning, Executive Memory, and Memory Engine through one interface.
+ * Use retrieveUnified() for cross-engine queries.
+ * Use retrieve() for backward-compatible Org Learning queries.
+ */
 export const retrievalEngine = new RetrievalEngine();

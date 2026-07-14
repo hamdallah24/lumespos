@@ -1,0 +1,41 @@
+{
+  "asset_type": "knowledge",
+  "id": "knowledge-knowledge-knowledge-dependency-diagram",
+  "canonical": true,
+  "metadata": {
+    "title": "Knowledge: executive-runtime\\knowledge\\KNOWLEDGE_DEPENDENCY_DIAGRAM",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "b1bb3c6fd190deccc7045bab52aa783be015ce30efe880a4e39c0d42c5cdda1c",
+    "compiled_at": "2026-07-14T07:56:39.074Z",
+    "source_hash": "1d6ba69f5673ded229a2bfbfb1b1700982e7b4df41f99562719ed9a948e10016",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\KNOWLEDGE_DEPENDENCY_DIAGRAM.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "canonical",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-knowledge-dependency-diagram",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 12: Knowledge Dependency Diagram\n  Sources: All EKS documents, EROS_DEPENDENCY_DIAGRAM.md,\n           ArchitectureRegistry, all knowledge system code\n  DO NOT EDIT MANUALLY.\n-->\n\n# Knowledge Dependency Diagram\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\n---\n\n## Top-Level Dependency Flow\n\n```\nKnowledge Foundation\n     │\n     ▼\nOrganization Knowledge\n     │\n     ▼\nExecutive Knowledge\n     │\n     ▼\nFramework Knowledge\n     │\n     ▼\nDecision Knowledge\n     │\n     ▼\nPlaybook Knowledge\n     │\n     ▼\nPrompt Knowledge\n     │\n     ▼\nMemory Knowledge\n     │\n     ▼\nExecution (Runtime)\n```\n\n---\n\n## Detailed Dependency Graph\n\n```\n┌─────────────────────────────────────────────────────────────────────────────┐\n│                          KNOWLEDGE FOUNDATION                               │\n│                                                                             │\n│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐ │\n│  │  Philosophy   │  │  Constitution │  │  North Star   │  │ Architecture   │ │\n│  │  & Covenant   │──▶│  (6 Principles)│──▶│  (Objectives)  │──▶│ Rules (ADRs)   │ │\n│  └──────────────┘  └──────────────┘  └──────────────┘  └────────────────┘ │\n│         │                  │                                                  │\n│         ▼                  ▼                                                  │\n│  ┌──────────────────────────────────────────────────────────────────┐        │\n│  │                    FoundationProvider                             │        │\n│  │  (loads from .ai/foundation/, caches 5min, truncates to budget)  │        │\n│  └──────────────────────────────────────────────────────────────────┘        │\n└─────────────────────────────────────────────────────────────────────────────┘\n                                    │\n                                    ▼\n┌─────────────────────────────────────────────────────────────────────────────┐\n│                          ORGANIZATION KNOWLEDGE                             │\n│                                                                             │\n│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌────────────────┐ │\n│  │   Identity    │  │  Directives   │  │ Capabilities  │  │  Delegation    │ │\n│  │  (identity.ts)│──▶│(runtime-domain)│──▶│(capability-  │──▶│ Matrix         │ │\n│  │  9 roles      │  │ per-role     │  │ domain.ts)   │  │ (delegation-   │ │\n│  └──────────────┘  └──────────────┘  └──────────────┘  │ domain.ts)     │ │\n│                                                         └────────────────┘ │\n│         │                  │                  │                              │\n│         ▼                  ▼                  ▼                              │\n│  ┌──────────────────────────────────────────────────────────────────┐        │\n│  │               Organization Kernel (kernel/)                       │        │\n│  │  (heartbeat, lifecycle, checkpoint, recovery, event bus)         │        │\n│  └──────────────────────────────────────────────────────────────────┘        │\n└─────────────────────────────────────────────────────────────────────────────┘\n                                    │\n                                    ▼\n┌─────────────────────────────────────────────────────────────────────────────┐\n│                           EXECUTIVE KNOWLEDGE                               │\n│                                                                             │\n│  ┌─────────────────────────────────────────────────────────────────────┐   │\n│  │                    7 Executive SPECs + PLAYBOOKs                      │   │\n│  │  CEO       CTO       CFO       CMO       CAIO       CKO       COO    │   │\n│  │  (v1.0.0)  (v1.1.0)  (v1.0.0)  (v1.0.0)  (v1.0.0)  (v1.0.0) (v3.0.1)│   │\n│  └─────────────────────────────────────────────────────────────────────┘   │\n│         │                  │                  │                              │\n│         ▼                  ▼                  ▼               ",
+    "knowledge_fingerprint": {
+      "mental_models": [
+        "knowledge-executive-mental-model-library"
+      ],
+      "frameworks": [
+        "knowledge-executive-framework-library"
+      ],
+      "taxonomy": "knowledge-executive-knowledge-taxonomy",
+      "confidence": 0.9,
+      "source_hash": "1d6ba69f5673ded229a2bfbfb1b1700982e7b4df41f99562719ed9a948e10016"
+    }
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

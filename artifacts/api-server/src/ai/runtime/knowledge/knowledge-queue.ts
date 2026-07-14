@@ -1,42 +1,75 @@
 // ECP-028: Knowledge Queue — bridge between Mission Engine and Knowledge Office
+// Uses Redis list as backing store. Falls back to in-memory when Redis unavailable.
 // Frozen. Mission Engine pushes events here. Knowledge Office processes them.
-// Asynchronous. Non-blocking. Mission Engine does NOT wait for processing.
 
 import type { MissionEvent, MissionCompletedEvent, MissionFailedEvent } from "./mission-event";
 import type { KnowledgeArtifact } from "./knowledge-types";
+import { redisService } from "../../../lib/redis";
 
 type EventHandler = (event: MissionEvent) => void;
 
+const QUEUE_NAME = "knowledge";
+const IN_MEMORY_MAX = 100;
+
 class KnowledgeQueue {
-  private _queue: MissionEvent[] = [];
+  private _inMemory: MissionEvent[] = [];
   private _handlers: EventHandler[] = [];
   private _processing = false;
 
   /** Mission Engine pushes events here */
-  push(event: MissionEvent): void {
-    this._queue.push(event);
-    if (this._queue.length > 100) this._queue.shift();
+  async push(event: MissionEvent): Promise<void> {
+    // Push to Redis if available
+    if (redisService.initialized) {
+      await redisService.queue.push(QUEUE_NAME, event);
+      return;
+    }
+
+    // Fallback to in-memory
+    this._inMemory.push(event);
+    if (this._inMemory.length > IN_MEMORY_MAX) this._inMemory.shift();
     this.flush();
   }
 
   /** Register handler — Knowledge Office subscribes */
   subscribe(handler: EventHandler): void {
     this._handlers.push(handler);
+
+    // If Redis is available, start Redis queue consumer
+    if (redisService.initialized) {
+      redisService.queue.subscribe<MissionEvent>(QUEUE_NAME, async (item) => {
+        for (const h of this._handlers) {
+          try { h(item); } catch { /* Skip failed handler */ }
+        }
+      });
+    }
   }
 
-  /** Process all queued events */
+  /** Process all queued in-memory events */
   private flush(): void {
     if (this._processing) return;
     this._processing = true;
 
-    while (this._queue.length > 0) {
-      const event = this._queue.shift()!;
+    while (this._inMemory.length > 0) {
+      const event = this._inMemory.shift()!;
       for (const handler of this._handlers) {
-        try { handler(event); } catch (e) { /* Skip failed handler */ }
+        try { handler(event); } catch { /* Skip failed handler */ }
       }
     }
 
     this._processing = false;
+  }
+
+  /** Process pending Redis events — called on boot */
+  async processPending(): Promise<void> {
+    if (!redisService.initialized) return;
+
+    while (true) {
+      const result = await redisService.queue.pop<MissionEvent>(QUEUE_NAME);
+      if (!result) break;
+      for (const handler of this._handlers) {
+        try { handler(result.item); } catch { /* Skip */ }
+      }
+    }
   }
 
   /** Convert a completed mission event to knowledge artifacts */
@@ -87,8 +120,11 @@ class KnowledgeQueue {
   }
 
   /** How many events are waiting */
-  pending(): number {
-    return this._queue.length;
+  async pending(): Promise<number> {
+    if (redisService.initialized) {
+      return redisService.queue.length(QUEUE_NAME);
+    }
+    return this._inMemory.length;
   }
 }
 

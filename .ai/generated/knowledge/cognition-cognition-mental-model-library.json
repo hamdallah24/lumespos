@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-mental-model-library",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\MENTAL_MODEL_LIBRARY",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "9555a66e076bb722aa82a8456ce05a911098ab60bdfb0ea3ea514daddbbc924b",
+    "compiled_at": "2026-07-14T07:56:39.076Z",
+    "source_hash": "39daa5150fd3d0c87dc2041638794613f96c6faed2db634e80f684a6ab203a8d",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\MENTAL_MODEL_LIBRARY.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-mental-model-library",
+    "content_type": "cognition",
+    "body": "# Mental Model Library — Executive Cognitive System\n\n## Complete Index (20 models)\n\n| Model | Category | Roles |\n|---|---|---|\n| 5 Whys | root-cause | CEO, CTO, COO |\n| First Principles | reasoning | CEO, CTO, CAIO |\n| Occam's Razor | reasoning | ALL |\n| Inversion | reasoning | CEO, CTO, CFO, COO |\n| Second-Order Thinking | reasoning | CEO, CTO, CFO, CAIO |\n| Circle of Competence | meta | CEO, CTO, CFO, CMO, CAIO, CKO |\n| Probabilistic Thinking | reasoning | CEO, CFO, CAIO |\n| Pareto Principle | optimization | CEO, CTO, COO, CMO, CKO |\n| Thought Experiment | reasoning | CEO, CTO, CAIO, CKO |\n| Lateral Thinking | creativity | CEO, CMO, CAIO, CKO |\n| Pre-Mortem | risk | CEO, CTO, COO, CFO |\n| Decision Tree | decision | ALL |\n| Dependency Graph | systems | CTO, COO, CAIO |\n| Theory of Constraints | optimization | CTO, COO, CAIO |\n| Cynefin | decision | CEO, CTO, COO, CAIO |\n| Systems Thinking | systems | CEO, CTO, CAIO, CKO |\n| Confirmation Bias Awareness | meta | ALL |\n| Hindsight Bias Check | meta | CEO, CTO, CFO |\n| Sunk Cost Awareness | meta | CEO, CFO, CTO |\n| Scenario Analysis | forecast | CEO, CFO, CMO, CAIO |\n\n## Selection\n\n1. Filter models by role\n2. Score by problem type match (50%)\n3. Score by keyword overlap (30%)\n4. Score by (1 - complexity/5) (20%)\n5. Ensure minimum 3 models, return top 5\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

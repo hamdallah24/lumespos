@@ -25,7 +25,6 @@ class ConsultantDomain {
       "pnpm-workspace.yaml",
       ".ai/PROJECT_CONTEXT.md",
       ".ai/README.md",
-      "docs/PROJECT_CONTEXT.md",
     ];
     const foundFiles: string[] = [];
     const entities = new Set<string>();
@@ -54,7 +53,7 @@ class ConsultantDomain {
       entities: [...entities],
       domain: foundFiles.length > 0 ? "architecture" : "general",
       businessContext: foundFiles.length > 0
-        ? `Konteks root project: ${summaries.join(" | ")} | Struktur utama: artifacts/api-server, artifacts/pos-app, lib/, docs/, .ai/.`
+        ? `Konteks root project: ${summaries.join(" | ")} | Struktur utama: artifacts/api-server, artifacts/pos-app, lib/, .ai/.`
         : "",
     };
   }
@@ -100,7 +99,7 @@ artifacts/pos-app/            — Frontend (React, Vite, TypeScript, Tailwind)
 artifacts/db/                 — Database schema & migrasi (Drizzle/PostgreSQL)
 artifacts/mockup-sandbox/     — Mockup & desain UI preview
 lib/                          — Shared package workspace (db, api-client, api-spec, api-zod)
-docs/                         — Dokumentasi arsitektur & ADR
+.ai/                          — Foundation & arsitektur
 scripts/                      — Build, generate, deploy utilities`;
 
     return this.formatAdvisory("CKO Advisory", [
@@ -180,17 +179,18 @@ scripts/                      — Build, generate, deploy utilities`;
       laporan: { files: ["artifacts/pos-app/src/pages/dashboard.tsx", "artifacts/pos-app/src/pages/orders.tsx"], entities: ["laporan", "report"], domain: "business" },
       report: { files: ["artifacts/pos-app/src/pages/dashboard.tsx", "artifacts/pos-app/src/pages/orders.tsx"], entities: ["report", "laporan"], domain: "business" },
       api: { files: ["artifacts/api-server/src/routes/"], entities: ["api", "routes"], domain: "architecture" },
-      auth: { files: ["artifacts/api-server/src/routes/auth.ts", "artifacts/pos-app/src/pages/login.tsx"], entities: ["auth", "login", "otentikasi"], domain: "architecture" },
+      auth: { files: ["artifacts/api-server/src/routes/auth.ts", "artifacts/pos-app/src/pages/login.tsx", "artifacts/api-server/src/middlewares/requireAuth.ts", "artifacts/api-server/src/middlewares/clerkProxyMiddleware.ts"], entities: ["auth", "login", "otentikasi", "middleware"], domain: "architecture" },
       database: { files: ["lib/db/src/schema/"], entities: ["database", "schema", "db"], domain: "architecture" },
-      arsitektur: { files: [".ai/foundation/", "docs/architecture/"], entities: ["arsitektur", "architecture", "foundation"], domain: "architecture" },
+      arsitektur: { files: [".ai/foundation/"], entities: ["arsitektur", "architecture", "foundation"], domain: "architecture" },
       ceo: { files: ["artifacts/api-server/src/ai/programs/ceo-runtime.ts", "artifacts/api-server/src/programs/ceo-runtime.ts"], entities: ["ceo", "executive-runtime"], domain: "architecture" },
       semantic: { files: ["artifacts/api-server/src/ai/runtime/semantic-engine.ts"], entities: ["semantic-engine", "intent"], domain: "architecture" },
+      middleware: { files: ["artifacts/api-server/src/middlewares/requireAuth.ts", "artifacts/api-server/src/middlewares/clerkProxyMiddleware.ts"], entities: ["middleware", "auth", "clerk"], domain: "architecture" },
       runtime: { files: ["artifacts/api-server/src/ai/programs/ceo-runtime.ts", "artifacts/api-server/src/ai/runtime/semantic-engine.ts"], entities: ["runtime", "pipeline"], domain: "architecture" },
-      root: { files: ["package.json", "pnpm-workspace.yaml", "docs/PROJECT_CONTEXT.md", ".ai/PROJECT_CONTEXT.md"], entities: ["root", "workspace"], domain: "architecture" },
+      root: { files: ["package.json", "pnpm-workspace.yaml", ".ai/PROJECT_CONTEXT.md"], entities: ["root", "workspace"], domain: "architecture" },
     };
 
-    // Try loading dynamic map from discovery; fall back to hardcoded
-    const dynamicMap = consultantDiscovery.load();
+    // Try loading dynamic map from discovery (builds on the fly if no saved file); fall back to hardcoded
+    const dynamicMap = consultantDiscovery.get();
     const keywordMap = dynamicMap || HARDCODED_MAP;
     const rootContext = this.getRootProjectContext();
 

@@ -1,0 +1,41 @@
+{
+  "asset_type": "knowledge",
+  "id": "knowledge-knowledge-knowledge-composition-engine",
+  "canonical": true,
+  "metadata": {
+    "title": "Knowledge: executive-runtime\\knowledge\\KNOWLEDGE_COMPOSITION_ENGINE",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "cd23f0807d2bf4adc85cc30629b45943ce276d27b909aac5f228cf45ef2f5cd6",
+    "compiled_at": "2026-07-14T07:56:39.074Z",
+    "source_hash": "f060fb2c9de1f85fa2c04cb91a9bcd6c2645c60598aee9c40971b9838c118a6d",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\KNOWLEDGE_COMPOSITION_ENGINE.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "canonical",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-knowledge-composition-engine",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 9: Knowledge Composition Engine\n  Sources: PROMPT_COMPOSITION_ENGINE.md, PROMPT_BLUEPRINT.md,\n           knowledge-platform/providers/KnowledgeProvider.ts,\n           learning/retrieval-engine.ts, knowledge/KnowledgeBackbone.ts\n  DO NOT EDIT MANUALLY.\n-->\n\n# Knowledge Composition Engine\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\n---\n\n## Principle\n\nKnowledge is NEVER assembled ad-hoc. It ALWAYS follows a deterministic composition order.\n\n---\n\n## Composition Order\n\n```\nLayer 01: Foundation       ──┐\nLayer 02: Organization        │\nLayer 03: Executive           │  ← Always included\nLayer 04: Runtime             ├── (Static/known sources)\nLayer 05: Memory            ──┘\n                              │\nLayer 06: Conversation      ──┐  ← Current session\nLayer 07: Temporary            │  ← Dynamic/session-scoped\nLayer 08: External           ──┘\n                              │\nLayer 09: User Context      ──┐  ← Request-specific\nLayer 10: Prompt Assembly   ──┘  ← Final output\n```\n\n---\n\n## Layer Definitions\n\n### Layer 01: Foundation (ALWAYS included)\n- **Source:** FoundationProvider.getFoundationContext()\n- **Contents:** Philosophy (500 chars), Constitution (500 chars), North Star (500 chars)\n- **Cache:** 5-minute TTL\n- **Cost:** Low (truncated to token budget)\n- **Included for:** ALL executives, ALL intents\n\n### Layer 02: Organization (ALWAYS included)\n- **Source:** FoundationProvider domain providers\n- **Contents:** Identity, Directives, Capabilities, Governance gates\n- **Cache:** 5-minute TTL\n- **Cost:** Low\n- **Included for:** ALL executives, ALL intents\n\n### Layer 03: Executive (ALWAYS included)\n- **Source:** Executive SPEC + PLAYBOOK + SYSTEM_PROMPT\n- **Contents:** Per-executive identity, authority, capabilities, decision rules, communication, execution protocol, collaboration, output, failure, safety\n- **Cache:** Loaded at boot, updated only on version change\n- **Cost:** Low (pre-assembled)\n- **Included for:** The target executive only\n\n### Layer 04: Runtime (Context-dependent)\n- **Source:** RuntimeFacade.health(), MetricsEngine.snapshot()\n- **Contents:** System health status, pipeline metrics, runtime state\n- **Cache:** 30-second TTL\n- **Cost:** Low\n- **Included for:** CAIO (always), other executives (on request)\n\n### Layer 05: Memory (Context-dependent)\n- **Source:** learning/retrieval-engine, executive-memory\n- **Contents:** Past experiences, knowledge nodes, per-executive memory\n- **Cache:** Session-scoped\n- **Cost:** Medium-High\n- **Included for:** All executives (when relevant history exists)\n\n### Layer 06: Conversation (Context-dependent)\n- **Source:** ContextManager (sliding history)\n- **Contents:** Last 12 messages, temporal references resolved\n- **Cache:** Session-scoped\n- **Cost:** Low-Medium\n- **Included for:** ALL executives (always included for context)\n\n### Layer 07: Temporary (Context-dependent)\n- **Source:** Working memory (ContextManager executive memory)\n- **Contents:** Current findings, pending tasks, current confidence\n- **Cache:** Within current execution only\n- **Cost:** Low\n- **Included for:** ALL executives\n\n### Layer 08: External (Conditional)\n- **Source:** KnowledgePlatform.semantic (external domain)\n- **Contents:** Market data, competitor info, industry research\n- **Cache:** Variable (based on source)\n- **Cost:** Medium\n- **Included for:** CMO (marketing), CKO (knowledge), CFO (market pricing)\n\n### Layer 09: User Context (Request-specific)\n- **Source:** User message, conversation history, user preferences\n- **Contents:** Current request, user identity, user preferences\n- **Cache:** None (per-request)\n- **Cost:** Variable\n- **Included for:** ALWAYS (the user message)\n\n### Layer 10: Prompt Assembly (Final composition)\n- **Source:** All previous layers composed into final prompt\n- **Contents:** Combined system prompt + dynamic context\n- **Cache:** None (per-request)\n- **Cost:** Composition overhead only\n\n---\n\n## Composition Algorithm\n\n```typescript\nfunction composeKnowledge(\n  execu",
+    "knowledge_fingerprint": {
+      "mental_models": [
+        "knowledge-executive-mental-model-library"
+      ],
+      "frameworks": [
+        "knowledge-executive-framework-library"
+      ],
+      "taxonomy": "knowledge-executive-knowledge-taxonomy",
+      "confidence": 0.9,
+      "source_hash": "f060fb2c9de1f85fa2c04cb91a9bcd6c2645c60598aee9c40971b9838c118a6d"
+    }
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

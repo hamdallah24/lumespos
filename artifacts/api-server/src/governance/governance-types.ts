@@ -1,7 +1,7 @@
 // ECP-046: Governance Types — Shared types for Governance Operating System
 // Rules, audits, quality, risks, improvements. Centralized policy.
 
-export type ExecutiveRole = "CEO" | "CTO" | "COO" | "CFO" | "CMO" | "CHRO" | "CIO";
+export type ExecutiveRole = "CEO" | "CTO" | "COO" | "CFO" | "CMO" | "CHRO" | "CIO" | "CAIO" | "CKO";
 
 export type Severity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 

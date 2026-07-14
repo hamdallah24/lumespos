@@ -1,0 +1,41 @@
+{
+  "asset_type": "knowledge",
+  "id": "knowledge-knowledge-adr-009-knowledge-system-unification",
+  "canonical": true,
+  "metadata": {
+    "title": "Knowledge: executive-runtime\\knowledge\\ADR-009-knowledge-system-unification",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "777f2181ccba11cedd9f3f3a7eef2f7726446fc6ee78bf88bb87a9a8e6827158",
+    "compiled_at": "2026-07-14T07:56:39.075Z",
+    "source_hash": "da3ca4d19b8987648a0b295df4492aa725213dfe0056bbbc99ea9a51a4dc0a12",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\ADR-009-knowledge-system-unification.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "canonical",
+    "status": "PROPOSED"
+  },
+  "structure": {
+    "source_id": "knowledge-adr-009-knowledge-system-unification",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 14: ADR-009\n  Title: Knowledge System Unification\n  Status: PROPOSED (NOT IMPLEMENTED)\n-->\n\n# ADR-009: Knowledge System Unification\n\n**Status:** PROPOSED  \n**Date:** 2026-07-13  \n**Author:** Principal Knowledge Architect  \n\n---\n\n## Context\n\nThe audit (EPIC R Phase 1) found 5 overlapping knowledge systems:\n\n1. `knowledge-platform/` — Block-based (semantic/episode/procedural)\n2. `ai/runtime/knowledge/` — Card-based (RAW→VALIDATED→ACTIVE→BEST_PRACTICE→FOUNDATION_CANDIDATE→ARCHIVED)\n3. `learning/` — Node-based (Experience→Reflection→Knowledge→Graph→Index→Memory)\n4. `intelligence/` — Organizational (2+ source validation, fusion, consensus)\n5. `knowledge/KnowledgeBackbone` — Unified access layer (wraps mission, context, decision, memory)\n\nThese systems have:\n- Different atomic units (Blocks vs Cards vs Nodes)\n- Different lifecycles (5-stage vs 7-stage vs implicit)\n- Different query interfaces (KnowledgeProvider vs KnowledgeBackbone vs RetrievalEngine)\n- Overlapping responsibilities (historical knowledge in both platform.episode AND learning.executive-memory)\n- No central documentation mapping their relationships\n\n## Decision\n\n**Do NOT merge the 5 systems into one.** The cost of merging would:\n- Require modifying all 5 systems simultaneously (high risk, Runtime Core is FROZEN)\n- Break all existing interfaces that executives depend on\n- Require changes to 50+ files across 5 directories\n- Create a single point of failure for all knowledge operations\n\n**Instead, create a Knowledge Unification Layer** — a new facade that:\n1. Sits ABOVE all 5 systems (does not modify them)\n2. Provides a single query interface: `EKSKnowledge.query()`\n3. Maps queries to the appropriate underlying system\n4. Merges and deduplicates results\n5. Handles lifecycle coordination (a promotion in one system triggers corresponding update in others)\n\n## Consequences\n\n### Positive\n- Zero changes to existing runtime code (Runtime Core remains FROZEN)\n- Zero changes to existing knowledge system implementations\n- All 5 systems continue to work independently\n- New unified interface is additive, not breaking\n- Results are deduplicated and ranked at the unification layer\n- Gradual migration possible: systems can be deprecated one by one\n\n### Negative\n- Adds another layer of abstraction (6th knowledge system)\n- Query latency increases slightly (multi-system fan-out)\n- Requires maintaining the unification layer when underlying systems change\n- Does not eliminate the underlying duplication\n\n### Neutral\n- Documentation must be updated to reflect the unification layer as the primary interface\n- Old direct interfaces (KnowledgeProvider, KnowledgeBackbone, etc.) remain available for direct use\n\n## Implementation\n\n### New File\n`src/eks/EKSKnowledge.ts` (or `src/ai/runtime/eks/EKSKnowledge.ts`)\n\n### Interface\n```typescript\ninterface EKSKnowledge {\n  query(request: EKSQuery): EKSResult;\n  ingest(event: EKSKnowledgeEvent): void;\n  maintain(): EKSMaintenanceResult;\n}\n\ninterface EKSQuery {\n  executive?: string;\n  domain?: string;\n  intent?: string;\n  keywords?: string[];\n  maxResults?: number;\n  minConfidence?: number;\n  includeTypes?: KnowledgeType[];\n}\n\ninterface EKSResult {\n  items: EKSKnowledgeItem[];\n  sources: string[];       // Which systems returned results\n  totalCount: number;\n  confidence: number;\n  executionTimeMs: number;\n}\n```\n\n### Query Routing Logic\n```\nEKSQuery → Route to ALL 5 systems in parallel\n  → knowledge-platform.searchAll(query)\n  → knowledge-governor.getConsultantCache(tokenBudget)\n  → learning/retrieval-engine.getContext()\n  → intelligence/organizational-memory.search()\n  → knowledge/KnowledgeBackbone.getScoped()\n→ Merge results (deduplicate by content hash)\n→ Rank by confidence × freshness × relevance\n→ Return top N results\n```\n\n## Alternatives Considered\n\n1. **Full merge into one system** — Rejected (too risky, breaks Runtime Core freeze)\n2. **Deprecate all but one** — Rejected (each system serves a unique purpose)\n3. **Status quo** — Rej",
+    "knowledge_fingerprint": {
+      "mental_models": [
+        "knowledge-executive-mental-model-library"
+      ],
+      "frameworks": [
+        "knowledge-executive-framework-library"
+      ],
+      "taxonomy": "knowledge-executive-knowledge-taxonomy",
+      "confidence": 0.9,
+      "source_hash": "da3ca4d19b8987648a0b295df4492aa725213dfe0056bbbc99ea9a51a4dc0a12"
+    }
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

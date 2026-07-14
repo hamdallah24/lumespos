@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 import { db, sharedContextTable, checklistItemsTable } from "@workspace/db";
 import { eq, and, desc, sql } from "drizzle-orm";
+import { redisService } from "../lib/redis";
 
 // ── DEEPSEEK / SUMOPOD ──
 export { callDeepSeek } from "../ai/llm/llm-adapter";
@@ -90,14 +91,35 @@ export async function clearChecklistItems(conversationId: number) {
 
 export { callDeepSeekWithTools } from "../ai/llm/llm-adapter";
 
-// ── RATE LIMITER (per-user sliding window) ──
+// ── RATE LIMITER (per-user sliding window) — Redis-backed ──
 const RATE_WINDOW_MS = 60000;
 interface RateEntry { windowStart: number; count: number }
 const rateMap = new Map<string, RateEntry>();
 
-export function checkRateLimit(userId: number, mode: string, maxRequests: number): { ok: boolean; retryAfter?: number } {
+export async function checkRateLimit(userId: number, mode: string, maxRequests: number): Promise<{ ok: boolean; retryAfter?: number }> {
   const now = Date.now();
   const key = `${userId}_${mode}`;
+
+  // Try Redis-based rate limiting
+  if (redisService.initialized) {
+    try {
+      const client = redisService.connection.getClient()!;
+      const windowKey = `ratelimit:${key}:${Math.floor(now / RATE_WINDOW_MS)}`;
+      const count = await client.incr(windowKey);
+      if (count === 1) {
+        await client.pexpire(windowKey, RATE_WINDOW_MS);
+      }
+      if (count > maxRequests) {
+        const ttl = await client.pttl(windowKey);
+        return { ok: false, retryAfter: Math.ceil(ttl / 1000) };
+      }
+      return { ok: true };
+    } catch {
+      // Fall through to in-memory fallback
+    }
+  }
+
+  // In-memory fallback
   const entry = rateMap.get(key);
   if (!entry || now - entry.windowStart > RATE_WINDOW_MS) {
     rateMap.set(key, { windowStart: now, count: 1 });

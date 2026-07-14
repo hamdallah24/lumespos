@@ -110,7 +110,7 @@ export function buildContext(assets: KnowledgeAsset[], mode: string, options: Co
   // Mode-specific instructions
   const instructions: string[] = [];
   if (mode === "cto") instructions.push("You are the CTO. Analyze code, propose solutions, explain reasoning.");
-  if (mode === "bisnis") instructions.push("You are the COO. Translate to JSON actions. Output JSON only.");
+  if (mode === "bisnis") instructions.push("You are the COO. Execute business operations via embedded JSON actions. Always explain in natural language first.");
 
   return {
     version: "1.0",

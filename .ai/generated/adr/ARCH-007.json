@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-007",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\ADR-007-learning-layer",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "01aab09046fb63de681a6e6f29ea4bd842284e62ed074c50801ed431a95f9da5",
+    "compiled_at": "2026-07-14T07:56:39.086Z",
+    "source_hash": "ce9e6d158cdcf259d5bbdfabcb0513b165dba9efe83f282c577891fcc160d892",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\ADR-007-learning-layer.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "ACCEPTED"
+  },
+  "structure": {
+    "original_id": "architecture-adr-007-learning-layer",
+    "prefixed_id": "ARCH-007",
+    "domain": "architecture",
+    "title": "architecture\\ADR-007-learning-layer",
+    "status": "ACCEPTED",
+    "body": "# ADR-007: Learning Layer\n\n**Status:** ACCEPTED\n**Date:** ECP-044\n**Supersedes:** No structured learning system\n\n## Context\n\nExecutives needed to learn from past missions and retrieve relevant knowledge for future ones.\n\n## Decision\n\n| Module | Owner | Responsibility |\n|--------|-------|---------------|\n| `LearningEngine` | learning-engine.ts | Full cycle orchestrator (single owner) |\n| `ExperienceEngine` | experience-engine.ts | Execution → Experience (scored 0-100) |\n| `ReflectionEngine` | reflection-engine.ts | Experience → Reflection (7 evaluation questions) |\n| `KnowledgeEngine` | knowledge-engine.ts | Reflection → KnowledgeNodes (merge + domain) |\n| `KnowledgeGraph` | knowledge-graph.ts | Graph storage: add, search, traverse, autoLink |\n| `MemoryIndex` | memory-index.ts | Searchable index: domain/type/keyword/executive |\n| `KnowledgeQueue` | knowledge-queue.ts | Async processing queue |\n| `RetrievalEngine` | retrieval-engine.ts | Context-aware retrieval before reasoning |\n| `ExecutiveMemory` | executive-memory.ts | Per-executive isolated memory (7 scopes) |\n\n## Rules\n\n1. `LearningEngine.cycle()` is the **single** learning orchestrator\n2. Executive memory is **isolated** — never shared directly\n3. Knowledge is stored as a **graph**, not text\n4. Retrieval happens **before** reasoning, not after\n\n## Dependencies\n\nLearning Layer → Execution Foundation → LLM Adapter\n\n## Violations\n\nCross-executive memory sharing = Architecture Compliance FAIL.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

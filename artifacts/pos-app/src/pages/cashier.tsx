@@ -28,6 +28,9 @@ type Product = {
   price: number;
   categoryId?: number;
   imageUrl?: string;
+  hasVariants?: boolean;
+  minPrice?: number | null;
+  maxPrice?: number | null;
 };
 
 type Category = {
@@ -294,7 +297,7 @@ export default function CashierPage() {
                   </div>
                   <div className="p-2 md:p-3">
                     <h3 className="font-semibold text-xs md:text-sm truncate">{product.name}</h3>
-                    <p className="text-primary font-bold text-sm md:text-base mt-0.5 md:mt-1">{formatRp(product.price)}</p>
+                    <p className="text-primary font-bold text-sm md:text-base mt-0.5 md:mt-1">{product.hasVariants && product.minPrice != null ? `Rp${Number(product.minPrice).toLocaleString("id-ID")} - Rp${Number(product.maxPrice).toLocaleString("id-ID")}` : formatRp(product.price)}</p>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleProductClick(product); }}
                       className="w-full mt-1.5 md:mt-2 h-8 md:h-10 rounded-xl bg-primary text-primary-foreground font-medium text-xs md:text-sm active:scale-[0.97] transition-transform flex items-center justify-center gap-1.5"

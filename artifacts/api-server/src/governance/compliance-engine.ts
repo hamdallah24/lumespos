@@ -3,7 +3,7 @@
 // Feeds violations into Architecture Auditor.
 
 import type { ComplianceRule, ComplianceResult, AuditStatus } from "./governance-types";
-import { policyEngine } from "./policy-engine";
+import { orgPolicyEngine } from "./policy-engine";
 import { organizationalMemory } from "../intelligence/organizational-memory";
 import { executiveReputationTracker } from "../intelligence/executive-reputation";
 
@@ -21,7 +21,7 @@ export class ComplianceEngine {
         id: "GOV-001", name: "Policy Engine Active",
         description: "Policy engine must return non-null policy.",
         check: () => {
-          const policy = policyEngine.get();
+          const policy = orgPolicyEngine.get();
           return policy ? "PASS" : "FAIL";
         },
         layer: "Governance",
@@ -30,7 +30,7 @@ export class ComplianceEngine {
         id: "GOV-002", name: "Confidence Above Threshold",
         description: "Organization avg confidence must exceed policy threshold.",
         check: () => {
-          const policy = policyEngine.get();
+          const policy = orgPolicyEngine.get();
           const memStats = organizationalMemory.stats();
           return memStats.avgConfidence >= policy.minimalConfidence ? "PASS" : "WARNING";
         },
@@ -59,7 +59,7 @@ export class ComplianceEngine {
         id: "GOV-005", name: "Policy Thresholds Valid",
         description: "All policy thresholds must be positive numbers.",
         check: () => {
-          const policy = policyEngine.get();
+          const policy = orgPolicyEngine.get();
           const thresholds = [
             policy.minimalConfidence, policy.minimalEvidence,
             policy.delegationThreshold, policy.consensusThreshold,
@@ -74,7 +74,7 @@ export class ComplianceEngine {
         id: "GOV-006", name: "Organization Health",
         description: "Success rate + confidence must form a healthy baseline.",
         check: () => {
-          const policy = policyEngine.get();
+          const policy = orgPolicyEngine.get();
           const all = executiveReputationTracker.all();
           if (all.length === 0) return "WARNING";
           const avgSuccess = all.reduce((s, r) => s + r.successRate, 0) / all.length;

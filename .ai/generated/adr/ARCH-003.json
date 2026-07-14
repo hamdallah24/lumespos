@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-003",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\ADR-003-pipeline-ownership",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "ce15874f4c780ed33e9d5a4dc49a59f2c85cfb1f57f429ec2058e47c5a06105d",
+    "compiled_at": "2026-07-14T07:56:39.087Z",
+    "source_hash": "279e469b7e207a9895f38a3ac703ec923b4fa380425d1cd0350f4a2e9c8567d1",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\ADR-003-pipeline-ownership.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "ACCEPTED"
+  },
+  "structure": {
+    "original_id": "architecture-adr-003-pipeline-ownership",
+    "prefixed_id": "ARCH-003",
+    "domain": "architecture",
+    "title": "architecture\\ADR-003-pipeline-ownership",
+    "status": "ACCEPTED",
+    "body": "# ADR-003: Pipeline Ownership\n\n**Status:** ACCEPTED\n**Date:** ECP-040\n**Supersedes:** while loop in ai-helpers.ts\n\n## Context\n\nThe execution loop (`while (governor.shouldContinue())`) with LLM calls, tool dispatch, strategy injection, validation, and final call was embedded inside `ai-helpers.ts`. This meant the LLM adapter layer owned the lifecycle.\n\n## Decision\n\nMove full lifecycle ownership to `ExecutionDriver`. The LLM adapter becomes stateless.\n\n| Component | Before | After |\n|-----------|--------|-------|\n| Governor lifecycle | In llm-adapter (`callDeepSeekWithTools`) | In `ExecutionDriver.run()` |\n| LLM call | In `callDeepSeekWithTools` (with loop) | `callLLMWithTools()` — stateless single request |\n| Strategy injection | In llm-adapter | In ExecutionDriver |\n| Tool execution | In llm-adapter | In ExecutionDriver |\n| History persistence | In llm-adapter | In ExecutionDriver |\n| Final call | In llm-adapter | In ExecutionDriver |\n\n## Rules\n\n1. `ExecutionDriver.run()` is the **single** execution loop\n2. `callLLMWithTools()` makes **one** request to DeepSeek — no loop, no Governor\n3. `callDeepSeekWithTools()` is a **compatibility wrapper** — delegates to Pipeline\n4. LLM adapter **MUST NOT** import `ExecutionGovernor`\n\n## Violations\n\n```ts\n// FORBIDDEN — Adapter must never run loops\nwhile (...) { ... }  // ❌ in llm/\n\n// FORBIDDEN — Adapter must never create Governor\nnew ExecutionGovernor(...)  // ❌ in llm/\n```\n\nAny loop or Governor instantiation in `llm/` = Architecture Compliance FAIL.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

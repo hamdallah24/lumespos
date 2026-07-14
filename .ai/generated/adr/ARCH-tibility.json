@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-tibility",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\compatibility",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "c83639948119a98e0b909e4b22c96d48572b8fdd614e99b806ec3c1bfad3d9fa",
+    "compiled_at": "2026-07-14T07:56:39.086Z",
+    "source_hash": "3b65b218454b31e2dad1eabc3ced1d72296a55d310958d39777bf0c8d15d6a47",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\compatibility.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "unknown"
+  },
+  "structure": {
+    "original_id": "architecture-compatibility",
+    "prefixed_id": "ARCH-tibility",
+    "domain": "architecture",
+    "title": "architecture\\compatibility",
+    "status": "unknown",
+    "body": "# Compatibility Policy — Lumé CMN v1.0\n\n## Current State\n\n`src/routes/ai-helpers.ts` serves as a compatibility barrel. It re-exports from the actual source modules without containing any implementations.\n\n## Why It Still Exists\n\nHistorical consumers in `src/routes/ai.ts` and `src/ai/` still import through this barrel. Removing it would require updating ~12 import sites across multiple layers.\n\n## What It Re-Exports\n\n| Category | Symbols | Source |\n|----------|---------|--------|\n| LLM | `callDeepSeek`, `callDeepSeekWithTools` | `llm/llm-adapter.ts` |\n| Tools | `executeToolCall`, `fetchGitHubFile`, `searchRepoFiles`, `getDependencies`, `mergeDeploy`, etc. | `tools/tool-adapter.ts` |\n| Memory | `remember`, `getHistory`, `getOrCreateConversation`, `clearMemory` | `services/ai-memory-service.ts` |\n| Config | `PROJECT_ROOT`, `GITHUB_PAT`, `SSH_HOST`, etc. | `tools/tool-adapter.ts` |\n\n## What Remains Local\n\n| Function | Reason |\n|----------|--------|\n| `saveSharedContext`, `getSharedContext` | Routes-specific utility |\n| `getChecklistItems`, `upsertChecklistItem`, `clearChecklistItems` | Routes-specific utility |\n| `checkRateLimit` | Routes-specific utility |\n\n## Migration Plan to `src/ai/index.ts`\n\n### Phase 1: Current (Fix Pack C)\n- `ai-helpers.ts` serves as barrel\n- All consumers work through barrel\n\n### Phase 2: Direct Import Migration\n- Update `src/ai/` consumers to import from actual source files\n- Example: `llm-gateway.ts` → `import from \"../../llm/llm-adapter\"`\n- Example: `tool-executor.ts` → `import from \"../../tools/tool-adapter\"`\n\n### Phase 3: Facade Creation\n- Create `src/ai/index.ts` as the official AI facade\n- Re-exports from: `llm/`, `tools/`, `services/`\n- Update `ai.ts` to import from `src/ai/index.ts`\n\n### Phase 4: Barrel Removal\n- Delete `routes/ai-helpers.ts`\n- All consumers migrated\n\n## Removal Conditions\n\n`ai-helpers.ts` can be deleted when:\n\n1. ✅ No `ai/` file imports DB functions from `routes/ai-helpers` (DONE — Fix Pack A)\n2. All `src/ai/` files import from actual source locations\n3. `ai.ts` imports LLM/Tool/Memory from `src/ai/index.ts`\n4. Remaining route utilities (shared context, checklist, rate limiter) moved to appropriate locations\n\n## Compatibility Guarantee\n\nUntil Phase 4, `ai-helpers.ts` guarantees:\n- Zero breaking changes to public API\n- All re-exported functions maintain identical signatures\n- No new implementations added\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

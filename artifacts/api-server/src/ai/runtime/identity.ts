@@ -3,7 +3,7 @@
 
 export interface AgentIdentity {
   id: string;
-  role: "CTO" | "COO" | "CEO" | "CFO" | "CMO" | "CHRO" | "CIO" | "Researcher" | "Founder" | "Chat";
+  role: "CTO" | "COO" | "CEO" | "CFO" | "CMO" | "CAIO" | "CKO" | "CHRO" | "CIO" | "Researcher" | "Founder" | "Chat";
   authority: "full" | "limited" | "readonly" | "none";
   capabilities: string[];        // What this agent CAN do
   scope: string[];               // Domains this agent operates in
@@ -113,6 +113,28 @@ export const IDENTITIES: Record<string, AgentIdentity> = {
     trustScore: 75,
     memoryScope: "project",
     approvalRequired: true,
+  },
+  CAIO: {
+    id: "caio-v1",
+    role: "CAIO",
+    authority: "limited",
+    capabilities: ["systemHealth", "aiStrategy", "modelEvaluation", "automationDesign", "knowledgeArchitecture"],
+    scope: ["ai", "automation", "knowledge", "systems"],
+    knowledgeDomains: ["foundation", "architecture", "ai", "knowledge"],
+    trustScore: 80,
+    memoryScope: "project",
+    approvalRequired: true,
+  },
+  CKO: {
+    id: "cko-v1",
+    role: "CKO",
+    authority: "limited",
+    capabilities: ["knowledgeCuration", "knowledgeValidation", "ontologyDesign", "documentationManagement", "knowledgeQuality"],
+    scope: ["knowledge", "documentation", "quality"],
+    knowledgeDomains: ["foundation", "knowledge", "governance"],
+    trustScore: 85,
+    memoryScope: "organization",
+    approvalRequired: false,
   },
 };
 

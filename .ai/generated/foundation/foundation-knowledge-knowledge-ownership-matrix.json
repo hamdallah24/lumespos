@@ -1,0 +1,30 @@
+{
+  "asset_type": "foundation",
+  "id": "foundation-knowledge-knowledge-ownership-matrix",
+  "canonical": true,
+  "metadata": {
+    "title": "Foundation: executive-runtime\\knowledge\\KNOWLEDGE_OWNERSHIP_MATRIX",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "63ce15f692aa9ddc276cd02b373d375a09bea899c808a7c8180f5015e7dbde6e",
+    "compiled_at": "2026-07-14T07:56:39.071Z",
+    "source_hash": "f7883a834014ec2c48de91ed410d85f3daeb49c797997b690bf2d03c70ee005d",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\KNOWLEDGE_OWNERSHIP_MATRIX.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "foundational",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-knowledge-ownership-matrix",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 2: Knowledge Ownership Matrix\n  Sources: EXECUTIVE_CAPABILITY_MATRIX.md, EXECUTIVE_KNOWLEDGE_ARCHITECTURE.md,\n           EXECUTIVE_COLLABORATION_MODEL.md, SRC audit, all SPECs and PLAYBOOKs\n  DO NOT EDIT MANUALLY.\n-->\n\n# Knowledge Ownership Matrix\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\n---\n\n## Ownership Levels\n\n| Level | Symbol | Meaning |\n|-------|--------|---------|\n| PRIMARY | P | Ultimate authority — defines, validates, curates this domain |\n| SECONDARY | S | Contributes — creates knowledge, provides input |\n| CONSUME | C | Reads and uses this knowledge for decisions |\n| SYSTEM | X | Owned by infrastructure (EIOS Runtime, Foundation) — not by any individual executive |\n\n---\n\n## CEO — Strategic Leadership\n\n| Knowledge Domain | Ownership | Description | Source Evidence |\n|-----------------|-----------|-------------|----------------|\n| Business Strategy | P | Vision, mission, strategic direction, organizational goals | EXECUTIVE_SPEC: strategic-planning, strategic-decision |\n| Organization Structure | P | Executive roles, delegation hierarchy, org design | EXECUTIVE_SPEC: organization-management |\n| Delegation Policy | P | Who can do what, delegation rules | PLAYBOOK: delegate via org engine |\n| Mission Planning | P | Mission creation, priority setting, tracking | SPEC: mission-planning, mission tracking |\n| Proposal Review | P | CTO approval, cross-domain proposal approval | SPEC: proposal-review, CTO approval flow |\n| Market Direction | P | High-level market positioning, brand strategy | COLLABORATION: CEO-CMO pair |\n| Capital Allocation | P | Budget direction, investment priorities | COLLABORATION: CEO-CFO pair |\n| Founder Intent | P | Translation of Founder vision to executable missions | VISION: \"translate Founder vision\" |\n| Negotiation | C | Does not negotiate directly — delegates to CTO/COO | CONSTITUTION: domain sovereignty |\n| Culture | P | Organizational culture, values, ethics | RESPONSIBILITIES: org management |\n| Hiring Strategy | P | High-level hiring direction, org growth | RESPONSIBILITIES: org management |\n| Conflict Resolution | P | Cross-domain conflict final decision | CONSTITUTION: escalation Level 2 |\n| Audit Review | P | Review governance audit reports | KNOWLEDGE_ARCHITECTURE: Strategic type |\n\n---\n\n## CTO — Technology & Engineering\n\n| Knowledge Domain | Ownership | Description | Source Evidence |\n|-----------------|-----------|-------------|----------------|\n| Architecture | P | System architecture, codebase structure, design patterns | SPEC: architecture-review |\n| Engineering Standards | P | Code quality, best practices, testing standards | SPEC: code-analysis |\n| Infrastructure | P | DevOps, deployment, CI/CD, server config | SPEC: devops |\n| Security | P | Code security, access control, vulnerability detection | SPEC: security restrictions |\n| Platform | P | Runtime platform, framework choices, dependencies | SPEC: architecture-review |\n| Performance | P | Code performance, optimization, scaling | SPEC: code-analysis |\n| Scalability | P | System scalability, load handling, capacity | SPEC: architecture-review |\n| AI Engineering | S | LLM integration, prompt patterns, tool implementation | SPEC: code-analysis + knowledge-evolution |\n| Technical Debt | P | Code quality issues, refactoring priorities | SPEC: implementation |\n| Knowledge Evolution | P | Proposing knowledge updates from technical learnings | SPEC: knowledge-evolution |\n| Tool Registry | P | Tool selection, tool implementation, tool governance | CAPABILITY_MATRIX: code-analysis |\n| Project Structure | S | Codebase organization (shared with CKO advisory) | PLAYBOOK: CKO consultation |\n\n---\n\n## CFO — Financial Intelligence\n\n| Knowledge Domain | Ownership | Description | Source Evidence |\n|-----------------|-----------|-------------|----------------|\n| Cost Analysis | P | Ingredient costs, production costs, operational costs | SPEC: cost optimization |\n| Margin Analysis | P | Profit margins per product, per bran"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

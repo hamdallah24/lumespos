@@ -2,6 +2,7 @@ import { Router } from "express";
 import { db, ordersTable, orderItemsTable, productsTable, usersTable, expensesTable } from "@workspace/db";
 import { eq, gte, lte, and, sum, count, sql, type SQL } from "drizzle-orm";
 import { requireRole } from "../middlewares/requireAuth";
+import { listInventoryForBranch } from "../services/inventory";
 
 const router = Router();
 
@@ -79,7 +80,7 @@ router.get("/dashboard/summary", requireRole("owner", "manager"), async (req, re
     todayOrders: currentOrders,
     todayExpenses: currentExpenses,
     totalProducts: productCounts?.total ?? 0,
-    lowStockCount: 0,
+    lowStockCount: (await listInventoryForBranch(expBranch ?? 1)).filter(i => i.minimalStock !== null && i.currentStock < i.minimalStock).length,
     todayRevenueDiff: prevRevenue > 0 ? ((currentRevenue - prevRevenue) / prevRevenue) * 100 : 0,
     todayOrdersDiff: prevOrders > 0 ? ((currentOrders - prevOrders) / prevOrders) * 100 : 0,
     todayExpensesDiff: prevExpenses > 0 ? ((currentExpenses - prevExpenses) / prevExpenses) * 100 : 0,

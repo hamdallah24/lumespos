@@ -1,7 +1,5 @@
-// ECP-019: Execution Metrics — evidence quality, stability, diversity
-// Frozen. Tracks execution quality metrics without parsing LLM text.
-
 import type { DecisionStability } from "./execution-manifest";
+import { MetricsEngine } from "../../../eios-runtime";
 
 class ExecutionMetrics {
   evidenceQuality: number = 0;
@@ -24,13 +22,11 @@ class ExecutionMetrics {
   recordCycle(cycleNum: number, toolCalls: { name: string; status?: "ok" | "error" }[], responseText?: string): void {
     this.cyclesExecuted = cycleNum;
 
-    // Tool diversity
     this._allToolNames.push(...toolCalls.map(t => t.name));
     const uniqueTools = new Set(this._allToolNames);
     this.toolDiversityScore = this._allToolNames.length > 0
       ? uniqueTools.size / this._allToolNames.length : 0;
 
-    // Track tool pattern for stability
     if (cycleNum > 1) {
       const currentTools = toolCalls.map(t => t.name).sort().join(",");
       const prevCycle = cycleNum > 1 ? this._allToolNames.slice(-toolCalls.length).join(",") : "";
@@ -40,7 +36,6 @@ class ExecutionMetrics {
       }
     }
 
-    // Direction inference
     if (toolCalls.length > 0) {
       const prevDir = this.stability.direction;
       const names = toolCalls.map(t => t.name);
@@ -56,9 +51,6 @@ class ExecutionMetrics {
 
     this.stability.stable = this.stability.flipCount === 0;
 
-    // ADR-009 Phase 1: Evidence quality — real data, not cycle counter
-    // Comment intent: "heuristic: files read + unique tools"
-    // Bug fix: formula now uses collected data instead of placeholder cycleNum*0.15
     const uniqueFiles = new Set(this._allPaths).size;
     const totalTools = this._allToolNames.length;
     const failedTools = toolCalls.filter(tc => tc.status === "error").length;
@@ -71,13 +63,16 @@ class ExecutionMetrics {
       (successRate * 0.15)
     ));
 
-    // ADR-009 Phase 1: Confidence — composite of evidence + tool success + diversity
     this.confidence = Math.min(100, Math.round(
       (this.evidenceQuality * 50) +
       (successRate * 30) +
       (this.toolDiversityScore * 20)
     ));
     this.sourceDiversity = this.toolDiversityScore;
+
+    MetricsEngine.gauge("execution.evidence_quality").set(this.evidenceQuality);
+    MetricsEngine.gauge("execution.confidence").set(this.confidence / 100);
+    MetricsEngine.gauge("execution.cycles").set(cycleNum);
   }
 
   recordExploration(path: string): void {

@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH--modules",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\future-modules",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "1fe757be07c2d58728290d51d866269ad27f8f949ad942d08e730c8db018e07e",
+    "compiled_at": "2026-07-14T07:56:39.086Z",
+    "source_hash": "2519ad8f058ae5eef9bb21b46a0abac34a2857e0ea2dd8d8f7478f8e2483ccd3",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\future-modules.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "unknown"
+  },
+  "structure": {
+    "original_id": "architecture-future-modules",
+    "prefixed_id": "ARCH--modules",
+    "domain": "architecture",
+    "title": "architecture\\future-modules",
+    "status": "unknown",
+    "body": "# Future Modules — Lumé CMN v1.0\n\n## Intentional (Reserved for Phase II)\n\nThese modules exist but are not yet wired into active dispatch. They are **not** orphans — they are scaffolding for planned features.\n\n| Module | Location | Status | Planned Use |\n|--------|----------|--------|-------------|\n| `mission-runtime.ts` | `src/ai/programs/` | RESERVED | Phase II multi-agent mission management |\n| `proposal-executor.ts` | `src/ai/programs/` | RESERVED | Phase II proposal workflow execution |\n| `executive-runtime.ts` | `src/ai/programs/` | RESERVED | Phase II CFO/CMO/CHRO/CIO instantiation |\n\n## Intentional (ECP-043 Integration Pending)\n\nThe Intelligence Layer (`src/execution/`) modules are self-contained and ready. They will be wired into the Governor when ECP-043 activation sprint runs.\n\n| Module | Location | Status | Integration Point |\n|--------|----------|--------|-------------------|\n| `mission-analyzer.ts` | `src/execution/` | PLANNED | Governor.planExecution() → reads MissionProfile |\n| `strategy-selector.ts` | `src/execution/` | PLANNED | Governor → reads StrategyPlan |\n| `elastic-budget.ts` | `src/execution/` | PLANNED | Governor → reads ElasticBudget |\n| `tool-strategy.ts` | `src/execution/` | PLANNED | Governor → reads ToolStrategy |\n| `verification-profile.ts` | `src/execution/` | PLANNED | Governor → reads VerificationProfile |\n| `exit-strategy.ts` | `src/execution/` | PLANNED | Governor → reads ExitStrategy |\n| `mission-profile.ts` | `src/execution/` | PLANNED | Shared types for above |\n\n## Compatibility Barrel Migration\n\n| Module | Current | Target | When |\n|--------|---------|--------|------|\n| `ai-helpers.ts` | `src/routes/` compatibility barrel | `src/ai/index.ts` AI Facade | All `src/ai/` consumers migrated to direct imports |\n\n## Audit Note\n\nThese modules are **excluded** from orphan detection. Any audit that flags them should reference this document.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "asset_type": "foundation",
+  "id": "foundation-knowledge-knowledge-validation-rules",
+  "canonical": true,
+  "metadata": {
+    "title": "Foundation: executive-runtime\\knowledge\\KNOWLEDGE_VALIDATION_RULES",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "f251a7dedafbc4c63f3142fdf472a9f871316841664bbe755c661755c4cac016",
+    "compiled_at": "2026-07-14T07:56:39.070Z",
+    "source_hash": "0e198fae24a3d3fb3d9b30098f47ab575a481f09a25fea3be74f23644cca3233",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\KNOWLEDGE_VALIDATION_RULES.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "foundational",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-knowledge-validation-rules",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 10: Knowledge Validation Rules\n  Sources: knowledge-confidence.ts, knowledge-deduplicator.ts,\n           knowledge-contradiction.ts, knowledge-lifecycle.ts,\n           knowledge-ranker.ts, governance/compliance-engine.ts\n  DO NOT EDIT MANUALLY.\n-->\n\n# Knowledge Validation Rules\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\n---\n\n## Validation Dimensions\n\nEvery piece of knowledge MUST be validated across these dimensions:\n\n| Dimension | Code | Required For | Validation Method |\n|-----------|------|-------------|-------------------|\n| Evidence | EVD | All knowledge | Source exists and is verifiable |\n| Confidence | CNF | All knowledge | Score 0-100, calculated from sources |\n| Source | SRC | All knowledge | Origin is identified and traceable |\n| Version | VER | All knowledge | Version number or timestamp |\n| Owner | OWN | All knowledge | Responsible executive or system |\n| Expiration | EXP | Time-sensitive knowledge | Expiry date or TTL |\n| Priority | PRI | All knowledge | Importance level (1-5) |\n| Dependency | DEP | All knowledge | What other knowledge it depends on |\n| Conflict Detection | CFL | All knowledge | No contradictions with active knowledge |\n\n---\n\n## Rule 01: Evidence (EVD)\n\nEvery knowledge claim MUST have supporting evidence.\n\n### Evidence Levels\n| Level | Criteria | Examples |\n|-------|----------|---------|\n| EVD-0 | No evidence | LLM hallucination, unverified claim |\n| EVD-1 | Single source | One executive episode, one file read |\n| EVD-2 | Multiple sources | 2+ independent observations |\n| EVD-3 | Verified source | Source confirmed by PRIMARY owner |\n| EVD-4 | Immutable evidence | ADR, audit log, constitution |\n\n### Acceptable Evidence Types\n| Type | Max Level | Description |\n|------|-----------|-------------|\n| KnowledgePlatform episode | EVD-2 | Recorded by one executive |\n| File content | EVD-2 | Read from filesystem |\n| Tool output | EVD-2 | Command execution result |\n| Foundation directive | EVD-4 | Immutable, highest authority |\n| ADR | EVD-4 | Architecture decision record |\n| Audit log | EVD-4 | Immutable audit trail |\n| Metric snapshot | EVD-2 | Runtime metric at point in time |\n| Multi-source consensus | EVD-3 | 2+ executives agree |\n| CEO validation | EVD-3 | CEO confirms finding |\n\n### Validation Rule\n- EVD-0 knowledge CANNOT be used for any decision\n- EVD-1 knowledge can be used for LOW-confidence decisions only\n- EVD-2+ knowledge required for MEDIUM and HIGH decisions\n\n---\n\n## Rule 02: Confidence (CNF)\n\nKnowledge MUST have a confidence score between 0-100.\n\n### Confidence Calculation\n```typescript\nfunction calculateConfidence(item: KnowledgeItem): number {\n  const sourceConfidence = item.sources.reduce(\n    (sum, s) => sum + sourceWeight(s), 0\n  ) / item.sources.length * 0.40;\n\n  const validationBonus = validationLevel(item.validation) * 0.30;\n  const freshnessScore = freshness(item.timestamp) * 0.15;\n  const consistencyScore = consistency(item) * 0.15;\n\n  return Math.round(\n    sourceConfidence + validationBonus + freshnessScore + consistencyScore\n  );\n}\n```\n\n### Confidence Thresholds\n| Range | Label | Meaning |\n|-------|-------|---------|\n| 90-100 | HIGH | Multiple sources, verified, recent, consistent |\n| 70-89 | MEDIUM | Multiple sources, validated, moderately recent |\n| 50-69 | LOW | Single source, partially validated |\n| 30-49 | INSUFFICIENT | Unvalidated, contradictory, or stale |\n| 0-29 | INVALID | Contradicted, deprecated, or without evidence |\n\n### Confidence Adjustment Rules\n| Event | Adjustment |\n|-------|-----------|\n| Successful use | +10 |\n| Failed use | -20 |\n| Partial success | +5 |\n| Contradiction detected | -15 |\n| New supporting source | +5 per source |\n| Stale (>30 days) | -10 |\n| Very stale (>90 days) | -25 |\n| Founder confirmation | +20 |\n| CEO confirmation | +10 |\n\n---\n\n## Rule 03: Source (SRC)\n\nKnowledge MUST identify its origin.\n\n### Required Source Metadata\n```typescript\n{\n  sourceId: string,          // Unique identifier\n  sourceType: SourceType,    //"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

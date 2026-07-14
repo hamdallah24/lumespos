@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-002",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\ADR-002-governor-ssot",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "3b5ae45a4b0f36263e1313eed4f8969130ce936f211294108fddd207eb35a15c",
+    "compiled_at": "2026-07-14T07:56:39.087Z",
+    "source_hash": "f0e9c17199219a783a9ed0c71104a944cd4ae7861dc9c4573cd2b86eea39d51a",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\ADR-002-governor-ssot.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "ACCEPTED"
+  },
+  "structure": {
+    "original_id": "architecture-adr-002-governor-ssot",
+    "prefixed_id": "ARCH-002",
+    "domain": "architecture",
+    "title": "architecture\\ADR-002-governor-ssot",
+    "status": "ACCEPTED",
+    "body": "# ADR-002: Governor SSOT\n\n**Status:** ACCEPTED\n**Date:** ECP-039\n**Supersedes:** Ad-hoc policy in Runtime/LLM adapter\n\n## Context\n\nExecution policy (tools, budget, exit strategy, verification) was scattered across Runtime, LLM adapter, and ai-helpers. No single source of truth.\n\n## Decision\n\n`ExecutionGovernor` is the **single source of truth** for all execution policy.\n\nGovernor owns:\n- `planExecution()` — generates `ExecutionContract`\n- `beginExecution()` — telemetry setup\n- `observe()` — record facts, no decisions\n- `evaluate()` — STOP / CONTINUE / CONCLUDE\n- `finishExecution()` — journal + telemetry finalize\n\n## Rules\n\n1. **ONLY** `ExecutionDriver` may instantiate `ExecutionGovernor` (line 35)\n2. Runtime **MUST NOT** create Governor, set budget, choose tools, determine exit/verification\n3. Runtime **MUST** read `ExecutionContract` for all policy\n4. `ExecutionContract` is **IMMUTABLE** once created by Governor\n\n## Violations\n\n```ts\n// FORBIDDEN — Runtime must never create Governor\nnew ExecutionGovernor(...)  // ❌\n\n// FORBIDDEN — Adapter must never run lifecycle\nwhile (governor.shouldContinue()) { ... }  // ❌\n```\n\nAny `new ExecutionGovernor` or Governor lifecycle call outside `ExecutionDriver` = Architecture Compliance FAIL.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

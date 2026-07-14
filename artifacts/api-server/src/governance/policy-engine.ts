@@ -5,7 +5,7 @@
 import type { OrganizationPolicy } from "./governance-types";
 import { DEFAULT_POLICY } from "./governance-types";
 
-export class PolicyEngine {
+export class OrgPolicyEngine {
   private policy: OrganizationPolicy = { ...DEFAULT_POLICY };
 
   /** Get current policy */
@@ -69,4 +69,4 @@ export class PolicyEngine {
   }
 }
 
-export const policyEngine = new PolicyEngine();
+export const orgPolicyEngine = new OrgPolicyEngine();

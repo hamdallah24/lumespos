@@ -1,0 +1,76 @@
+{
+  "assets": {
+    "ceo-directive": {
+      "artifact": "runtime",
+      "version": "1.0.0",
+      "checksum": "28f12189b11c3855d7b000e99ed8a5bfcc901aa0ae008442b8e61365eb0e40f6",
+      "consumer": [
+        "ceo-runtime"
+      ],
+      "owner": "CEO"
+    },
+    "cto-directive": {
+      "artifact": "runtime",
+      "version": "1.1.0",
+      "checksum": "1f12e6adefbc9ae7da720eb1c1dd954206522fa7918228433690f45ed81c2da9",
+      "consumer": [
+        "cto-runtime"
+      ],
+      "owner": "CTO"
+    },
+    "coo-directive": {
+      "artifact": "runtime",
+      "version": "3.0.0",
+      "checksum": "49b12a704e020a7fd7668ddc4f1072f4c795330fb4e281306f5c9f422d75ae83",
+      "consumer": [
+        "coo-runtime"
+      ],
+      "owner": "COO"
+    },
+    "cfo-directive": {
+      "artifact": "runtime",
+      "version": "1.0.0",
+      "checksum": "45562bdea67128758c856c3a9c9f07e8d5bdabd68f9eee13176f04ee3682a9a7",
+      "consumer": [
+        "cfo-runtime"
+      ],
+      "owner": "CFO"
+    },
+    "cmo-directive": {
+      "artifact": "runtime",
+      "version": "1.0.0",
+      "checksum": "830c96e8ddeefe345dd8523b097cbb12682cecf030a06eb307ed77e400552947",
+      "consumer": [
+        "cmo-runtime"
+      ],
+      "owner": "CMO"
+    },
+    "caio-directive": {
+      "artifact": "runtime",
+      "version": "1.0.0",
+      "checksum": "31cb3a0fcdf650d56dc21976188600d5fa9c9c30a719f2d932a8c1313b625370",
+      "consumer": [
+        "caio-runtime"
+      ],
+      "owner": "CAIO"
+    },
+    "cko-directive": {
+      "artifact": "runtime",
+      "version": "1.0.0",
+      "checksum": "44eae96855edbcf549345bf619d2fd5f4f2967cddde85650c3a8ae63efb53baf",
+      "consumer": [
+        "cko-runtime"
+      ],
+      "owner": "CKO"
+    },
+    "chro-directive": {
+      "artifact": "runtime",
+      "version": "1.0.0",
+      "checksum": "3977b2af3886d080f9d4e3ec7079a7df06138e7df7e3382ce19738a95e621819",
+      "consumer": [
+        "chro-runtime"
+      ],
+      "owner": "CHRO"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-cognitive-pipeline",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\COGNITIVE_PIPELINE",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "546d2c023c8987b5d38bcc1fcd1468e87a8123f76d445d1d07e424381142aa2f",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "37dc170f1214ad4eced3b075a9f28dbf2cc99a101cd27b6918c32faffe04ae73",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\COGNITIVE_PIPELINE.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-cognitive-pipeline",
+    "content_type": "cognition",
+    "body": "# Cognitive Pipeline\n\n## Pipeline Flow\n\n```\nQuestion\n    │\n    ▼\n[1] Intent Resolution ─────────── determineProblemType() + buildIntent()\n    │                                                           │\n    ▼                                                           ▼\n[2] Thinking Mode Selection ───── selectThinkingModes(role, query, problemType)\n    │\n    ▼\n[3] Mental Model Selection ───── selectMentalModels(role, problemType, query)\n    │\n    ▼\n[4] Framework Selection ──────── selectFrameworks(role, problemType, query)\n    │\n    ▼\n[5] Reasoning Plan ───────────── buildReasoningPlan(intent, mode, models, frameworks)\n    │\n    ▼\n[6] Evidence Building ────────── buildEvidenceSet(questionId, intent, context)\n    │\n    ▼\n[7] Confidence Calculation ───── calculateConfidence(evidence, intent, plan)\n    │\n    ▼\n[8] Decision Generation ──────── generateDecision(role, question, intent, evidence, confidence, plan)\n    │\n    ▼\n[9] Recommendation ───────────── ExecutiveRecommendation\n```\n\n## Determinism\n\nEach step is deterministic given the same input. No runtime internals are\naccessed — the pipeline consumes only public contracts and cognitive context.\n\n## Step Details\n\n| Step | Input | Output | Function |\n|---|---|---|---|\n| 1 | ExecutiveQuestion | ExecutiveIntent | determineProblemType + buildIntent |\n| 2 | query, role, problemType | ThinkingModeSelection[] | selectThinkingModes |\n| 3 | role, problemType, query | MentalModelRef[] | selectMentalModels |\n| 4 | role, problemType, query | FrameworkRef[] | selectFrameworks |\n| 5 | intent, mode, models, frameworks | ReasoningPlan | buildReasoningPlan |\n| 6 | questionId, intent, context | EvidenceSet | buildEvidenceSet |\n| 7 | evidence, intent, plan | ConfidenceReport | calculateConfidence |\n| 8 | role, question, intent, evidence, confidence, plan | ExecutiveDecision | generateDecision |\n| 9 | decision | ExecutiveRecommendation | — |\n\n## Tracing\n\nEvery pipeline execution produces a `CognitiveTrace` with per-step timing,\nstatus, and output summary.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

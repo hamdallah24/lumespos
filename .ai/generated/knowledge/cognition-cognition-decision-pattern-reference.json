@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-decision-pattern-reference",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\DECISION_PATTERN_REFERENCE",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "f4a4c39542362881b67b53a4ab2a482e27020f817a66b869fb9f60baaf9572ea",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "f52e16c774d45682d27f9a241e3edf8c38084a6f8eba3a9c7ebd7f4b93497b88",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\DECISION_PATTERN_REFERENCE.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-decision-pattern-reference",
+    "content_type": "cognition",
+    "body": "# Decision Pattern Reference\n\n## Structure\n\nEvery executive decision follows this structure:\n\n```\nExecutiveDecision\n├── role: ExecutiveRole\n├── question: string\n├── chosenAlternative: DecisionAlternative\n├── alternatives: DecisionAlternative[] (2-3)\n├── reasoning: string\n├── risks: string[]\n├── confidence: ConfidenceReport\n│   ├── overall: number (0-100)\n│   ├── factors: ConfidenceFactor[]\n│   ├── missingInfo: string[]\n│   ├── contradictions: string[]\n│   └── recommendation: \"proceed\" | \"caution\" | \"defer\" | \"escalate\"\n├── evidence: EvidenceSet\n│   ├── items: EvidenceItem[]\n│   ├── coverage: number (%)\n│   └── gaps: string[]\n├── plan: ReasoningPlan\n└── timestamp: string\n```\n\n## DecisionAlternative\n\n| Field | Description |\n|---|---|\n| id | Unique identifier |\n| label | Short name (e.g. \"conservative-approach-1\") |\n| description | Natural language description |\n| pros | List of advantages |\n| cons | List of disadvantages |\n| estimatedImpact | Expected impact description |\n| risk | \"Low\" | \"Medium\" | \"High\" |\n\n## Decision Styles per Executive\n\n| Role | Style | Risk Appetite | Confidence Threshold |\n|---|---|---|---|\n| CEO | vision-driven | high | 65 |\n| CTO | analytical | moderate | 75 |\n| CFO | conservative | low | 80 |\n| CMO | creative | moderate | 70 |\n| CAIO | experimental | moderate | 70 |\n| CKO | structured | low | 80 |\n| COO | execution-focused | low | 75 |\n\n## Recommendation Logic\n\n| Confidence | Gaps | Recommendation |\n|---|---|---|\n| >= 80 | 0 | proceed |\n| >= 60 | any | caution |\n| >= 40 | > 3 | defer |\n| < 40 | any | escalate |\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

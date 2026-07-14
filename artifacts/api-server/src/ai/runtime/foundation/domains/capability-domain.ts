@@ -30,6 +30,44 @@ const CAPABILITY_MATRIX: Record<string, Record<string, CapabilityPolicy>> = {
     pricing:            { capability: "pricing",    minMaturity: "L1", requiresEvidence: true,  requiresApproval: true, description: "Adjust pricing" },
     purchasing:         { capability: "purchasing", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Manage suppliers and expenses" },
   },
+  CFO: {
+    viewReports:        { capability: "viewReports",  minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "View financial reports" },
+    manageBudget:       { capability: "manageBudget", minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Manage budget allocations" },
+    auditTransactions:  { capability: "auditTransactions", minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Audit financial transactions" },
+    generateFinanceReport: { capability: "generateFinanceReport", minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Generate financial reports" },
+    financialAnalysis:  { capability: "financialAnalysis", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Perform financial analysis" },
+  },
+  CMO: {
+    viewAnalytics:      { capability: "viewAnalytics",  minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "View marketing analytics" },
+    generateMarketingReport: { capability: "generateMarketingReport", minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Generate marketing reports" },
+    customerInsight:    { capability: "customerInsight", minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Analyze customer insights" },
+    campaignManagement: { capability: "campaignManagement", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Manage marketing campaigns" },
+    marketAnalysis:     { capability: "marketAnalysis", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Analyze market trends" },
+  },
+  CAIO: {
+    systemHealth:       { capability: "systemHealth",  minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Monitor AI system health" },
+    aiStrategy:         { capability: "aiStrategy",    minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Define AI strategy" },
+    modelEvaluation:    { capability: "modelEvaluation", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Evaluate AI models" },
+    automationDesign:   { capability: "automationDesign", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Design automation systems" },
+    knowledgeArchitecture: { capability: "knowledgeArchitecture", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Architect knowledge systems" },
+  },
+  CKO: {
+    knowledgeCuration:  { capability: "knowledgeCuration",  minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Curate knowledge assets" },
+    knowledgeValidation:{ capability: "knowledgeValidation", minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Validate knowledge quality" },
+    ontologyDesign:     { capability: "ontologyDesign", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Design knowledge ontologies" },
+    documentationManagement: { capability: "documentationManagement", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Manage documentation" },
+    knowledgeQuality:   { capability: "knowledgeQuality", minMaturity: "L1", requiresEvidence: false, requiresApproval: false, description: "Enforce knowledge quality standards" },
+  },
+  CHRO: {
+    viewPersonnel:      { capability: "viewPersonnel",  minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "View personnel records" },
+    scheduleShift:      { capability: "scheduleShift",  minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Schedule employee shifts" },
+    generateHRReport:   { capability: "generateHRReport", minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Generate HR reports" },
+  },
+  CIO: {
+    systemHealth:       { capability: "systemHealth",   minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Monitor system health" },
+    securityAudit:      { capability: "securityAudit",  minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Audit security posture" },
+    infrastructureReport: { capability: "infrastructureReport", minMaturity: "L0", requiresEvidence: false, requiresApproval: false, description: "Generate infrastructure reports" },
+  },
 };
 
 function loadFromFoundation(): void {

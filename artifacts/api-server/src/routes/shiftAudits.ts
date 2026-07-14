@@ -3,6 +3,8 @@ import { db, shiftAuditsTable, usersTable, currentInventoryTable, stockAdjustmen
 import { and, desc, eq, sql, gte, lte } from "drizzle-orm";
 import { canAccessBranch, requireAuth, requireBranchAccess, requireRole } from "../middlewares/requireAuth";
 import { listInventoryForBranch, listInventoryForShift, adjustInventory, type Executor, type ItemType } from "../services/inventory";
+import { EventPublisher } from "../event-bus";
+import { createShiftOpenedEvent, createShiftClosedEvent } from "../events";
 
 const router = Router();
 
@@ -250,6 +252,13 @@ router.post("/shift/start", requireAuth, requireBranchAccess((req) => Number(req
       })
       .returning();
 
+    EventPublisher.publish(createShiftOpenedEvent({
+      shiftId: newShift.id,
+      branchId,
+      cashierId: cashierId ?? 0,
+      openingBalance: openingBalance ?? 0,
+    }));
+
     return res.status(201).json({
       success: true,
       shift: {
@@ -393,6 +402,15 @@ router.post("/shift/end", requireAuth, async (req, res) => {
           .where(eq(shiftAuditsTable.id, shiftId));
       }
     }
+
+    EventPublisher.publish(createShiftClosedEvent({
+      shiftId: updatedShift.id,
+      branchId: shift.branchId,
+      status: updatedShift.status,
+      expectedBalance,
+      closingBalance,
+      difference,
+    }));
 
     return res.json({
       success: true,

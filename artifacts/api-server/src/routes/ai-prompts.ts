@@ -69,7 +69,7 @@ OUTPUT MINIMAL 500 KARAKTER. Output hanya daftar file path akan DITOLAK.
 - SETIAP klaim WAJIB disertai analisis WHY
 - JIKA confidence < 60%, AKUI: "Bukti belum cukup — perlu investigasi tambahan"`;
 
-export const JSON_OUTPUT_SCHEMA = `## Output Format
+export const JSON_OUTPUT_SCHEMA = `## JSON Output Format
 
 OUTPUT HANYA JSON — tanpa markdown, tanpa backtick, tanpa teks tambahan.
 
@@ -79,9 +79,32 @@ FORMAT JSON:
 MULTI ACTION: Jika >1 operasi, gunakan "actions":[].
 
 AKSI YANG BISA DIPANGGIL:
-add_stock, reduce_stock, correct_stock, loss_correction, add_ingredient, add_semi_finished, add_product, add_variant, update_price, deactivate_product, add_expense, add_recipe, produce, change_role, get_sales_summary, get_shift_audit, get_top_products, get_inventory_status, migrate_branch, general
+add_stock, reduce_stock, correct_stock, loss_correction, add_ingredient, add_semi_finished, add_product, add_variant, add_product_with_variants_and_recipe, add_recipe_by_name, update_recipe, update_price, update_variant_price, deactivate_product, add_expense, add_recipe, produce, change_role, get_sales_summary, get_shift_audit, get_top_products, get_inventory_status, migrate_branch
 
-GUNAKAN NAMA — backend yang lookup ke ID.
+GUNAKAN NAMA (bukan ID) — backend akan lookup otomatis.
+
+PARAMS YANG DIDUKUNG:
+- add_product_with_variants_and_recipe: {name, variants: [{name, price}], recipe: [{name, quantity, unit?}]}
+- add_recipe_by_name: {productName, ingredients: [{name, quantity, unit?}]}
+- update_recipe: {productName, ingredients: [{name, quantity, unit?}]} — ganti total resep
+- update_price: {productName, price}
+- update_variant_price: {productName, variantName, price}
+- deactivate_product: {productName}
+- add_variant: {productName, variantName, price}
+- add_stock: {itemName, qty, unit?, itemType?, price?} — unit otomatis dikonversi ke base unit ingredient
+- reduce_stock: {itemName, qty, unit?, itemType?}
+- correct_stock: {itemName, target, unit?, itemType?}
+- loss_correction: {itemName, qty, unit?, itemType?}
+- produce: {itemName, producedWeight} — produksi semi_finished, hitung HPP
+- add_product: {name, price}
+- add_ingredient: {name, unit?}
+- add_semi_finished: {name, unit?, yieldQuantity?, yieldUnit?}
+- add_expense: {description, amount}
+- get_sales_summary: {period?: "today"|"week"|"month"}
+- get_top_products: {limit?: number}
+- get_inventory_status: {}
+- get_shift_audit: {}
+- migrate_branch: {sourceBranchName, targetBranchName}
 Untuk action data (get_sales_summary, dll), biarkan "response" kosong.`;
 
 export const EXECUTIVE_OUTPUT_SCHEMA = `## Output Format

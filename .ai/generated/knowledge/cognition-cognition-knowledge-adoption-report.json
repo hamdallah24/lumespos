@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-knowledge-adoption-report",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\KNOWLEDGE_ADOPTION_REPORT",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "db22a111c7819d6c3c492be6a90969d440de047ea8ced7e71311634954bcff4b",
+    "compiled_at": "2026-07-14T07:56:39.076Z",
+    "source_hash": "19a6cfe2677b3f101ad8cd2eeffde24fd074f5a95b69ea383c6103bd62bc2644",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\KNOWLEDGE_ADOPTION_REPORT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-knowledge-adoption-report",
+    "content_type": "cognition",
+    "body": "# KNOWLEDGE ADOPTION REPORT — Knowledge Asset Audit\n\n## Knowledge Categories\n\n| Category | Documents | Runtime Adoption | Score |\n|---|---|---|---|\n| Knowledge | 6 docs (K1-K6) | ❌ None consumed by runtime | 0% |\n| Mental Model | 2 docs (L1, L3) + TS code | ✅ TypeScript in ECS, docs duplicated | 50% |\n| Framework | 2 docs (L2, L4) + TS code | ✅ TypeScript in ECS, docs duplicated | 50% |\n| Decision Pattern | 1 doc (R11) + TS code | ✅ TypeScript in ECS, doc as reference | 50% |\n| Capability | 1 doc (M1) + code | ❌ capability-domain.ts hardcoded (partial CEO/CTO/COO only) | 37% |\n| Communication | 1 doc (R3) | ❌ Not consumed by any runtime | 0% |\n| Playbook | 7 docs (PL1-PL7) | ❌ Human only | 0% |\n| Spec | 7 docs (S1-S7) | ❌ Not loaded by FS (info partly in config.ts) | 20% |\n| Handbook | 3 docs (H1-H3) | ❌ Human only | 0% |\n| Reference | 14 docs (R1-R14) | ❌ Human/Developer only | 0% |\n| Blueprint | 5 docs (B1-B5) | ❌ Developer only | 0% |\n\n---\n\n## Detailed Knowledge Asset Audit\n\n### K1: EXECUTIVE_KNOWLEDGE_TAXONOMY.md\n- **Status**: ❌ Orphan (no runtime consumer)\n- **Runtime adoption**: None — NOT loaded by foundation-loader, NOT referenced by knowledge-loader\n- **Gap**: Knowledge taxonomy should drive knowledge-graph domain classification\n- **Priority**: Medium\n\n### K2: KNOWLEDGE_LIFECYCLE.md\n- **Status**: ❌ Orphan\n- **Runtime adoption**: None — knowledge-lifecycle.ts exists in src/ai/runtime/knowledge/ but implements DIFFERENT logic\n- **Gap**: Lifecycle doc defines 12-stage lifecycle; knowledge-lifecycle.ts implements something else\n- **Priority**: Medium\n\n### K3: KNOWLEDGE_VALIDATION_RULES.md\n- **Status**: ❌ Orphan\n- **Runtime adoption**: None — no validation engine reads this\n- **Priority**: Low\n\n### K4: KNOWLEDGE_QUALITY_MODEL.md\n- **Status**: ❌ Orphan\n- **Runtime adoption**: None\n- **Priority**: Low\n\n### K5: KNOWLEDGE_RETRIEVAL_MODEL.md\n- **Status**: ❌ Orphan\n- **Runtime adoption**: None — knowledge-loader.ts does NOT implement 8-stage pipeline\n- **Priority**: Medium\n\n### K6: KNOWLEDGE_CLASSIFICATION.md\n- **Status**: ❌ Orphan\n- **Runtime adoption**: None — 5-dimensional classification NOT used by knowledge-graph\n- **Priority**: Low\n\n### L1/L3: MENTAL_MODEL_LIBRARY (EKS + ECS)\n- **Status**: ⚠️ Duplicate with different content\n- **Runtime adoption**: ✅ ECS TypeScript (MentalModelSelector.ts) has 20 models; EKS doc has 46 models\n- **Gap**: ECS TypeScript has FEWER models than EKS doc (20 vs 46)\n- **Priority**: High (duplicate source of truth)\n\n### L2/L4: FRAMEWORK_LIBRARY (EKS + ECS)\n- **Status**: ⚠️ Duplicate with different content\n- **Runtime adoption**: ✅ ECS TypeScript (FrameworkSelector.ts) has 27 frameworks; EKS doc has 29\n- **Gap**: ECS TypeScript has FEWER frameworks than EKS doc (27 vs 29)\n- **Priority**: High (duplicate source of truth)\n\n### M1: EXECUTIVE_CAPABILITY_MATRIX.md\n- **Status**: ⚠️ Partial adoption\n- **Runtime adoption**: capability-domain.ts has hardcoded subset (CEO 6, CTO 7, COO 4)\n- **Gap**: Only 3/7 executives covered; missing CFO, CMO, CAIO, CKO capabilities\n- **Priority**: High\n\n### R3: EXECUTIVE_COMMUNICATION_PROTOCOL.md\n- **Status**: ❌ Orphan\n- **Runtime adoption**: None — no communication protocol loader exists\n- **Priority**: Low\n\n### All 7 SPECs (S1-S7)\n- **Status**: ⚠️ Partial adoption\n- **Runtime adoption**: Some info in config.ts, but SPEC docs NOT loaded as knowledge\n- **Priority**: Low\n\n### All 7 PLAYBOOKs (PL1-PL7)\n- **Status**: ❌ Human Only — by design\n- **Runtime adoption**: Not intended for runtime\n- **Priority**: None\n\n---\n\n## Adoption Summary\n\n| Metric | Score |\n|---|---|\n| Knowledge docs adopted by runtime | 0% (0/6) |\n| Mental models adopted (unique) | 50% (20 of 46 in EKS) |\n| Frameworks adopted (unique) | 93% (27 of 29 in EKS) |\n| Capability matrix adopted | 37% (3/7 executives) |\n| Decision patterns adopted | 100% (in ECS TypeScript) |\n| Playbooks adopted | 0% (human only, by design) |\n| Specs adopted | 20% (partial via config.ts) |\n\n**Overall Knowledge Adoption: 30%**\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

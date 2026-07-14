@@ -5,11 +5,17 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startHealthMonitor } from "./ai/runtime/health-monitor";
 import { missionEngine } from "./ai/runtime/mission-background-engine";
+import { redisService } from "./lib/redis";
 
 // ECP-037: Static Runtime imports for orchestrator registration
-import { ceoRuntime } from "./ai/programs/ceo-runtime";
-import { ctoProgram } from "./ai/programs/cto-runtime";
-import { cooRuntime } from "./programs/coo-runtime";
+import { ceoRuntime } from "./executive-runtime/executives/CEO";
+import { ctoProgram } from "./executive-runtime/executives/CTO";
+import { cooRuntime } from "./executive-runtime/executives/COO";
+import { cfoRuntime } from "./executive-runtime/executives/CFO";
+import { cmoRuntime } from "./executive-runtime/executives/CMO";
+import { caioRuntime } from "./executive-runtime/executives/CAIO";
+import { ckoRuntime } from "./executive-runtime/executives/CKO";
+import { chroRuntime } from "./executive-runtime/executives/CHRO";
 
 // ── Process-level crash handlers ──
 let server: ReturnType<typeof app.listen> | null = null;
@@ -24,19 +30,26 @@ function gracefulShutdown(signal: string, error?: unknown) {
   }, 10000);
   timeout.unref();
 
+  const doExit = (code: number) => {
+    missionEngine.stop();
+    redisService.shutdown().finally(() => process.exit(code));
+  };
+
   if (server) {
-    server.close(() => {
+    server.close(async () => {
       logger.info("Server closed");
-      missionEngine.stop();
-      process.exit(error ? 1 : 0);
+      try {
+        const { shutdownEIOSRuntime } = await import("./eios-runtime");
+        await shutdownEIOSRuntime();
+      } catch { }
+      doExit(error ? 1 : 0);
     });
   } else {
-    process.exit(error ? 1 : 0);
+    doExit(error ? 1 : 0);
   }
 }
 
 process.on("unhandledRejection", (reason) => {
-  // Log as error — don't crash process, let the pipeline catch it
   logger.error({ err: reason instanceof Error ? reason : new Error(String(reason)) }, "Unhandled rejection — warning only, see pipeline error handling");
 });
 
@@ -64,194 +77,138 @@ async function boot(): Promise<void> {
   const bootStart = Date.now();
 
   try {
+    // Phase 0: Redis init
+    await redisService.init();
+
     // Phase 1: Foundation Load
     const { getFoundationProvider } = await import("./ai/runtime/foundation");
     const provider = getFoundationProvider();
     logger.info({ docs: provider.documentCount }, "Foundation loaded");
 
-    // Phase 2: Wave 0 — Activation Audit
-    const { runActivationAudit } = await import("./ai/runtime/orchestrator/activation-audit");
-    const audit = await runActivationAudit();
-    logger.info({ score: audit.structuralScore, status: audit.status }, "Activation Audit complete");
+    // Preload foundation cache into Redis
+    const { preloadFoundationCache } = await import("./ai/runtime/foundation/foundation-cache");
+    await preloadFoundationCache();
 
-    // Phase 3: Register all runtimes with Kernel + Orchestrator
+    // Phase 2: Organization Kernel (must start before EIOS)
     const { organizationKernel } = await import("./kernel");
-    const { orchestrator } = await import("./ai/runtime/orchestrator");
-
-    logger.info("Kernel registering organization...");
-
-    // ECP-037: Kernel registration (lifecycle management)
-    organizationKernel.register({
-      name: "CEO", version: "1.0.0", type: "runtime",
-      status: "registered",
-      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-    });
-    organizationKernel.register({
-      name: "CTO", version: "1.1.0", type: "runtime",
-      status: "registered",
-      health: () => ({ status: "healthy", uptime: 0, version: "1.1.0" }),
-    });
-    organizationKernel.register({
-      name: "COO", version: "1.0.0", type: "runtime",
-      status: "registered",
-      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-    });
-    organizationKernel.register({
-      name: "Consultant", version: "1.0.0", type: "runtime",
-      status: "registered",
-      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-    });
-
-    // ECP-037: Orchestrator registration (request handling — with full callback forwarding)
-    orchestrator.register({
-      name: "CEO", version: "1.0.0",
-      capabilities: ["strategy", "delegation", "executive_report"],
-      identity: { id: "ceo-v1", role: "CEO", authority: "full" },
-      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-      canHandle: () => true,
-      execute: async (ctx) => {
-        const result = await ceoRuntime.execute({
-          message: ctx.message, userId: ctx.userId,
-          onProgress: ctx.onProgress, onTool: ctx.onTool,
-          onState: ctx.onState, onExecutionEvent: ctx.onExecutionEvent,
-        });
-        return {
-          success: result.success, text: result.text, runtime: "CEO",
-          pipeline: result.pipeline || [],
-          metrics: { runtime: "CEO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: !!result.decision?.delegation, delegatedTo: result.decision?.delegation?.runtime, verificationPassed: result.success, knowledgeWritten: false },
-        };
-      },
-    });
-
-    orchestrator.register({
-      name: "CTO", version: "1.1.0",
-      capabilities: ctoProgram.capabilities,
-      identity: { id: "cto-v1", role: "CTO", authority: "limited" },
-      health: () => ({ status: "healthy", uptime: 0, version: "1.1.0" }),
-      canHandle: () => true,
-      execute: async (ctx) => {
-        const result = await ctoProgram.execute({
-          message: ctx.message, userId: ctx.userId,
-          onProgress: ctx.onProgress, onTool: ctx.onTool,
-          onExecutionEvent: ctx.onExecutionEvent,
-        });
-        // reflection field intentionally omitted from orchestrator output — see CTO Runtime internals
-        return {
-          success: result.success, text: result.text, runtime: "CTO",
-          pipeline: result.pipeline || [],
-          metrics: { runtime: "CTO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false },
-        };
-      },
-    });
-
-    orchestrator.register({
-      name: "COO", version: "1.0.0",
-      capabilities: cooRuntime.capabilities,
-      identity: { id: "coo-v1", role: "COO", authority: "limited" },
-      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-      canHandle: () => true,
-      execute: async (ctx) => {
-        const result = await cooRuntime.execute({
-          message: ctx.message, userId: ctx.userId, branchId: ctx.branchId,
-        });
-        return {
-          success: result.success, text: result.text, runtime: "COO",
-          pipeline: result.pipeline || [],
-          metrics: { runtime: "COO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false },
-        };
-      },
-    });
-
-    // CFO Runtime registration
-    const { cfoRuntime } = await import("./ai/programs/executive-runtime");
-    orchestrator.register({
-      name: "CFO", version: "1.0.0",
-      capabilities: cfoRuntime.capabilities,
-      identity: { id: "cfo-v1", role: "CFO", authority: "limited" },
-      health: () => ({ status: "healthy", uptime: 0, version: "1.0.0" }),
-      canHandle: () => true,
-      execute: async (ctx) => {
-        const result = await cfoRuntime.execute({
-          message: ctx.message, userId: ctx.userId,
-          onProgress: ctx.onProgress,
-        });
-        return {
-          success: result.success, text: result.text, runtime: "CFO",
-          pipeline: result.pipeline || [],
-          metrics: { runtime: "CFO", tokensUsed: 0, toolsCalled: 0, durationMs: 0, delegated: false, verificationPassed: result.success, knowledgeWritten: false },
-        };
-      },
-    });
-
-    // ECP-030: Consultant Runtime advisory — start background scheduler
     await organizationKernel.start();
     logger.info({ state: organizationKernel.state }, "Kernel booted");
+
+    // Phase 3: Event Schema Registry bootstrap
+    const { registerAllEventSchemas } = await import("./event-schema/bootstrap");
+    registerAllEventSchemas();
+    logger.info({ eventTypes: 14 }, "Event schema registry bootstrapped");
+
+    // Phase 4: EIOS Runtime bootstrap (initializes ALL layers — stages, observers, profiles, registries, governance)
+    const { initializeEIOSRuntime, schedulePipeline, ExecutiveDispatchRegistry } = await import("./eios-runtime");
+
+    await initializeEIOSRuntime();
+
+    ExecutiveDispatchRegistry.register({ role: "CEO", decide: ceoRuntime.decide });
+    ExecutiveDispatchRegistry.register({ role: "CTO", decide: ctoProgram.decide });
+    ExecutiveDispatchRegistry.register({ role: "CFO", decide: cfoRuntime.decide });
+    ExecutiveDispatchRegistry.register({ role: "CMO", decide: cmoRuntime.decide });
+    ExecutiveDispatchRegistry.register({ role: "CAIO", decide: caioRuntime.decide });
+    ExecutiveDispatchRegistry.register({ role: "CKO", decide: ckoRuntime.decide });
+    ExecutiveDispatchRegistry.register({ role: "CHRO", decide: chroRuntime.decide });
+    ExecutiveDispatchRegistry.register({ role: "COO", decide: cooRuntime.decide });
+
+    schedulePipeline(30000);
+    logger.info("[EIOS] Runtime v4.1.1 active — 11 stages, 6 observers, 7 profiles, 8 executives");
 
     // ECP-037 P1: Activate Knowledge Pipeline
     const { knowledgeManager } = await import("./ai/runtime/knowledge/knowledge-manager");
     knowledgeManager.start();
     logger.info("Knowledge Manager started — queue subscriber active");
 
-    // ECP-037 P1: Schedule Learning Cycle (daily)
-    const { kernelScheduler } = await import("./kernel/kernel-scheduler");
-    kernelScheduler.schedule("learning-cycle", 86400000, async () => {
-      try {
-        const { learningEngine } = await import("./ai/runtime/learning/learning-engine");
-        const result = learningEngine.cycle();
-        logger.info({ decisions: result.decisionsAnalyzed, patterns: result.patternsDetected }, "Learning cycle complete");
-      } catch (e) { logger.warn({ err: e }, "Learning cycle error — non-critical"); }
+    // T5.1.3: Initialize Knowledge Platform (once)
+    const { initializeKnowledgePlatform } = await import("./knowledge-platform");
+    initializeKnowledgePlatform();
+    logger.info("Knowledge Platform initialized — Learning Engine listener active");
+
+    // T5.3A: Register all learning engines in the integration registry
+    const { registerAllEngines, IntegrationManager } = await import("./learning-integration");
+    registerAllEngines();
+    logger.info(`Learning Integration Layer active — ${IntegrationManager.discover().length} engines registered`);
+
+    // T5.5A: Activate Learning Telemetry (instrumentation layer, non-intrusive)
+    const { activateLearningTelemetry } = await import("./learning-effectiveness");
+    activateLearningTelemetry();
+    logger.info("Learning Telemetry active — all learning interactions instrumented");
+
+    const { safeSchedule } = await import("./kernel/scheduler-safety");
+
+    // T5.1.1: Schedule Org Learning Cycle (daily) — processes pending queue items
+    safeSchedule("learning-cycle", 86400000, async () => {
+      const { learningEngine } = await import("./learning/learning-engine");
+      const result = learningEngine.autoCycle();
+      logger.info({ decisionsAnalyzed: result.decisionsAnalyzed, patternsDetected: result.patternsDetected }, "Learning cycle complete");
     });
-    logger.info("Learning cycle scheduled — daily at boot time + 24h");
+    logger.info("Learning cycle auto-scheduled — daily");
+
+    // T5.1.2: Schedule Memory Engine Maintenance (6-hourly)
+    safeSchedule("memory-maintenance", 21600000, async () => {
+      const { memoryEngine } = await import("./executive-runtime/memory-provider");
+      const result = memoryEngine.runMaintenanceCycle();
+      logger.info({ promoted: result.promoted.promoted.length, consolidated: result.consolidated.consolidated.length, forgotten: result.forgotten.forgotten.length }, "Memory maintenance complete");
+    });
+    logger.info("Memory maintenance scheduled — every 6h");
+
+    // T5.1.4: Schedule Knowledge Platform Maintenance (hourly) — runs processOutcome + runMaintenance
+    safeSchedule("kp-maintenance", 3600000, async () => {
+      const { KnowledgeProvider } = await import("./knowledge-platform/providers");
+      const outcomesProcessed = KnowledgeProvider.processEpisodeOutcomes();
+      const maintenance = KnowledgeProvider.runMaintenance();
+      logger.info({ outcomesProcessed, promoted: maintenance.promoted.length, deprecated: maintenance.deprecated.length, archived: maintenance.archived.length }, "Knowledge Platform maintenance complete");
+    });
+    logger.info("Knowledge Platform maintenance scheduled — hourly");
+
+    // T5.3.5: Schedule Cross-Engine Synchronization (every 6 hours)
+    safeSchedule("cross-engine-sync", 21600000, async () => {
+      const { UnifiedLearningLayer } = await import("./learning/unified-learning-layer");
+      const syncResult = UnifiedLearningLayer.synchronize();
+      if (syncResult.synced > 0) {
+        logger.info({ synced: syncResult.synced, details: syncResult.details }, "Cross-engine sync complete");
+      }
+      // T5.3A: IntegrationManager maintenance across all registered engines
+      try {
+        const { IntegrationManager } = await import("./learning-integration");
+        const maintenanceResults = IntegrationManager.runMaintenance();
+        for (const r of maintenanceResults) {
+          if (r.actions > 0) logger.info({ engine: r.engine, actions: r.actions, details: r.details }, "Integration maintenance");
+        }
+        const healthStatuses = IntegrationManager.health();
+        logger.info({ engines: healthStatuses.map(h => `${h.engine}=${h.status}`).join(", ") }, "Integration engine health");
+      } catch { /* non-critical */ }
+      // Unified retrieval health check
+      const unifiedEvidence = UnifiedLearningLayer.retrieve({ mission: "health-check", maxResults: 5 });
+      logger.info({ sources: [...new Set(unifiedEvidence.map(e => e.source))], total: unifiedEvidence.length }, "Unified retrieval health check");
+    });
+    logger.info("Cross-engine synchronization scheduled — every 6h");
+
+    // T5.1.6: Schedule Knowledge Queue Pruning (hourly)
+    safeSchedule("knowledge-queue-prune", 3600000, async () => {
+      const { knowledgeQueue } = await import("./learning/knowledge-queue");
+      const pruned = knowledgeQueue.prune();
+      if (pruned > 0) logger.info({ pruned }, "Knowledge queue pruned");
+    });
+    logger.info("Knowledge queue pruning scheduled — hourly");
 
     // ECP-037 P1: Subscribe Telemetry to event bus
     const { eventBus } = await import("./ai/runtime/observability/event-bus");
-    eventBus.subscribe("trace_started", (event) => {
+    eventBus.subscribe("trace_started", (event: any) => {
       logger.info({ traceId: event.payload }, "Telemetry: trace started");
     });
-    eventBus.subscribe("trace_completed", (event) => {
+    eventBus.subscribe("trace_completed", (event: any) => {
       logger.info({ traceId: event.payload }, "Telemetry: trace completed");
     });
-    eventBus.subscribe("decision_made", (event) => {
+    eventBus.subscribe("decision_made", (event: any) => {
       logger.info({ decision: event.payload }, "Telemetry: decision recorded");
     });
     logger.info("Telemetry subscribers active");
 
-    // Phase 5: Wave 8 — Integrity Check
-    const { checkIntegrity } = await import("./ai/runtime/orchestrator/integrity-check");
-    const integrity = await checkIntegrity();
-
-    // Phase 6: Boot Report
-    const { createBootReport, formatBootReport } = await import("./ai/runtime/orchestrator/boot-report");
-    const report = createBootReport({
-      mode: audit.status === "emergency" ? "EMERGENCY" : integrity.runtimeScore < 80 ? "DEGRADED" : "NORMAL",
-      structuralScore: integrity.structuralScore,
-      runtimeScore: integrity.runtimeScore,
-      runtimeStatus: integrity.runtimeStatus,
-      components: {
-        Foundation: audit.components["Foundation"] === "PRESENT" ? "READY" : "OFFLINE",
-        Kernel: "READY",
-        Registry: organizationKernel.isReady() ? "READY" : "DEGRADED",
-        Knowledge: audit.components["Knowledge"] === "PRESENT" ? "READY" : "OFFLINE",
-        Mission: audit.components["Mission Authority"] === "PRESENT" ? "READY" : "OFFLINE",
-        Council: audit.components["Council"] === "PRESENT" ? "READY" : "OFFLINE",
-        Learning: audit.components["Learning"] === "PRESENT" ? "READY" : "OFFLINE",
-        Telemetry: audit.components["Telemetry"] === "PRESENT" ? "READY" : "OFFLINE",
-        Consultant: audit.components["Consultant"] === "PRESENT" ? "READY" : "OFFLINE",
-      },
-      bootTimeMs: Date.now() - bootStart,
-    });
-
-    console.log(formatBootReport(report));
-    logger.info({ structuralScore: integrity.structuralScore, runtimeScore: integrity.runtimeScore }, "Boot Report generated");
-
   } catch (err) {
-    logger.error({ err }, "Kernel boot failed — emergency mode");
-    console.log("Engineering OS Boot Report");
-    console.log("Boot Mode       EMERGENCY");
-    console.log("CEO             READY");
-    console.log("Gateway         READY");
-    console.log("Kernel          FAILED");
-    console.log("Boot Time       " + (Date.now() - bootStart) + " ms");
+    logger.error({ err }, "Kernel boot failed");
   }
 }
 

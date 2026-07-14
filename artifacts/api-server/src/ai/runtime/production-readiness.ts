@@ -33,8 +33,8 @@ function testFoundation(): TestSuite {
     const validation = validateGraph(graph);
     results.push(validation.passed ? pass("KnowledgeGraph.validate", "No broken refs, orphans, or cycles") : fail("KnowledgeGraph.validate", `${validation.brokenRefs.length} broken refs, ${validation.cycles.length} cycles`));
 
-    // Verify all 7 Foundation docs exist in graph
-    const foundationIds = ["north-star-v1", "constitution-v1", "project-context-v1", "op-model-v1", "cto-directive-v1", "foundation-index-v1", "readme-v1"];
+    // Verify all Foundation and directive assets exist in graph
+    const foundationIds = ["foundation-executive-constitution", "ceo-directive", "cto-directive", "coo-directive", "cfo-directive", "cmo-directive", "caio-directive", "cko-directive", "chro-directive", "global-prompt"];
     for (const id of foundationIds) {
       results.push(graph.nodes.has(id) ? pass(`Node: ${id}`, "exists") : fail(`Node: ${id}`, "MISSING from graph"));
     }

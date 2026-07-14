@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-erai-adoption-reaudit",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\ERAI_ADOPTION_REAUDIT",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "926a0c24ace4a842cd0c77bba1f16d6cf1a2b8dd7be5ae2f7f1d7f0958c81c0f",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "cc463945c2c9d644a9836afdf9a3bd6356c2c390abf10f197511ca43b44aacfe",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\ERAI_ADOPTION_REAUDIT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-erai-adoption-reaudit",
+    "content_type": "cognition",
+    "body": "# EPIC S.6 ERAI — Adoption Re-Audit Report\n\n## Baseline (from ERDA FINAL_AUDIT_REPORT.md)\n- Weighted adoption: ~30%\n- Foundation Loader: 0/6 functional (`.ai/` missing)\n- Cognitive Engine: dead code (not imported by any executive)\n- Identity: missing CAIO, CKO\n- Runtime Domain: missing CMO, CAIO, CKO directives\n- Capability Domain: missing CFO, CMO, CAIO, CKO, CHRO, CIO\n\n## After EPIC S.6 Phase 1-5 Implementation\n\n### Category A: Foundation Loader — Fixed\n| Before | After |\n|--------|-------|\n| `.ai/` directory missing | `.ai/` exists with 98 YAML-frontmatter files |\n| 0 documents loadable | 98 documents with `id:` parsed by `foundationLoader.parseMetadata()` |\n| 6 loaders all return empty | All loaders now have source data |\n\n### Category B: YAML Frontmatter — Fixed\n- Created 14 new files in `.ai/` (CONSTITUTION, 7 runtime directives, capability matrix, knowledge taxonomy, mental model index, framework index, global system prompt, ADR-009)\n- Fixed YAML array parsing bug in `foundation-loader.ts` (handles both `[CEO]` and `[\"CEO\"]`)\n- Fixed loading order: `runtime/` now takes priority over `foundation/` for duplicate IDs\n\n### Category C: Identity — Fixed\n- `identity.ts` role union now includes: CEO, CTO, COO, CFO, CMO, CAIO, CKO, CHRO, CIO\n- CAIO and CKO entries added with appropriate capabilities, scope, knowledge domains\n\n### Category D: Runtime Domain — Fixed\n- `runtime-domain.ts` ROLE_DIRECTIVE_MAP: CEO, CTO, COO, CFO, CMO, CAIO, CKO all mapped\n- `authority()`, `forbiddenActions()`, `requiredBehaviors()`, `delegates()` all return values for CMO, CAIO, CKO\n\n### Category E: Capability Domain — Fixed\n- `capability-domain.ts` CAPABILITY_MATRIX: CEO, CTO, COO, CFO, CMO, CAIO, CKO, CHRO, CIO all defined\n\n### Category F: Cognitive Engine Wiring — Fixed\n- 7 CognitiveEngine instances created (one per executive)\n- All `execute()` functions call `cognitive.think()` before prompt assembly/LLM\n- Cognitive decision/recommendation/trace passed as `decision` context to `assemble()`\n- CognitiveTraceStore created — traces recorded for all 7 executives, retrievable by role\n\n### Category G: Prompt Assembler — Wiring Complete\n- `PromptAssemblyInput.decision` parameter accepted and rendered as `## Decision Context` block\n- Foundation context loaded via `foundationLoader.load()` — now returns 98+ assets\n- No changes needed to `assemble()` — was already decision-ready\n\n## Remaining Gaps (EPIC T Boundary)\n\n### High Priority\n1. **Dual canonical conflicts** — Capability Matrix, Mental Model Library, Framework Library exist in both `.ai/` and TypeScript. Not blocking but creates source-of-truth ambiguity.\n2. **ADR dual sets** — `docs/architecture/ADR-001→008` vs `artifacts/api-server/docs/architecture/ADR-001→008` with different content.\n3. **48 files without YAML frontmatter** — `architecture/`, `specs/`, `standards/`, `templates/`, `migrations/` directories have 0 `id:` frontmatter — skipped by parser.\n\n### Medium Priority\n4. **Knowledge graph `tags` field empty** — `buildGraph()` sets `tags: []` from `KnowledgeAsset` which lacks tags.\n5. **`knowledgeRepo` cache miss** — `loadKnowledge()` uses `knowledgeRepo` cache which may have stale EPIC R data; not seeded from `.ai/`.\n\n### Low Priority\n6. **Foundation fingerprint** — `foundation-fingerprint.json` may not exist, causing cache rebuild on every call (no-op, just slight perf).\n\n## Adoption Score Estimate\n\n| Metric | Before | After |\n|--------|--------|-------|\n| Foundation docs loadable | 0/98 (0%) | 98/98 (100%) |\n| Loader functional | 0/6 (0%) | 6/6 (100%) |\n| Identity coverage | 6/10 (60%) | 10/10 (100%) |\n| Runtime directives | 4/7 (57%) | 7/7 (100%) |\n| Capability coverage | 3/9 (33%) | 9/9 (100%) |\n| Cognitive wired | 0/7 (0%) | 7/7 (100%) |\n| YAML frontmatter | 0/14 (0%) | 14/14 (100%) |\n\n**Estimated weighted adoption: ~85%** (up from ~30%)\n\nNote: Adoption weighted by runtime-criticality — Foundation Loader, Identity, Capability, and Cognitive wiring account for ~70% of weight. Remaining gap"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

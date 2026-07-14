@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-executive-entry-verification",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\EXECUTIVE_ENTRY_VERIFICATION",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "5fe7dcd3948a7deca2b3ce98cb0003bbaae3f53d58d39e023f68eb31e66b342b",
+    "compiled_at": "2026-07-14T07:56:39.080Z",
+    "source_hash": "4ed03b80a4608773d071b7868e2e200e00f7f247bd44a3db404d440431d5176d",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\EXECUTIVE_ENTRY_VERIFICATION.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-executive-entry-verification",
+    "content_type": "cognition",
+    "body": "# EXECUTIVE_ENTRY_VERIFICATION.md\n## EPIC S.7 Phase 1 — Runtime Entry Verification\n\n### Entry Point Architecture\n\n```\nApplication (HTTP)\n    │\n    ▼\nroutes/ai.ts\n    │\n    ▼\napplicationRuntime.executeMessage()\n    │\n    ▼\napplication-runtime-adapter.ts\n    │\n    ├── ceoRuntime.execute()\n    ├── ctoProgram.execute()\n    ├── cooRuntime.execute()\n    ├── cfoRuntime.execute()\n    ├── cmoRuntime.execute()\n    ├── caioRuntime.execute()\n    └── ckoRuntime.execute()\n```\n\n### Pipeline Entry Point (Decide)\n\n```\nPipelineScheduler → PipelineEngine → stages/executive_runtime\n    │\n    ▼\nExecutiveDispatchRegistry.dispatch(role, brief, context)\n    │\n    ▼\nExecutiveHandler.decide() for:\n    ├── CEO\n    ├── CTO\n    ├── CFO\n    ├── CMO\n    ├── CAIO\n    ├── CKO\n    └── COO\n```\n\n### Verification Results\n\n| Executive | Entry via ExecDispatchRegistry | Entry via ApplicationRuntime | Bypass Found |\n|-----------|-------------------------------|------------------------------|--------------|\n| CEO | ✅ `register({role:\"CEO\", decide:ceoRuntime.decide})` at `src/index.ts:106` | ✅ `ceoRuntime.execute()` in `application-runtime-adapter.ts:56` | NONE |\n| CTO | ✅ `register({role:\"CTO\", decide:ctoProgram.decide})` at `src/index.ts:107` | ✅ `ctoProgram.execute()` in `application-runtime-adapter.ts:69` | NONE |\n| COO | ✅ `register({role:\"COO\", decide:cooRuntime.decide})` at `src/index.ts:112` | ✅ `cooRuntime.execute()` in `application-runtime-adapter.ts:82` | NONE |\n| CFO | ✅ `register({role:\"CFO\", decide:cfoRuntime.decide})` at `src/index.ts:108` | ✅ `cfoRuntime.execute()` in `application-runtime-adapter.ts:93` | NONE |\n| CMO | ✅ `register({role:\"CMO\", decide:cmoRuntime.decide})` at `src/index.ts:109` | ✅ `cmoRuntime.execute()` in `application-runtime-adapter.ts:104` | NONE |\n| CAIO | ✅ `register({role:\"CAIO\", decide:caioRuntime.decide})` at `src/index.ts:110` | ✅ `caioRuntime.execute()` in `application-runtime-adapter.ts:115` | NONE |\n| CKO | ✅ `register({role:\"CKO\", decide:ckoRuntime.decide})` at `src/index.ts:111` | ✅ `ckoRuntime.execute()` in `application-runtime-adapter.ts:126` | NONE |\n\n### Cross-Executive Dispatch (CTO → CEO approval)\n\n```\nCTOProgram.ts:294-302\n    │\n    ▼\nExecutiveDispatchRegistry.dispatch(\"CEO\", brief, context)\n    │\n    ▼\nCEO.decide()  ← registered at boot\n```\n\nVerified: `CTOProgram.ts` imports `ExecutiveDispatchRegistry` and uses `.dispatch()` for plan approval routing.\n\n### Dual-Entry Design (Intentional)\n\nThe system has TWO intentional entry paths:\n\n1. **Full Execution** (routes/ai.ts → applicationRuntime.executeMessage → execute()):\n   - Used for user-facing LLM conversations\n   - Carries identity, directive, foundation, knowledge, cognitive, prompt, LLM\n   - Produces text response with pipeline trace\n\n2. **Pipeline Decision** (PipelineScheduler → ExecutiveDispatchRegistry.dispatch → decide()):\n   - Used for periodic/scheduled pipeline runs\n   - Lightweight — brief + context → decision\n   - No LLM invocation\n\nBoth paths converge at the executive level. No bypass of the frozen Runtime Core exists.\n\n### Runtime Core Frozen Components — Bypass Check\n\n| Component | Status | Evidence |\n|-----------|--------|----------|\n| RuntimeFacade | FROZEN — not modified | No imports in any executive |\n| PipelineEngine | FROZEN — not modified | No direct calls from executives |\n| RegistryLifecycle | FROZEN — not modified | No imports in any executive |\n| MetricsEngine | FROZEN — not modified | No write access from executives |\n| TraceManager | FROZEN — not modified | No write access from executives |\n| ExecutiveDispatchRegistry | VERIFIED — used only via `.dispatch()` and `.register()` | No internal access |\n\n### Conclusion\n\n**PASS** ✅ — All 100% of executive requests route through verified entry points. No bypass of frozen Runtime Core detected.\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

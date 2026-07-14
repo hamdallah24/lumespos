@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-adoption-roadmap",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\ADOPTION_ROADMAP",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "f468e8481ea215a7d2c91dec453b03342d3e3dcb2c7ff669f742efaaf1b4d72a",
+    "compiled_at": "2026-07-14T07:56:39.082Z",
+    "source_hash": "1b68ef0df66ec964bc96d27bde9381832199efcb015783d931474542b756438b",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\ADOPTION_ROADMAP.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-adoption-roadmap",
+    "content_type": "cognition",
+    "body": "# ADOPTION ROADMAP — Closing the gap between documentation and runtime\n\n## Phase 1: Foundation (Week 1) — P0 Critical\n\n| Step | Action | Effort | Dependencies | Owner |\n|---|---|---|---|---|\n| 1.1 | Create `.ai/` directory structure: `foundation/`, `runtime/`, `adr/` | 2h | — | EROS |\n| 1.2 | Add YAML frontmatter to GLOBAL_SYSTEM_PROMPT.md with `id: global-system-prompt-v1` | 1h | 1.1 | Prompt |\n| 1.3 | Add YAML frontmatter to all 7 executive SYSTEM_PROMPT.md files | 3h | 1.1 | Prompt |\n| 1.4 | Add YAML frontmatter to EXECUTIVE_CONSTITUTION.md | 1h | 1.1 | EROS |\n| 1.5 | Add YAML frontmatter to EXECUTIVE_CAPABILITY_MATRIX.md | 1h | 1.1 | EROS |\n| 1.6 | Copy or symlink relevant docs into `.ai/` directories | 2h | 1.2-1.5 | EROS |\n| 1.7 | Wire CognitiveEngine into executive-runtime/index.ts | 2h | — | ECS |\n| 1.8 | Add `cognition/` export to executive-runtime/index.ts | 1h | 1.7 | ECS |\n| **Phase 1 Total** | | **13h** | | |\n\n### Verification\n- `foundationLoader.load()` returns > 5 assets\n- `knowledgeGraph.build().stats.totalNodes > 0`\n- `promptAssembler.assemble()` includes Foundation Context with content\n\n---\n\n## Phase 2: Identity & Directives (Week 2) — P1 High\n\n| Step | Action | Effort | Dependencies | Owner |\n|---|---|---|---|---|\n| 2.1 | Add CAIO identity to identity.ts | 0.5h | — | Runtime |\n| 2.2 | Add CKO identity to identity.ts | 0.5h | — | Runtime |\n| 2.3 | Add CMO, CAIO, CKO to runtime-domain.ts ROLE_DIRECTIVE_MAP | 1h | — | Runtime |\n| 2.4 | Add authority/forbidden/required/delegate for CMO, CAIO, CKO | 2h | 2.3 | Runtime |\n| 2.5 | Add capabilities for CFO, CMO, CAIO, CKO, CHRO, CIO to capability-domain.ts | 2h | — | Runtime |\n\n**Phase 2 Total** | | **6h** | | |\n\n### Verification\n- `getIdentity(\"CAIO\")` returns valid identity\n- `getIdentity(\"CKO\")` returns valid identity\n- `runtimeDomain.directive(\"CMO\")` returns non-null\n- `capabilityDomain.getForRole(\"CFO\").length > 0`\n\n---\n\n## Phase 3: Knowledge Adoption (Weeks 3-4) — P1+P2 Medium\n\n| Step | Action | Effort | Dependencies | Owner |\n|---|---|---|---|---|\n| 3.1 | Reconcile Mental Model Library (add missing 26 models to ECS TypeScript) | 4h | — | ECS |\n| 3.2 | Reconcile Framework Library (add missing 2 frameworks to ECS TypeScript) | 1h | — | ECS |\n| 3.3 | Rename ADR Set A → WADR-001 through WADR-008 | 1h | — | EIOS |\n| 3.4 | Map knowledge-graph domains to taxonomy branches | 3h | 1.1 | EKS |\n| 3.5 | Align knowledge-lifecycle.ts with KNOWLEDGE_LIFECYCLE.md | 4h | — | EKS |\n| 3.6 | Implement retrieval pipeline from KNOWLEDGE_RETRIEVAL_MODEL.md | 8h | 3.4 | EKS |\n| 3.7 | Add YAML frontmatter to relevant knowledge docs | 2h | 1.1 | EKS |\n\n**Phase 3 Total** | | **23h** | | |\n\n### Verification\n- `getAllMentalModels().length === 46`\n- `getAllFrameworks().length === 29`\n- No ADR number collisions\n- `knowledgeGraph.build()` nodes classified by taxonomy\n\n---\n\n## Phase 4: Cognitive Integration (Week 5) — P2+P3\n\n| Step | Action | Effort | Dependencies | Owner |\n|---|---|---|---|---|\n| 4.1 | Integrate CognitiveEngine into CEOProgram.ts | 4h | 1.7, 1.8 | ECS |\n| 4.2 | Integrate CognitiveEngine into CTOProgram.ts | 4h | 4.1 | ECS |\n| 4.3 | Integrate into remaining 5 executive programs | 10h | 4.1 | ECS |\n| 4.4 | Wire EvidenceBuilder to Knowledge Loader | 4h | 3.6 | ECS |\n| 4.5 | Make ConfidenceEngine weights configurable per profile | 2h | — | ECS |\n| 4.6 | Create Communication Governor for protocol enforcement | 8h | — | EROS |\n\n**Phase 4 Total** | | **32h** | | |\n\n### Verification\n- `CognitiveEngine.think({role: \"CTO\", query: \"...\"})` called during executive execution\n- Evidence sets contain real knowledge data\n- Confidence weights differ per executive\n\n---\n\n## Roadmap Summary\n\n| Phase | Focus | Duration | Effort | Gaps Closed | Impact |\n|---|---|---|---|---|---|\n| 1 | Foundation Loader + Cognitive Wiring | Week 1 | 13h | 3 critical | Enables knowledge flow |\n| 2 | Identity & Directives | Week 2 | 6h | 3 high | Full executive coverage |\n| 3 | Knowledge Adoption | Weeks 3-4 | 23h "
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

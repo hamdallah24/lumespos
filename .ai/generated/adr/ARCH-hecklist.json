@@ -1,0 +1,33 @@
+{
+  "asset_type": "adr",
+  "id": "ARCH-hecklist",
+  "canonical": true,
+  "metadata": {
+    "title": "architecture\\audit-checklist",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "4a8eb987e99f66ad5b076e4fc07ff8ba03d99e3d357e271e3cf68edfa50fb735",
+    "compiled_at": "2026-07-14T07:56:39.086Z",
+    "source_hash": "5d3515815043a0a5b398084b6c34d0953c4a5f43c3277b153bcb868a2de5d4de",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\architecture\\audit-checklist.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "governing",
+    "status": "unknown"
+  },
+  "structure": {
+    "original_id": "architecture-audit-checklist",
+    "prefixed_id": "ARCH-hecklist",
+    "domain": "architecture",
+    "title": "architecture\\audit-checklist",
+    "status": "unknown",
+    "body": "# Architecture Audit Checklist — Lumé CMN v1.0\n\nRun this checklist before every merge that touches architecture layers.\n\n---\n\n## P0 — Blocking (Must Pass)\n\n### 1. Governor SSOT\n```bash\n# Must return exactly 1 result (execution-driver.ts:35)\nrg \"new ExecutionGovernor\" src/\n```\n\n- [ ] Only `execution-driver.ts` instantiates `ExecutionGovernor`\n- [ ] Governor lifecycle methods (`beforeCycle`, `afterCycle`, `shouldContinue`) only in execution layer\n\n### 2. Runtime Purity\n- [ ] No Runtime creates Governor\n- [ ] No Runtime sets budget/exit/verification policy\n- [ ] All Runtimes accept `ExecutionContract` parameter\n- [ ] Runtime → Gateway → Adapter chain preserved (no direct Adapter imports)\n\n### 3. No Reverse Dependencies\n```bash\n# Must return 0 results for DB function imports\nrg \"from.*routes/ai-helpers\" src/ai/ | grep -E \"remember|getHistory|getOrCreateConversation|clearMemory\"\n```\n\n- [ ] `src/ai/` does not import DB functions from `src/routes/`\n- [ ] Lower layer does not import from upper layer\n\n### 4. No Circular Dependencies\n- [ ] No file imports from a file that directly/transitively imports back\n- [ ] Benign cycles (lazy imports in function bodies) are documented\n\n### 5. Layer Separation\n- [ ] Governance → Collective → Learning → Organization → Execution → LLM → Tools (one direction)\n- [ ] No layer imports from a layer above it\n\n### 6. Public Interface Stable\n- [ ] `ExecutionPipeline.execute()` — signature unchanged\n- [ ] `ExecutionDriver.run()` — signature unchanged\n- [ ] `callDeepSeek()` — signature unchanged\n- [ ] `callDeepSeekWithTools()` — signature unchanged\n- [ ] `callLLMWithTools()` — signature unchanged\n- [ ] `executeToolCall()` — signature unchanged\n\n---\n\n## P1 — Cleanup (Should Pass)\n\n### 7. No Dead Imports\n```bash\npnpm --filter ./artifacts/api-server run typecheck\n```\n\n- [ ] TypeScript compilation passes (pre-existing errors only)\n- [ ] No unused imports in any file\n\n### 8. No Dead Exports\n- [ ] Every export is used by at least one consumer\n- [ ] Compatibility exports are documented in `compatibility.md`\n\n### 9. No Magic Numbers\n- [ ] All thresholds from `policy-engine.ts` or `execution-policy.ts`\n- [ ] No hardcoded `maxTokens=2000`, `confidence>85`, etc.\n\n---\n\n## P2 — Documentation (Should Pass)\n\n### 10. ADR Updated\n- [ ] Any architecture change has a corresponding ADR\n- [ ] ADR status is ACCEPTED, not DRAFT\n\n### 11. Module Registry Updated\n- [ ] New modules registered in `module-registry.md`\n- [ ] Future modules registered in `future-modules.md`\n\n### 12. Foundation Integrity\n- [ ] Foundation modules unchanged (execution-governor, execution-driver, execution-pipeline, llm-adapter, tool-adapter)\n- [ ] If changed, corresponding ADR exists\n\n---\n\n## Quick Verification Script\n\n```bash\n#!/bin/bash\necho \"=== Governor SSOT ===\"\nrg \"new ExecutionGovernor\" src/ | grep -v execution-driver && echo \"FAIL\" || echo \"PASS\"\n\necho \"=== Reverse Deps ===\"\nrg \"from.*routes/ai-helpers\" src/ai/ | grep -E \"remember|getHistory\" && echo \"FAIL\" || echo \"PASS\"\n\necho \"=== TypeScript ===\"\npnpm --filter ./artifacts/api-server run typecheck 2>&1 | grep \"error TS\" | grep -v \"requireAuth\\|auth\\.ts\" && echo \"FAIL (new errors)\" || echo \"PASS\"\n\necho \"=== Layer Separation ===\"\nrg \"from.*governance\" src/ai/runtime/execution/ && echo \"FAIL\" || echo \"PASS\"\nrg \"from.*governance\" src/learning/ && echo \"FAIL\" || echo \"PASS\"\n\necho \"=== Done ===\"\n```\n"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

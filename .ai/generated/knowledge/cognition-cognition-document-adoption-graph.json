@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-document-adoption-graph",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\DOCUMENT_ADOPTION_GRAPH",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "92fb987c974a867d4cfb59c41e761129d35e3739b657d7bb54d79186c0e48390",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "f2f243c66f6a04f06aae9743be22f1ee00a66402a01d70b13e6e40d539c842a9",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\DOCUMENT_ADOPTION_GRAPH.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-document-adoption-graph",
+    "content_type": "cognition",
+    "body": "# DOCUMENT ADOPTION GRAPH — Runtime Document Flow\n\n## Current Runtime Adoption Chain\n\n```\nUser Question\n    │\n    ▼\n[identity.ts] ───────────────────────────── IDENTITIES hardcoded\n    │\n    ▼\n[foundation-loader.ts] ─── reads .ai/* (DOES NOT EXIST on disk)\n    │   └── expects: CONSTITUTION.md, PROJECT_CONTEXT.md, foundation/, runtime/, adr/\n    │   └── GLOBAL_SYSTEM_PROMPT.md? NO  ← NOT loaded\n    │   └── Executive SYSTEM_PROMPT.md? NO  ← NOT loaded\n    │   └── Knowledge docs? NO  ← NOT loaded\n    │   └── Cognitive docs? NO  ← NOT loaded\n    │\n    ▼\n[knowledge-graph.ts] ─── builds graph from foundation-loader assets\n    │   └── Creates KnowledgeNode[] from .ai/ YAML metadata\n    │   └── Does NOT read any docs/*.md directly\n    │\n    ▼\n[knowledge-loader.ts] ─── filters + caches KnowledgeNode[]\n    │   └── Strategy-based loading (always/conditional/on-demand)\n    │\n    ▼\n[prompt-assembler.ts] ─── assembles LLM prompt\n    │   ├── BLOCK 1: Identity → from identity.ts (hardcoded)\n    │   ├── BLOCK 2: Foundation Context → from foundation-loader (.ai/)\n    │   ├── BLOCK 3: Mission → from mission-engine\n    │   ├── BLOCK 4: Decision Context → from context\n    │   ├── BLOCK 5: Output Schema → from schema\n    │   ├── BLOCK 5.5: Executive Results → from context\n    │   ├── BLOCK 6: Tool Rules → from tool rules\n    │   └── BLOCK 7: Footer → stream/error policies\n    │\n    ▼\n[runtime-domain.ts] ─── role directives\n    │   ├── CEO → \"ceo-directive-v1\" ← expects .ai/ YAML doc\n    │   ├── CTO → \"cto-directive-v1\" ← expects .ai/ YAML doc\n    │   ├── COO → \"coo-directive-v1\" ← expects .ai/ YAML doc\n    │   ├── CFO → \"cfo-directive-v1\" ← expects .ai/ YAML doc\n    │   ├── CMO → MISSING\n    │   ├── CAIO → MISSING\n    │   └── CKO → MISSING\n    │\n    ▼\n[capability-domain.ts] ─── capability matrices\n    │   ├── CEO → hardcoded (6 capabilities)\n    │   ├── CTO → hardcoded (7 capabilities)\n    │   ├── COO → hardcoded (4 capabilities)\n    │   ├── CFO → MISSING\n    │   ├── CMO → MISSING\n    │   ├── CAIO → MISSING\n    │   ├── CKO → MISSING\n    │   ├── CHRO → MISSING\n    │   └── CIO → MISSING\n    │\n    ▼\n[CognitiveEngine.ts] ─── NEW, NOT WIRED\n    │   └── src/executive-runtime/cognition/ BUT NOT IMPORTED by runtime\n    │\n    ▼\n[Executive Programs] ─── CEOProgram, CTOProgram, COOProgram, etc.\n    └── Each uses: identity.ts, foundation-loader, prompt-assembler, etc.\n    └── None imports CognitiveEngine\n    └── None imports ThinkingMode, MentalModelSelector, FrameworkSelector\n```\n\n## Documents That Appear in the Graph\n\n| Document | Appears in Graph? | How? |\n|---|---|---|\n| GLOBAL_SYSTEM_PROMPT.md | ❌ | Never loaded by foundation-loader (no YAML, not in .ai/) |\n| SYSTEM_PROMPT_CEO.md, etc. | ❌ | Never loaded by foundation-loader |\n| EXECUTIVE_CONSTITUTION.md | ❌ | Never loaded by foundation-loader |\n| EXECUTIVE_CAPABILITY_MATRIX.md | ❌ | capability-domain.ts hardcodes instead |\n| EXECUTIVE_KNOWLEDGE_TAXONOMY.md | ❌ | Never loaded by runtime |\n| KNOWLEDGE_LIFECYCLE.md | ❌ | Never loaded by runtime |\n| KNOWLEDGE_VALIDATION_RULES.md | ❌ | Never loaded by runtime |\n| KNOWLEDGE_QUALITY_MODEL.md | ❌ | Never loaded by runtime |\n| KNOWLEDGE_RETRIEVAL_MODEL.md | ❌ | Never loaded by runtime |\n| KNOWLEDGE_CLASSIFICATION.md | ❌ | Never loaded by runtime |\n| MENTAL_MODEL_LIBRARY.md (EKS) | ❌ | ECS has its own TypeScript version |\n| FRAMEWORK_LIBRARY.md (EKS) | ❌ | ECS has its own TypeScript version |\n| PLAYBOOK_CEO.md, etc. | ❌ | Human only — never loaded |\n| EXECUTIVE_SPEC.md (all 7) | ❌ | Not loaded by FS (but info mirrored in config.ts) |\n| ADR-009 | ❌ | PROPOSED — never adopted |\n| All cognition docs | ❌ | Source code exists but NOT wired to runtime |\n| All knowledge docs | ❌ | Only exist as blueprints |\n\n## Documents That DO Appear in the Graph\n\n| Document | Appears in Graph? | How? |\n|---|---|---|\n| ADR-001 through ADR-008 (Set A) | ✅ | Adopted architecture decisions |\n| EIOS_API_REFERENCE.md | ✅ | Referenced by eios-runtime/public/ |\n| EXECUTIVE_CONFIGURATION.md | "
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

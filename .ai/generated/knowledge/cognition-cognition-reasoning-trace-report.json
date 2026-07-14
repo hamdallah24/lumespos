@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-reasoning-trace-report",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\REASONING_TRACE_REPORT",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "f887b21d1876e9b83931b3d7177926a1953f378e25bd721bd5f23096e910f92d",
+    "compiled_at": "2026-07-14T07:56:39.076Z",
+    "source_hash": "a7d39d28a3ec86330d69d115dfc450d586e8c77b43c99aed946b0d29d33050c1",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\REASONING_TRACE_REPORT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-reasoning-trace-report",
+    "content_type": "cognition",
+    "body": "# REASONING_TRACE_REPORT.md\n## EPIC S.7 Phase 6 — Reasoning Trace Verification\n\n### Trace Store Architecture\n\n```\nCognitiveTraceStore\n    │\n    ├── recordTrace(role, query, trace)   ← called by all 7 executives\n    │   └── traces.unshift()              ← LIFO, max 100 records\n    │\n    ├── getRecentTraces(limit)            ← most recent N traces\n    ├── getTracesByRole(role, limit)      ← filtered by executive role\n    ├── getTraceSummary(trace)            ← human-readable summary\n    └── clearTraces()                     ← reset\n```\n\n### Trace Data Structure\n\n```\nCognitiveTrace {\n    correlationId: string           ← unique per think() call\n    steps: CognitiveTraceStep[]     ← ordered pipeline steps\n    durationMs: number              ← total cognitive processing time\n    status: CognitiveStatus         ← \"complete\" | \"error\" | ...\n}\n\nCognitiveTraceStep {\n    phase: string                   ← \"thinking_selection\" | \"mental_model_selection\" | ...\n    startedAt: string               ← ISO timestamp\n    completedAt: string             ← ISO timestamp\n    durationMs: number\n    status: \"success\" | \"failure\"\n    outputSummary: string\n}\n```\n\n### Per-Executive Trace Verification\n\n| Executive | `recordTrace()` Called | Trace Steps Present | Correlation ID Generated | Duration Ms | Status |\n|-----------|----------------------|---------------------|------------------------|-------------|--------|\n| CEO | ✅ `CEOProgram.ts:167` | 8 steps (pipeline) | ✅ By CognitiveEngine.think() | ✅ Dynamic | ✅ \"complete\" |\n| CTO | ✅ `CTOProgram.ts:228` | 8 steps | ✅ | ✅ | ✅ |\n| COO | ✅ `COOProgram.ts:248` | 8 steps | ✅ | ✅ | ✅ |\n| CFO | ✅ `CFOProgram.ts:88` | 8 steps | ✅ | ✅ | ✅ |\n| CMO | ✅ `CMOProgram.ts:88` | 8 steps | ✅ | ✅ | ✅ |\n| CAIO | ✅ `CAIOProgram.ts:88` | 8 steps | ✅ | ✅ | ✅ |\n| CKO | ✅ `CKOProgram.ts:35` | 8 steps | ✅ | ✅ | ✅ |\n\n### Trace Step Sequence\n\n| Step | Phase | Description | Present in All Traces? |\n|------|-------|-------------|------------------------|\n| 1 | `thinking_selection` | Selects thinking mode from profile | ✅ Yes |\n| 2 | `mental_model_selection` | Selects mental models from profile | ✅ Yes |\n| 3 | `framework_selection` | Selects frameworks from profile | ✅ Yes |\n| 4 | `reasoning_plan` | Builds reasoning plan from selections | ✅ Yes |\n| 5 | `evidence_gathering` | Collects evidence for the question | ✅ Yes |\n| 6 | `confidence_calculation` | Calculates confidence from evidence | ✅ Yes |\n| 7 | `decision_generation` | Generates executive decision | ✅ Yes |\n| 8 | `recommendation` | Builds recommendation from decision | ✅ Yes |\n\n### Trace Completeness Audit\n\n| Trace Field | CEO | CTO | COO | CFO | CMO | CAIO | CKO |\n|------------|-----|-----|-----|-----|-----|------|-----|\n| correlationId | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| steps[0]: thinking_selection | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| steps[1]: mental_model_selection | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| steps[2]: framework_selection | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| steps[3]: reasoning_plan | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| steps[4]: evidence_gathering | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| steps[5]: confidence_calculation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| steps[6]: decision_generation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| steps[7]: recommendation | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| durationMs | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n| status | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |\n\n### Trace Retrieval Verification\n\n| Query | Function | Result |\n|-------|----------|--------|\n| Get recent 10 traces | `getRecentTraces(10)` | ✅ Returns array of 10 most recent records |\n| Get traces by CEO role | `getTracesByRole(\"CEO\")` | ✅ Filtered by CEO role |\n| Get trace summary | `getTraceSummary(trace)` | ✅ \"[correlationId] complete — 42ms — thinking_selection → mental_model_selection → ...\" |\n| Trace includes role field | `record.role` | ✅ Stored with executive role |\n| Trace includes query | `record.query` | ✅ Stored with original query |\n| Trace includes timestamp | `record.timestamp` | ✅ ISO timestamp on recording |\n\n### Trace to Executive "
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-cognitive-runtime-report",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\COGNITIVE_RUNTIME_REPORT",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "e868ae75b8b89636a7254de863b0fe40e0e3f3612e0de5dec6be95ff67799bb1",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "320ec53f68a0b521a0fea4a0b037356d46d7f7496b1ff8b29c03caa1bb9565ee",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\COGNITIVE_RUNTIME_REPORT.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-cognitive-runtime-report",
+    "content_type": "cognition",
+    "body": "# COGNITIVE_RUNTIME_REPORT.md\n## EPIC S.7 Phase 4 — Cognitive Verification\n\n### Cognitive Engine Architecture\n\n```\nCognitiveEngine.think(options)\n    │\n    ├── runPipeline(question, cognitiveContext)\n    │   │\n    │   ├── selectThinkingModes(profile) → ThinkingModeSelection[]\n    │   ├── selectMentalModels(profile) → MentalModelRef[]\n    │   ├── selectFrameworks(profile) → FrameworkRef[]\n    │   ├── buildReasoningPlan(intent, modes, models, frameworks) → ReasoningPlan\n    │   ├── buildEvidenceSet(question, plan) → EvidenceSet\n    │   ├── calculateConfidence(evidence, plan) → ConfidenceReport\n    │   ├── generateDecision(question, evidence, confidence, plan) → ExecutiveDecision\n    │   └── buildRecommendation(decision) → ExecutiveRecommendation\n    │\n    ├── ThinkResult.decision     ← ExecutiveDecision (with chosenAlternative, reasoning, confidence, evidence, plan)\n    ├── ThinkResult.recommendation ← ExecutiveRecommendation (with actionItems, nextSteps, summary)\n    └── ThinkResult.trace        ← CognitiveTrace (with correlationId, steps, durationMs, status)\n```\n\n### Per-Executive Cognitive Verification\n\n| Executive | CognitiveEngine Instance | `cognitive.think()` Called | Pipeline Stage | Thinking Profile Exists | Executor File |\n|-----------|------------------------|---------------------------|----------------|------------------------|---------------|\n| CEO | `ceoCognitive` | ✅ `CEOProgram.ts:163` | `\"CognitiveEngine\"` in pipeline | ✅ `CEO` profile | `CEOProgram.ts:158-178` |\n| CTO | `ctoCognitive` | ✅ `CTOProgram.ts:218` | `\"CognitiveEngine\"` in pipeline | ✅ `CTO` profile | `CTOProgram.ts:214-233` |\n| COO | `cooCognitive` | ✅ `COOProgram.ts:243` | `\"CognitiveEngine\"` in pipeline | ✅ `COO` profile | `COOProgram.ts:239-249` |\n| CFO | `cfoCognitive` | ✅ `CFOProgram.ts:80` | `\"CognitiveEngine\"` in pipeline | ✅ `CFO` profile | `CFOProgram.ts:77-90` |\n| CMO | `cmoCognitive` | ✅ `CMOProgram.ts:80` | `\"CognitiveEngine\"` in pipeline | ✅ `CMO` profile | `CMOProgram.ts:77-90` |\n| CAIO | `caioCognitive` | ✅ `CAIOProgram.ts:80` | `\"CognitiveEngine\"` in pipeline | ✅ `CAIO` profile | `CAIOProgram.ts:77-90` |\n| CKO | `ckoCognitive` | ✅ `CKOProgram.ts:32` | `\"CognitiveEngine\"` in pipeline | ✅ `CKO` profile | `CKOProgram.ts:28-37` |\n\n### Cognitive Thinking Profiles\n\n| Executive | Thinking Modes | Frameworks | Mental Models | Decision Style | Risk Appetite | Confidence Threshold |\n|-----------|---------------|-----------|--------------|----------------|---------------|---------------------|\n| CEO | ceo-vision, ceo-strategy, ceo-growth | SWOT, PESTEL, BCG Matrix, 5 Forces | First Principles, Second-Order, Inversion | Vision-driven | High | 65% |\n| CTO | cto-architecture, cto-tradeoff, cto-system-design | DDD, SOLID, CAP, C4 Model | Dependency Graph, Systems Thinking, Pareto | Analytical | Moderate | 75% |\n| CFO | cfo-capital-allocation, cfo-forecasting, cfo-scenario-analysis | Cost-Benefit, Risk Matrix, Balanced Scorecard | Probabilistic, Scenario Analysis, Sunk Cost | Conservative | Low | 80% |\n| CMO | cmo-brand, cmo-growth, cmo-market | SWOT, Pirate Metrics, JTBD, BCG Matrix | Lateral Thinking, Pareto, Confirmation Bias | Creative | Moderate | 70% |\n| CAIO | caio-ai-strategy, caio-agent-design, caio-knowledge | DDD, Event Storming, Gap Analysis, OODA | First Principles, Systems Thinking, Thought Experiment | Experimental | Moderate | 70% |\n| CKO | cko-knowledge, cko-ontology, cko-knowledge-quality | Gap Analysis, KPIs, Cynefin | Circle of Competence, Pareto, Confirmation Bias | Structured | Low | 80% |\n| COO | coo-operation, coo-process, coo-execution | OKR, RICE, McKinsey 7S, OODA | Pareto, Constraint Theory, Premortem | Execution-focused | Low | 75% |\n\n### Cognitive Pipeline Steps Verified\n\nEach executive's `cognitive.think()` call triggers the full cognitive pipeline:\n\n| Pipeline Step | CEO | CTO | COO | CFO | CMO | CAIO | CKO |\n|--------------|-----|-----|-----|-----|-----|------|-----|\n| Thinking Mode Selection | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

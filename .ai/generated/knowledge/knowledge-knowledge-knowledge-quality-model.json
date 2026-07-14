@@ -1,0 +1,41 @@
+{
+  "asset_type": "knowledge",
+  "id": "knowledge-knowledge-knowledge-quality-model",
+  "canonical": true,
+  "metadata": {
+    "title": "Knowledge: executive-runtime\\knowledge\\KNOWLEDGE_QUALITY_MODEL",
+    "version": "1.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "103efa119efc11f5613eb423353977a91b25037308a7130507c7b02c1b58e20d",
+    "compiled_at": "2026-07-14T07:56:39.073Z",
+    "source_hash": "3f2e5f4a0f1e2ae49c52904cae60071f231e10e70194d6820d9273aa3e24e745",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\knowledge\\KNOWLEDGE_QUALITY_MODEL.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "canonical",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "knowledge-knowledge-quality-model",
+    "content_type": "knowledge",
+    "body": "<!--\n  EPIC R — Phase 11: Knowledge Quality Model\n  Sources: knowledge-metrics.ts, knowledge-ranker.ts, knowledge-card.ts,\n           governance/quality-engine.ts, governance/compliance-engine.ts\n  DO NOT EDIT MANUALLY.\n-->\n\n# Knowledge Quality Model\n\n**Version:** 1.0.0  \n**Status:** STABLE  \n\n---\n\n## Quality Dimensions\n\n| Dimension | Code | Weight | Description |\n|-----------|------|--------|-------------|\n| Accuracy | ACC | 20% | Truthfulness and correctness of knowledge |\n| Authority | AUT | 15% | Source credibility and validation level |\n| Freshness | FRS | 10% | How recent and up-to-date |\n| Traceability | TRC | 10% | Audit trail and source chain completeness |\n| Determinism | DET | 15% | Reproducible retrieval and reasoning |\n| Consistency | CNS | 10% | Internal consistency and no contradictions |\n| Completeness | CMP | 10% | Coverage of relevant domain |\n| Reusability | RUS | 5% | Applicable across multiple contexts |\n| Maintainability | MNT | 5% | Ease of update and curation |\n\n---\n\n## Dimension 01: Accuracy (ACC)\n\n**Weight:** 20%  \n**Question:** Is this knowledge correct?\n\n### Accuracy Levels\n| Level | Score | Criteria |\n|-------|-------|----------|\n| Verified | 100 | Confirmed by 3+ independent sources or Foundation authority |\n| Confirmed | 85 | Confirmed by 2+ sources with executive validation |\n| Plausible | 70 | Single source, reasonable, no contradictions |\n| Suspect | 40 | Single source, questionable, or has contradictions |\n| Incorrect | 0 | Proven wrong, contradicted by higher authority |\n\n### Accuracy Assessment\n```typescript\nfunction assessAccuracy(item: KnowledgeItem): number {\n  const sourceVerification = multiSourceScore(item) * 0.40;  // 40% weight\n  const factualConsistency = checkConsistency(item) * 0.30;  // 30% weight\n  const authorityEndorsement = authorityScore(item) * 0.20;  // 20% weight\n  const trackRecord = usageOutcomeScore(item) * 0.10;        // 10% weight\n\n  return weightedScore(\n    sourceVerification, factualConsistency,\n    authorityEndorsement, trackRecord\n  );\n}\n```\n\n---\n\n## Dimension 02: Authority (AUT)\n\n**Weight:** 15%  \n**Question:** Who says this knowledge is true?\n\n### Authority Hierarchy\n| Level | Score | Source Type | Examples |\n|-------|-------|-------------|---------|\n| SYSTEM | 100 | Immutable system knowledge | Foundation, ADRs, Constitution |\n| VALIDATED | 85 | Multi-source confirmed knowledge | Organizational memory |\n| PRIMARY | 70 | PRIMARY owner documented knowledge | Executive SPECs |\n| SECONDARY | 55 | SECONDARY owner contributed | Cross-executive advisory |\n| EXTERNAL | 40 | External source | Market data, research |\n| AI-GENERATED | 25 | LLM output without verification | Raw reasoning trace |\n\n### Authority Rules\n1. SYSTEM authority always overrides all others\n2. VALIDATED requires 2+ independent sources\n3. PRIMARY authority is domain-specific\n4. AI-GENERATED knowledge MUST be re-validated before use\n\n---\n\n## Dimension 03: Freshness (FRS)\n\n**Weight:** 10%  \n**Question:** How recent is this knowledge?\n\n### Freshness Scoring\n```typescript\nfunction freshnessScore(timestamp: Date, knowledgeType: string): number {\n  const ageDays = daysSince(timestamp);\n  const ttl = getDefaultTTL(knowledgeType);\n\n  if (ageDays === 0) return 100;       // Today\n  if (ageDays < ttl * 0.25) return 90; // Recent\n  if (ageDays < ttl * 0.50) return 75; // Moderate\n  if (ageDays < ttl * 0.75) return 50; // Aging\n  if (ageDays < ttl) return 25;        // Stale\n  return 0;                             // Expired\n}\n```\n\n### Freshness by Knowledge Type\n| Type | TTL | Score at Creation | Score at TTL/2 | Score at TTL |\n|------|-----|-------------------|----------------|--------------|\n| Foundation | NEVER | 100 | 100 | 100 |\n| Business data | 24h | 100 | 50 | 0 |\n| Episodes | PERM | 100 | 100 | 100 |\n| Knowledge cards | 90d | 100 | 75 | 25 |\n| Best practices | 180d | 100 | 85 | 25 |\n| Market data | 7d | 100 | 50 | 0 |\n| Metrics | 30d | 100 | 75 | 25 |\n| Conversation | Session | 100 | N/A | N/A |\n\n--",
+    "knowledge_fingerprint": {
+      "mental_models": [
+        "knowledge-executive-mental-model-library"
+      ],
+      "frameworks": [
+        "knowledge-executive-framework-library"
+      ],
+      "taxonomy": "knowledge-executive-knowledge-taxonomy",
+      "confidence": 0.9,
+      "source_hash": "3f2e5f4a0f1e2ae49c52904cae60071f231e10e70194d6820d9273aa3e24e745"
+    }
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

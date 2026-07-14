@@ -20,7 +20,6 @@ import migrateRouter from "./migrate";
 
 const router = Router();
 
-router.use("/", shiftAuditsRouter);
 router.use("/", authRouter);  // ← tambah (harus sebelum route lain)
 router.use("/", healthRouter);
 router.use("/", usersRouter);

@@ -1,0 +1,30 @@
+{
+  "asset_type": "knowledge",
+  "id": "cognition-cognition-adoption-verification",
+  "canonical": false,
+  "metadata": {
+    "title": "Cognition: executive-runtime\\cognition\\ADOPTION_VERIFICATION",
+    "version": "0.0.0",
+    "owner": "unknown",
+    "consumer": [],
+    "checksum": "7ffdaa44d4739db1a89e1a8b2631716ea926f57d6bb6632422f0a6469c895255",
+    "compiled_at": "2026-07-14T07:56:39.081Z",
+    "source_hash": "509dc08596add4c6fd595063306c39a50b22c578f6b93e2b3aabc7d092ced66b",
+    "source_paths": [
+      "D:\\web pos\\Point-Of-Sale\\docs\\executive-runtime\\cognition\\ADOPTION_VERIFICATION.md"
+    ],
+    "dependencies": [],
+    "inherits": [],
+    "knowledge_level": "reference",
+    "status": "unknown"
+  },
+  "structure": {
+    "source_id": "cognition-adoption-verification",
+    "content_type": "cognition",
+    "body": "# ADOPTION_VERIFICATION.md\n## EPIC S.7 Phase 9 — Adoption Verification\n\n### Methodology\n\nAdoption is measured as: **Component is verified to be called/used at runtime** (static code analysis).\n\nWeighting by runtime criticality:\n- Foundation (25%) — must-load documents for every executive\n- Knowledge (20%) — structured knowledge consumed by LLM\n- Thinking Mode (10%) — cognitive reasoning initial step\n- Mental Model (10%) — reasoning pattern selection\n- Framework (10%) — analytical framework selection\n- Decision (10%) — structured executive decision output\n- Prompt (10%) — composed from reasoning, not raw query\n- Trace (5%) — persisted cognitive trace\n\n---\n\n### 1. Foundation Adoption\n\n| Metric | Score | Evidence |\n|--------|-------|----------|\n| Foundation docs loadable | 98/98 (100%) | `foundationLoader.load()` returns 98 assets |\n| Executive directives in runtime | 7/7 (100%) | `runtime-domain.ts` maps all 7 to directive IDs |\n| YAML frontmatter valid | 98/98 (100%) | All parsed by `parseMetadata()` |\n| Foundation context in prompt | 6/7 (86%) | CKO doesn't use `assemble()` — builds prompt manually |\n\n**Foundation Adoption: 97%**\n\n---\n\n### 2. Knowledge Adoption\n\n| Metric | Score | Evidence |\n|--------|-------|----------|\n| Knowledge assets consumed | 93/98 (95%) | 5 ADR records are developer-only |\n| Executives using knowledge | 7/7 (100%) | All call `loadKnowledge()` or `KnowledgeProvider.searchAll()` |\n| Knowledge graph integrated | ✅ | `buildGraph()` reads `foundationLoader.load()` |\n| Knowledge selected by domain | ✅ | `loadKnowledge()` supports `domain` filter |\n\n**Knowledge Adoption: 95%**\n\n---\n\n### 3. Thinking Mode Adoption\n\n| Metric | Score | Evidence |\n|--------|-------|----------|\n| Executives with thinking modes | 7/7 (100%) | All have profiles in `ExecutiveThinkingProfiles.ts` |\n| Thinking modes per executive | 3-4 per role | 7 modes/executive in `ThinkingMode.ts` (49 total) |\n| Dynamic selection at runtime | ✅ | `selectThinkingModes(profile)` called in pipeline |\n| Mode passed to reasoning plan | ✅ | `buildReasoningPlan()` includes `thinkingMode` |\n\n**Thinking Mode Adoption: 100%**\n\n---\n\n### 4. Mental Model Adoption\n\n| Metric | Score | Evidence |\n|--------|-------|----------|\n| Executives with mental models | 7/7 (100%) | All have profiles with 3 preferred models each |\n| Mental models defined | 20 in TS + 46 documented | `MentalModelSelector.ts` + `mental-model-library.md` |\n| Dynamic selection at runtime | ✅ | `selectMentalModels(profile)` called in pipeline |\n| Model passed to reasoning plan | ✅ | `buildReasoningPlan()` includes `mentalModels` |\n\n**Mental Model Adoption: 100%**\n\n---\n\n### 5. Framework Adoption\n\n| Metric | Score | Evidence |\n|--------|-------|----------|\n| Executives with frameworks | 7/7 (100%) | All have profiles with preferred frameworks |\n| Frameworks defined | 27 in TS + 29 documented | `FrameworkSelector.ts` + `framework-library.md` |\n| Dynamic selection at runtime | ✅ | `selectFrameworks(profile)` called in pipeline |\n| Framework passed to reasoning | ✅ | `buildReasoningPlan()` includes `frameworks` |\n\n**Framework Adoption: 100%**\n\n---\n\n### 6. Decision Adoption\n\n| Metric | Score | Evidence |\n|--------|-------|----------|\n| Executives producing decisions | 7/7 (100%) | All have `decide()` + `execute()` producing structured output |\n| Decision structure complete | ✅ | `ExecutiveDecision` contains alternative, reasoning, risks, confidence, evidence, plan |\n| Decision used in prompt | 6/7 (86%) | COO uses manual summary; CKO doesn't use assemble() |\n| Decision recorded to knowledge | 5/7 (71%) | CEO, CTO, CFO, CMO, CAIO call `KnowledgeProvider.ingestEpisode()` |\n\n**Decision Adoption: 95%**\n\n---\n\n### 7. Prompt Adoption\n\n| Metric | Score | Evidence |\n|--------|-------|----------|\n| Executives using `assemble()` | 5/7 (71%) | CEO, CTO, CFO, CMO, CAIO use assemble; COO + CKO manual |\n| Prompt includes foundation | 7/7 (100%) | All include directive + foundation content |\n| Prompt includes cognitiv"
+  },
+  "traceability": {
+    "compiled_by": "DGPS",
+    "compiler_version": "1.0.0"
+  }
+}

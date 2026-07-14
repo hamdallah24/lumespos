@@ -66,10 +66,15 @@ export default function ExecutiveWorkspace() {
     fetch("/api/ai/agents").then(r => r.json()).then(d => setAgents(d.agents || []));
     fetch("/api/ai/org-public").then(r => r.json()).then(setOrgData).catch(() => {});
     fetch("/api/ai/missions").then(r => r.json()).then(setMissionData).catch(() => {});
-    // Load conversation history
+    // Load conversation history with sender parsing
     fetch("/api/ai/history?mode=ceo", { credentials: "include" })
       .then(r => r.json()).then(d => {
-        if (d.messages) setReports(d.messages.map((m: any) => ({ role: m.role === "user" ? "User" : "CTO" as const, text: m.content, timestamp: new Date().toISOString() })));
+        if (d.messages) setReports(d.messages.map((m: any) => {
+          const senderMatch = m.content?.match(/^\{SENDER:([^}]+)\}/);
+          const sender = senderMatch ? senderMatch[1] : "CEO";
+          const text = m.content?.replace(/^\{SENDER:[^}]+\}/, "") || m.content;
+          return { role: m.role === "user" ? "User" : sender as any, text, timestamp: new Date().toISOString(), sender };
+        }));
       }).catch(() => {});
 
     // Subscribe auto-notifikasi mission selesai
@@ -294,7 +299,7 @@ export default function ExecutiveWorkspace() {
         setTimeout(() => { setExecCards([]); setMissionPhase("idle"); }, 3000);
       }
     } catch {
-      setReports(prev => [...prev, { role: senderRef.current as any || "CTO", text: "Respons sedang diproses. Hasil akan muncul setelah refresh halaman.", timestamp: new Date().toISOString(), sender: senderRef.current }]);
+      setReports(prev => [...prev, { role: senderRef.current as any || "CEO", text: "Respons sedang diproses. Hasil akan muncul setelah refresh halaman.", timestamp: new Date().toISOString(), sender: senderRef.current || "CEO" }]);
     }
     setLoading(false);
   };
@@ -415,7 +420,7 @@ export default function ExecutiveWorkspace() {
             {loading && !execSnapshot && (
               <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4 text-[#1565FF]" />
+                <ExecutiveAvatar sender={currentSender || ""} />
                 {currentSender && (
                   <span className="text-sm font-medium text-slate-600 dark:text-slate-300">{currentSender}</span>
                 )}
@@ -553,6 +558,29 @@ function StatusRow({ label, value, color }: { label: string; value: string; colo
   );
 }
 
+function ExecutiveAvatar({ sender }: { sender?: string }) {
+  const [imgErr, setImgErr] = React.useState(false);
+  const map: Record<string, { initials: string; bg: string; src: string }> = {
+    CEO: { initials: "CE", bg: "#1565FF", src: "/assets/avatars/ceo.jpeg" },
+    COO: { initials: "CO", bg: "#10B981", src: "/assets/avatars/coo.jpeg" },
+    CFO: { initials: "CF", bg: "#F59E0B", src: "/assets/avatars/cfo.jpeg" },
+    CTO: { initials: "CT", bg: "#8B5CF6", src: "/assets/avatars/cto.jpeg" },
+  };
+  const cfg = map[sender || ""] || { initials: "AI", bg: "#1565FF", src: "" };
+  if (cfg.src && !imgErr) {
+    return (
+      <img src={cfg.src} alt={sender || "AI"} onError={() => setImgErr(true)}
+        className="w-5 h-5 rounded-full object-cover" />
+    );
+  }
+  return (
+    <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white shrink-0"
+      style={{ background: cfg.bg }}>
+      {cfg.initials}
+    </div>
+  );
+}
+
 function ExecutiveCard({ report }: { report: ExecutiveReport }) {
   const [copied, setCopied] = React.useState(false);
 
@@ -599,7 +627,7 @@ function ExecutiveCard({ report }: { report: ExecutiveReport }) {
     <div className="flex flex-col gap-1 relative">
       {/* Header: Avatar + Sender + Timestamp */}
       <div className="flex items-center gap-2">
-        <Brain className="w-5 h-5 text-[#1565FF]" />
+        <ExecutiveAvatar sender={report.sender || report.role} />
         <span className="text-sm font-semibold text-slate-700 dark:text-white">
           {report.sender || report.role}
         </span>
@@ -622,7 +650,18 @@ function ExecutiveCard({ report }: { report: ExecutiveReport }) {
 }
 
 function copyText(text: string, setCopied: (v: boolean) => void) {
-  navigator.clipboard?.writeText(text);
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text);
+  } else {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    document.body.removeChild(ta);
+  }
   setCopied(true);
   setTimeout(() => setCopied(false), 1500);
 }
