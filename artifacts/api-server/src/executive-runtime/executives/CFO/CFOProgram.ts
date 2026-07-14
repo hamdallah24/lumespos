@@ -8,7 +8,7 @@ import { verify } from "../../../ai/runtime/verification-engine";
 import { getFoundationProvider } from "../../../ai/runtime/foundation";
 import { assemble } from "../../../ai/runtime/prompt-assembler";
 import { JSON_OUTPUT_SCHEMA } from "../../../routes/ai-prompts";
-import { ExecutionPipeline } from "../../../ai/runtime/execution/execution-pipeline";
+import { callDeepSeek } from "../../../ai/llm/llm-adapter";
 import type { ExecutionContract } from "../../../eios-runtime/contracts/PipelineContracts";
 import { consultantRuntime } from "../../../programs/consultant";
 import { GovernanceProvider } from "../../../governance/providers";
@@ -171,35 +171,33 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   systemPrompt += `- JANGAN membuat estimasi revenue, expense, atau profit.\n`;
   systemPrompt += `- JANGAN membuat asumsi produk atau harga.\n`;
 
-  const messages = [{ role: "system" as const, content: systemPrompt }, { role: "user" as const, content: task.message }];
-  const execResult = await ExecutionPipeline.execute(
-    { role: "CFO" as any, intent: spec.intent, domain: spec.domain },
-    messages, [], spec.estimatedTokens || 16000, task.userId, "cfo", task.message, true,
-    { onProgress: task.onProgress },
-    { complexity: spec.estimatedComplexity || "simple", domain: spec.domain, objective: spec.objective },
-  );
+  pipeline.push("LLM");
+  const llmResponse = await callDeepSeek(systemPrompt, task.message, task.userId, "bisnis", 3000, false);
 
   pipeline.push("Result");
+
+  const isSuccess = !llmResponse.startsWith("ERROR:");
+  const finalText = isSuccess ? llmResponse : "✅ Laporan finansial selesai.";
 
   // EIOS: Record decision
   KnowledgeProvider.ingestEpisode({
     eventType: "cfo_execution",
     eventId: `CFO-${Date.now()}`,
     context: task.message.slice(0, 500),
-    outcome: execResult.success ? "success" : "failure",
+    outcome: isSuccess ? "success" : "failure",
     domain: spec.domain,
     topic: spec.objective || "financial_analysis",
     summary: `CFO analysis: ${spec.objective || "financial analysis"}`,
     tags: ["cfo", "financial", spec.intent, `branch:${branchId}`],
   });
 
-  auditEngine.log({ actor: "CFO", action: "execute", resource: "program", result: execResult.success ? "allowed" : "denied", reason: `Pipeline: ${pipeline.join("→")} — duration=${Date.now() - t0}ms`, metadata: { userId: task.userId, branchId } });
+  auditEngine.log({ actor: "CFO", action: "execute", resource: "program", result: isSuccess ? "allowed" : "denied", reason: `Pipeline: ${pipeline.join("→")} — duration=${Date.now() - t0}ms`, metadata: { userId: task.userId, branchId } });
 
-  console.log(`[PIPELINE:CFO] execute end — pipeline=[${pipeline.join("→")}] success=${execResult.success} duration=${Date.now() - t0}ms`);
+  console.log(`[PIPELINE:CFO] execute end — pipeline=[${pipeline.join("→")}] success=${isSuccess} duration=${Date.now() - t0}ms`);
 
   return {
-    success: execResult.success,
-    text: execResult.text || "✅ Laporan finansial selesai.",
+    success: isSuccess,
+    text: finalText,
     pipeline,
   };
 }
