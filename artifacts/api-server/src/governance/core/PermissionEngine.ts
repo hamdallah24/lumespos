@@ -4,7 +4,7 @@ import { policyEngine } from "./PolicyEngine";
 const PERMISSION_MATRIX: Record<string, string[]> = {
   CEO: ["manage_prices", "approve_budget", "approve_strategy", "manage_executives", "view_all"],
   COO: ["add_stock", "reduce_stock", "transfer_stock", "produce", "view_inventory", "view_operations", "approve_transfer"],
-  CFO: ["view_finance", "view_expenses", "view_margin", "approve_expense"],
+  CFO: ["view_finance", "view_expenses", "view_margin", "approve_expense", "analyze"],
   CMO: ["view_sales", "view_products", "view_customers", "manage_promo"],
   CTO: ["view_system", "manage_infrastructure", "deploy"],
 };
