@@ -14,6 +14,7 @@ import { auditEngine } from "../../../governance/core";
 import { CognitiveEngine, recordTrace } from "../../cognition";
 import { memoryProvider } from "../../memory-provider";
 import { writeDecisionToMemory } from "../../memory-provider/decision-hook";
+import { OperationalTruthProvider } from "../../../operational-truth";
 import { db, branchesTable } from "@workspace/db";
 import { eq, ilike } from "drizzle-orm";
 
@@ -246,56 +247,42 @@ async function handleApprove(situationId: string, optionId: string, branchId?: n
 }
 
 async function handleStatus(query: string, branchId?: number): Promise<string> {
-  // Collect real operational data from Tool Runtime before LLM
   const branch = branchId || 1;
-  const operationalContext: string[] = [];
+  const ctx = await OperationalTruthProvider.getStatusContext(query, branch);
+  const parts: string[] = [];
 
-  // Sales
-  try {
-    const sales = await executeOperation("get_sales_summary", { period: "today" }, branch);
-    operationalContext.push(`## Penjualan Hari Ini\n${sales}`);
-  } catch { operationalContext.push("## Penjualan Hari Ini\nData tidak tersedia"); }
+  if (ctx.todaySales) {
+    parts.push(`## Penjualan Hari Ini\nTotal: Rp${ctx.todaySales.total.toLocaleString("id-ID")}\nTransaksi: ${ctx.todaySales.count}`);
+  }
+  if (ctx.topProducts && ctx.topProducts.length > 0) {
+    parts.push(`## Produk Terlaris\n${ctx.topProducts.slice(0, 5).map(p => `- ${p.name}: ${p.sold} terjual`).join("\n")}`);
+  }
+  if (ctx.inventory && ctx.inventory.length > 0) {
+    parts.push(`## Status Stok\n${ctx.inventory.flatMap(g => g.items.map(i => `- ${i.name}: ${i.stock} ${i.unit}`)).join("\n")}`);
+  }
+  if (ctx.lowStock && ctx.lowStock.length > 0) {
+    parts.push(`## Stok Kritis\n${ctx.lowStock.map(i => `- ${i.name}: ${i.stock} ${i.unit} ${i.critical ? "⚠️ HABIS" : ""}`).join("\n")}`);
+  }
+  if (ctx.products && ctx.products.length > 0) {
+    parts.push(`## Daftar Produk\n${ctx.products.slice(0, 10).map(p => {
+      const variants = p.variants.length > 0 ? p.variants.map(v => `${v.name} Rp${v.price}`).join(", ") : `Rp${p.price}`;
+      return `- ${p.name}: ${variants}`;
+    }).join("\n")}`);
+  }
+  if (ctx.expenses) {
+    parts.push(`## Pengeluaran Hari Ini\nTotal: Rp${ctx.expenses.total.toLocaleString("id-ID")}\nTransaksi: ${ctx.expenses.count}`);
+  }
+  if (ctx.branches && ctx.branches.length > 0) {
+    parts.push(`## Cabang\n${ctx.branches.map(b => `- ${b.name}${b.location ? ` (${b.location})` : ""}`).join("\n")}`);
+  }
+  if (ctx.missionProgress && ctx.missionProgress.length > 0) {
+    parts.push(`## Progress Eksekusi\n${ctx.missionProgress.map(m => `- ${m.name}: ${m.percent}%`).join("\n")}`);
+  }
+  if (ctx.errors.length > 0) {
+    parts.push(`## Catatan\n${ctx.errors.map(e => `- Data ${e.domain}: ${e.error}`).join("\n")}`);
+  }
 
-  // Top products
-  try {
-    const top = await executeOperation("get_top_products", { limit: 5 }, branch);
-    operationalContext.push(`## Produk Terlaris\n${top}`);
-  } catch { /* skip */ }
-
-  // Inventory status
-  try {
-    const inv = await executeOperation("get_inventory_status", {}, branch);
-    operationalContext.push(`## Status Stok\n${inv}`);
-  } catch { operationalContext.push("## Status Stok\nData tidak tersedia"); }
-
-  // Products
-  try {
-    const prods = await executeOperation("get_products", { limit: 10 }, branch);
-    operationalContext.push(`## Daftar Produk\n${prods}`);
-  } catch { /* skip */ }
-
-  // Expenses
-  try {
-    const exp = await executeOperation("get_expenses", { period: "today" }, branch);
-    operationalContext.push(`## Pengeluaran Hari Ini\n${exp}`);
-  } catch { /* skip */ }
-
-  // Branch list
-  try {
-    const branches = await executeOperation("list_branches", {}, branch);
-    operationalContext.push(`## Cabang\n${branches}`);
-  } catch { /* skip */ }
-
-  // Plans
-  const plans = PlanProvider.getAll();
-  const planSummaries = plans.map(p => {
-    const progress = PlanProvider.getProgress(p.graph.id);
-    return `- ${p.graph.name}: ${progress ? `${progress.percentComplete}%` : "unknown"}`;
-  }).join("\n");
-  if (planSummaries) operationalContext.push(`## Progres Eksekusi\n${planSummaries}`);
-
-  // Build prompt with real data
-  const contextStr = operationalContext.join("\n\n");
+  const contextStr = parts.join("\n\n");
   const responsePrompt = `${COO_BRIEF_PROMPT}\n\n{OPERATIONAL_CONTEXT}\n${contextStr}`;
   const llmResponse = await callDeepSeek(responsePrompt, query, 0, "bisnis", 3000, false);
   return llmResponse;
