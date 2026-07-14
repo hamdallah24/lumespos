@@ -52,7 +52,7 @@ Untuk daftar cabang:
 
 Catatan: RESPONSE WAJIB minimal 2 kalimat dengan konteks bisnis. Jangan cuma "oke selesai".`;
 
-const EXECUTION_ACTIONS = ["add_product", "add_product_with_variants_and_recipe", "add_variant", "update_variant_price", "update_price", "deactivate_product", "add_stock", "reduce_stock", "correct_stock", "loss_correction", "produce", "add_ingredient", "add_semi_finished", "add_recipe_by_name", "update_recipe", "add_expense", "change_role", "migrate_branch", "list_branches"];
+const EXECUTION_ACTIONS = ["add_product", "add_product_with_variants_and_recipe", "add_variant", "update_variant_price", "update_price", "deactivate_product", "add_stock", "reduce_stock", "correct_stock", "loss_correction", "produce", "add_ingredient", "add_semi_finished", "add_recipe_by_name", "update_recipe", "add_expense", "change_role", "migrate_branch", "list_branches", "get_sales_summary", "get_top_products", "get_inventory_status", "get_products", "get_expenses", "get_shift_audit"];
 
 const COO_BRIEF_PROMPT = `# Identitas
 Kamu adalah **Direktur Operasional (COO)** Lume's Everywhere.
@@ -62,19 +62,26 @@ Kamu adalah **Direktur Operasional (COO)** Lume's Everywhere.
 - Memonitor progres eksekusi
 - Berkomunikasi dengan Founder dan staff
 - Mencatat pelajaran yang dipelajari
+- Mengakses data operasional melalui Tool Runtime
 
 # BATASAN KETAT
-- Kamu TIDAK BISA membaca database
-- Kamu TIDAK BISA menghitung KPI
-- Kamu TIDAK BISA mengakses inventory table
-- Kamu TIDAK BISA mengubah harga
+- Kamu TIDAK BISA mengubah harga tanpa approval
 - Kamu TIDAK BISA mengubah resep tanpa approval
+- Kamu TIDAK BOLEH mengarang data operasional
+- Kamu TIDAK BOLEH membuat estimasi penjualan
+- Kamu TIDAK BOLEH membuat nama produk
+- Kamu TIDAK BOLEH membuat angka transaksi fiktif
+
+# Sumber Data
+Seluruh data operasional HARUS berasal dari Tool Runtime (get_sales_summary, get_inventory_status, get_products, get_expenses).
+Jika tool mengembalikan data kosong, katakan "Data tidak tersedia".
+Jangan pernah mengisi data dengan asumsi atau pengetahuan umum.
 
 # Yang Kamu Terima
-{BRIEF} — ringkasan eksekutif situasi hari ini.
+{OPERATIONAL_CONTEXT} — data operasional real-time hari ini.
 
 # Tugasmu Hari Ini
-Dari brief di atas:
+Dari data di atas:
 1. Situasi mana yang perlu keputusan?
 2. Approval mana yang menunggu?
 3. Progres apa yang perlu dimonitor?
@@ -96,6 +103,10 @@ Untuk intent "branch", set action="list_branches" untuk daftar cabang, atau acti
 Contoh output:
 {"intent":"approve","situationId":"...","optionId":"approve"}
 {"intent":"status","query":"situasi apa yang perlu perhatian"}
+{"intent":"status","query":"penjualan hari ini bagaimana"}
+{"intent":"status","query":"tampilkan ringkasan penjualan"}
+{"intent":"status","query":"cek stok bahan baku"}
+{"intent":"status","query":"bagaimana kondisi operasional"}
 {"intent":"action","action":"add_stock","params":{"itemName":"Gula","qty":5,"unit":"kg","branchId":0}}
 {"intent":"action","action":"list_branches","params":{}}
 {"intent":"branch","action":"list_branches","params":{}}
@@ -235,15 +246,58 @@ async function handleApprove(situationId: string, optionId: string, branchId?: n
 }
 
 async function handleStatus(query: string, branchId?: number): Promise<string> {
-  const brief = await getCOOBrief(branchId);
+  // Collect real operational data from Tool Runtime before LLM
+  const branch = branchId || 1;
+  const operationalContext: string[] = [];
+
+  // Sales
+  try {
+    const sales = await executeOperation("get_sales_summary", { period: "today" }, branch);
+    operationalContext.push(`## Penjualan Hari Ini\n${sales}`);
+  } catch { operationalContext.push("## Penjualan Hari Ini\nData tidak tersedia"); }
+
+  // Top products
+  try {
+    const top = await executeOperation("get_top_products", { limit: 5 }, branch);
+    operationalContext.push(`## Produk Terlaris\n${top}`);
+  } catch { /* skip */ }
+
+  // Inventory status
+  try {
+    const inv = await executeOperation("get_inventory_status", {}, branch);
+    operationalContext.push(`## Status Stok\n${inv}`);
+  } catch { operationalContext.push("## Status Stok\nData tidak tersedia"); }
+
+  // Products
+  try {
+    const prods = await executeOperation("get_products", { limit: 10 }, branch);
+    operationalContext.push(`## Daftar Produk\n${prods}`);
+  } catch { /* skip */ }
+
+  // Expenses
+  try {
+    const exp = await executeOperation("get_expenses", { period: "today" }, branch);
+    operationalContext.push(`## Pengeluaran Hari Ini\n${exp}`);
+  } catch { /* skip */ }
+
+  // Branch list
+  try {
+    const branches = await executeOperation("list_branches", {}, branch);
+    operationalContext.push(`## Cabang\n${branches}`);
+  } catch { /* skip */ }
+
+  // Plans
   const plans = PlanProvider.getAll();
   const planSummaries = plans.map(p => {
     const progress = PlanProvider.getProgress(p.graph.id);
-    return `${p.graph.name}: ${progress ? `${progress.percentComplete}%` : "unknown"}`;
+    return `- ${p.graph.name}: ${progress ? `${progress.percentComplete}%` : "unknown"}`;
   }).join("\n");
+  if (planSummaries) operationalContext.push(`## Progres Eksekusi\n${planSummaries}`);
 
-  const responsePrompt = `${COO_BRIEF_PROMPT}\n\n# Brief Hari Ini\n${JSON.stringify(brief, null, 2)}\n\n# Progres Eksekusi\n${planSummaries || "Tidak ada plan aktif"}`;
-  const llmResponse = await callDeepSeek(responsePrompt, query, 0, "bisnis", 2000, false);
+  // Build prompt with real data
+  const contextStr = operationalContext.join("\n\n");
+  const responsePrompt = `${COO_BRIEF_PROMPT}\n\n{OPERATIONAL_CONTEXT}\n${contextStr}`;
+  const llmResponse = await callDeepSeek(responsePrompt, query, 0, "bisnis", 3000, false);
   return llmResponse;
 }
 
@@ -374,7 +428,7 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
   const branchContext = await getBranchContext(branchId);
   const systemPrompt = [
     `# Identitas\nKamu adalah **Direktur Operasional (COO)** Lume's Everywhere — jaringan F&B.`,
-    `\n## BATASAN KETAT\n- Kamu TIDAK BISA membaca database\n- Kamu TIDAK BISA menghitung KPI\n- Kamu TIDAK BISA mengakses inventory table\n- Kamu TIDAK BISA mengubah harga\n- Kamu TIDAK BISA mengubah resep tanpa approval`,
+    `\n## BATASAN KETAT\n- Kamu TIDAK BOLEH mengarang data operasional\n- Kamu TIDAK BOLEH membuat estimasi atau asumsi\n- Kamu TIDAK BOLEH membuat nama produk palsu\n- Kamu boleh mengakses data melalui action tool (get_sales_summary, get_inventory_status, dll)\n- Kamu TIDAK BISA mengubah harga tanpa approval\n- Kamu TIDAK BISA mengubah resep tanpa approval`,
     `\n${briefContext}`,
     branchContext ? `\n${branchContext}` : "",
     directiveContent ? `\n## Arahan COO\n${directiveContent.slice(0, 2000)}` : "",
