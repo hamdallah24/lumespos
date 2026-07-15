@@ -280,17 +280,17 @@ export default function CashierPage() {
 
         <div className="flex-1 overflow-y-auto px-3 py-3 lg:px-6 lg:py-4">
           {isLoadingProducts ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
-              {[1,2,3,4,5,6].map((i) => (
-                <div key={i} className="animate-pulse">
-                  <div className="aspect-square bg-muted rounded-2xl" />
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
+                {[1,2,3,4,5,6].map((i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="aspect-square bg-muted rounded-2xl" />
                   <div className="mt-1.5 md:mt-2 h-3 md:h-4 bg-muted rounded-lg w-3/4" />
                   <div className="mt-0.5 md:mt-1 h-3 md:h-4 bg-muted rounded-lg w-1/2" />
                 </div>
               ))}
             </div>
           ) : products.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
               {products.map((product: Product, idx: number) => (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -300,11 +300,11 @@ export default function CashierPage() {
                   className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer active:scale-[0.97] transition-transform"
                   onClick={() => handleProductClick(product)}
                 >
-                  <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
+                  <div className="aspect-square min-h-[160px] bg-muted flex items-center justify-center overflow-hidden">
                     {product.imageUrl ? (
-                      <img src={product.imageUrl.startsWith("http") ? product.imageUrl : `/api/storage${product.imageUrl}`} alt={product.name} className="w-full h-full object-contain p-2" />
+                      <img src={product.imageUrl.startsWith("http") ? product.imageUrl : `/api/storage${product.imageUrl}`} alt={product.name} className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-background flex items-center justify-center text-muted-foreground font-bold text-lg md:text-2xl shadow-sm">
+                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-background flex items-center justify-center text-muted-foreground font-bold text-xl md:text-3xl shadow-sm">
                         {product.name.charAt(0)}
                       </div>
                     )}
