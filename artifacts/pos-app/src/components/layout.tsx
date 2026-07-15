@@ -42,51 +42,8 @@ function NavItem({ href, icon: Icon, label, active, onClick }: { href: string; i
 export function Layout({ children, role, user, onSignOut }: LayoutProps) {
   const [location, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
-  const [fabOpen, setFabOpen] = React.useState(false);
   const [accountOpen, setAccountOpen] = React.useState(false);
   const [aiAgentOpen, setAiAgentOpen] = React.useState(false);
-  const fabRef = React.useRef<HTMLDivElement>(null);
-  const [fabPos, setFabPos] = React.useState(() => {
-    const saved = localStorage.getItem("sayq.fabPos");
-    return saved ? JSON.parse(saved) : { bottom: 88, right: 20 };
-  });
-  const fabDrag = React.useRef<{ startX: number; startY: number; startBottom: number; startRight: number; moved: boolean } | null>(null);
-
-  const handleFabPointerDown = (e: React.PointerEvent) => {
-    const el = fabRef.current;
-    if (!el) return;
-    el.setPointerCapture(e.pointerId);
-    fabDrag.current = {
-      startX: e.clientX, startY: e.clientY,
-      startBottom: fabPos.bottom, startRight: fabPos.right,
-      moved: false,
-    };
-  };
-
-  React.useEffect(() => {
-    const el = fabRef.current;
-    if (!el) return;
-    const move = (e: PointerEvent) => {
-      if (!fabDrag.current) return;
-      const dx = fabDrag.current.startX - e.clientX;
-      const dy = fabDrag.current.startY - e.clientY;
-      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) fabDrag.current.moved = true;
-      setFabPos({
-        bottom: Math.max(60, Math.min(400, fabDrag.current.startBottom + dy)),
-        right: Math.max(10, Math.min(200, fabDrag.current.startRight + dx)),
-      });
-    };
-    const up = () => {
-      if (fabDrag.current?.moved) {
-        setFabPos((p: any) => { localStorage.setItem("sayq.fabPos", JSON.stringify(p)); return p; });
-      }
-      fabDrag.current = null;
-    };
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
-    return () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); };
-  }, []);
 
   const { theme, setTheme } = useTheme();
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
@@ -137,14 +94,6 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
     { href: "/users", label: "Pengguna", icon: Users, show: isOwner },
     { href: "/eng-os", label: "EngOS", icon: Sparkles, show: isOwner },
     { href: "/executive", label: "Executive", icon: Zap, show: isOwner },
-  ].filter((i) => i.show);
-
-  const fabActions = [
-    { label: "Tambah Transaksi", icon: Receipt, href: "/", show: true },
-    { label: "Catat Pengeluaran", icon: Wallet, href: "/pengeluaran", show: true },
-    { label: "Tambah Produk", icon: Package, href: "/products", show: canManage },
-    { label: "Tambah Stok", icon: Boxes, href: "/inventory", show: true },
-    { label: "Tambah Pelanggan", icon: UserPlus, href: "/customers", show: canManage },
   ].filter((i) => i.show);
 
   const initials = user?.name
@@ -338,42 +287,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
           </div>
         </nav>
 
-        {/* FAB — draggable on mobile */}
-        <div ref={fabRef} onPointerDown={handleFabPointerDown} className="fixed z-50 lg:hidden touch-none" style={{ bottom: fabPos.bottom, right: fabPos.right }}>
-          <AnimatePresence>
-            {fabOpen && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, y: 10 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.8, y: 10 }}
-                className="absolute bottom-16 right-0 flex flex-col items-end gap-2 mb-2"
-              >
-                <div className="bg-card border border-border rounded-2xl shadow-xl p-2 min-w-[180px]">
-                  {fabActions.map((action) => (
-                    <button
-                      key={action.label}
-                      onClick={() => handleFabAction(action.href)}
-                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-accent transition-colors text-sm font-medium touch-target"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
-                        <action.icon size={16} />
-                      </div>
-                      {action.label}
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <motion.button
-            animate={{ rotate: fabOpen ? 45 : 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 20 }}
-            onClick={() => setFabOpen(!fabOpen)}
-            className="fab-btn touch-target"
-          >
-            <Plus size={32} />
-          </motion.button>
-        </div>
+
 
         {/* Mobile overlay when sidebar opens */}
         {sidebarOpen && (
