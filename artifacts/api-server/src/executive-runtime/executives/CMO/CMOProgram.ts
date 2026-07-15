@@ -12,6 +12,7 @@ import { callDeepSeek } from "../../../ai/llm/llm-adapter";
 import type { ExecutionContract } from "../../../eios-runtime/contracts/PipelineContracts";
 import { consultantRuntime } from "../../../programs/consultant";
 import { GovernanceProvider } from "../../../governance/providers";
+import { KnowledgeProvider } from "../../../knowledge-platform/providers";
 import { auditEngine } from "../../../governance/core";
 import { PlanProvider } from "../../../execution-planner/providers";
 import { BriefGenerator, type ExecutiveBrief } from "../../core";

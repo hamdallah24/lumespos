@@ -89,16 +89,28 @@ vi.mock("../src/ai/runtime/prompt-assembler", () => ({
   assemble: vi.fn((_opts: any) => "Mock assembled CMO prompt."),
 }));
 
-vi.mock("../src/ai/runtime/execution/execution-pipeline", () => ({
-  ExecutionPipeline: {
-    execute: vi.fn(async () => ({
-      success: true,
-      text: "📈 Analisa Marketing: Campaign performa 78% | Customer acquisition +12% MoM | Top produk: Es Kopi, Thai Tea. Rekomendasi: tingkatkan promosi Thai Tea di sosial media.",
-      contract: {} as any,
-      context: {} as any,
-      toolsUsed: 0,
-      filesRead: [],
+vi.mock("../src/ai/llm/llm-adapter", () => ({
+  callDeepSeek: vi.fn(async (_prompt: string, _msg: string, _userId: number, _mode: string, _tokens: number, _tools: boolean) =>
+    "📈 Analisa Marketing: Campaign performa 78% | Customer acquisition +12% MoM | Top produk: Es Kopi, Thai Tea. Rekomendasi: tingkatkan promosi Thai Tea di sosial media."
+  ),
+}));
+
+vi.mock("../src/operational-truth", () => ({
+  OperationalTruthProvider: {
+    getMarketingContext: vi.fn(async () => ({
+      todaySales: { total: 0, count: 0, period: "today", branchId: 1 },
+      topProducts: [],
+      products: [],
+      branches: [{ id: 1, name: "Lume Central", location: "Jakarta Pusat" }],
+      timestamp: new Date().toISOString(),
+      source: "mock",
+      confidence: 100,
+      missingDomains: [],
+      errors: [],
+      version: 1,
+      rawTexts: {},
     })),
+    getBranchContextString: vi.fn(async (_branchId: number) => "## Context Cabang\n- Lume Central\n- Lume Bandung"),
   },
 }));
 
@@ -116,6 +128,15 @@ vi.mock("../src/programs/consultant", () => ({
 
 vi.mock("../src/governance/core", () => ({
   auditEngine: { log: vi.fn() },
+}));
+
+vi.mock("../src/knowledge-platform/providers", () => ({
+  KnowledgeProvider: {
+    ingestEpisode: vi.fn(),
+    getLatestEpisodes: vi.fn(() => []),
+    searchAll: vi.fn(() => []),
+    getBestPractices: vi.fn(() => []),
+  },
 }));
 
 vi.mock("../src/governance/providers", () => ({
@@ -294,7 +315,7 @@ describe("CMO Runtime Integration", () => {
       branchId: 2,
     });
     expect(result.success).toBe(true);
-    expect(result.pipeline).toContain("PipelineLLM");
+    expect(result.pipeline).toContain("MarketingContext");
   });
 
   it("should default to branchId=1 when not provided", async () => {
@@ -333,8 +354,8 @@ describe("CMO Runtime Integration", () => {
       expect(result.pipeline).toContain("ExecutionSpec");
       expect(result.pipeline).toContain("Verification");
       expect(result.pipeline).toContain("CKO");
-      expect(result.pipeline).toContain("Context");
-      expect(result.pipeline).toContain("PipelineLLM");
+      expect(result.pipeline).toContain("MarketingContext");
+      expect(result.pipeline).toContain("LLM");
       expect(result.pipeline).toContain("Result");
     });
   });
