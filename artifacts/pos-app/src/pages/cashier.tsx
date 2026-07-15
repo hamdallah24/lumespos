@@ -105,9 +105,10 @@ export default function CashierPage() {
     if (branchId) checkActiveShift();
   }, [branchId]);
 
+  const initialFocusDone = useRef(false);
   useEffect(() => {
-    if (!isCheckingShift && isShiftActive && searchRef.current) {
-      setTimeout(() => searchRef.current?.focus(), 300);
+    if (!isCheckingShift && isShiftActive && searchRef.current && !initialFocusDone.current) {
+      setTimeout(() => { searchRef.current?.focus(); initialFocusDone.current = true; }, 300);
     }
   }, [isCheckingShift, isShiftActive]);
 
@@ -117,7 +118,12 @@ export default function CashierPage() {
     { branchId: branchId ?? 0, categoryId: activeCategory || undefined } as any,
     { query: { enabled: !!branchId && branchId > 0 } } as any
   );
-  const products = Array.isArray(productsRaw) ? productsRaw : (productsRaw as any)?.data ?? (productsRaw as any)?.items ?? [];
+  const allProducts = Array.isArray(productsRaw) ? productsRaw : (productsRaw as any)?.data ?? (productsRaw as any)?.items ?? [];
+  const products = useMemo(() => {
+    if (!searchQuery.trim()) return allProducts;
+    const q = searchQuery.toLowerCase();
+    return allProducts.filter((p: Product) => p.name.toLowerCase().includes(q));
+  }, [allProducts, searchQuery]);
   const { data: variants = [], isLoading: isLoadingVariants } = useListProductVariants(
     variantProduct?.id ?? 0,
     { query: { queryKey: ["listProductVariants", variantProduct?.id ?? 0], enabled: !!variantProduct } }
