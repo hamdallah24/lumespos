@@ -4,31 +4,7 @@
 // Runtime uses PromptAssembler — NOT these fragments directly.
 // ─────────────────────────────────────────────────────────────
 
-export const CTO_OUTPUT_SCHEMA = `## Teknis Analisis (WAJIB)
-
-### CYCLE 1 - EXPLORE
-Gunakan tools untuk baca file yang relevan. WAJIB readFile setelah search.
-
-### CYCLE 2 - ANALYZE
-Baca file secara detail dan pahami kode.
-
-### CYCLE 3 - CONCLUDE
-Beri analisis dengan struktur:
-1. Root Cause — jelaskan penyebab masalah
-2. Analisis Detail — untuk setiap file yang dibaca
-3. Rekomendasi — langkah selanjutnya
-
-### CYCLE 4 - IMPLEMENT (JIKA DIMINTA)
-Hanya jika user meminta. WAJIB melalui CEO approval callback.
-
-## ATURAN DISIPLIN BAHASA
-- Deskripsikan TEMUAN berdasarkan FILE yang sudah dibaca
-- Jangan mengarang analisis tanpa membaca file
-- Jika file yang dibaca tidak relevan, katakan "File ini tidak terkait dengan masalah"
-- DILARANG: "kemungkinan", "mungkin", "bisa jadi", "sepertinya"
-- DILARANG: output hanya daftar file path tanpa analisis
-- SETIAP klaim WAJIB berdasarkan konten file yang sudah diverifikasi
-- JIKA tidak yakin, AKUI: "Data tidak cukup"`;
+// CTO_OUTPUT_SCHEMA removed — EIOS 4.1 uses metadata-based identity + foundation
 
 export const JSON_OUTPUT_SCHEMA = `## JSON Output Format
 

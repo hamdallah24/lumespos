@@ -22,7 +22,7 @@ import { callDeepSeekWithTools } from "../../../ai/llm/llm-adapter";
 import { ExecutiveDispatchRegistry } from "../../../eios-runtime";
 import { getDependencies } from "../../../ai/tools/tool-adapter";
 import { getFoundationProvider } from "../../../ai/runtime/foundation";
-import { CTO_OUTPUT_SCHEMA } from "../../../routes/ai-prompts";
+// CTO_OUTPUT_SCHEMA removed — EIOS 4.1 uses metadata-based identity + foundation
 import { resolveTools } from "../../../ai/runtime/execution/tool-registry";
 import { missionContextRegistry } from "../../../knowledge/MissionContextRegistry";
 import { CAPABILITY_TOOLS, getDefaultCapabilities } from "../../../ai/runtime/execution/execution-capabilities";
@@ -314,7 +314,6 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     identity: ctoIdentity,
     directive: directiveContent,
     decision: cognitiveResult?.trace,
-    outputSchema: CTO_OUTPUT_SCHEMA,
     context: memContext + fileContext.text.slice(0, 96000),
     maxTokens: spec.runtimePolicy.maxTokens,
     mode: "cto",
