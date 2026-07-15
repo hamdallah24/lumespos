@@ -194,7 +194,14 @@ export class ExecutionDriver {
             console.log(`[DRIVER:EXEC] Direct execution error: ${e.message}`);
           }
         } else {
-          messages.push({ role: "user", content: "[PERSETUJUAN] CEO telah menyetujui implementasi. Gunakan analisis dari [HASIL SIKLUS SEBELUMNYA] untuk menentukan file target dan perubahan. BACA file dulu dengan readFile, lalu gunakan editFile untuk perubahan spesifik (bukan writeFile seluruh file). Verifikasi hasil dengan readFile." });
+          // Jika tidak ada implementation plan, inject file dari hasil CONCLUDE + beri tools
+          const cycleData = this._cycleOutputs.join("\n\n").slice(0, 3000);
+          let ctxData = "";
+          if (this._toolDataStore.size > 0) {
+            ctxData = Array.from(this._toolDataStore.entries())
+              .map(([p, c]) => `--- ${p} ---\n${c}`).join("\n\n").slice(0, 4000);
+          }
+          messages.push({ role: "user", content: `[PERSETUJUAN] Implementasi DISETUJUI. FILE YANG SUDAH DIBACA:\n${ctxData}\n\n[HASIL ANALISIS]\n${cycleData}\n\nSEKARANG: Gunakan editFile untuk perubahan yang diperlukan. BACA file target dulu dengan readFile, lalu editFile untuk perubahan spesifik. JANGAN tulis ulang seluruh file.` });
         }
       }
 
@@ -281,7 +288,7 @@ TOOL: editFile
 Analisis:
 ${finalText?.slice(0, 3000)}
 
-WAJIB: Output format di atas. Minimal TARGET dan TOOL harus ada.` }], [], 400, false, false);
+WAJIB: Output format di atas. Minimal TARGET dan TOOL harus ada.` }], [], 1000, false, false);
               if (planResp.content) this._implPlan = planResp.content;
               console.log(`[DRIVER:SUMMARIZER] _implPlan=${this._implPlan?.slice(0, 100)}`);
             } catch (e: any) {
