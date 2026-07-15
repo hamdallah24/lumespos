@@ -325,12 +325,26 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
 
   const isDevOps = spec.intent === "devops_operation";
   const isGreeting = spec.intent === "greeting";
-  const toolSet = isGreeting ? []
+  let toolSet = isGreeting ? []
     : execContract?.allowedTools?.length
       ? execContract.allowedTools as any[]
       : isDevOps
         ? resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS)
         : resolveTools(getDefaultCapabilities("CTO"), CAPABILITY_TOOLS);
+
+  // If user explicitly mentioned a file path, restrict tools to read-only (no search)
+  // This prevents LLM from overriding the provided context with its own file search
+  const hasExplicitFile = /[\w\/]+\.(tsx?|jsx?|ts|js|css|json|mjs)/.test(task.message);
+  if (hasExplicitFile && toolSet.length > 0 && fileContext.filePaths.length > 0) {
+    const readOnlyTools = toolSet.filter((t: any) => {
+      const name = typeof t === "string" ? t : t.name || "";
+      return /readFile|editFile|writeFile|getDependencies/i.test(name);
+    });
+    if (readOnlyTools.length > 0) {
+      toolSet = readOnlyTools;
+      task.onProgress?.("📌 File eksplisit terdeteksi — tool pencarian dibatasi");
+    }
+  }
 
   const allTargets = [...spec.targetFiles, ...spec.entities].filter(Boolean);
   const ckoFiles = fileContext.filePaths.slice(0, 10);
