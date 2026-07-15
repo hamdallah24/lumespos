@@ -302,6 +302,21 @@ router.get("/ai/readiness", requireRole("owner"), async (_req, res) => {
   });
 });
 
+// ── ERROR LOGS (for CTO debugging) ──
+router.get("/ai/logs", requireRole("owner"), async (_req, res) => {
+  const { execSync } = await import("child_process");
+  try {
+    const logs = execSync("pm2 logs pos-api --lines 80 --nostream 2>&1", { timeout: 5000 }).toString();
+    // Filter line yang mengandung error/fail/warn/exception
+    const lines = logs.split("\n").filter(l =>
+      /error|fail|warn|exception|timeout|CRITICAL|violation|reject|denied|EROR/i.test(l)
+    ).slice(-40);
+    res.json({ logs: lines, total: lines.length, timestamp: new Date().toISOString() });
+  } catch (e: any) {
+    res.json({ logs: [`Failed to fetch logs: ${e.message}`], total: 1, timestamp: new Date().toISOString() });
+  }
+});
+
 // ── ENGINEERING OS CERTIFICATION (Sprint 16.5) ──
 router.get("/ai/certify", requireRole("owner"), async (_req, res) => {
   const { engineeringCertification } = await import("../ai/runtime/engineering-certification");
