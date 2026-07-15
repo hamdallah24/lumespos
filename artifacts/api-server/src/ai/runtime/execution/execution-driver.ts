@@ -255,15 +255,15 @@ export class ExecutionDriver {
         // CONCLUDE → lanjut ke EXECUTE jika needsImpl, atau return sebagai final
         if (strategy === "CONCLUDE") {
           const finalText = (context.result || validated.cleanedText || "").trim();
-          // Tolak output < 500 chars → retry dengan instruksi lebih keras
-          if (finalText.length < 500) {
-            console.log(`[CONCLUDE] Output too short (${finalText.length} chars), retrying with strict instruction...`);
+          // Jika output terlalu pendek (tidak ada konten berarti), retry 1x dengan instruksi lebih jelas
+          if (finalText.length < 100) {
+            console.log(`[CONCLUDE] Output too short (${finalText.length} chars), retrying once...`);
             const retry = await callLLMWithTools(
-              [{ role: "user", content: `[GOVERNOR] Output sebelumnya HANYA ${finalText.length} karakter — TIDAK CUKUP. WAJIB output MINIMAL 500 karakter analisis. TULISKAN analisis lengkap dengan format:\n\n## Root Cause\n[penjelasan detail]\n\n## Verified Evidence\n[analisis lengkap]\n\n## Rekomendasi Teknis\n[3 langkah]\n\n## Confidence\n[XX]%\n\n## Persetujuan\nMinta persetujuan Founder.` }],
+              [{ role: "user", content: `[GOVERNOR] Output terlalu pendek. Berikan analisis berdasarkan file yang sudah dibaca. Sertakan root cause, evidence, dan rekomendasi.` }],
               [], maxTokens, false, false,
             );
             const retryText = stripDSML(retry.content || "");
-            if (retryText.length >= 500) { context.result = retryText; await remember(userId, mode, user, retryText); return retryText; }
+            if (retryText.length > finalText.length) { context.result = retryText; await remember(userId, mode, user, retryText); return retryText; }
           }
           // Jika needsImpl=true, jangan return — lanjut ke EXECUTE cycle
           if (this._needsImpl) {
@@ -407,13 +407,13 @@ WAJIB: Output format di atas. Minimal TARGET dan TOOL harus ada.` }], [], 400, f
           ctxFeed += `\n\n[SEARCH RESULTS]\n${this._searchDataStore.join("\n\n")}`;
         }
 
-        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Berikan analisis LENGKAP dan DETAIL. Output minimal 500 karakter.
+        messages.push({ role: "user", content: `[GOVERNOR] CONCLUDE. Berikan analisis berdasarkan FILE yang sudah dibaca.
 
 ## Root Cause
-[JELASKAN penyebab utama dengan detail. Minimal 3 kalimat.]
+[JELASKAN penyebab utama dengan detail]
 
 ## Verified Evidence
-[Jelaskan temuan dan analisis. Kutip baris kode spesifik jika relevan. Minimal 5 kalimat.]
+[Jelaskan temuan dan analisis. Kutip baris kode spesifik jika relevan.]
 
 ## Rekomendasi Teknis
 1. [Langkah spesifik dengan justifikasi]
@@ -430,11 +430,11 @@ Minta persetujuan Founder.${ctxFeed}` });
         let finalContent = stripDSML(finalResult.content || "");
         let validated = validateResponse(finalContent);
         let useText = validated.cleanedText || context.result || "";
-        // Tolak output < 500 chars → retry dengan instruksi lebih keras
-        if (useText.length < 500) {
-          console.log(`[CONCLUDE] Output too short (${useText.length} chars), retrying with strict instruction...`);
+        // Jika output terlalu pendek, retry 1x
+        if (useText.length < 100) {
+          console.log(`[CONCLUDE] Output too short (${useText.length} chars), retrying once...`);
           const retry = await callLLMWithTools(
-            [{ role: "user", content: `[GOVERNOR] WAJIB output analisis MINIMAL 500 karakter. Output sebelumnya HANYA ${useText.length} karakter — TIDAK CUKUP. Tulis analisis LENGKAP dengan format:\n\n## Root Cause\n[penjelasan detail]\n\n## Verified Evidence\n[analisis lengkap]\n\n## Rekomendasi Teknis\n[3 langkah]\n\n## Confidence\n[XX]%\n\n## Persetujuan\nMinta persetujuan Founder.` }],
+            [{ role: "user", content: `[GOVERNOR] Output terlalu pendek. Berikan analisis berdasarkan file yang sudah dibaca dengan struktur yang diminta.` }],
             [], maxTokens, false, false,
           );
           const retryContent = stripDSML(retry.content || "");

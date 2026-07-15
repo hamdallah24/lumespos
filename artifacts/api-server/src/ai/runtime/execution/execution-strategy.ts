@@ -124,13 +124,13 @@ class ExecutionStrategyEngine {
     const d: Record<ExecutionStrategy, string> = {
       EXPLORE: "[GOVERNOR] SEKARANG: CYCLE 1 - EXPLORE. Cari file target. WAJIB GUNAKAN TOOLS. Pipeline: searchContent → cari file relevan. listDirectory → lihat struktur folder. WAJIB baca file yang ditemukan dengan readFile(). searchContent TANPA readFile = TIDAK LENGKAP. JANGAN gunakan execCommand untuk baca file.",
       ANALYZE: "[GOVERNOR] SEKARANG: CYCLE 2 - ANALYZE. Baca file dengan readFile(). Pahami isi kode. JANGAN pakai wc/grep/cat — pakai readFile(). WAJIB GUNAKAN TOOLS.",
-      CONCLUDE: `[GOVERNOR] SEKARANG: CYCLE 3 - CONCLUDE. WAJIB output minimal 500 karakter.
+      CONCLUDE: `[GOVERNOR] SEKARANG: CYCLE 3 - CONCLUDE. Berikan analisis berdasarkan FILE yang sudah dibaca.
 
 ## Root Cause
-[JELASKAN penyebab utama dengan detail. Minimal 3 kalimat.]
+[JELASKAN penyebab utama dengan detail]
 
 ## Verified Evidence
-[Jelaskan temuan dan analisis. Kutip baris kode spesifik jika relevan. Minimal 5 kalimat.]
+[Jelaskan temuan dan analisis. Kutip baris kode spesifik jika relevan.]
 
 ## Rekomendasi Teknis
 1. [Langkah spesifik dengan justifikasi]
