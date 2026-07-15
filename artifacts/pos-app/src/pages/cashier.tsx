@@ -68,6 +68,12 @@ export default function CashierPage() {
   const [variantProduct, setVariantProduct] = useState<Product | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
 
+  // Manual custom order states
+  const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualPriceStr, setManualPriceStr] = useState("");
+  const [manualQuantity, setManualQuantity] = useState(1);
+
   const checkActiveShift = async () => {
     if (!branchId) return;
     setIsCheckingShift(true);
@@ -179,9 +185,11 @@ export default function CashierPage() {
           paymentMethod,
           amountPaid: paymentMethod === "cash" ? amountPaid : cartTotal,
           items: cart.map((item) => ({
-            productId: item.id,
+            productId: item.id < 0 ? null : item.id,
             productVariantId: item.variantId ?? null,
-            quantity: item.cartQuantity
+            quantity: item.cartQuantity,
+            productName: item.id < 0 ? item.name : undefined,
+            price: item.id < 0 ? item.price : undefined,
           })),
         },
       },
@@ -247,6 +255,12 @@ export default function CashierPage() {
           </div>
           <div className="flex gap-2 overflow-x-auto no-scrollbar mt-3 pb-1">
             <button
+              className="shrink-0 px-4 py-2 rounded-full text-sm font-medium bg-[#1565FF]/10 text-primary border border-[#1565FF]/20 hover:bg-[#1565FF]/20 transition-colors touch-target flex items-center gap-1"
+              onClick={() => setManualDialogOpen(true)}
+            >
+              <Plus size={14} /> Custom Order
+            </button>
+            <button
               className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors touch-target flex items-center ${activeCategory === null ? "bg-primary text-primary-foreground shadow-sm" : "bg-accent text-muted-foreground"}`}
               onClick={() => setActiveCategory(null)}
             >
@@ -288,7 +302,7 @@ export default function CashierPage() {
                 >
                   <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
                     {product.imageUrl ? (
-                      <img src={product.imageUrl.startsWith("http") ? product.imageUrl : `/api/storage${product.imageUrl}`} alt={product.name} className="w-full h-full object-cover" />
+                      <img src={product.imageUrl.startsWith("http") ? product.imageUrl : `/api/storage${product.imageUrl}`} alt={product.name} className="w-full h-full object-contain p-2" />
                     ) : (
                       <div className="w-10 h-10 md:w-16 md:h-16 rounded-full bg-background flex items-center justify-center text-muted-foreground font-bold text-lg md:text-2xl shadow-sm">
                         {product.name.charAt(0)}
@@ -587,6 +601,87 @@ export default function CashierPage() {
               disabled={createOrder.isPending || (paymentMethod === "cash" && amountPaid < cartTotal)}
             >
               {createOrder.isPending ? "Memproses..." : "Selesaikan Transaksi"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manual Custom Order Dialog */}
+      <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
+        <DialogContent className="sm:max-w-sm mx-4 rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg">Tambah Custom Order</DialogTitle>
+          </DialogHeader>
+          <div className="py-3 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">Nama / Deskripsi Order</label>
+              <Input
+                placeholder="Contoh: Kaos Sablon Custom"
+                value={manualName}
+                onChange={(e) => setManualName(e.target.value)}
+                className="rounded-xl h-11"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">Harga Satuan</label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-semibold text-muted-foreground">Rp</span>
+                <Input
+                  placeholder="0"
+                  value={manualPriceStr}
+                  onChange={(e) => setManualPriceStr(e.target.value.replace(/[^0-9]/g, ""))}
+                  className="pl-10 rounded-xl h-11 text-base font-medium"
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-semibold">Jumlah (Qty)</label>
+              <div className="flex items-center gap-2 bg-muted rounded-xl p-1 w-fit">
+                <button
+                  type="button"
+                  onClick={() => setManualQuantity(q => Math.max(1, q - 1))}
+                  className="w-9 h-9 rounded-lg bg-background flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="text-sm font-semibold w-7 text-center">{manualQuantity}</span>
+                <button
+                  type="button"
+                  onClick={() => setManualQuantity(q => q + 1)}
+                  className="w-9 h-9 rounded-lg bg-background flex items-center justify-center active:scale-90 transition-transform"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="flex-row gap-2">
+            <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setManualDialogOpen(false)}>Batal</Button>
+            <Button
+              className="flex-[2] rounded-xl"
+              onClick={() => {
+                if (!manualName.trim()) { toast.error("Nama order harus diisi"); return; }
+                const price = parseFloat(manualPriceStr) || 0;
+                if (price <= 0) { toast.error("Harga harus lebih dari 0"); return; }
+                
+                const customProduct: Product = {
+                  id: -(Date.now() + Math.floor(Math.random() * 1000)),
+                  name: manualName,
+                  price: price,
+                };
+                
+                setCart(prev => {
+                  return [...prev, { ...customProduct, cartQuantity: manualQuantity }];
+                });
+                
+                toast.success("Order manual ditambahkan");
+                setManualDialogOpen(false);
+                setManualName("");
+                setManualPriceStr("");
+                setManualQuantity(1);
+              }}
+            >
+              Tambah ke Keranjang
             </Button>
           </DialogFooter>
         </DialogContent>
