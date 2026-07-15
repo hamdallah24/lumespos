@@ -486,10 +486,15 @@ export async function executeOperation(action: string, params: Record<string, an
     }
 
     case "get_sales_summary": {
-      const { period } = params;
+      const { period, startDate, endDate } = params;
       let dateFilter;
       const now = new Date();
-      if (period === "today") {
+      if (startDate || endDate) {
+        const conds: any[] = [];
+        if (startDate) conds.push(gte(ordersTable.createdAt, sql`${startDate}::date`));
+        if (endDate) conds.push(lte(ordersTable.createdAt, sql`${endDate}::date + interval '1 day'`));
+        dateFilter = conds.length > 0 ? and(...conds) : undefined;
+      } else if (period === "today") {
         dateFilter = gte(ordersTable.createdAt, sql`CURRENT_DATE`);
       } else if (period === "yesterday") {
         dateFilter = and(gte(ordersTable.createdAt, sql`CURRENT_DATE - INTERVAL '1 day'`), lt(ordersTable.createdAt, sql`CURRENT_DATE`));
@@ -509,8 +514,9 @@ export async function executeOperation(action: string, params: Record<string, an
         .from(ordersTable)
         .where(and(branchCond, eq(ordersTable.status, "completed"), dateFilter));
       const row = sales[0] as any;
+      const periodLabel = startDate ? `${startDate}${endDate ? ` - ${endDate}` : ""}` : period || "Hari Ini";
       const label = bid > 0 ? "" : " (Semua Cabang)";
-      return `💰 Ringkasan Penjualan${period ? ` (${period})` : " Hari Ini"}${label}\nTotal: Rp${Number(row.total).toLocaleString("id-ID")}\nTransaksi: ${row.count}`;
+      return `💰 Ringkasan Penjualan${label}\nPeriode: ${periodLabel}\nTotal: Rp${Number(row.total).toLocaleString("id-ID")}\nTransaksi: ${row.count}`;
     }
 
     case "get_top_products": {
@@ -676,11 +682,14 @@ export async function executeOperation(action: string, params: Record<string, an
     }
 
     case "get_expenses": {
-      const { period, category } = params;
+      const { period, category, startDate, endDate } = params;
       const conditions: any[] = bid > 0 ? [eq(expensesTable.branchId, bid)] : [];
       if (category) conditions.push(eq(expensesTable.category, category));
       const now = new Date();
-      if (period === "today") {
+      if (startDate || endDate) {
+        if (startDate) conditions.push(gte(expensesTable.createdAt, sql`${startDate}::date`));
+        if (endDate) conditions.push(lte(expensesTable.createdAt, sql`${endDate}::date + interval '1 day'`));
+      } else if (period === "today") {
         conditions.push(gte(expensesTable.createdAt, sql`CURRENT_DATE`));
       } else if (period === "yesterday") {
         conditions.push(and(gte(expensesTable.createdAt, sql`CURRENT_DATE - INTERVAL '1 day'`), lt(expensesTable.createdAt, sql`CURRENT_DATE`)));
@@ -700,7 +709,8 @@ export async function executeOperation(action: string, params: Record<string, an
         .where(and(...conditions));
       const row = expenses[0] as any;
       const label = bid > 0 ? "" : " (Semua Cabang)";
-      let text = `💸 Ringkasan Pengeluaran${period ? ` (${period})` : ""}${label}`;
+      const periodLabel = startDate ? `${startDate}${endDate ? ` - ${endDate}` : ""}` : period || "";
+      let text = `💸 Ringkasan Pengeluaran${periodLabel ? ` (${periodLabel})` : ""}${label}`;
       if (category) text += ` - Kategori: ${category}`;
       text += `\nTotal: Rp${Number(row.total).toLocaleString("id-ID")}\nJumlah transaksi: ${row.count}`;
       return text.trim();

@@ -195,6 +195,8 @@ export const OperationalTruthProvider = {
     const branchId = query.branchId ?? 1;
     const period = query.period ?? "today";
     const userId = query.userId;
+    const startDate = query.startDate;
+    const endDate = query.endDate;
     const ttlMs = getTTL(query.domains, query.domainTTL);
 
     const cached = getCached(query.domains, branchId, period, userId);
@@ -231,7 +233,11 @@ export const OperationalTruthProvider = {
       for (const tool of tools) {
         try {
           const params: Record<string, unknown> = {};
-          if (tool === "get_sales_summary" || tool === "get_expenses") params.period = period;
+          if (tool === "get_sales_summary" || tool === "get_expenses") {
+            params.period = period;
+            if (startDate) params.startDate = startDate;
+            if (endDate) params.endDate = endDate;
+          }
           if (tool === "get_top_products") params.limit = query.limit ?? 5;
           const result = await executeOperation(tool, params, branchId);
           if (!result || result === "Belum ada produk terdaftar." || result.includes("tidak tersedia")) continue;

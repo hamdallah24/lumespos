@@ -35,6 +35,8 @@ export interface OperationalQuery {
   branchId?: number;
   userId?: number;
   period?: "today" | "yesterday" | "week" | "month";
+  startDate?: string;  // ISO date: "2026-06-01"
+  endDate?: string;    // ISO date: "2026-06-30"
   limit?: number;
   domainTTL?: Partial<Record<OperationalDomain, number>>;
 }
