@@ -2,7 +2,7 @@
 // Frontend never calls LLM directly. Always through CEO Runtime → Kernel.
 
 import React from "react";
-import { Activity, CheckCircle2, Clock, Users, Shield, Brain, Layers, GitBranch, Zap, ArrowRight, Send, Target, FileText, AlertTriangle, Copy, Check } from "lucide-react";
+import { Activity, CheckCircle2, Clock, Users, Shield, Brain, Layers, GitBranch, Zap, ArrowRight, Send, Target, FileText, AlertTriangle, Copy, Check, ChevronUp } from "lucide-react";
 import { getCsrfToken } from "@/lib/csrf";
 import { RuntimeProgressCard } from "@/components/runtime-progress-card";
 import { ActiveMissions } from "@/components/active-missions";
@@ -69,6 +69,8 @@ export default function ExecutiveWorkspace() {
   const [evidenceScore, setEvidenceScore] = React.useState<any>(null);
   const [missionProgress, setMissionProgress] = React.useState<any>(null);
   const [selectedMissionId, setSelectedMissionId] = React.useState<number | null>(null);
+  const [missionOpen, setMissionOpen] = React.useState(true);
+  const showMission = missionPhase !== "idle" || execCards.length > 0 || !!execSnapshot || !!missionProgress || synthesis.active || timeline.length > 0;
 
   // Fetch org status on mount
   React.useEffect(() => {
@@ -340,75 +342,6 @@ export default function ExecutiveWorkspace() {
             </div>
           </header>
 
-          {/* ECP-047: Executive Workspace — Mission + Board + Timeline + Synthesis */}
-          {(missionPhase !== "idle" || execCards.length > 0) && (
-            <div className="px-6 py-3 space-y-3 border-b border-[#1565FF]/10 bg-white/50 dark:bg-white/[0.02]">
-              {/* Mission Card */}
-              {missionPhase !== "idle" && (
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="font-semibold text-slate-600 dark:text-slate-300">
-                    Mission · <span className="text-[#1565FF]">{missionPhase}</span>
-                  </span>
-                  {execSnapshot?.progress && (
-                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden max-w-[200px]">
-                      <div className="h-full bg-[#1565FF] rounded-full transition-all duration-500" style={{ width: `${execSnapshot.progress.overall || 0}%` }} />
-                    </div>
-                  )}
-                  <span className="text-slate-400">{execSnapshot?.progress?.overall || 0}%</span>
-                </div>
-              )}
-
-              {/* Executive Board */}
-              {execCards.length > 0 && (
-                <div className="flex flex-wrap gap-3">
-                  {execCards.map(c => (
-                    <div key={c.executive} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs ${
-                      c.status === "Running" || c.status === "Executing" || c.status.includes("Dispatching")
-                        ? "border-[#1565FF]/30 bg-[#1565FF]/5"
-                        : c.status === "Completed" || c.status === "Selesai"
-                          ? "border-green-200 bg-green-50 dark:bg-green-950/30"
-                          : "border-slate-200 bg-slate-50 dark:bg-slate-800/50"
-                    }`}>
-                      <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: c.status.includes("Run") || c.status.includes("Exec") ? "#1565FF" : c.status.includes("Complet") || c.status.includes("Selesai") ? "#22c55e" : "#94a3b8" }} />
-                      <span className="font-medium text-slate-600 dark:text-slate-300">{c.executive}</span>
-                      <span className="text-slate-400">{c.status}</span>
-                      {c.progress > 0 && (
-                        <div className="w-12 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
-                          <div className="h-full bg-[#1565FF] rounded-full" style={{ width: `${c.progress}%` }} />
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Execution Timeline */}
-              {timeline.length > 0 && (
-                <details className="text-xs">
-                  <summary className="text-slate-400 cursor-pointer hover:text-slate-600">Timeline ({timeline.length})</summary>
-                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                    {timeline.map((t, i) => (
-                      <div key={i} className="flex gap-2 text-slate-500">
-                        <span className="text-slate-300 shrink-0">{t.time}</span>
-                        <span>{t.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-
-              {/* CEO Synthesis Card */}
-              {synthesis.active && (
-                <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 text-xs">
-                  <Brain className="w-4 h-4 text-amber-500" />
-                  <span className="font-medium text-amber-700 dark:text-amber-300">CEO Synthesis</span>
-                  <span className="text-amber-500">Synthesizing...</span>
-                  <span className="ml-auto text-amber-400 animate-pulse">●●●</span>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Messages */}
           <div className="px-4 md:px-5 lg:px-6 py-4">
             <div className="max-w-[860px] mx-auto space-y-5">
@@ -444,40 +377,125 @@ export default function ExecutiveWorkspace() {
                 </div>
               </div>
             )}
-            {/* RFC-010: Progress Card — prefer MissionProgress when available */}
-            {(execSnapshot || missionProgress) && (
-              <RuntimeProgressCard
-                snapshot={execSnapshot}
-                variant="full"
-                toolEvents={toolEvents.map(t => ({ name: t.name, status: t.status as "started" | "completed", durationMs: t.durationMs }))}
-              />
-            )}
             <div ref={chatEndRef} />
             </div>
           </div>
           </div>
 
-          {/* Input Card */}
+          {/* Input Card with Drop-up Mission Info */}
           <div className="px-4 lg:px-6 pb-4 lg:pb-6 mb-20 lg:mb-0">
             <div className="max-w-[860px] mx-auto">
-              <div className="flex items-end gap-2 bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2">
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={e => { setInput(e.target.value); }}
-                  onKeyDown={e => {
-                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendCommand(); }
-                  }}
-                  placeholder="Apa yang bisa CEO bantu?"
-                  disabled={loading}
-                  rows={1}
-                  className="flex-1 bg-transparent text-sm outline-none resize-none text-slate-700 dark:text-white placeholder:text-slate-400 disabled:opacity-50"
-                  style={{ minHeight: "48px", maxHeight: "240px" }}
-                />
-                <button onClick={sendCommand} disabled={!input.trim() || loading} className="w-8 h-8 rounded-xl bg-[#1565FF] text-white flex items-center justify-center hover:bg-[#1565FF]/90 disabled:opacity-30 transition-all shrink-0 mb-0.5">
-                  <Send size={14} />
-                </button>
-              </div>
+              {showMission ? (
+                <div className="bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-700 rounded-2xl">
+                  <div className="relative">
+                    {missionOpen && (
+                      <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3 max-h-[55vh] overflow-y-auto z-10">
+                        {missionPhase !== "idle" && (
+                          <div className="flex items-center gap-3 text-xs">
+                            <span className="font-semibold text-slate-600 dark:text-slate-300 shrink-0">Mission</span>
+                            <span className="text-[#1565FF] font-medium">{missionPhase}</span>
+                            {execSnapshot?.progress && (
+                              <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden max-w-[160px]">
+                                <div className="h-full bg-[#1565FF] rounded-full transition-all duration-500" style={{ width: `${execSnapshot.progress.overall || 0}%` }} />
+                              </div>
+                            )}
+                            {execSnapshot?.progress?.overall != null && <span className="text-slate-400">{execSnapshot.progress.overall}%</span>}
+                          </div>
+                        )}
+                        {execCards.length > 0 && (
+                          <div className="flex flex-wrap gap-2">
+                            {execCards.map(c => (
+                              <div key={c.executive} className={["flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-[11px]", c.status === "Running" || c.status === "Executing" || c.status.includes("Dispatching") ? "border-[#1565FF]/30 bg-[#1565FF]/5" : c.status === "Completed" || c.status === "Selesai" ? "border-green-200 bg-green-50 dark:bg-green-950/30" : "border-slate-200 bg-slate-50 dark:bg-slate-800/50"].join(" ")}>
+                                <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: c.status.includes("Run") || c.status.includes("Exec") ? "#1565FF" : c.status.includes("Complet") || c.status.includes("Selesai") ? "#22c55e" : "#94a3b8" }} />
+                                <span className="font-medium text-slate-600 dark:text-slate-300">{c.executive}</span>
+                                <span className="text-slate-400">{c.status}</span>
+                                {c.progress > 0 && (
+                                  <div className="w-10 h-1 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="h-full bg-[#1565FF] rounded-full" style={{ width: `${c.progress}%` }} />
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {timeline.length > 0 && (
+                          <details className="text-xs">
+                            <summary className="text-slate-400 cursor-pointer hover:text-slate-600">Timeline ({timeline.length})</summary>
+                            <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                              {timeline.map((t, i) => (
+                                <div key={i} className="flex gap-2 text-slate-500">
+                                  <span className="text-slate-300 shrink-0">{t.time}</span>
+                                  <span>{t.text}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                        {synthesis.active && (
+                          <div className="flex items-center gap-3 px-3 py-2 rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 text-xs">
+                            <Brain className="w-4 h-4 text-amber-500 shrink-0" />
+                            <span className="font-medium text-amber-700 dark:text-amber-300">CEO Synthesis</span>
+                            <span className="text-amber-500">Synthesizing...</span>
+                            <span className="ml-auto text-amber-400 animate-pulse">●●●</span>
+                          </div>
+                        )}
+                        {(execSnapshot || missionProgress) && (
+                          <RuntimeProgressCard
+                            snapshot={execSnapshot}
+                            variant="full"
+                            toolEvents={toolEvents.map(function(t) { return { name: t.name, status: t.status, durationMs: t.durationMs }; })}
+                          />
+                        )}
+                      </div>
+                    )}
+                    <button
+                      onClick={function() { setMissionOpen(!missionOpen); }}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-2 text-xs text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Zap size={12} className="text-[#1565FF]" />
+                        <span className="font-medium text-slate-600 dark:text-slate-300">Mission Active</span>
+                        {missionPhase !== "idle" && <><span className="text-slate-300">·</span><span className="text-[#1565FF]">{missionPhase}</span></>}
+                        {execSnapshot?.progress?.overall != null && <><span className="text-slate-300">·</span><span>{execSnapshot.progress.overall}%</span></>}
+                      </span>
+                      <ChevronUp size={14} className={"transition-transform " + (missionOpen ? "" : "rotate-180")} />
+                    </button>
+                  </div>
+                  <div className="flex items-end gap-2 px-4 py-2 border-t border-slate-200 dark:border-slate-700">
+                    <textarea
+                      ref={textareaRef}
+                      value={input}
+                      onChange={function(e) { setInput(e.target.value); }}
+                      onKeyDown={function(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendCommand(); } }}
+                      placeholder="Apa yang bisa CEO bantu?"
+                      disabled={loading}
+                      rows={1}
+                      className="flex-1 bg-transparent text-sm outline-none resize-none text-slate-700 dark:text-white placeholder:text-slate-400 disabled:opacity-50"
+                      style={{ minHeight: "48px", maxHeight: "240px" }}
+                    />
+                    <button onClick={sendCommand} disabled={!input.trim() || loading} className="w-8 h-8 rounded-xl bg-[#1565FF] text-white flex items-center justify-center hover:bg-[#1565FF]/90 disabled:opacity-30 transition-all shrink-0 mb-0.5">
+                      <Send size={14} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-end gap-2 bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2">
+                  <textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={function(e) { setInput(e.target.value); }}
+                    onKeyDown={function(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendCommand(); } }}
+                    placeholder="Apa yang bisa CEO bantu?"
+                    disabled={loading}
+                    rows={1}
+                    className="flex-1 bg-transparent text-sm outline-none resize-none text-slate-700 dark:text-white placeholder:text-slate-400 disabled:opacity-50"
+                    style={{ minHeight: "48px", maxHeight: "240px" }}
+                  />
+                  <button onClick={sendCommand} disabled={!input.trim() || loading} className="w-8 h-8 rounded-xl bg-[#1565FF] text-white flex items-center justify-center hover:bg-[#1565FF]/90 disabled:opacity-30 transition-all shrink-0 mb-0.5">
+                    <Send size={14} />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
