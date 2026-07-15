@@ -302,18 +302,23 @@ router.get("/ai/readiness", requireRole("owner"), async (_req, res) => {
   });
 });
 
-// ── ERROR LOGS (for CTO debugging) ──
+// ── ERROR LOGS (for CTO debugging) — also saved to /tmp/pos-error.log for CTO readFile access
 router.get("/ai/logs", requireRole("owner"), async (_req, res) => {
   const { execSync } = await import("child_process");
+  const { writeFileSync } = await import("fs");
   try {
-    const logs = execSync("pm2 logs pos-api --lines 80 --nostream 2>&1", { timeout: 5000 }).toString();
-    // Filter line yang mengandung error/fail/warn/exception
-    const lines = logs.split("\n").filter(l =>
+    const raw = execSync("pm2 logs pos-api --lines 80 --nostream 2>&1", { timeout: 5000 }).toString();
+    const lines = raw.split("\n").filter(l =>
       /error|fail|warn|exception|timeout|CRITICAL|violation|reject|denied|EROR/i.test(l)
     ).slice(-40);
-    res.json({ logs: lines, total: lines.length, timestamp: new Date().toISOString() });
+    const output = { logs: lines, total: lines.length, timestamp: new Date().toISOString() };
+    // Save raw logs to temp file for CTO readFile access
+    writeFileSync("/tmp/pos-error.log", raw, "utf-8");
+    res.json(output);
   } catch (e: any) {
-    res.json({ logs: [`Failed to fetch logs: ${e.message}`], total: 1, timestamp: new Date().toISOString() });
+    const errMsg = `Failed to fetch logs: ${e.message}`;
+    writeFileSync("/tmp/pos-error.log", errMsg, "utf-8");
+    res.json({ logs: [errMsg], total: 1, timestamp: new Date().toISOString() });
   }
 });
 

@@ -319,6 +319,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     mode: "cto",
   });
   if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n\n[PROJECT STRUCTURE] Gunakan info folder di atas untuk tahu folder mana yg relevan — jangan discover dari nol.\n`;
+  systemPrompt += `\n[INFO] Error log runtime tersedia di /tmp/pos-error.log (baca dengan readFile).\n`;
   systemPrompt += `\n[ATURAN OUTPUT] Setiap file path WAJIB disertai penjelasan dan analisis dampaknya. Output tanpa analisis akan DITOLAK.\n`;
   pipeline.push("PromptAssembly");
   task.onProgress?.("📝 CTO: Merakit prompt");
