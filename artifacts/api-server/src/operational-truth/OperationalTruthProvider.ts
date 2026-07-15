@@ -334,6 +334,15 @@ export const OperationalTruthProvider = {
     } catch { return ""; }
   },
 
+  /** Get marketing-specific context */
+  async getMarketingContext(branchId?: number, period?: "today" | "yesterday" | "week" | "month", userId?: number): Promise<OperationalContext> {
+    return this.getOperationalContext({
+      domains: ["sales", "products", "branches"],
+      branchId, userId, period: period ?? "today",
+      limit: 10,
+    });
+  },
+
   /** Clear cache */
   clearCache(): void { cache.clear(); },
 

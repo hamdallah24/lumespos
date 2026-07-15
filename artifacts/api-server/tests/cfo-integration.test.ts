@@ -92,16 +92,27 @@ vi.mock("../src/ai/runtime/prompt-assembler", () => ({
   assemble: vi.fn((_opts: any) => "Mock assembled CFO prompt."),
 }));
 
-vi.mock("../src/ai/runtime/execution/execution-pipeline", () => ({
-  ExecutionPipeline: {
-    execute: vi.fn(async () => ({
-      success: true,
-      text: "📊 Laporan Keuangan: Margin kotor 65%, Biaya Operasional Rp 45.2jt, Laba Bersih Rp 28.7jt. Rekomendasi: optimasi biaya bahan baku.",
-      contract: {} as any,
-      context: {} as any,
-      toolsUsed: 0,
-      filesRead: [],
+vi.mock("../src/ai/llm/llm-adapter", () => ({
+  callDeepSeek: vi.fn(async (_prompt: string, _msg: string, _userId: number, _mode: string, _tokens: number, _tools: boolean) =>
+    "📊 Laporan Keuangan: Margin kotor 65%, Biaya Operasional Rp 45.2jt, Laba Bersih Rp 28.7jt. Rekomendasi: optimasi biaya bahan baku."
+  ),
+}));
+
+vi.mock("../src/operational-truth", () => ({
+  OperationalTruthProvider: {
+    getFinanceContext: vi.fn(async () => ({
+      finance: { revenue: 0, totalOrders: 0, averageOrderValue: 0, totalExpenses: 0, grossProfit: 0, grossMargin: 0, period: "today", branchId: 1 },
+      topProducts: [],
+      branches: [{ id: 1, name: "Lume Central", location: "Jakarta Pusat" }],
+      timestamp: new Date().toISOString(),
+      source: "mock",
+      confidence: 100,
+      missingDomains: [],
+      errors: [],
+      version: 1,
+      rawTexts: {},
     })),
+    getBranchContextString: vi.fn(async (_branchId: number) => "## Context Cabang\n- Lume Central\n- Lume Bandung"),
   },
 }));
 
@@ -243,7 +254,8 @@ describe("CFO Runtime Integration", () => {
     expect(result.pipeline).toContain("ExecutionSpec");
     expect(result.pipeline).toContain("Verification");
     expect(result.pipeline).toContain("CKO");
-    expect(result.pipeline).toContain("PipelineLLM");
+    expect(result.pipeline).toContain("FinanceContext");
+    expect(result.pipeline).toContain("LLM");
     expect(result.pipeline).toContain("Result");
   });
 
@@ -325,7 +337,7 @@ describe("CFO Runtime Integration", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.pipeline).toContain("PipelineLLM");
+    expect(result.pipeline).toContain("FinanceContext");
     // verify the assembled prompt included branch context
     const { assemble } = await import("../src/ai/runtime/prompt-assembler");
     const assembleCalls = (assemble as any).mock.calls;
