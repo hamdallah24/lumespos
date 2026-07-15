@@ -105,10 +105,9 @@ export default function CashierPage() {
     if (branchId) checkActiveShift();
   }, [branchId]);
 
-  const initialFocusDone = useRef(false);
   useEffect(() => {
-    if (!isCheckingShift && isShiftActive && searchRef.current && !initialFocusDone.current) {
-      setTimeout(() => { searchRef.current?.focus(); initialFocusDone.current = true; }, 300);
+    if (!isCheckingShift && isShiftActive && searchRef.current && window.innerWidth >= 1024) {
+      setTimeout(() => searchRef.current?.focus(), 300);
     }
   }, [isCheckingShift, isShiftActive]);
 
