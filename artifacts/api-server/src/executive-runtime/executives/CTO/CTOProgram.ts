@@ -76,7 +76,19 @@ async function fetchContext(message: string): Promise<{ text: string; filePaths:
   const seen = new Set<string>();
   const matchedTargets: string[] = [];
 
-  // T6.9: CKO LLM-based file selection — understands user intent semantically
+  // Phase 1: Detect explicitly mentioned file paths in the message
+  const explicitPattern = /([\w\/]+\.(tsx?|jsx?|ts|js|css|json|mjs))/g;
+  let explicitMatch;
+  while ((explicitMatch = explicitPattern.exec(message)) !== null) {
+    const path = explicitMatch[1];
+    if (path.includes(".") && !seen.has(path)) {
+      seen.add(path);
+      matchedTargets.push(path);
+      blocks.push(`📌 FILE DISEBUTKAN USER: ${path}`);
+    }
+  }
+
+  // Phase 2: CKO LLM-based file selection
   try {
     const ckoFiles = await consultantDiscovery.findRelevantFiles(message, 8);
     if (ckoFiles.files.length > 0) {
