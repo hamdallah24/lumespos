@@ -246,10 +246,67 @@ function getFileMap(): FileMap {
   return loadFileMap() || buildFileMap();
 }
 
+function buildFileIndex(): string {
+  const map = getFileMap();
+  if (!map) return "";
+  // Build reverse index: file path → list of keywords
+  const fileToKeywords = new Map<string, string[]>();
+  for (const [kw, entry] of Object.entries(map)) {
+    for (const f of entry.files) {
+      const list = fileToKeywords.get(f) || [];
+      if (!list.includes(kw)) list.push(kw);
+      fileToKeywords.set(f, list);
+    }
+  }
+  // Format as compact text for LLM
+  const lines: string[] = [];
+  let idx = 0;
+  for (const [file, keywords] of fileToKeywords) {
+    if (idx >= 300) break; // limit to 300 files to avoid token overflow
+    lines.push(`${idx + 1}. ${file}`);
+    lines.push(`   keywords: ${keywords.slice(0, 10).join(", ")}`);
+    idx++;
+  }
+  return lines.join("\n");
+}
+
+/** CKO: LLM-based file selection — understands user intent semantically */
+export async function findRelevantFiles(query: string, maxResults: number = 5): Promise<{ files: string[]; reason: string }> {
+  const fileIndex = buildFileIndex();
+  if (!fileIndex) return { files: [], reason: "File index not available" };
+
+  try {
+    const { callDeepSeek } = await import("../../ai/llm/llm-adapter");
+    const prompt = `Kamu adalah CKO (Chief Knowledge Officer). Tugasmu memilih file yang PALING RELEVAN untuk permintaan user.
+
+User: "${query}"
+
+Daftar file (dengan keywords):
+${fileIndex}
+
+Pilih 1-${maxResults} file yang paling relevan dengan masalah yang user hadapi.
+Jangan pilih file yang tidak relevan.
+
+Output HANYA JSON:
+{"files":["path1","path2"],"reason":"Penjelasan singkat kenapa file ini relevan"}`;
+
+    const result = await callDeepSeek(prompt, "", 0, "bisnis", 500, false);
+    const parsed = JSON.parse(result.replace(/```(?:json)?\s*/gi, "").replace(/\s*```/g, "").trim());
+    return {
+      files: Array.isArray(parsed.files) ? parsed.files.slice(0, maxResults) : [],
+      reason: parsed.reason || "",
+    };
+  } catch (e: any) {
+    console.log(`[CKO] LLM file selection failed: ${e.message}`);
+    return { files: [], reason: `LLM selection failed: ${e.message}` };
+  }
+}
+
 export const consultantDiscovery = {
   scan: () => { const map = buildFileMap(); saveFileMap(map); return map; },
   load: loadFileMap,
   get: getFileMap,
   build: buildFileMap,
   save: saveFileMap,
+  findRelevantFiles,
 };

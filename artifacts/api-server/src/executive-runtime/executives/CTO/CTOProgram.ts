@@ -76,35 +76,17 @@ async function fetchContext(message: string): Promise<{ text: string; filePaths:
   const seen = new Set<string>();
   const matchedTargets: string[] = [];
 
-  function translateKeywords(msg: string): string[] {
-    const words = msg.toLowerCase().split(/\s+/).filter(w => w.length >= 3);
-    const translated = new Set<string>();
-    for (const w of words) {
-      translated.add(w);
-      const mapping = KEYWORD_TRANSLATIONS[w];
-      if (mapping) mapping.forEach(t => translated.add(t));
-    }
-    return [...translated];
-  }
-
+  // T6.9: CKO LLM-based file selection — understands user intent semantically
   try {
-    const fileMap = consultantDiscovery.load();
-    if (fileMap) {
-      const keywords = translateKeywords(message);
-      const matchedFiles: string[] = [];
-      for (const kw of keywords) {
-        const entry = fileMap[kw];
-        if (entry) {
-          for (const f of entry.files) {
-            if (!seen.has(f)) { seen.add(f); matchedFiles.push(f); matchedTargets.push(f); }
-          }
-        }
+    const ckoFiles = await consultantDiscovery.findRelevantFiles(message, 8);
+    if (ckoFiles.files.length > 0) {
+      for (const f of ckoFiles.files) {
+        if (!seen.has(f)) { seen.add(f); matchedTargets.push(f); }
       }
-      if (matchedFiles.length > 0) {
-        blocks.push(`📋 FILE INDEX LOKAL (CKO):\n${matchedFiles.map((f, i) => `${i + 1}. ${f}`).join("\n")}`);
-      }
+      blocks.push(`📋 FILE DARI CKO (LLM selection):\n${ckoFiles.files.map((f, i) => `${i + 1}. ${f}`).join("\n")}`);
+      blocks.push(`   🧠 Alasan: ${ckoFiles.reason}`);
     }
-  } catch { /* CKO map unavailable */ }
+  } catch { /* CKO file selection unavailable */ }
 
   const indices = await missionContextRegistry.getRelevant("general", message);
   if (indices.length > 0) {
