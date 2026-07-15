@@ -48,8 +48,8 @@ export function assemble(input: PromptAssemblyInput): string {
   }
   totalTokens += estimateTokens(sections[sections.length - 1]);
 
-  // BLOCK 2: Foundation Knowledge — skip for CTO (debugging doesn't need architecture docs)
-  if (budget - totalTokens > 500 && input.mode !== "cto") {
+  // BLOCK 2: Foundation Knowledge
+  if (budget - totalTokens > 500) {
     const assets = foundationLoader.load();
     const pkg = buildFoundationContext(assets, input.mode || "cto", budget - totalTokens);
     if (pkg.assets.length > 0) {
