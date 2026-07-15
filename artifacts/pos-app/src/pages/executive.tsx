@@ -385,8 +385,8 @@ export default function ExecutiveWorkspace() {
           {/* Input Card with Drop-up Mission Info */}
           <div className="px-4 lg:px-6 pb-4 lg:pb-6 mb-20 lg:mb-0">
             <div className="max-w-[860px] mx-auto">
-              {showMission ? (
-                <div className="bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-700 rounded-2xl">
+              <div className="bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-700 rounded-2xl">
+                {showMission && (
                   <div className="relative">
                     {missionOpen && (
                       <div className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-700 rounded-2xl p-4 space-y-3 max-h-[55vh] overflow-y-auto z-10">
@@ -448,38 +448,20 @@ export default function ExecutiveWorkspace() {
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+                <div className="flex items-end gap-2 px-4 py-2">
+                  {showMission && (
                     <button
                       onClick={function() { setMissionOpen(!missionOpen); }}
-                      className="w-full flex items-center justify-between gap-2 px-4 py-2 text-xs text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+                      className="self-stretch flex items-center px-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-slate-400 hover:text-[#1565FF]"
                     >
-                      <span className="flex items-center gap-2">
-                        <Zap size={12} className="text-[#1565FF]" />
-                        <span className="font-medium text-slate-600 dark:text-slate-300">Mission Active</span>
-                        {missionPhase !== "idle" && <><span className="text-slate-300">·</span><span className="text-[#1565FF]">{missionPhase}</span></>}
-                        {execSnapshot?.progress?.overall != null && <><span className="text-slate-300">·</span><span>{execSnapshot.progress.overall}%</span></>}
-                      </span>
-                      <ChevronUp size={14} className={"transition-transform " + (missionOpen ? "" : "rotate-180")} />
+                      <div className="relative">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#1565FF] absolute -top-0.5 -right-0.5" />
+                        <ChevronUp size={16} className={"transition-transform " + (missionOpen ? "" : "rotate-180")} />
+                      </div>
                     </button>
-                  </div>
-                  <div className="flex items-end gap-2 px-4 py-2 border-t border-slate-200 dark:border-slate-700">
-                    <textarea
-                      ref={textareaRef}
-                      value={input}
-                      onChange={function(e) { setInput(e.target.value); }}
-                      onKeyDown={function(e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendCommand(); } }}
-                      placeholder="Apa yang bisa CEO bantu?"
-                      disabled={loading}
-                      rows={1}
-                      className="flex-1 bg-transparent text-sm outline-none resize-none text-slate-700 dark:text-white placeholder:text-slate-400 disabled:opacity-50"
-                      style={{ minHeight: "48px", maxHeight: "240px" }}
-                    />
-                    <button onClick={sendCommand} disabled={!input.trim() || loading} className="w-8 h-8 rounded-xl bg-[#1565FF] text-white flex items-center justify-center hover:bg-[#1565FF]/90 disabled:opacity-30 transition-all shrink-0 mb-0.5">
-                      <Send size={14} />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-end gap-2 bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2">
+                  )}
                   <textarea
                     ref={textareaRef}
                     value={input}
@@ -495,7 +477,7 @@ export default function ExecutiveWorkspace() {
                     <Send size={14} />
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
