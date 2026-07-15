@@ -48,6 +48,16 @@ export default function ExecutiveWorkspace() {
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
   const senderRef = React.useRef<string>("");
   const [currentSender, setCurrentSender] = React.useState<string>("");
+  const [vvHeight, setVvHeight] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => setVvHeight(vv.height);
+    vv.addEventListener("resize", onResize);
+    onResize();
+    return () => vv.removeEventListener("resize", onResize);
+  }, []);
 
   // ECP-047: Executive Workspace state
   const [missionPhase, setMissionPhase] = React.useState<string>("idle");
@@ -309,7 +319,7 @@ export default function ExecutiveWorkspace() {
   };
 
   return (
-    <div className="flex-1 bg-gradient-to-b from-slate-50 to-white dark:from-[#0A1F44] dark:to-[#071426]">
+    <div className="flex-1 bg-gradient-to-b from-slate-50 to-white dark:from-[#0A1F44] dark:to-[#071426]" style={vvHeight ? { height: vvHeight } : undefined}>
       <div className="flex h-full overflow-hidden pb-20 lg:pb-0">
         {/* Left: Executive Reports */}
         <div className="flex-1 flex flex-col min-w-0">
