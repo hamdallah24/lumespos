@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import { LayoutGrid, ShoppingBag, PieChart, Store, Users, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, LogOut, Menu, X, User, Package, Home, Plus, Receipt, Carrot, UserPlus, Sun, Moon, Wallet, Sparkles, Zap } from "lucide-react";
 import { AiAgentPopup } from "@/components/ai-agent-popup";
@@ -46,6 +46,47 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
   const [accountOpen, setAccountOpen] = React.useState(false);
   const [aiAgentOpen, setAiAgentOpen] = React.useState(false);
   const fabRef = React.useRef<HTMLDivElement>(null);
+  const [fabPos, setFabPos] = React.useState(() => {
+    const saved = localStorage.getItem("sayq.fabPos");
+    return saved ? JSON.parse(saved) : { bottom: 88, right: 20 };
+  });
+  const fabDrag = React.useRef<{ startX: number; startY: number; startBottom: number; startRight: number; moved: boolean } | null>(null);
+
+  const handleFabPointerDown = (e: React.PointerEvent) => {
+    const el = fabRef.current;
+    if (!el) return;
+    el.setPointerCapture(e.pointerId);
+    fabDrag.current = {
+      startX: e.clientX, startY: e.clientY,
+      startBottom: fabPos.bottom, startRight: fabPos.right,
+      moved: false,
+    };
+  };
+
+  React.useEffect(() => {
+    const el = fabRef.current;
+    if (!el) return;
+    const move = (e: PointerEvent) => {
+      if (!fabDrag.current) return;
+      const dx = fabDrag.current.startX - e.clientX;
+      const dy = fabDrag.current.startY - e.clientY;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) fabDrag.current.moved = true;
+      setFabPos({
+        bottom: Math.max(60, Math.min(400, fabDrag.current.startBottom + dy)),
+        right: Math.max(10, Math.min(200, fabDrag.current.startRight + dx)),
+      });
+    };
+    const up = () => {
+      if (fabDrag.current?.moved) {
+        setFabPos((p: any) => { localStorage.setItem("sayq.fabPos", JSON.stringify(p)); return p; });
+      }
+      fabDrag.current = null;
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
+    return () => { el.removeEventListener("pointermove", move); el.removeEventListener("pointerup", up); el.removeEventListener("pointercancel", up); };
+  }, []);
 
   const { theme, setTheme } = useTheme();
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
@@ -53,6 +94,10 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
   const canManage = role === "owner" || role === "manager";
   const isOwner = role === "owner";
   const { branches, branchId, setBranchId } = useBranch();
+  const lockedBranch = useMemo(() => {
+    const v = localStorage.getItem("sayq.lockedBranch");
+    return v ? Number(v) : null;
+  }, []);
 
   const bottomNav = canManage ? [
     { href: "/", label: "Kasir", icon: ShoppingBag },
@@ -62,6 +107,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
     { href: "#account", label: "Akun", icon: User },
   ] : [
     { href: "/", label: "Kasir", icon: ShoppingBag },
+    { href: "/inventory", label: "Stok", icon: Boxes },
     { href: "/orders", label: "Riwayat", icon: Receipt },
     { href: "/shift", label: "Tutup Shift", icon: ClipboardList },
     { href: "/pengeluaran", label: "Pengeluaran", icon: Wallet },
@@ -75,6 +121,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
     { href: "#account", label: "Akun", icon: User },
   ] : [
     { href: "/", label: "Kasir", icon: ShoppingBag },
+    { href: "/inventory", label: "Stok", icon: Boxes },
     { href: "/orders", label: "Riwayat", icon: Receipt },
     { href: "/shift", label: "Tutup Shift", icon: ClipboardList },
     { href: "/pengeluaran", label: "Pengeluaran", icon: Wallet },
@@ -84,7 +131,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
     { href: "/orders", label: "Riwayat", icon: Receipt, show: true },
     { href: "/shift", label: "Tutup Shift", icon: ClipboardList, show: true },
     { href: "/pengeluaran", label: "Pengeluaran", icon: Wallet, show: canManage },
-    { href: "/inventory", label: "Stok & Bahan", icon: Boxes, show: canManage },
+    { href: "/inventory", label: "Stok & Bahan", icon: Boxes, show: true },
     { href: "/audits", label: "Audit Shift", icon: ClipboardCheck, show: canManage },
     { href: "/branches", label: "Cabang", icon: Store, show: isOwner },
     { href: "/users", label: "Pengguna", icon: Users, show: isOwner },
@@ -96,7 +143,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
     { label: "Tambah Transaksi", icon: Receipt, href: "/", show: true },
     { label: "Catat Pengeluaran", icon: Wallet, href: "/pengeluaran", show: true },
     { label: "Tambah Produk", icon: Package, href: "/products", show: canManage },
-    { label: "Tambah Stok", icon: Boxes, href: "/inventory", show: canManage },
+    { label: "Tambah Stok", icon: Boxes, href: "/inventory", show: true },
     { label: "Tambah Pelanggan", icon: UserPlus, href: "/customers", show: canManage },
   ].filter((i) => i.show);
 
@@ -156,6 +203,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
           <Select
             value={branchId != null ? String(branchId) : undefined}
             onValueChange={(v) => setBranchId(Number(v))}
+            disabled={!!lockedBranch}
           >
             <SelectTrigger className="mt-1 bg-card/50 border-[#1565FF]/15 text-foreground rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
               <div className="flex items-center gap-2 min-w-0">
@@ -164,7 +212,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
               </div>
             </SelectTrigger>
             <SelectContent>
-              {branches.map((b) => (
+              {(lockedBranch ? branches.filter((b) => b.id === lockedBranch) : branches).map((b) => (
                 <SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>
               ))}
             </SelectContent>
@@ -290,8 +338,8 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
           </div>
         </nav>
 
-        {/* FAB — bottom:88px right:20px */}
-        <div ref={fabRef} className="fixed bottom-[88px] right-5 z-50 lg:hidden">
+        {/* FAB — draggable on mobile */}
+        <div ref={fabRef} onPointerDown={handleFabPointerDown} className="fixed z-50 lg:hidden touch-none" style={{ bottom: fabPos.bottom, right: fabPos.right }}>
           <AnimatePresence>
             {fabOpen && (
               <motion.div
