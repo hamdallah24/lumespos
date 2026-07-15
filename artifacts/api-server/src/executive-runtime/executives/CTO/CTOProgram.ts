@@ -77,14 +77,34 @@ async function fetchContext(message: string): Promise<{ text: string; filePaths:
   const matchedTargets: string[] = [];
 
   // Phase 1: Detect explicitly mentioned file paths in the message
+  // Convert short names (e.g., "executive.tsx") to full paths using CKO file map
   const explicitPattern = /([\w\/]+\.(tsx?|jsx?|ts|js|css|json|mjs))/g;
   let explicitMatch;
   while ((explicitMatch = explicitPattern.exec(message)) !== null) {
-    const path = explicitMatch[1];
-    if (path.includes(".") && !seen.has(path)) {
-      seen.add(path);
-      matchedTargets.push(path);
-      blocks.push(`📌 FILE DISEBUTKAN USER: ${path}`);
+    const shortPath = explicitMatch[1];
+    if (!shortPath.includes(".")) continue;
+    // Search for full path in CKO file map
+    const fileMap = consultantDiscovery.load();
+    let found = false;
+    if (fileMap) {
+      for (const entry of Object.values(fileMap)) {
+        const files = (entry as any).files || [];
+        if (Array.isArray(files)) {
+          const match = files.find((f: string) => f.endsWith(shortPath) || f.includes(shortPath));
+          if (match && !seen.has(match)) {
+            seen.add(match);
+            matchedTargets.push(match);
+            blocks.push(`📌 FILE DISEBUTKAN USER: ${match}`);
+            found = true;
+            break;
+          }
+        }
+      }
+    }
+    if (!found && !seen.has(shortPath)) {
+      seen.add(shortPath);
+      matchedTargets.push(shortPath);
+      blocks.push(`📌 FILE DISEBUTKAN USER: ${shortPath}`);
     }
   }
 
