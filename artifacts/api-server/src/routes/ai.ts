@@ -31,13 +31,13 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     const uid = user.id;
 
     // ── Parse @mention, targetRuntime, or multi-mention ──
-    const mentionMatches = [...rawClean.matchAll(/@(CEO|COO|CFO|CTO)\b/gi)];
+    const mentionMatches = [...rawClean.matchAll(/@(CEO|CTO|CFO|COO|CMO|CHRO|CAIO|CKO)\b/gi)];
     const allMentions = mentionMatches.map(m => m[1].toUpperCase());
     const uniqueMentions = [...new Set(allMentions)];
     const resolvedTarget = targetRuntime || (uniqueMentions.length === 1 ? uniqueMentions[0] : null);
     const isMultiMention = uniqueMentions.length >= 2 && !targetRuntime;
     const clean = mentionMatches.length > 0
-      ? rawClean.replace(/@(CEO|COO|CFO|CTO)\b/gi, '').trim()
+      ? rawClean.replace(/@(CEO|CTO|CFO|COO|CMO|CHRO|CAIO|CKO)\b/gi, '').trim()
       : rawClean;
 
     // Rate limit
