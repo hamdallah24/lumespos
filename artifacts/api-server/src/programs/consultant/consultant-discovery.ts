@@ -272,32 +272,107 @@ function buildFileIndex(): string {
 
 /** CKO: LLM-based file selection — understands user intent semantically */
 export async function findRelevantFiles(query: string, maxResults: number = 5): Promise<{ files: string[]; reason: string }> {
-  const fileIndex = buildFileIndex();
-  if (!fileIndex) return { files: [], reason: "File index not available" };
+  const map = getFileMap();
+  if (!map) return { files: [], reason: "File index not available" };
 
   try {
     const { callDeepSeek } = await import("../../ai/llm/llm-adapter");
-    const prompt = `Kamu adalah CKO (Chief Knowledge Officer). Tugasmu memilih file yang PALING RELEVAN untuk permintaan user.
 
-User: "${query}"
+    // Phase 1: If user explicitly mentions a file path, prioritize it
+    const explicitFiles: string[] = [];
+    const filePattern = /([\w\/]+\.\w+)/g;
+    let match;
+    while ((match = filePattern.exec(query)) !== null) {
+      const path = match[1];
+      // Check if this path exists in the file map
+      for (const entry of Object.values(map)) {
+        const files = (entry as any).files || entry as any;
+        if (Array.isArray(files) && files.some((f: string) => f.includes(path))) {
+          explicitFiles.push(...files.filter((f: string) => f.includes(path)));
+        }
+      }
+    }
 
-Daftar file (dengan keywords):
-${fileIndex}
+    // Phase 2: Extract keywords from query and find matching files
+    const queryWords = query.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+    const candidateFiles = new Map<string, { file: string; score: number; keywords: string[] }>();
+    const MAX_CANDIDATES = 60;
 
-Pilih 1-${maxResults} file yang paling relevan dengan masalah yang user hadapi.
-Jangan pilih file yang tidak relevan.
+    for (const [kw, entry] of Object.entries(map)) {
+      const files = (entry as any).files || entry as any;
+      if (!Array.isArray(files)) continue;
+      const kwLower = kw.toLowerCase();
+      const kwWords = kwLower.split(/[\s_]+/).filter(w => w.length > 2);
 
-Output HANYA JSON:
-{"files":["path1","path2"],"reason":"Penjelasan singkat kenapa file ini relevan"}`;
+      // Score: how many query words match this keyword
+      let score = 0;
+      for (const qw of queryWords) {
+        if (kwWords.some(kw => kw.includes(qw) || qw.includes(kw))) score++;
+        if (kwLower.includes(qw)) score++;
+      }
+      // Exact match bonus
+      if (queryWords.some(qw => qw === kwLower)) score += 3;
+
+      if (score > 0) {
+        for (const f of files) {
+          const existing = candidateFiles.get(f);
+          if (existing) {
+            existing.score += score;
+            if (!existing.keywords.includes(kw)) existing.keywords.push(kw);
+          } else if (candidateFiles.size < MAX_CANDIDATES) {
+            candidateFiles.set(f, { file: f, score, keywords: [kw] });
+          }
+        }
+      }
+    }
+
+    // Add explicitly mentioned files with high score
+    for (const f of explicitFiles) {
+      const existing = candidateFiles.get(f);
+      if (existing) existing.score += 20;
+      else if (candidateFiles.size < MAX_CANDIDATES) {
+        candidateFiles.set(f, { file: f, score: 20, keywords: ["explicit"] });
+      }
+    }
+
+    // Sort by score descending, take top candidates
+    const topCandidates = Array.from(candidateFiles.values())
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20);
+
+    if (topCandidates.length === 0) {
+      return { files: explicitFiles.slice(0, maxResults), reason: "Menggunakan file yang disebutkan user" };
+    }
+
+    // Phase 3: LLM selects from candidates
+    const candidateText = topCandidates.map((c, i) =>
+      `${i + 1}. ${c.file} (score: ${c.score}, keywords: ${c.keywords.slice(0, 5).join(", ")})`
+    ).join("\n");
+
+    const prompt = `Kamu adalah CKO. Pilih file yang PALING RELEVAN untuk perbaikan bug atau fitur yang user minta.
+
+QUERY USER: "${query}"
+
+KANDIDAT FILE (diurutkan berdasarkan skor kecocokan):
+${candidateText}
+
+Pilih 1-${maxResults} file. Prioritaskan:
+1. File yang user sebutkan secara eksplisit (misal "executive.tsx")
+2. File frontend (.tsx, .jsx) untuk masalah UI/UX
+3. File dengan skor tertinggi
+
+Output HANYA JSON: {"files":["path1"],"reason":"Penjelasan"}`;
 
     const result = await callDeepSeek(prompt, "", 0, "bisnis", 500, false);
-    const parsed = JSON.parse(result.replace(/```(?:json)?\s*/gi, "").replace(/\s*```/g, "").trim());
+    const cleaned = result.replace(/```(?:json)?\s*/gi, "").replace(/\s*```/g, "").trim();
+    const parsed = JSON.parse(cleaned);
     return {
-      files: Array.isArray(parsed.files) ? parsed.files.slice(0, maxResults) : [],
+      files: Array.isArray(parsed.files) ? parsed.files.slice(0, maxResults) : explicitFiles.slice(0, maxResults),
       reason: parsed.reason || "",
     };
   } catch (e: any) {
     console.log(`[CKO] LLM file selection failed: ${e.message}`);
+    if (explicitFiles.length > 0) return { files: explicitFiles.slice(0, maxResults), reason: "Fallback ke file yang disebutkan user" };
     return { files: [], reason: `LLM selection failed: ${e.message}` };
   }
 }
