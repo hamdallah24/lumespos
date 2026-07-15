@@ -315,6 +315,8 @@ export async function findRelevantFiles(query: string, maxResults: number = 5, u
 
       if (score > 0) {
         for (const f of files) {
+          // Skip directories — only actual files with extensions
+          if (!f.includes(".") || f.endsWith("/")) continue;
           const existing = candidateFiles.get(f);
           if (existing) {
             existing.score += score;
@@ -333,6 +335,12 @@ export async function findRelevantFiles(query: string, maxResults: number = 5, u
       else if (candidateFiles.size < MAX_CANDIDATES) {
         candidateFiles.set(f, { file: f, score: 20, keywords: ["explicit"] });
       }
+    }
+
+    // Prioritize UI files (.tsx, .jsx) when query suggests frontend issues
+    const isUIQuery = /halaman|page|tampilan|scroll|layar|ui|screen|view|dialog|popup|modal|stuck|macet|ngeleg|lag/i.test(query);
+    for (const c of candidateFiles.values()) {
+      if (isUIQuery && /\.(tsx|jsx)$/i.test(c.file)) c.score += 5;
     }
 
     // Sort by score descending, take top candidates
