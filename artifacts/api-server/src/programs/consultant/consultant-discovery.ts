@@ -271,7 +271,7 @@ function buildFileIndex(): string {
 }
 
 /** CKO: LLM-based file selection — understands user intent semantically */
-export async function findRelevantFiles(query: string, maxResults: number = 5): Promise<{ files: string[]; reason: string }> {
+export async function findRelevantFiles(query: string, maxResults: number = 5, userId: number = 1): Promise<{ files: string[]; reason: string }> {
   const map = getFileMap();
   if (!map) return { files: [], reason: "File index not available" };
 
@@ -363,7 +363,7 @@ Pilih 1-${maxResults} file. Prioritaskan:
 
 Output HANYA JSON: {"files":["path1"],"reason":"Penjelasan"}`;
 
-    const result = await callDeepSeek(prompt, "", 0, "bisnis", 500, false);
+    const result = await callDeepSeek(prompt, "", userId, "bisnis", 500, false);
     const cleaned = result.replace(/```(?:json)?\s*/gi, "").replace(/\s*```/g, "").trim();
     const parsed = JSON.parse(cleaned);
     return {

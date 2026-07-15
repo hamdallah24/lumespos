@@ -7,7 +7,7 @@ import type { BudgetAllocation } from "./execution-manifest";
 // completion-only tracking — budget mencakup OUTPUT tokens, bukan input+output
 // Industri AI coding (OpenCode, Copilot) pakai context window + completion tracking
 const budgetMatrix: Record<string, BudgetAllocation> = {
-  simple:    { maxTokens: 8000,   maxTools: 8,   maxTimeMs: 60000,  maxIdleCycles: 2 },
+  simple:    { maxTokens: 50000,  maxTools: 20,  maxTimeMs: 120000, maxIdleCycles: 3 },
   medium:    { maxTokens: 100000, maxTools: 40,  maxTimeMs: 300000, maxIdleCycles: 6 },
   complex:   { maxTokens: 500000, maxTools: 80,  maxTimeMs: 600000, maxIdleCycles: 8 },
   critical:  { maxTokens: 750000, maxTools: 150, maxTimeMs: 900000, maxIdleCycles: 12 },

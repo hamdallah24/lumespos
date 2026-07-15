@@ -71,7 +71,7 @@ const KEYWORD_TRANSLATIONS: Record<string, string[]> = {
   migrasi: ["migration", "migrasi", "schema"],
 };
 
-async function fetchContext(message: string): Promise<{ text: string; filePaths: string[] }> {
+async function fetchContext(message: string, userId?: number): Promise<{ text: string; filePaths: string[] }> {
   const blocks: string[] = [];
   const seen = new Set<string>();
   const matchedTargets: string[] = [];
@@ -110,7 +110,7 @@ async function fetchContext(message: string): Promise<{ text: string; filePaths:
 
   // Phase 2: CKO LLM-based file selection
   try {
-    const ckoFiles = await consultantDiscovery.findRelevantFiles(message, 8);
+    const ckoFiles = await consultantDiscovery.findRelevantFiles(message, 8, userId ?? 1);
     if (ckoFiles.files.length > 0) {
       for (const f of ckoFiles.files) {
         if (!seen.has(f)) { seen.add(f); matchedTargets.push(f); }
@@ -242,7 +242,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     const enrichedForFetch = searchTerms.length > 0
       ? `${task.message} ${searchTerms.join(" ")}`
       : task.message;
-      try { fileContext = await fetchContext(enrichedForFetch); } catch (e: any) { console.error("[CTO] fetchContext error:", e.message); }
+      try { fileContext = await fetchContext(enrichedForFetch, task.userId); } catch (e: any) { console.error("[CTO] fetchContext error:", e.message); }
     }
   pipeline.push("ContextFetching");
   task.onProgress?.("📂 CTO: Konteks file siap");
