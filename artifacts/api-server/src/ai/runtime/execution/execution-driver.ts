@@ -287,16 +287,8 @@ WAJIB: Output format di atas. Minimal TARGET dan TOOL harus ada.` }], [], 400, f
             } catch (e: any) {
               console.log(`[DRIVER:SUMMARIZER] Error: ${e.message}`);
             }
-            // Even without summarizer, try fallback to execute editFile directly
-            if (!this._implPlan) {
-              try {
-                const files = await executeToolWithResult("searchContent", { pattern: "entri point", path: "/home/ubuntu/lumespos/artifacts/api-server/src" });
-                if (files?.output) {
-                  this._implPlan = `TARGET: /home/ubuntu/lumespos/artifacts/api-server/src/ai/runtime/execution/execution-pipeline.ts\nSEKARANG: Single entri point\nMENJADI: Single entry point\nTOOL: editFile`;
-                  console.log(`[DRIVER:SUMMARIZER] Fallback implPlan generated from search`);
-                }
-              } catch {}
-            }
+            // Jika summarizer gagal, EXECUTE cycle akan panggil LLM dengan tools untuk implementasi
+            // (tidak perlu fallback hardcoded — biarkan EXECUTE cycle yang memutuskan)
             continue;
           }
           if (finalText) return finalText;

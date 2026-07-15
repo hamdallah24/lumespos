@@ -44,9 +44,19 @@ class ExecutionGovernor {
   get stopReason(): StopReason { return this._stopReason; }
 
   shouldContinue(): boolean {
-    // Goal tree complete → selesai
-    if (this.goalTree.isComplete()) {
-      console.log(`[GOV:DEBUG] shouldContinue=false — goalTree complete (${this.goalTree.countByStatus(["COMPLETED"])}/${this.goalTree.total()})`);
+    // Stop hanya jika goal tree complete DAN strategy bukan EXECUTE/CONCLUDE
+    if (this.goalTree.isComplete() && this.strategyEngine.strategy !== "EXECUTE" && this.strategyEngine.strategy !== "CONCLUDE") {
+      console.log(`[GOV:DEBUG] shouldContinue=false — goalTree complete`);
+      this._stopReason = "OBJECTIVE_COMPLETED"; return false;
+    }
+    // CONCLUDE → lanjut (EXECUTE mungkin menyusul jika needsImpl)
+    if (this.goalTree.isComplete() && this.strategyEngine.strategy === "CONCLUDE") {
+      console.log(`[GOV:DEBUG] shouldContinue=true — CONCLUDE, lanjut EXECUTE jika needsImpl`);
+      return true;
+    }
+    // EXECUTE selesai → stop
+    if (this.goalTree.isComplete() && this.strategyEngine.strategy === "EXECUTE") {
+      console.log(`[GOV:DEBUG] shouldContinue=false — EXECUTE completed`);
       this._stopReason = "OBJECTIVE_COMPLETED"; return false;
     }
     // ESCALATE → tidak bisa lanjut
