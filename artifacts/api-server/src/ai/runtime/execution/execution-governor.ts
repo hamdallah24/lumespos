@@ -30,6 +30,7 @@ class ExecutionGovernor {
   private _goalEvidenceCycles = new Map<string, number>();
   private _currentGoalId: string | null = null;
   private _evidenceThreshold: number = 2;
+  private _executeAttempted: number = 0;
 
   constructor(complexity: string, domain: string, entities: string[], objective: string, onExecutionEvent?: (snapshot: ExecutionSnapshot) => void, needsImplementation = false) {
     this._onEvent = onExecutionEvent;
@@ -54,9 +55,14 @@ class ExecutionGovernor {
       console.log(`[GOV:DEBUG] shouldContinue=true — CONCLUDE, lanjut EXECUTE jika needsImpl`);
       return true;
     }
-    // EXECUTE selesai → stop
+    // EXECUTE — izinkan 4 cycle (readFile, editFile, verify + 1 cadangan)
     if (this.goalTree.isComplete() && this.strategyEngine.strategy === "EXECUTE") {
-      console.log(`[GOV:DEBUG] shouldContinue=false — EXECUTE completed`);
+      if (this._executeAttempted < 4) {
+        this._executeAttempted++;
+        console.log(`[GOV:DEBUG] shouldContinue=true — EXECUTE percobaan ${this._executeAttempted}/4`);
+        return true;
+      }
+      console.log(`[GOV:DEBUG] shouldContinue=false — EXECUTE selesai`);
       this._stopReason = "OBJECTIVE_COMPLETED"; return false;
     }
     // ESCALATE → tidak bisa lanjut

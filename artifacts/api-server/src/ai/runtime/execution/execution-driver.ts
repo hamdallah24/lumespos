@@ -164,45 +164,16 @@ export class ExecutionDriver {
             return finalText;
           }
         }
-        // Approval granted — inject tech spec + EKSEKUSI LANGSUNG
-        if (this._implPlan) {
-          messages.push({ role: "user", content: `[TEKNIS] Spesifikasi implementasi yang sudah disetujui CEO:\n${this._implPlan}\n\nWAJIB: BACA file target dulu dengan readFile, lalu gunakan editFile atau writeFile SESUAI spesifikasi di atas. JANGAN ubah file lain.` });
-          // Direct tool execution — bypass LLM untuk tool call
-          try {
-            const targetMatch = this._implPlan.match(/TARGET:\s*(.+)/i);
-            const oldMatch = this._implPlan.match(/SEKARANG:\s*(.+)/i);
-            const newMatch = this._implPlan.match(/MENJADI:\s*(.+)/i);
-            const toolMatch = this._implPlan.match(/TOOL:\s*(\w+)/i);
-            const toolName = toolMatch?.[1]?.toLowerCase();
-            const filePath = targetMatch?.[1]?.trim();
-            if (toolName === "editFile" && filePath && oldMatch && newMatch) {
-              console.log(`[DRIVER:EXEC] Direct editFile: ${filePath}`);
-              await executeToolWithResult("editFile", { path: filePath, search: oldMatch[1].trim(), replace: newMatch[1].trim() });
-              context.result = `✅ ${filePath} berhasil diperbaiki.`;
-              await remember(userId, mode, user, context.result);
-              console.log(`[DRIVER:EXEC] editFile SUCCESS`);
-            } else if (toolName === "writeFile" && filePath && newMatch) {
-              console.log(`[DRIVER:EXEC] Direct writeFile: ${filePath}`);
-              await executeToolWithResult("writeFile", { path: filePath, content: newMatch[1].trim() });
-              context.result = `✅ ${filePath} berhasil dibuat/diperbarui.`;
-              await remember(userId, mode, user, context.result);
-              console.log(`[DRIVER:EXEC] writeFile SUCCESS`);
-            } else {
-              console.log(`[DRIVER:EXEC] Cannot parse implPlan — falling back to LLM`);
-            }
-          } catch (e: any) {
-            console.log(`[DRIVER:EXEC] Direct execution error: ${e.message}`);
-          }
-        } else {
-          // Jika tidak ada implementation plan, inject file dari hasil CONCLUDE + beri tools
-          const cycleData = this._cycleOutputs.join("\n\n").slice(0, 3000);
-          let ctxData = "";
-          if (this._toolDataStore.size > 0) {
-            ctxData = Array.from(this._toolDataStore.entries())
-              .map(([p, c]) => `--- ${p} ---\n${c}`).join("\n\n").slice(0, 4000);
-          }
-          messages.push({ role: "user", content: `[PERSETUJUAN] Implementasi DISETUJUI. FILE YANG SUDAH DIBACA:\n${ctxData}\n\n[HASIL ANALISIS]\n${cycleData}\n\nSEKARANG: Gunakan editFile untuk perubahan yang diperlukan. BACA file target dulu dengan readFile, lalu editFile untuk perubahan spesifik. JANGAN tulis ulang seluruh file.` });
+        // Approval granted — inject file content asli + analysis CONCLUDE + beri tools
+        // LLM akan membaca file dengan readFile lalu editFile — lebih akurat daripada regex
+        const cycleData = this._cycleOutputs.join("\n\n").slice(0, 3000);
+        let ctxData = "";
+        if (this._toolDataStore.size > 0) {
+          ctxData = Array.from(this._toolDataStore.entries())
+            .map(([p, c]) => `--- ${p} ---\n${c}`).join("\n\n").slice(0, 4000);
         }
+        const implHint = this._implPlan ? `\n\n[IMPLEMENTASI] ${this._implPlan.slice(0, 500)}` : "";
+        messages.push({ role: "user", content: `[PERSETUJUAN] Implementasi DISETUJUI. FILE:\n${ctxData}\n\n[HASIL ANALISIS]\n${cycleData}${implHint}\n\nSEKARANG: BACA file target dulu dengan readFile untuk verifikasi, lalu editFile untuk perubahan spesifik menggunakan oldString UNIK. JANGAN tulis ulang seluruh file.` });
       }
 
       // ── Filter tools per cycle contract ──
