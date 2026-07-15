@@ -320,9 +320,10 @@ export default function ExecutiveWorkspace() {
 
   return (
     <div className="flex-1 bg-gradient-to-b from-slate-50 to-white dark:from-[#0A1F44] dark:to-[#071426]" style={vvHeight ? { height: vvHeight } : undefined}>
-      <div className="flex h-full overflow-hidden pb-20 lg:pb-0" style={vvHeight ? { paddingBottom: 0 } : undefined}>
+      <div className="flex h-full overflow-hidden">
         {/* Left: Executive Reports */}
         <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 overflow-y-auto">
           {/* Header */}
           <header className="px-6 py-4 border-b border-[#1565FF]/10 flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#1565FF] to-[#0A4CD0] flex items-center justify-center">
@@ -409,7 +410,7 @@ export default function ExecutiveWorkspace() {
           )}
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 md:px-5 lg:px-6 py-4">
+          <div className="px-4 md:px-5 lg:px-6 py-4">
             <div className="max-w-[860px] mx-auto space-y-5">
             {reports.length === 0 && !loading && (
               <div className="flex flex-col items-center justify-center h-full text-center text-slate-400">
@@ -454,11 +455,12 @@ export default function ExecutiveWorkspace() {
             <div ref={chatEndRef} />
             </div>
           </div>
+          </div>
 
-          {/* Input */}
-          <footer className="px-4 md:px-5 lg:px-6 pb-4 pt-2 border-t border-[#1565FF]/10">
+          {/* Input Card */}
+          <div className="px-4 lg:px-6 pb-4 lg:pb-6 mb-20 lg:mb-0">
             <div className="max-w-[860px] mx-auto">
-              <div className="flex items-end gap-2 bg-white dark:bg-white/[0.03] rounded-2xl border border-[#1565FF]/10 px-4 py-2">
+              <div className="flex items-end gap-2 bg-white dark:bg-slate-900 shadow-lg border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2">
                 <textarea
                   ref={textareaRef}
                   value={input}
@@ -477,7 +479,7 @@ export default function ExecutiveWorkspace() {
                 </button>
               </div>
             </div>
-          </footer>
+          </div>
         </div>
 
         {/* Right: Dashboard — Desktop only */}
