@@ -511,16 +511,6 @@ export default function ExecutiveWorkspace() {
       {/* MissionDetail — di luar sidebar, accessible di all screen sizes */}
       {selectedMissionId && <MissionDetail missionId={selectedMissionId} onClose={() => setSelectedMissionId(null)} />}
 
-      {/* Mobile FAB: floating button untuk misi aktif */}
-      <div className="lg:hidden fixed bottom-24 right-4 z-40 flex flex-col items-end gap-2">
-        <button
-          onClick={() => setSelectedMissionId(-1)}
-          className="w-12 h-12 rounded-full bg-[#1565FF] text-white shadow-lg flex items-center justify-center hover:bg-[#1565FF]/90 transition-all active:scale-95"
-        >
-          <Target size={20} />
-        </button>
-      </div>
-
       {/* Mobile mission panel (slide-up) */}
       {selectedMissionId === -1 && (
         <div className="lg:hidden fixed inset-0 z-50 bg-black/30" onClick={() => setSelectedMissionId(null)}>
