@@ -471,10 +471,10 @@ router.post("/shift/end", requireAuth, async (req, res) => {
       }
     });
 
-    // Fire-and-forget: COO analysis
+    // Fire-and-forget: COO analysis via LLM langsung
     (async () => {
       try {
-        const { applicationRuntime } = await import("../ai/runtime/application-runtime-adapter");
+        const { callLLMWithTools } = await import("../ai/llm/llm-adapter");
         const voidRow = await db.select({ count: sql<string>`COUNT(*)`, total: sql<string>`COALESCE(SUM(total), 0)` })
           .from(ordersTable)
           .where(and(eq(ordersTable.branchId, shift.branchId!), gte(ordersTable.createdAt, shift.shiftStart ?? new Date(0)), lte(ordersTable.createdAt, updatedShift.shiftEnd ?? new Date()), eq(ordersTable.status, "voided")));
@@ -496,9 +496,9 @@ Selisih stok:
 ${stockLines}
 
 Evaluasi shift ini. Sorot anomali. Beri rekomendasi. Bahasa Indonesia natural.`;
-        const result = await applicationRuntime.executeMessage({ message: prompt, userId: 1, mode: "bisnis", target: "COO" });
-        if (result.success && result.text) {
-          await db.update(shiftAuditsTable).set({ cooAnalysis: result.text }).where(eq(shiftAuditsTable.id, updatedShift.id));
+        const result = await callLLMWithTools([{ role: "user", content: prompt }], [], 2000, false, true);
+        if (result.content && !result.content.startsWith("ERROR")) {
+          await db.update(shiftAuditsTable).set({ cooAnalysis: result.content }).where(eq(shiftAuditsTable.id, updatedShift.id));
         }
       } catch (e) { console.error("[COO] Analysis error:", e); }
     })();

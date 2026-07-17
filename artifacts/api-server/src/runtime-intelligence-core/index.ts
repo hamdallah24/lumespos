@@ -20,4 +20,6 @@ export { UnifiedAwarenessEngine, getRuntimeState } from './awareness';
 export type { UnifiedAwareness, RICRuntimeState } from './awareness';
 export { mapToExecutive } from './ExecutiveContextAdapter';
 export type { ExecutiveContext, AwarenessContext } from './ExecutiveContextAdapter';
+export { MetricsStore, ReflectionEngine } from './learning';
+export type { DomainMetrics, ProviderMetrics, LearningSummary, Reflection } from './learning';
 

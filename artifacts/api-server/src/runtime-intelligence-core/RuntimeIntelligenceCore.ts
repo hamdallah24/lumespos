@@ -24,6 +24,7 @@ import { PipelineTracer } from './RuntimeTrace';
 import { RuntimeDiagnosticsAPI } from './diagnostics';
 import { RepositoryMetadataGenerator } from './registry';
 import { UnifiedAwarenessEngine } from './awareness';
+import { MetricsStore, ReflectionEngine } from './learning';
 
 export class RuntimeIntelligenceCore {
   private capabilityGraph: CapabilityGraph;
@@ -41,6 +42,8 @@ export class RuntimeIntelligenceCore {
   private tools: ToolDescriptor[] = [];
   private degraded: boolean = false;
   private diagnostics: RuntimeDiagnosticsAPI;
+  private metricsStore: MetricsStore;
+  private reflectionEngine: ReflectionEngine;
 
   constructor(
     capabilityGraph: CapabilityGraph,
@@ -64,6 +67,8 @@ export class RuntimeIntelligenceCore {
       capabilityGraph,
       provider.constructor?.name || 'ReasoningProvider',
     );
+    this.metricsStore = new MetricsStore();
+    this.reflectionEngine = new ReflectionEngine();
   }
 
   async initialize(): Promise<void> {
@@ -190,6 +195,22 @@ export class RuntimeIntelligenceCore {
       refinementHistory,
     );
 
+    this.metricsStore.recordRequest(
+      understanding.domain.primary,
+      confidence.overall,
+      confidence.verification,
+      this.degraded,
+      replanCount,
+    );
+
+    this.reflectionEngine.reflect(
+      confidence.overall,
+      verification,
+      refinementHistory,
+      this.degraded,
+      this.metricsStore,
+    );
+
     const frozen = freezeContract(context);
     this.diagnostics.recordContract(frozen);
     return frozen;
@@ -255,5 +276,13 @@ export class RuntimeIntelligenceCore {
 
   public getDiagnostics(): RuntimeDiagnosticsAPI {
     return this.diagnostics;
+  }
+
+  public getMetrics(): MetricsStore {
+    return this.metricsStore;
+  }
+
+  public getReflections(): ReflectionEngine {
+    return this.reflectionEngine;
   }
 }
