@@ -95,6 +95,7 @@ export class ExecutionEngine {
     onProgress?: (msg: string) => void,
     onTool?: (event: { name: string; status: string; durationMs?: number }) => void,
     onExecutionEvent?: (snapshot: unknown) => void,
+    executionSpec?: Record<string, unknown>,
   ): Promise<{ text: string; toolsUsed: number; filesRead: string[] }> {
     const { callDeepSeekWithTools } = await import('../../llm/llm-adapter');
 
@@ -102,7 +103,7 @@ export class ExecutionEngine {
       systemPrompt, userMessage, userId, context, toolSet,
       maxTokens, onProgress, onTool,
       false, undefined, onExecutionEvent,
-      {}, async () => true,
+      executionSpec ?? {}, async () => true,
     );
 
     for (let i = 0; i < (llmResult.toolsUsed || 0); i++) {

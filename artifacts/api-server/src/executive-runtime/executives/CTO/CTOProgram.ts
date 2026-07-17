@@ -367,6 +367,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
       systemPrompt, ctoMessage, task.userId, "cto", toolSet,
       ctoMaxTokens, task.onProgress, task.onTool,
       task.onExecutionEvent,
+      { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective, targetFiles: spec.targetFiles, intent: spec.intent },
     );
     responseText = normalizeOutput(llmResult.text);
     toolsUsed = llmResult.toolsUsed;
