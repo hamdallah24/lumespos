@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { db, productVariantsTable } from "@workspace/db";
+import { db, productVariantsTable, productsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middlewares/requireAuth";
+import { canAccessBranch, requireAuth, requireRole } from "../middlewares/requireAuth";
 import { EventPublisher } from "../event-bus";
 import { createPriceChangedEvent } from "../events";
 
@@ -29,7 +29,7 @@ router.get("/products/:productId/variants", requireAuth, async (req, res) => {
 });
 
 // POST create variant
-router.post("/products/:productId/variants", requireRole("owner", "manager"), async (req, res) => {
+router.post("/products/:productId/variants", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   try {
     const productId = Number(req.params["productId"]);
     const { name, price, requiresStock } = req.body;
@@ -39,6 +39,12 @@ router.post("/products/:productId/variants", requireRole("owner", "manager"), as
     }
     if (!name?.trim() || !price) {
       return res.status(400).json({ error: "name and price are required" });
+    }
+
+    const [parentProduct] = await db.select().from(productsTable).where(eq(productsTable.id, productId));
+    if (!parentProduct) return res.status(404).json({ error: "Product not found" });
+    if (parentProduct.branchId && !(await canAccessBranch(req, parentProduct.branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
     }
 
     const [variant] = await db
@@ -59,7 +65,7 @@ router.post("/products/:productId/variants", requireRole("owner", "manager"), as
 });
 
 // PATCH update variant
-router.patch("/product-variants/:id", requireRole("owner", "manager"), async (req, res) => {
+router.patch("/product-variants/:id", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
     const { name, price, requiresStock } = req.body;
@@ -68,12 +74,16 @@ router.patch("/product-variants/:id", requireRole("owner", "manager"), async (re
       return res.status(400).json({ error: "id required" });
     }
 
-     const [before] = await db
-      .select({ price: productVariantsTable.price })
-      .from(productVariantsTable)
-      .where(eq(productVariantsTable.id, id));
+    const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, id));
+    if (!variant) return res.status(404).json({ error: "Variant not found" });
 
-    const oldPrice = before ? parseFloat(before.price) : 0;
+    const [parentProduct] = await db.select().from(productsTable).where(eq(productsTable.id, variant.productId));
+    if (!parentProduct) return res.status(404).json({ error: "Parent product not found" });
+    if (parentProduct.branchId && !(await canAccessBranch(req, parentProduct.branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+
+    const oldPrice = parseFloat(variant.price);
 
     const updateData: Record<string, string | boolean> = {};
     if (name !== undefined && name.trim()) updateData.name = name.trim();
@@ -84,33 +94,29 @@ router.patch("/product-variants/:id", requireRole("owner", "manager"), async (re
       return res.status(400).json({ error: "No fields to update" });
     }
 
-    const [variant] = await db
+    const [updated] = await db
       .update(productVariantsTable)
       .set(updateData)
       .where(eq(productVariantsTable.id, id))
       .returning();
 
-    if (!variant) {
-      return res.status(404).json({ error: "Variant not found" });
-    }
-
     if (price !== undefined && parseFloat(price) !== oldPrice) {
       EventPublisher.publish(createPriceChangedEvent({
-        productVariantId: variant.id,
-        productId: variant.productId,
-        variantName: variant.name,
+        productVariantId: updated.id,
+        productId: updated.productId,
+        variantName: updated.name,
         oldPrice,
-        newPrice: parseFloat(variant.price),
+        newPrice: parseFloat(updated.price),
       }));
     }
 
     return res.json({
-      id: variant.id,
-      productId: variant.productId,
-      name: variant.name,
-      price: parseFloat(variant.price),
-      requiresStock: variant.requiresStock,
-      createdAt: variant.createdAt,
+      id: updated.id,
+      productId: updated.productId,
+      name: updated.name,
+      price: parseFloat(updated.price),
+      requiresStock: updated.requiresStock,
+      createdAt: updated.createdAt,
     });
   } catch (error) {
     console.error("PATCH variant error:", error);
@@ -118,11 +124,19 @@ router.patch("/product-variants/:id", requireRole("owner", "manager"), async (re
   }
 });
 // DELETE variant
-router.delete("/product-variants/:id", requireRole("owner", "manager"), async (req, res) => {
+router.delete("/product-variants/:id", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
     if (!id) {
       return res.status(400).json({ error: "id required" });
+    }
+
+    const [variant] = await db.select().from(productVariantsTable).where(eq(productVariantsTable.id, id));
+    if (!variant) return res.status(404).json({ error: "Variant not found" });
+
+    const [parentProduct] = await db.select().from(productsTable).where(eq(productsTable.id, variant.productId));
+    if (parentProduct?.branchId && !(await canAccessBranch(req, parentProduct.branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
     }
 
     await db.delete(productVariantsTable).where(eq(productVariantsTable.id, id));

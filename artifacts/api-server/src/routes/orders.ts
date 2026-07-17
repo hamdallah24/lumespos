@@ -1,24 +1,31 @@
 import { Router } from "express";
 import { db, ordersTable, orderItemsTable, productsTable, productVariantsTable, semiFinishedTable, ingredientsTable } from "@workspace/db";
 import { eq, and, gte, lte, count, sql } from "drizzle-orm";
-import { canAccessBranch, requireAuth } from "../middlewares/requireAuth";
+import { canAccessBranch, requireAuth, requireRole } from "../middlewares/requireAuth";
 import { getRecipeRows, adjustInventory, type Executor } from "../services/inventory";
 import { EventPublisher } from "../event-bus";
 import { createOrderCreatedEvent, createOrderCompletedEvent } from "../events";
 
 const router = Router();
 
-const toOrder = (row: typeof ordersTable.$inferSelect & { itemCount?: number }) => ({
+const PPN_RATE = 0.11; // 11% PPN Indonesia (hanya aktif jika diaktifkan)
+
+const toOrder = (row: Record<string, any> & { itemCount?: number }) => ({
   id: row.id,
   branchId: row.branchId,
   cashierName: row.cashierName,
   cashierId: row.cashierId,
+  subtotal: parseFloat(row.subtotal ?? row.total),
+  discount: parseFloat(row.discount ?? "0"),
+  discountType: row.discountType ?? "none",
+  taxAmount: parseFloat(row.taxAmount ?? "0"),
   total: parseFloat(row.total),
   totalCogs: parseFloat(row.totalCogs),
   amountPaid: parseFloat(row.amountPaid),
   change: parseFloat(row.change),
   paymentMethod: row.paymentMethod,
   status: row.status,
+  voidReason: row.voidReason ?? null,
   createdAt: row.createdAt.toISOString(),
   itemCount: row.itemCount ?? 0,
 });
@@ -83,6 +90,7 @@ router.get("/orders", requireAuth, async (req, res) => {
       }
     }
     if (status) conditions.push(eq(ordersTable.status, status));
+    else conditions.push(sql`${ordersTable.status} != 'voided'`); // Exclude voided by default
     if (paymentMethod && paymentMethod !== "all") {
       conditions.push(eq(ordersTable.paymentMethod, paymentMethod));
     }
@@ -128,6 +136,7 @@ router.get("/orders", requireAuth, async (req, res) => {
       }
     }
     if (status) aggConditions.push(eq(ordersTable.status, status));
+    else aggConditions.push(sql`${ordersTable.status} != 'voided'`);
 
     const totalsByMethod = await db
       .select({
@@ -160,13 +169,22 @@ router.get("/orders", requireAuth, async (req, res) => {
 // POST /api/orders (membuat transaksi baru)
 router.post("/orders", requireAuth, async (req, res) => {
   try {
-    const { branchId, cashierName, cashierId, paymentMethod, amountPaid, items } = req.body as {
+    const { branchId, cashierName, cashierId, paymentMethod, amountPaid, items, discount, discountType, applyTax } = req.body as {
       branchId?: number | null;
       cashierName?: string;
       cashierId?: number | null;
       paymentMethod: string;
       amountPaid: number;
-      items: Array<{ productId: number; productVariantId?: number | null; quantity: number }>;
+      items: Array<{
+        productId?: number | null;
+        productVariantId?: number | null;
+        productName?: string;
+        price?: number;
+        quantity: number;
+      }>;
+      discount?: number;
+      discountType?: "none" | "percentage" | "fixed";
+      applyTax?: boolean;
     };
 
     // Validasi items
@@ -188,10 +206,10 @@ router.post("/orders", requireAuth, async (req, res) => {
 
     // Proses transaksi
     const order = await db.transaction(async (tx: Executor) => {
-      let total = 0;
+      let subtotal = 0;
       let totalCogs = 0;
       const itemRows: Array<{
-        productId: number;
+        productId: number | null;
         productVariantId: number | null;
         productName: string;
         quantity: number;
@@ -200,55 +218,88 @@ router.post("/orders", requireAuth, async (req, res) => {
       }> = [];
 
       for (const item of items) {
-        const [prod] = await tx.select().from(productsTable).where(eq(productsTable.id, item.productId));
-        if (!prod) throw new Error(`Product ${item.productId} not found`);
-        
-        let price: number;
-        if (item.productVariantId) {
-          const [variant] = await tx.select().from(productVariantsTable).where(eq(productVariantsTable.id, item.productVariantId));
-          price = variant ? parseFloat(variant.price) : parseFloat(prod.price);
-        } else {
-          price = parseFloat(prod.price);
-        }
-        const subtotal = price * item.quantity;
-        total += subtotal;
-        
-        // Tentukan target BOM (produk atau varian)
-        const parentType = item.productVariantId ? "product_variant" : "product";
-        const parentId = item.productVariantId ?? prod.id;
-        
-        // Ambil BOM (resep) dari produk atau varian
-        const recipe = await getRecipeRows(tx, parentType, parentId);
-        
-        // Hitung HPP item dari BOM
-        let itemCogs = 0;
-        for (const comp of recipe) {
-          const componentCost = await getComponentCost(tx, comp.componentType, comp.componentId);
-          itemCogs += componentCost * comp.quantity;
-        }
-        totalCogs += itemCogs * item.quantity;
-
-        itemRows.push({
-          productId: prod.id,
-          productVariantId: item.productVariantId ?? null,
-          productName: prod.name,
-          quantity: item.quantity,
-          priceAtSale: String(price),
-          subtotal: String(subtotal),
-        });
-
-        // Kurangi stok komponen (semi_finished DAN ingredient) sesuai BOM
-        for (const comp of recipe) {
-          const totalNeed = comp.quantity * item.quantity;
+        if (item.productId) {
+          const [prod] = await tx.select().from(productsTable).where(eq(productsTable.id, item.productId));
+          if (!prod) throw new Error(`Product ${item.productId} not found`);
           
-          if (comp.componentType === "semi_finished") {
-            await adjustInventory(tx, validBranchId, "semi_finished", comp.componentId, -totalNeed);
-          } 
-          else if (comp.componentType === "ingredient") {
-            await adjustInventory(tx, validBranchId, "ingredient", comp.componentId, -totalNeed);
+          let price: number;
+          if (item.productVariantId) {
+            const [variant] = await tx.select().from(productVariantsTable).where(eq(productVariantsTable.id, item.productVariantId));
+            price = variant ? parseFloat(variant.price) : parseFloat(prod.price);
+          } else {
+            price = parseFloat(prod.price);
           }
+          const itemSubtotal = price * item.quantity;
+          subtotal += itemSubtotal;
+          
+          // Tentukan target BOM (produk atau varian)
+          const parentType = item.productVariantId ? "product_variant" : "product";
+          const parentId = item.productVariantId ?? prod.id;
+          
+          // Ambil BOM (resep) dari produk atau varian
+          let recipe = await getRecipeRows(tx, parentType, parentId);
+          
+          // Fallback: jika varian tidak punya resep, gunakan resep produk induk
+          if (recipe.length === 0 && parentType === "product_variant") {
+            recipe = await getRecipeRows(tx, "product", prod.id);
+          }
+          
+          // Hitung HPP item dari BOM
+          let itemCogs = 0;
+          for (const comp of recipe) {
+            const componentCost = await getComponentCost(tx, comp.componentType, comp.componentId);
+            itemCogs += componentCost * comp.quantity;
+          }
+          totalCogs += itemCogs * item.quantity;
+
+          itemRows.push({
+            productId: prod.id,
+            productVariantId: item.productVariantId ?? null,
+            productName: prod.name,
+            quantity: item.quantity,
+            priceAtSale: String(price),
+            subtotal: String(itemSubtotal),
+          });
+
+          // Kurangi stok komponen (semi_finished DAN ingredient) sesuai BOM
+          for (const comp of recipe) {
+            const totalNeed = comp.quantity * item.quantity;
+            
+            if (comp.componentType === "semi_finished") {
+              await adjustInventory(tx, validBranchId, "semi_finished", comp.componentId, -totalNeed);
+            } 
+            else if (comp.componentType === "ingredient") {
+              await adjustInventory(tx, validBranchId, "ingredient", comp.componentId, -totalNeed);
+            }
+          }
+        } else {
+          // Manual custom order
+          const price = item.price ?? 0;
+          const itemSubtotal = price * item.quantity;
+          subtotal += itemSubtotal;
+          itemRows.push({
+            productId: null,
+            productVariantId: null,
+            productName: item.productName || "Custom Order",
+            quantity: item.quantity,
+            priceAtSale: String(price),
+            subtotal: String(itemSubtotal),
+          });
         }
       }
+
+      // Hitung diskon
+      const validDiscountType = discountType && ["percentage", "fixed"].includes(discountType) ? discountType : "none";
+      let discountAmount = 0;
+      if (validDiscountType === "percentage" && discount && discount > 0) {
+        discountAmount = Math.min(subtotal * (discount / 100), subtotal);
+      } else if (validDiscountType === "fixed" && discount && discount > 0) {
+        discountAmount = Math.min(discount, subtotal);
+      }
+
+      const afterDiscount = subtotal - discountAmount;
+      const taxAmount = applyTax ? Math.round(afterDiscount * PPN_RATE) : 0;
+      const total = afterDiscount + taxAmount;
 
       const change = Math.max(0, amountPaid - total);
       const [created] = await tx
@@ -257,6 +308,10 @@ router.post("/orders", requireAuth, async (req, res) => {
           branchId: validBranchId,
           cashierName: cashierName ?? null,
           cashierId: cashierId ?? null,
+          subtotal: String(subtotal),
+          discount: String(discountAmount),
+          discountType: validDiscountType,
+          taxAmount: String(taxAmount),
           total: String(total),
           totalCogs: String(totalCogs),
           amountPaid: String(amountPaid),
@@ -271,11 +326,11 @@ router.post("/orders", requireAuth, async (req, res) => {
       return { ...created, itemCount: itemRows.length };
     });
 
-    const itemsPayload = items.map((item) => ({
-      productId: item.productId,
+    const itemsPayload = items.map((item): any => ({
+      productId: item.productId ?? null,
       productVariantId: item.productVariantId ?? null,
       quantity: item.quantity,
-      price: 0,
+      price: item.price ?? 0,
     }));
 
     EventPublisher.publish(createOrderCreatedEvent({
@@ -321,16 +376,22 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
       branchId: order.branchId,
       cashierName: order.cashierName,
       cashierId: order.cashierId,
+      subtotal: parseFloat(order.subtotal ?? order.total),
+      discount: parseFloat(order.discount ?? "0"),
+      discountType: order.discountType ?? "none",
+      taxAmount: parseFloat(order.taxAmount ?? "0"),
       total: parseFloat(order.total),
       totalCogs: parseFloat(order.totalCogs),
       amountPaid: parseFloat(order.amountPaid),
       change: parseFloat(order.change),
       paymentMethod: order.paymentMethod,
       status: order.status,
+      voidReason: order.voidReason ?? null,
       createdAt: order.createdAt.toISOString(),
       items: items.map((i) => ({
         id: i.id,
         productId: i.productId,
+        productVariantId: i.productVariantId,
         productName: i.productName,
         quantity: i.quantity,
         priceAtSale: parseFloat(i.priceAtSale),
@@ -340,6 +401,68 @@ router.get("/orders/:id", requireAuth, async (req, res) => {
   } catch (error) {
     console.error("GET /orders/:id error:", error);
     return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/orders/:id/void (batalkan transaksi, kembalikan stok)
+router.post("/orders/:id/void", requireAuth, requireRole("owner", "manager"), async (req, res) => {
+  try {
+    const id = Number(req.params["id"]);
+    const { reason } = req.body as { reason?: string };
+
+    const [order] = await db.select().from(ordersTable).where(eq(ordersTable.id, id));
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+    if (order.status === "voided") {
+      return res.status(400).json({ error: "Order already voided" });
+    }
+    if (!order.branchId || !(await canAccessBranch(req, order.branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+
+    // Void dalam transaction: update status + kembalikan stok
+    await db.transaction(async (tx: Executor) => {
+      // Update order status
+      await tx
+        .update(ordersTable)
+        .set({
+          status: "voided",
+          voidReason: reason ?? "Dibatalkan",
+          updatedAt: new Date(),
+        })
+        .where(eq(ordersTable.id, id));
+
+      // Kembalikan stok untuk setiap item
+      const items = await tx.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, id));
+      for (const item of items) {
+        if (item.productId) {
+          const parentType = item.productVariantId ? "product_variant" : "product";
+          const parentId = item.productVariantId ?? item.productId;
+          let recipe = await getRecipeRows(tx, parentType as any, parentId);
+
+          // Fallback: jika varian tidak punya resep, gunakan resep produk
+          if (recipe.length === 0 && parentType === "product_variant" && item.productId) {
+            recipe = await getRecipeRows(tx, "product", item.productId);
+          }
+
+          for (const comp of recipe) {
+            const totalRestore = comp.quantity * item.quantity;
+            if (comp.componentType === "semi_finished") {
+              await adjustInventory(tx, order.branchId!, "semi_finished", comp.componentId, totalRestore);
+            } else if (comp.componentType === "ingredient") {
+              await adjustInventory(tx, order.branchId!, "ingredient", comp.componentId, totalRestore);
+            }
+          }
+        }
+      }
+    });
+
+    return res.json({ success: true, message: "Order voided successfully" });
+  } catch (err) {
+    console.error("POST /orders/:id/void error:", err);
+    const message = err instanceof Error ? err.message : "Failed to void order";
+    return res.status(400).json({ error: message });
   }
 });
 

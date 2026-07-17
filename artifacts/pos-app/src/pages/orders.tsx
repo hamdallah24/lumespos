@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatRp, formatDate } from "@/lib/format";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
@@ -15,8 +15,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Receipt, CalendarDays, Banknote, CreditCard, QrCode, ChevronRight, X } from "lucide-react";
+import { Receipt, CalendarDays, Banknote, CreditCard, QrCode, ChevronRight, X, Ban } from "lucide-react";
 import { useBranch } from "@/lib/branch";
+import { toast } from "sonner";
 import type { DateRange } from "react-day-picker";
 
 function paymentIcon(method: string) {
@@ -32,6 +33,10 @@ function paymentLabel(method: string) {
 }
 
 function OrderDetail({ orderId, onClose }: { orderId: number; onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+
   const { data: order, isLoading } = useQuery({
     queryKey: ["order", orderId],
     queryFn: async () => {
@@ -39,6 +44,31 @@ function OrderDetail({ orderId, onClose }: { orderId: number; onClose: () => voi
       if (!res.ok) throw new Error("Failed to fetch order");
       return res.json();
     },
+  });
+
+  const voidMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/orders/${orderId}/void`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ reason: voidReason || "Dibatalkan" }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to void order");
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      toast.success("Transaksi berhasil dibatalkan");
+      setVoidDialogOpen(false);
+      setVoidReason("");
+      queryClient.invalidateQueries({ queryKey: ["order", orderId] });
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      onClose();
+    },
+    onError: (err: Error) => toast.error(err.message),
   });
 
   if (isLoading) {
@@ -70,7 +100,11 @@ function OrderDetail({ orderId, onClose }: { orderId: number; onClose: () => voi
         )}
         <div className="p-3 rounded-lg bg-muted/50">
           <p className="text-xs text-muted-foreground mb-0.5">Status</p>
-          <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">Selesai</Badge>
+          {order.status === "voided" ? (
+            <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50 text-xs">Dibatalkan</Badge>
+          ) : (
+            <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-xs">Selesai</Badge>
+          )}
         </div>
       </div>
 
@@ -93,6 +127,22 @@ function OrderDetail({ orderId, onClose }: { orderId: number; onClose: () => voi
 
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">Subtotal</span>
+          <span>{formatRp(order.subtotal ?? order.total)}</span>
+        </div>
+        {(order.discount ?? 0) > 0 && (
+          <div className="flex justify-between text-sm text-green-600">
+            <span>Diskon {order.discountType === "percentage" ? `(${order.discountType})` : ""}</span>
+            <span>-{formatRp(order.discount)}</span>
+          </div>
+        )}
+        {(order.taxAmount ?? 0) > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-muted-foreground">PPN (11%)</span>
+            <span>{formatRp(order.taxAmount)}</span>
+          </div>
+        )}
+        <div className="flex justify-between text-sm">
           <span className="text-muted-foreground">Dibayar</span>
           <span>{formatRp(order.amountPaid ?? 0)}</span>
         </div>
@@ -107,6 +157,59 @@ function OrderDetail({ orderId, onClose }: { orderId: number; onClose: () => voi
           <span className="font-bold text-xl text-primary">{formatRp(order.total)}</span>
         </div>
       </div>
+
+      {order.voidReason && (
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200">
+          <p className="text-xs text-red-600 font-medium">Alasan Pembatalan</p>
+          <p className="text-sm text-red-700">{order.voidReason}</p>
+        </div>
+      )}
+
+      {order.status !== "voided" && (
+        <>
+          <Button
+            variant="outline"
+            className="w-full rounded-xl text-destructive border-destructive/30 hover:bg-destructive/10"
+            onClick={() => setVoidDialogOpen(true)}
+          >
+            <Ban className="w-4 h-4 mr-2" />
+            Batalkan Transaksi
+          </Button>
+
+          <Dialog open={voidDialogOpen} onOpenChange={setVoidDialogOpen}>
+            <DialogContent className="sm:max-w-sm rounded-2xl">
+              <DialogHeader>
+                <DialogTitle className="text-destructive">Batalkan Transaksi?</DialogTitle>
+              </DialogHeader>
+              <div className="py-3 space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Transaksi #{String(orderId).padStart(4, "0")} akan dibatalkan dan stok akan dikembalikan.
+                </p>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Alasan (opsional)</label>
+                  <input
+                    className="w-full h-10 px-3 rounded-xl border bg-background text-sm"
+                    value={voidReason}
+                    onChange={(e) => setVoidReason(e.target.value)}
+                    placeholder="Contoh: Salah input"
+                  />
+                </div>
+              </div>
+              <DialogFooter className="flex-row gap-2">
+                <Button variant="outline" className="flex-1 rounded-xl" onClick={() => setVoidDialogOpen(false)}>Batal</Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1 rounded-xl"
+                  onClick={() => voidMutation.mutate()}
+                  disabled={voidMutation.isPending}
+                >
+                  {voidMutation.isPending ? "Membatalkan..." : "Ya, Batalkan"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   );
 }
@@ -118,6 +221,7 @@ export default function OrdersPage() {
     to: new Date(),
   });
   const [paymentMethodFilter, setPaymentMethodFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("completed");
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [rangeOpen, setRangeOpen] = useState(false);
   const rangeRef = useRef<HTMLDivElement>(null);
@@ -134,13 +238,14 @@ export default function OrdersPage() {
   const endDate = dateRange?.to?.toISOString().split("T")[0] ?? "";
 
   const { data, isLoading } = useQuery({
-    queryKey: ["orders", { branchId, startDate, endDate, paymentMethod: paymentMethodFilter }],
+    queryKey: ["orders", { branchId, startDate, endDate, paymentMethod: paymentMethodFilter, status: statusFilter }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (branchId) params.append("branchId", String(branchId));
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
       if (paymentMethodFilter && paymentMethodFilter !== "all") params.append("paymentMethod", paymentMethodFilter);
+      if (statusFilter) params.append("status", statusFilter);
       const res = await fetch(`/api/orders?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch orders");
       return res.json();
@@ -176,6 +281,17 @@ export default function OrdersPage() {
               <SelectItem value="cash">Tunai</SelectItem>
               <SelectItem value="qris">QRIS</SelectItem>
               <SelectItem value="card">Kartu</SelectItem>
+            </SelectContent>
+          </Select>
+          {/* Filter status */}
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-32">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="completed">Selesai</SelectItem>
+              <SelectItem value="voided">Dibatalkan</SelectItem>
+              <SelectItem value="">Semua</SelectItem>
             </SelectContent>
           </Select>
           {/* Filter tanggal range */}
@@ -246,7 +362,11 @@ export default function OrdersPage() {
                           {paymentIcon(order.paymentMethod)}
                           {paymentLabel(order.paymentMethod)}
                         </Badge>
-                        <Badge variant="outline" className="text-xs text-green-600 border-green-200 bg-green-50">Selesai</Badge>
+                        {order.status === "voided" ? (
+                          <Badge variant="outline" className="text-xs text-red-600 border-red-200 bg-red-50">Dibatalkan</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs text-green-600 border-green-200 bg-green-50">Selesai</Badge>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{formatDate(order.createdAt)} · {order.itemCount} item</p>
                     </div>

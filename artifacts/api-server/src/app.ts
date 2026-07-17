@@ -59,6 +59,7 @@ app.use(
       includeSubDomains: true,
       preload: true,
     },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
@@ -79,6 +80,12 @@ app.use(
 
 app.use(cookieParser());
 
+// Permissions-Policy header (not built into helmet 8.x)
+app.use((_req, res, next) => {
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+  next();
+});
+
 const PgSessionStore = connectPgSimple(session);
 
 app.use(
@@ -93,9 +100,9 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-    secure: isProduction && !!process.env.HTTPS_ENABLED,
+      secure: isProduction,
       sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: 8 * 60 * 60 * 1000,
     },
   }),
 );

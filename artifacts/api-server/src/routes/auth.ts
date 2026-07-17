@@ -12,14 +12,25 @@ import { sendPasswordResetEmail } from "../lib/email";
 const router = Router();
 const RESET_REQUEST_MESSAGE = "Jika akun ada, link reset password telah dikirim.";
 
+const SENSITIVE_FIELDS = ["passwordHash", "resetTokenHash", "resetTokenExpiresAt"] as const;
+
+function sanitizeUser(user: Record<string, any>) {
+  const safe = { ...user };
+  for (const field of SENSITIVE_FIELDS) delete safe[field];
+  return safe;
+}
+
 function normalizeEmail(email: string) {
   return email.trim().toLowerCase();
 }
 
 function validatePassword(password: string): string | null {
   if (password.length < 8) return "Password minimal 8 karakter";
+  if (password.length > 128) return "Password terlalu panjang";
   if (!/[a-zA-Z]/.test(password)) return "Password harus mengandung huruf";
+  if (!/[A-Z]/.test(password)) return "Password harus mengandung huruf kapital";
   if (!/[0-9]/.test(password)) return "Password harus mengandung angka";
+  if (!/[^a-zA-Z0-9]/.test(password)) return "Password harus mengandung karakter khusus";
   return null;
 }
 
@@ -119,7 +130,7 @@ router.post("/auth/signup", async (req, res, next) => {
       if (error) {
         return next(error);
       }
-      res.status(201).json(createdUser);
+      res.status(201).json(sanitizeUser(createdUser as any));
     });
   } catch (error) {
     next(error);
@@ -138,7 +149,7 @@ router.post("/auth/login", (req, res, next) => {
       if (loginError) {
         return next(loginError);
       }
-      res.json(user);
+      res.json(sanitizeUser(user));
     });
   })(req, res, next);
 });
@@ -236,7 +247,12 @@ router.post("/auth/reset-password", async (req, res) => {
   }
 
   const expectedHash = hashResetToken(resetToken);
-  const isValid = timingSafeEqual(Buffer.from(expectedHash), Buffer.from((user as any).resetTokenHash));
+  const tokenHashBuf = Buffer.from((user as any).resetTokenHash);
+  if (Buffer.from(expectedHash).length !== tokenHashBuf.length) {
+    res.status(400).json({ error: "Token reset tidak valid atau kadaluwarsa" });
+    return;
+  }
+  const isValid = timingSafeEqual(Buffer.from(expectedHash), tokenHashBuf);
   if (!isValid || (user as any).resetTokenExpiresAt.getTime() < Date.now()) {
     res.status(400).json({ error: "Token reset tidak valid atau kadaluwarsa" });
     return;
@@ -321,7 +337,7 @@ router.post("/auth/verify-google-invite", async (req, res) => {
         res.status(500).json({ error: "Gagal login setelah daftar" });
         return;
       }
-      res.json({ success: true, user: newUser });
+      res.json({ success: true, user: sanitizeUser(newUser) });
     });
   } catch (err) {
     console.error("verify-google-invite error:", err);

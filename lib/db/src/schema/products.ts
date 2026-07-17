@@ -14,18 +14,17 @@ export const productsTable = pgTable("products", {
   price: numeric("price", { precision: 12, scale: 2 }).notNull(),
   imageUrl: text("image_url"),
   isActive: boolean("is_active").notNull().default(true),
-  requiresStock: boolean("requires_stock").notNull().default(true), // ← tambah ini
+  requiresStock: boolean("requires_stock").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
-
-
-// HAPUS: costPrice dan stock dari schema
 
 export const insertProductSchema = createInsertSchema(productsTable).omit({ 
   id: true, 
   createdAt: true, 
-  updatedAt: true 
+  updatedAt: true,
+  deletedAt: true,
 });
 
 export type InsertProduct = z.infer<typeof insertProductSchema>;

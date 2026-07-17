@@ -97,10 +97,14 @@ router.post("/ingredients", requireRole("owner", "manager"), requireBranchAccess
 });
 
 // PATCH /ingredients/:id
-router.patch("/ingredients/:id", requireRole("owner", "manager"), async (req, res) => {
+router.patch("/ingredients/:id", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
     if (isNaN(id)) return res.status(400).json({ error: "ID tidak valid" });
+
+    const [existing] = await db.select().from(ingredientsTable).where(eq(ingredientsTable.id, id));
+    if (!existing) return res.status(404).json({ error: "Bahan baku tidak ditemukan" });
+    if (!(await canAccessBranch(req, existing.branchId))) return res.status(403).json({ error: "Forbidden branch" });
 
     const { name, unit, costPricePerUnit, minimalStock, trackInShift } = req.body;
     const update: Record<string, any> = {};
@@ -135,7 +139,7 @@ router.patch("/ingredients/:id", requireRole("owner", "manager"), async (req, re
 });
 
 // DELETE /ingredients/:id
-router.delete("/ingredients/:id", requireRole("owner", "manager"), async (req, res) => {
+router.delete("/ingredients/:id", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
     if (isNaN(id)) return res.status(400).json({ error: "ID tidak valid" });
@@ -146,6 +150,7 @@ router.delete("/ingredients/:id", requireRole("owner", "manager"), async (req, r
       .where(eq(ingredientsTable.id, id));
 
     if (!existing) return res.status(404).json({ error: "Bahan baku tidak ditemukan" });
+    if (!(await canAccessBranch(req, existing.branchId))) return res.status(403).json({ error: "Forbidden branch" });
 
     await db.delete(ingredientsTable).where(eq(ingredientsTable.id, id));
     return res.status(204).send();

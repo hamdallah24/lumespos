@@ -66,10 +66,14 @@ router.post("/expenses", requireAuth, requireBranchAccess((req) => Number(req.bo
   }
 });
 
-router.patch("/expenses/:id", requireRole("owner", "manager"), async (req, res) => {
+router.patch("/expenses/:id", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
     if (isNaN(id)) return res.status(400).json({ error: "ID tidak valid" });
+
+    const [existing] = await db.select().from(expensesTable).where(eq(expensesTable.id, id));
+    if (!existing) return res.status(404).json({ error: "Pengeluaran tidak ditemukan" });
+    if (!(await canAccessBranch(req, existing.branchId))) return res.status(403).json({ error: "Forbidden branch" });
 
     const { description, amount, category, notes } = req.body;
     const update: Record<string, any> = {};
@@ -89,7 +93,6 @@ router.patch("/expenses/:id", requireRole("owner", "manager"), async (req, res) 
       .where(eq(expensesTable.id, id))
       .returning();
 
-    if (!updated) return res.status(404).json({ error: "Pengeluaran tidak ditemukan" });
     return res.json(updated);
   } catch (err: any) {
     console.error("PATCH /expenses error:", err);
@@ -97,7 +100,7 @@ router.patch("/expenses/:id", requireRole("owner", "manager"), async (req, res) 
   }
 });
 
-router.delete("/expenses/:id", requireRole("owner", "manager"), async (req, res) => {
+router.delete("/expenses/:id", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
     if (isNaN(id)) return res.status(400).json({ error: "ID tidak valid" });
@@ -108,6 +111,7 @@ router.delete("/expenses/:id", requireRole("owner", "manager"), async (req, res)
       .where(eq(expensesTable.id, id));
 
     if (!existing) return res.status(404).json({ error: "Pengeluaran tidak ditemukan" });
+    if (!(await canAccessBranch(req, existing.branchId))) return res.status(403).json({ error: "Forbidden branch" });
 
     await db.delete(expensesTable).where(eq(expensesTable.id, id));
     return res.status(204).send();

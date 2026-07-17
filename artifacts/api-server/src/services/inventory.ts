@@ -48,7 +48,7 @@ export async function adjustInventory(
     );
 
   if (!existing) {
-    const newStock = Math.max(0, delta);
+    const newStock = delta;
     await tx.insert(currentInventoryTable).values({
       branchId,
       itemType,
@@ -59,7 +59,7 @@ export async function adjustInventory(
   }
 
   const previousStock = parseFloat(existing.currentStock);
-  const newStock = Math.max(0, previousStock + delta);
+  const newStock = previousStock + delta;
   await tx
     .update(currentInventoryTable)
     .set({ currentStock: String(newStock) })

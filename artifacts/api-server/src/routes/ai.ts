@@ -31,13 +31,13 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     const uid = user.id;
 
     // ── Parse @mention, targetRuntime, or multi-mention ──
-    const mentionMatches = [...rawClean.matchAll(/@(CEO|CTO|CFO|COO|CMO|CHRO|CAIO|CKO)\b/gi)];
+    const mentionMatches = [...rawClean.matchAll(/@(CEO|CTO|CFO|COO|CMO|CHRO|CAIO)\b/gi)];
     const allMentions = mentionMatches.map(m => m[1].toUpperCase());
     const uniqueMentions = [...new Set(allMentions)];
     const resolvedTarget = targetRuntime || (uniqueMentions.length === 1 ? uniqueMentions[0] : null);
     const isMultiMention = uniqueMentions.length >= 2 && !targetRuntime;
     const clean = mentionMatches.length > 0
-      ? rawClean.replace(/@(CEO|CTO|CFO|COO|CMO|CHRO|CAIO|CKO)\b/gi, '').trim()
+      ? rawClean.replace(/@(CEO|CTO|CFO|COO|CMO|CHRO|CAIO)\b/gi, '').trim()
       : rawClean;
 
     // Rate limit
@@ -271,7 +271,7 @@ router.get("/ai/readiness-public", async (_req, res) => {
 
 // ── AGENT REGISTRY (Sprint 10.5) ──
 // Returns registered agents with capabilities, health, dependencies
-router.get("/ai/agents", async (_req, res) => {
+router.get("/ai/agents", requireAuth, async (_req, res) => {
   const { list, health } = await import("../ai/runtime/registry");
   const componentList = list();
   const healthData = health();
@@ -444,8 +444,8 @@ router.post("/ai/mission", requireRole("owner"), async (req, res) => {
   res.json({ mission: (activation.data as any)?.mission, authority: result.data });
 });
 
-// Public: no-auth for dashboard display
-router.get("/ai/org-public", async (_req, res) => {
+// Auth required for org data
+router.get("/ai/org-public", requireAuth, async (_req, res) => {
   const { organizationEngine } = await import("../ai/runtime/organization-engine");
   const tree = organizationEngine.getTree();
   const health = organizationEngine.healthReport();

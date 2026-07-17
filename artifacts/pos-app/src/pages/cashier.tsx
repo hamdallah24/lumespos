@@ -68,6 +68,11 @@ export default function CashierPage() {
   const [variantProduct, setVariantProduct] = useState<Product | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
 
+  // Discount states
+  const [discountType, setDiscountType] = useState<"none" | "percentage" | "fixed">("none");
+  const [discountValueStr, setDiscountValueStr] = useState("");
+  const [applyTax, setApplyTax] = useState(false);
+
   // Manual custom order states
   const [manualDialogOpen, setManualDialogOpen] = useState(false);
   const [manualName, setManualName] = useState("");
@@ -174,12 +179,21 @@ export default function CashierPage() {
   };
 
   const cartTotal = useMemo(() => cart.reduce((s, i) => s + i.price * i.cartQuantity, 0), [cart]);
+  const discountValue = parseFloat(discountValueStr.replace(/[^0-9]/g, "")) || 0;
+  const discountAmount = useMemo(() => {
+    if (discountType === "percentage") return Math.min(cartTotal * (discountValue / 100), cartTotal);
+    if (discountType === "fixed") return Math.min(discountValue, cartTotal);
+    return 0;
+  }, [cartTotal, discountType, discountValue]);
+  const afterDiscount = cartTotal - discountAmount;
+  const taxAmount = applyTax ? Math.round(afterDiscount * 0.11) : 0;
+  const totalWithTax = afterDiscount + taxAmount;
   const amountPaid = parseFloat(amountPaidStr.replace(/[^0-9]/g, "")) || 0;
-  const change = amountPaid - cartTotal;
+  const change = amountPaid - totalWithTax;
 
   const handleCompleteOrder = () => {
     if (!cart.length) return;
-    if (paymentMethod === "cash" && amountPaid < cartTotal) { toast.error("Nominal pembayaran kurang"); return; }
+    if (paymentMethod === "cash" && amountPaid < totalWithTax) { toast.error("Nominal pembayaran kurang"); return; }
 
     createOrder.mutate(
       {
@@ -188,7 +202,10 @@ export default function CashierPage() {
           cashierName: me?.name ?? "Kasir",
           cashierId: me?.id ?? null,
           paymentMethod,
-          amountPaid: paymentMethod === "cash" ? amountPaid : cartTotal,
+          amountPaid: paymentMethod === "cash" ? amountPaid : totalWithTax,
+          discount: discountType !== "none" ? discountValue : undefined,
+          discountType: discountType !== "none" ? discountType : undefined,
+          applyTax: applyTax || undefined,
           items: cart.map((item) => ({
             productId: item.id < 0 ? null : item.id,
             productVariantId: item.variantId ?? null,
@@ -204,6 +221,9 @@ export default function CashierPage() {
           setCart([]);
           setPaymentDialogOpen(false);
           setAmountPaidStr("");
+          setDiscountType("none");
+          setDiscountValueStr("");
+          setApplyTax(false);
           queryClient.invalidateQueries({ queryKey: getListProductsQueryKey() });
           checkActiveShift();
         },
@@ -421,9 +441,28 @@ export default function CashierPage() {
         </ScrollArea>
 
         <div className="p-4 border-t shrink-0 space-y-3">
-          <div className="flex justify-between items-end">
-            <span className="text-muted-foreground text-sm">Total</span>
-            <span className="font-bold text-2xl text-primary">{formatRp(cartTotal)}</span>
+          <div className="space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span>{formatRp(cartTotal)}</span>
+            </div>
+            {discountAmount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Diskon {discountType === "percentage" ? `(${discountValue}%)` : ""}</span>
+                <span>-{formatRp(discountAmount)}</span>
+              </div>
+            )}
+            {applyTax && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">PPN (11%)</span>
+                <span>{formatRp(taxAmount)}</span>
+              </div>
+            )}
+            <Separator />
+            <div className="flex justify-between items-end">
+              <span className="font-semibold">Total</span>
+              <span className="font-bold text-xl text-primary">{formatRp(totalWithTax)}</span>
+            </div>
           </div>
           <Button className="w-full h-14 text-lg font-bold rounded-2xl" disabled={cart.length === 0} onClick={() => setPaymentDialogOpen(true)}>
             Bayar Sekarang
@@ -452,7 +491,7 @@ export default function CashierPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                   <span className="font-bold text-base sm:text-lg text-primary">{formatRp(cartTotal)}</span>
+                   <span className="font-bold text-base sm:text-lg text-primary">{formatRp(totalWithTax)}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); setPaymentDialogOpen(true); }}
                     className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-xs sm:text-sm shadow-lg shadow-primary/25 active:scale-95 transition-transform"
@@ -514,9 +553,28 @@ export default function CashierPage() {
           </ScrollArea>
 
           <div className="p-4 border-t shrink-0 space-y-3 safe-bottom">
-            <div className="flex justify-between items-end">
-              <span className="text-muted-foreground text-sm">Total</span>
-              <span className="font-bold text-xl text-primary">{formatRp(cartTotal)}</span>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span>{formatRp(cartTotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-green-600">
+                  <span>Diskon {discountType === "percentage" ? `(${discountValue}%)` : ""}</span>
+                  <span>-{formatRp(discountAmount)}</span>
+                </div>
+              )}
+              {applyTax && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">PPN (11%)</span>
+                  <span>{formatRp(taxAmount)}</span>
+                </div>
+              )}
+              <Separator />
+              <div className="flex justify-between items-end">
+                <span className="font-semibold">Total</span>
+                <span className="font-bold text-lg text-primary">{formatRp(totalWithTax)}</span>
+              </div>
             </div>
             <button
               onClick={() => { setCartOpen(false); setPaymentDialogOpen(true); }}
@@ -536,10 +594,62 @@ export default function CashierPage() {
             <DialogTitle className="text-lg">Pembayaran</DialogTitle>
           </DialogHeader>
           <div className="py-3 space-y-4">
-            <div className="text-center p-4 bg-primary/5 rounded-2xl border border-primary/10">
-              <p className="text-xs text-muted-foreground mb-1">Total Tagihan</p>
-              <p className="text-xl sm:text-2xl font-bold text-primary">{formatRp(cartTotal)}</p>
-              {me && <p className="text-xs text-muted-foreground mt-1">Kasir: {me.name}</p>}
+            {/* Rincian Harga */}
+            <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Subtotal ({cart.length} item)</span>
+                <span>{formatRp(cartTotal)}</span>
+              </div>
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-sm text-muted-foreground">Diskon</span>
+                <div className="flex items-center gap-1.5">
+                  <select
+                    value={discountType}
+                    onChange={(e) => { setDiscountType(e.target.value as any); setDiscountValueStr(""); }}
+                    className="h-8 px-2 rounded-lg bg-background border text-xs"
+                  >
+                    <option value="none">Tidak ada</option>
+                    <option value="percentage">%</option>
+                    <option value="fixed">Rp</option>
+                  </select>
+                  {discountType !== "none" && (
+                    <Input
+                      className="h-8 w-24 text-xs rounded-lg"
+                      value={discountValueStr}
+                      onChange={(e) => setDiscountValueStr(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder={discountType === "percentage" ? "0" : "0"}
+                    />
+                  )}
+                </div>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Potongan {discountType === "percentage" ? `(${discountValue}%)` : ""}</span>
+                  <span>-{formatRp(discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center gap-2">
+                <span className="text-sm text-muted-foreground">PPN (11%)</span>
+                <button
+                  type="button"
+                  onClick={() => setApplyTax(!applyTax)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${applyTax ? "bg-primary" : "bg-muted"}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${applyTax ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              {applyTax && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground pl-4">PPN 11%</span>
+                  <span>{formatRp(taxAmount)}</span>
+                </div>
+              )}
+              <Separator />
+              <div className="flex justify-between items-center">
+                <span className="font-bold">Total Tagihan</span>
+                <span className="font-bold text-xl text-primary">{formatRp(totalWithTax)}</span>
+              </div>
+              {me && <p className="text-xs text-muted-foreground text-right">Kasir: {me.name}</p>}
             </div>
 
             <div className="space-y-2">
@@ -579,13 +689,13 @@ export default function CashierPage() {
                   />
                 </div>
                 <div className="grid grid-cols-4 gap-2">
-                  {[50000, 100000, 200000, cartTotal].map((amt) => (
+                  {[50000, 100000, 200000, totalWithTax].map((amt) => (
                     <button
                       key={amt}
                       onClick={() => setAmountPaidStr(amt.toString())}
                       className="h-10 rounded-xl bg-accent text-sm font-medium active:scale-95 transition-transform touch-target"
                     >
-                      {amt === cartTotal ? "Pas" : `${amt / 1000}k`}
+                      {amt === totalWithTax ? "Pas" : `${amt / 1000}k`}
                     </button>
                   ))}
                 </div>
@@ -603,7 +713,7 @@ export default function CashierPage() {
             <Button
               className="flex-[2] rounded-xl h-12"
               onClick={handleCompleteOrder}
-              disabled={createOrder.isPending || (paymentMethod === "cash" && amountPaid < cartTotal)}
+              disabled={createOrder.isPending || (paymentMethod === "cash" && amountPaid < totalWithTax)}
             >
               {createOrder.isPending ? "Memproses..." : "Selesaikan Transaksi"}
             </Button>

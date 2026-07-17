@@ -4,9 +4,10 @@ import {
   recipesTable,
   ingredientsTable,
   semiFinishedTable,
+  productsTable,
 } from "@workspace/db";
 import { and, eq, inArray } from "drizzle-orm";
-import { requireAuth, requireRole } from "../middlewares/requireAuth";
+import { canAccessBranch, requireAuth, requireRole } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -86,7 +87,7 @@ router.get("/recipes", requireAuth, async (req, res) => {
   res.json(await enrich(rows));
 });
 
-router.put("/recipes", requireRole("owner", "manager"), async (req, res) => {
+router.put("/recipes", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   const { parentType, parentId, components } = req.body as {
     parentType: string;
     parentId: number;
@@ -101,6 +102,21 @@ router.put("/recipes", requireRole("owner", "manager"), async (req, res) => {
       .status(400)
       .json({ error: "parentType, parentId and components are required" });
     return;
+  }
+
+  // Branch access check: look up parent item to verify branch access
+  if (parentType === "product" || parentType === "product_variant") {
+    const [product] = await db.select().from(productsTable).where(eq(productsTable.id, parentId));
+    if (product?.branchId && !(await canAccessBranch(req, product.branchId))) {
+      res.status(403).json({ error: "Forbidden branch" });
+      return;
+    }
+  } else if (parentType === "semi_finished") {
+    const [sf] = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.id, parentId));
+    if (sf?.branchId && !(await canAccessBranch(req, sf.branchId))) {
+      res.status(403).json({ error: "Forbidden branch" });
+      return;
+    }
   }
 
   const rows = await db.transaction(async (tx) => {

@@ -5,6 +5,18 @@ import { requireAuth, requireRole } from "../middlewares/requireAuth";
 
 const router = Router();
 
+const SENSITIVE_FIELDS = ["passwordHash", "resetTokenHash", "resetTokenExpiresAt"] as const;
+
+function sanitizeUser(user: Record<string, any>) {
+  const safe = { ...user };
+  for (const field of SENSITIVE_FIELDS) delete safe[field];
+  return safe;
+}
+
+function sanitizeUsers(users: Record<string, any>[]) {
+  return users.map(sanitizeUser);
+}
+
 // Sync user
 router.post("/users/sync", requireAuth, async (req, res) => {
   const user = req.user!;
@@ -19,7 +31,7 @@ router.post("/users/sync", requireAuth, async (req, res) => {
     .set({ email: normalizedEmail, name })
     .where(eq(usersTable.clerkId, user.clerkId))
     .returning();
-  res.json(updated);
+  res.json(sanitizeUser(updated as any));
 });
 
 // Get current user
@@ -31,12 +43,12 @@ router.get("/users/me", requireAuth, async (req, res) => {
       .from(userBranchesTable)
       .where(eq(userBranchesTable.userId, user.id));
     res.json({
-      ...user,
+      ...sanitizeUser(user as any),
       allowedBranches: branches.map((b) => b.branchId),
     });
   } catch (err) {
     // Fallback kalau tabel belum ada di database
-    res.json({ ...req.user, allowedBranches: [] });
+    res.json({ ...sanitizeUser(req.user as any), allowedBranches: [] });
   }
 });
 
@@ -51,7 +63,7 @@ router.get("/users", requireRole("owner", "manager"), async (_req, res) => {
       : [];
 
     const result = users.map((u) => ({
-      ...u,
+      ...sanitizeUser(u as any),
       allowedBranches: branches.filter((b) => b.userId === u.id).map((b) => b.branchId),
     }));
     res.json(result);
@@ -78,7 +90,7 @@ router.patch("/users/:id/role", requireRole("owner"), async (req, res) => {
     res.status(404).json({ error: "User not found" });
     return;
   }
-  res.json(updated);
+  res.json(sanitizeUser(updated as any));
 });
 
 // Update allowed branches untuk user

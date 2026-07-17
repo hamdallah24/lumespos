@@ -133,9 +133,13 @@ router.post("/semi-finished", requireRole("owner", "manager"), requireBranchAcce
 });
 
 // PATCH /api/semi-finished/:id
-router.patch("/semi-finished/:id", requireRole("owner", "manager"), async (req, res) => {
+router.patch("/semi-finished/:id", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
+    const [existing] = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.id, id));
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (!(await canAccessBranch(req, existing.branchId))) return res.status(403).json({ error: "Forbidden branch" });
+
     const { name, unit, yieldQuantity, yieldUnit, trackInShift } = req.body as {
       name?: string;
       unit?: string;
@@ -161,10 +165,6 @@ router.patch("/semi-finished/:id", requireRole("owner", "manager"), async (req, 
       .where(eq(semiFinishedTable.id, id))
       .returning();
 
-    if (!updated) {
-      return res.status(404).json({ error: "Not found" });
-    }
-
     return res.json(serialize(updated, 0));
   } catch (error) {
     console.error("PATCH /semi-finished error:", error);
@@ -173,9 +173,13 @@ router.patch("/semi-finished/:id", requireRole("owner", "manager"), async (req, 
 });
 
 // DELETE /api/semi-finished/:id
-router.delete("/semi-finished/:id", requireRole("owner", "manager"), async (req, res) => {
+router.delete("/semi-finished/:id", requireAuth, requireRole("owner", "manager"), async (req, res) => {
   try {
     const id = Number(req.params["id"]);
+    const [existing] = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.id, id));
+    if (!existing) return res.status(404).json({ error: "Not found" });
+    if (!(await canAccessBranch(req, existing.branchId))) return res.status(403).json({ error: "Forbidden branch" });
+
     await db.delete(semiFinishedTable).where(eq(semiFinishedTable.id, id));
     return res.status(204).send();
   } catch (error) {

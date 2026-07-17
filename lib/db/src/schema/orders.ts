@@ -9,19 +9,25 @@ export const ordersTable = pgTable("orders", {
   branchId: integer("branch_id").references(() => branchesTable.id, { onDelete: "set null" }),
   cashierName: text("cashier_name"),
   cashierId: integer("cashier_id").references(() => usersTable.id, { onDelete: "set null" }),
+  subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull().default("0"),
+  discount: numeric("discount", { precision: 12, scale: 2 }).notNull().default("0"),
+  discountType: text("discount_type").notNull().default("none"),
+  taxAmount: numeric("tax_amount", { precision: 12, scale: 2 }).notNull().default("0"),
   total: numeric("total", { precision: 12, scale: 2 }).notNull(),
   totalCogs: numeric("total_cogs", { precision: 14, scale: 2 }).notNull().default("0"),
   amountPaid: numeric("amount_paid", { precision: 12, scale: 2 }).notNull().default("0"),
   change: numeric("change", { precision: 12, scale: 2 }).notNull().default("0"),
   paymentMethod: text("payment_method").notNull().default("cash"),
   status: text("status").notNull().default("completed"),
+  voidReason: text("void_reason"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
 export const orderItemsTable = pgTable("order_items", {
   id: serial("id").primaryKey(),
   orderId: integer("order_id").notNull().references(() => ordersTable.id, { onDelete: "cascade" }),
-  productId: integer("product_id").notNull(),
+  productId: integer("product_id"),
   productVariantId: integer("product_variant_id"),
   productName: text("product_name").notNull(),
   quantity: integer("quantity").notNull(),
@@ -29,7 +35,7 @@ export const orderItemsTable = pgTable("order_items", {
   subtotal: numeric("subtotal", { precision: 12, scale: 2 }).notNull(),
 });
 
-export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true });
+export const insertOrderSchema = createInsertSchema(ordersTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Order = typeof ordersTable.$inferSelect;
 export type OrderItem = typeof orderItemsTable.$inferSelect;

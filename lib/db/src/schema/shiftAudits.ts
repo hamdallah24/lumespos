@@ -18,6 +18,7 @@ export const shiftAuditsTable = pgTable("shift_audits", {
   expectedBalance: numeric("expected_balance", { precision: 12, scale: 2 }),
   endingCupCount: numeric("ending_cup_count", { precision: 10, scale: 2 }),
   expectedStockJson: jsonb("expected_stock_json"),
+  openingStockJson: jsonb("opening_stock_json"),
   actualStockJson: jsonb("actual_stock_json"),
   photoProofUrl: text("photo_proof_url"),
   status: text("status").notNull().default("pending"), // pending | verified | discrepancy | active (shift berjalan)

@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, shiftAuditsTable, usersTable, currentInventoryTable, stockAdjustmentsTable, ordersTable, orderItemsTable, productsTable, productVariantsTable, recipesTable, expensesTable } from "@workspace/db";
 import { and, desc, eq, sql, gte, lte } from "drizzle-orm";
 import { canAccessBranch, requireAuth, requireBranchAccess, requireRole } from "../middlewares/requireAuth";
-import { listInventoryForBranch, listInventoryForShift, adjustInventory, type Executor, type ItemType } from "../services/inventory";
+import { listInventoryForBranch, listInventoryForShift, adjustInventory, getRecipeRows, type Executor, type ItemType } from "../services/inventory";
 import { EventPublisher } from "../event-bus";
 import { createShiftOpenedEvent, createShiftClosedEvent } from "../events";
 
@@ -54,8 +54,14 @@ function buildReconciliation(expected: StockEntry[], actual: StockEntry[]) {
 }
 
 function parseCupCounts(input: unknown): { s: number; m: number; l: number } | null {
-  if (!input || typeof input !== "object") return null;
-  const record = input as Record<string, unknown>;
+  if (!input) return null;
+  // If input is a JSON string (stored as text in DB), parse it first
+  let obj = input;
+  if (typeof input === "string") {
+    try { obj = JSON.parse(input); } catch { return null; }
+  }
+  if (typeof obj !== "object") return null;
+  const record = obj as Record<string, unknown>;
   const cupCounts = record.cupCounts as Record<string, unknown> | undefined;
   if (cupCounts && typeof cupCounts === "object") {
     return {
@@ -295,7 +301,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     }
 
     const windowEnd = new Date();
-    const [sales] = await db
+    const [cashSales] = await db
       .select({ totalCash: sql<string>`COALESCE(SUM(total), 0)` })
       .from(sql`orders`)
       .where(
@@ -308,6 +314,20 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         )
       );
 
+    const qrisCardResult = await db.execute(sql`
+      SELECT 
+        COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris,
+        COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card
+      FROM orders
+      WHERE branch_id = ${shift.branchId}
+        AND created_at >= ${shift.shiftStart}
+        AND created_at <= ${windowEnd}
+        AND status = 'completed'
+    `);
+    const qrisCardRow = qrisCardResult.rows[0] as any;
+    const totalQris = qrisCardRow ? parseFloat(qrisCardRow.qris || "0") : 0;
+    const totalCard = qrisCardRow ? parseFloat(qrisCardRow.card || "0") : 0;
+
     const [expenseResult] = await db
       .select({ totalExpenses: sql<string>`COALESCE(SUM(amount), 0)` })
       .from(expensesTable)
@@ -319,7 +339,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         )
       );
 
-    const totalCash = parseFloat(sales?.totalCash || "0");
+    const totalCash = parseFloat(cashSales?.totalCash || "0");
     const totalExpenses = parseFloat(expenseResult?.totalExpenses || "0");
     const expectedBalance = parseFloat(shift.openingBalance) + totalCash - totalExpenses;
     const difference = closingBalance - expectedBalance;
@@ -341,7 +361,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     const cupM = cupCounts ? (Number(cupCounts.m) || 0) : 0;
     const cupL = cupCounts ? (Number(cupCounts.l) || 0) : 0;
     const cupTotal = cupS + cupM + cupL;
-    const notesObj = { closingBalance, expectedBalance, difference, totalCash, userNotes: notes || null, cupCounts: cupTotal > 0 ? { s: cupS, m: cupM, l: cupL } : undefined };
+    const notesObj = { closingBalance, expectedBalance, difference, totalCash, totalQris, totalCard, userNotes: notes || null, cupCounts: cupTotal > 0 ? { s: cupS, m: cupM, l: cupL } : undefined };
 
     // ── Cup tracking ──
     let startingCupCount = 0;
@@ -422,6 +442,9 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         difference,
         startingCupCount,
         endingCupCount: cupTotal,
+        totalCash,
+        totalQris,
+        totalCard,
       }
     });
   } catch (error) {
@@ -521,6 +544,8 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
         expectedBalance: r.expectedBalance ? parseFloat(r.expectedBalance) : null,
         difference: moneyNote?.difference ?? null,
         totalCash: moneyNote?.totalCash ?? null,
+        totalQris: moneyNote?.totalQris ?? null,
+        totalCard: moneyNote?.totalCard ?? null,
         endingCupCount: r.endingCupCount ? parseFloat(r.endingCupCount) : null,
         createdAt: r.createdAt,
         maxDiscrepancyPct,
@@ -603,6 +628,8 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
     expectedBalance: row.expectedBalance ? parseFloat(row.expectedBalance) : null,
     difference: moneyNote?.difference ?? null,
     totalCash: moneyNote?.totalCash ?? null,
+    totalQris: moneyNote?.totalQris ?? null,
+    totalCard: moneyNote?.totalCard ?? null,
     totalExpenses,
     endingCupCount: row.endingCupCount ? parseFloat(row.endingCupCount) : null,
     createdAt: row.createdAt,
@@ -733,9 +760,10 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
     const actual = (audit.actualStockJson as any[] | null) ?? [];
     if (!expected.length || !actual.length) { res.json({ shiftId: id, note: "No stock data" }); return; }
 
-    // Get orders with variant names
+    // Get orders with product/variant info, excluding voided
     const orders = await db.select({
       qty: orderItemsTable.quantity,
+      productId: orderItemsTable.productId,
       variantId: orderItemsTable.productVariantId,
       variantName: productVariantsTable.name,
       productName: productsTable.name,
@@ -746,60 +774,109 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
       .where(and(
         gte(ordersTable.createdAt, audit.shiftStart!), lte(ordersTable.createdAt, audit.shiftEnd || new Date()),
         eq(ordersTable.branchId, audit.branchId!),
+        sql`${ordersTable.status} != 'voided'`,
       ));
 
     const totalCups = orders.reduce((s: number, o: any) => s + (o.qty || 0), 0);
 
-    // ── Step 1: Build ingredient map with per-variant breakdown ──
+    // ── Step 1: Build ingredient map (handle BOTH variants and non-variant products) ──
     const ingredientMap = new Map<string, {
       sold: number; expected: number;
       variants: Map<string, { sold: number; recipe: number; expected: number; variantName: string }>;
     }>();
 
+    // Collect unique recipe lookups to batch them
+    type RecipeLookup = { parentType: "product_variant" | "product"; parentId: number };
+    const recipeKeys = new Set<string>();
+    const recipeLookups: RecipeLookup[] = [];
     for (const o of orders) {
-      if (!o.variantId) continue;
-      const recipes = await db.select().from(recipesTable).where(and(eq(recipesTable.parentType, "product_variant"), eq(recipesTable.parentId, o.variantId!)));
+      if (!o.productId) continue;
+      const key = o.variantId ? `product_variant:${o.variantId}` : `product:${o.productId}`;
+      if (!recipeKeys.has(key)) {
+        recipeKeys.add(key);
+        recipeLookups.push({
+          parentType: o.variantId ? "product_variant" : "product",
+          parentId: o.variantId ?? o.productId,
+        });
+      }
+    }
+
+    // Load ALL recipes in batch with fallback
+    const recipeCache = new Map<string, { componentType: string; componentId: number; quantity: number }[]>();
+    for (const rk of recipeLookups) {
+      const rows = await getRecipeRows(db as any, rk.parentType, rk.parentId);
+      if (rows.length === 0 && rk.parentType === "product_variant") {
+        // Fallback: variant tanpa resep → pakai resep produk induk
+        const [prod] = await db
+          .select({ pid: productsTable.id })
+          .from(productsTable)
+          .innerJoin(productVariantsTable, eq(productVariantsTable.productId, productsTable.id))
+          .where(eq(productVariantsTable.id, rk.parentId))
+          .limit(1);
+        if (prod) {
+          const fallback = await getRecipeRows(db as any, "product", prod.pid);
+          recipeCache.set(`product_variant:${rk.parentId}`, fallback);
+        }
+      } else {
+        recipeCache.set(`${rk.parentType}:${rk.parentId}`, rows);
+      }
+    }
+
+    // Build ingredient map from orders + cached recipes
+    for (const o of orders) {
+      if (!o.productId) continue;
+      const key = o.variantId ? `product_variant:${o.variantId}` : `product:${o.productId}`;
+      const recipes = recipeCache.get(key) ?? [];
       for (const r of recipes) {
         if (r.componentType !== "ingredient") continue;
         const [ing] = await db.select().from(sql`ingredients`).where(sql`id = ${r.componentId}`) as any[];
         if (!ing) continue;
-        const key = ing.name || `ing_${r.componentId}`;
-        const exp = parseFloat(r.quantity) * (o.qty!);
-        const vName = o.variantName || o.productName || `var_${o.variantId}`;
-        const existing = ingredientMap.get(key);
+        const ingKey = ing.name || `ing_${r.componentId}`;
+        const exp = r.quantity * (o.qty!);
+        const vName = o.variantName || o.productName || `var_${o.variantId || o.productId}`;
+        const existing = ingredientMap.get(ingKey);
         if (existing) {
           existing.sold += o.qty!;
           existing.expected += exp;
           const ve = existing.variants.get(vName);
           if (ve) { ve.sold += o.qty!; ve.expected += exp; }
-          else { existing.variants.set(vName, { sold: o.qty!, recipe: parseFloat(r.quantity), expected: exp, variantName: vName }); }
+          else { existing.variants.set(vName, { sold: o.qty!, recipe: r.quantity, expected: exp, variantName: vName }); }
         } else {
-          ingredientMap.set(key, {
+          ingredientMap.set(ingKey, {
             sold: o.qty!, expected: exp,
-            variants: new Map([[vName, { sold: o.qty!, recipe: parseFloat(r.quantity), expected: exp, variantName: vName }]]),
+            variants: new Map([[vName, { sold: o.qty!, recipe: r.quantity, expected: exp, variantName: vName }]]),
           });
         }
       }
     }
 
-    // ── Step 2: Get min product price from DB (ganti hardcoded 7000) ──
+    // ── Step 2: Get min product price from DB ──
     const [minP] = await db.select({ p: sql<string>`MIN(price)` }).from(productsTable).where(eq(productsTable.isActive, true));
     const minPrice = minP ? parseFloat(minP.p) : 7000;
 
-    // ── Step 3: Per-ingredient analysis with weighted recipe ──
+    // ── Step 3: Opening stock — use openingStockJson (new) or fallback to expectedStockJson (old) ──
+    // openingStockJson was saved at shift start (my fix). For old shifts, fallback is expectedStockJson.
+    const openingStockBaseline = (audit.openingStockJson as any[] | null)
+      ?? (audit.expectedStockJson as any[] | null)
+      ?? [];
+
+    // ── Step 4: Per-ingredient fraud analysis ──
+    // Formula: actualShortage = openingStock - physicalCount
+    //          expectedConsumption = sum of recipe qty from orders
+    //          excess = actualShortage - expectedConsumption
+    // positive excess = more stock used than recipe says → possible theft/spillage
     const anomalies: any[] = [];
     for (const [ingName, data] of ingredientMap) {
-      const expItem = expected.find((e: any) => e.name === ingName);
+      const openItem = openingStockBaseline.find((e: any) => e.name === ingName);
       const actItem = actual.find((a: any) => a.name === ingName);
-      if (!expItem || !actItem) continue;
-      const actualLoss = expItem.quantity - actItem.quantity;
-      const excess = actualLoss - data.expected;
+      if (!openItem || !actItem) continue;
+      const actualShortage = openItem.quantity - actItem.quantity;
+      const excess = actualShortage - data.expected;
       if (Math.abs(excess) < 0.01) continue;
       const pct = data.expected > 0 ? (excess / data.expected) * 100 : 0;
       const flag = Math.abs(pct) > 20 ? "HIGH" : Math.abs(pct) > 10 ? "MEDIUM" : "LOW";
-      const hpp = expItem.hpp || expItem.costPricePerUnit || 0;
+      const hpp = openItem.hpp || openItem.costPricePerUnit || 0;
 
-      // Weighted recipe
       const variantArr = [...data.variants.values()];
       const totalSold = variantArr.reduce((s, v) => s + v.sold, 0);
       const weightedRecipe = totalSold > 0 ? variantArr.reduce((s, v) => s + (v.sold / totalSold) * v.recipe, 0) : variantArr[0]?.recipe || 1;
@@ -807,20 +884,19 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
       const materialLoss = Math.abs(excess) * hpp;
       const potentialRevenue = potentialCups * minPrice;
 
-      // Per-variant analysis
       const variantAnalysis = variantArr.map(v => {
         const pot = v.recipe > 0 ? Math.round(excess / v.recipe) : 0;
         const ilegalRatio = v.sold > 0 ? (pot / v.sold) * 100 : 0;
         return {
           variant: v.variantName, recipePerCup: v.recipe, sold: v.sold,
           totalExpected: v.expected.toFixed(2), potentialIlegalCups: pot,
-          ilegalRatio: ilegalRatio.toFixed(0), flag2: ilegalRatio > 50 ? "⚠️ HIGH" : ilegalRatio > 30 ? "MEDIUM" : "LOW",
+          ilegalRatio: ilegalRatio.toFixed(0), flag2: ilegalRatio > 50 ? "HIGH" : ilegalRatio > 30 ? "MEDIUM" : "LOW",
         };
       }).sort((a, b) => parseFloat(b.ilegalRatio) - parseFloat(a.ilegalRatio));
 
       anomalies.push({
         ingredient: ingName, hpp: hpp || 0, totalExpected: data.expected.toFixed(2),
-        totalActualLoss: actualLoss.toFixed(2), excessQty: excess.toFixed(2),
+        actualShortage: actualShortage.toFixed(2), excessQty: excess.toFixed(2),
         excessPct: Math.abs(pct).toFixed(1), materialLoss: Math.round(materialLoss),
         potentialCups, potentialRevenue, flag, weightedRecipe: weightedRecipe.toFixed(2),
         variantAnalysis,
@@ -828,7 +904,7 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
       });
     }
 
-    // ── Step 4: Cup cross-check per 3 ukuran ──
+    // ── Step 5: Cup cross-check per 3 ukuran ──
     // Read per-category cup counts from notes (stored as JSON), fallback to old single numeric
     let cupBySize: { s: number; m: number; l: number } | null = null;
     if (audit.notes) {
@@ -855,7 +931,10 @@ router.get("/shift-audits/:id/analysis", requireRole("owner", "manager"), async 
     const cupDiscrepancy = actualCupUsed - totalCups;
     const cupStatus = Math.abs(cupDiscrepancy) < 1 ? "OK — cup sesuai" : "SELISIH";
 
-    const openingStock = (prevShift?.actualStockJson as any[] | null) ?? (prevShift?.expectedStockJson as any[] | null) ?? [];
+    const openingStock = (audit.openingStockJson as any[] | null)
+      ?? (prevShift?.actualStockJson as any[] | null)
+      ?? (prevShift?.expectedStockJson as any[] | null)
+      ?? [];
     const stockAnalysis = reconcileStockOpeningToClosing(openingStock, actual);
 
     const cupAnalysis: any = {
