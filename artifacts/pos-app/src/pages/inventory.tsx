@@ -13,6 +13,7 @@ import {
   useProduceSemiFinished,
   useGetRecipe,
   useSetRecipe,
+  useGetMe,
   getListInventoryQueryKey,
   getGetLowStockQueryKey,
   getListIngredientsQueryKey,
@@ -39,7 +40,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/csrf";
-import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle, ClipboardCheck, ChevronRight, ChevronLeft, Pencil, Copy, Search } from "lucide-react";
+import { Package, Plus, PackagePlus, Boxes, FlaskConical, Trash2, ChefHat, Minus, AlertTriangle, ClipboardCheck, ChevronRight, ChevronLeft, Pencil, Copy, Search, History } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { motion } from "framer-motion";
@@ -52,39 +53,47 @@ function isLow(item: { currentStock: number; minimalStock?: number | null }): bo
 export default function InventoryPage() {
   const { branchId } = useBranch();
   const { branches } = useBranch();
+  const { data: me } = useGetMe();
+  const role = me?.role ?? "cashier";
+  const isCashier = role === "cashier";
   const [migrateOpen, setMigrateOpen] = useState(false);
   return (
     <div className="flex flex-col h-full">
       <div className="h-14 lg:h-16 border-b border-[#1565FF]/10 px-4 lg:px-6 flex items-center gap-3 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl shrink-0 sticky top-0 z-20 rounded-2xl mt-3">
         <h1 className="font-bold text-lg tracking-tight">Stok & Bahan</h1>
         <Badge variant="outline" className="ml-3 text-xs">Multi-Cabang</Badge>
-        <button onClick={() => setMigrateOpen(true)} className="ml-auto shrink-0 h-9 px-3 rounded-xl bg-primary/10 text-primary text-xs font-medium flex items-center gap-1.5 active:scale-[0.97] transition-transform"><Copy className="w-3.5 h-3.5" /> Migrasi Data</button>
+        {!isCashier && <button onClick={() => setMigrateOpen(true)} className="ml-auto shrink-0 h-9 px-3 rounded-xl bg-primary/10 text-primary text-xs font-medium flex items-center gap-1.5 active:scale-[0.97] transition-transform"><Copy className="w-3.5 h-3.5" /> Migrasi Data</button>}
       </div>
-      <MigrateDialog open={migrateOpen} onOpenChange={setMigrateOpen} branches={branches} onComplete={() => window.location.reload()} />
-      <Tabs defaultValue="stock" className="flex-1 flex flex-col min-h-0">
+      {!isCashier && <MigrateDialog open={migrateOpen} onOpenChange={setMigrateOpen} branches={branches} onComplete={() => window.location.reload()} />}
+      <Tabs defaultValue={isCashier ? "riwayat" : "stock"} className="flex-1 flex flex-col min-h-0">
         <div className="px-4 md:px-6 pt-3 md:pt-4 shrink-0 overflow-hidden">
           <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="stock"><Boxes className="w-4 h-4 mr-1.5" />Stok</TabsTrigger>
-            <TabsTrigger value="ingredients"><Package className="w-4 h-4 mr-1.5" />Bahan Baku</TabsTrigger>
-            <TabsTrigger value="semi"><FlaskConical className="w-4 h-4 mr-1.5" />Setengah Jadi</TabsTrigger>
+            <TabsTrigger value="riwayat"><History className="w-4 h-4 mr-1.5" />Riwayat</TabsTrigger>
+            {!isCashier && <TabsTrigger value="stock"><Boxes className="w-4 h-4 mr-1.5" />Stok</TabsTrigger>}
+            {!isCashier && <TabsTrigger value="ingredients"><Package className="w-4 h-4 mr-1.5" />Bahan Baku</TabsTrigger>}
+            {!isCashier && <TabsTrigger value="semi"><FlaskConical className="w-4 h-4 mr-1.5" />Setengah Jadi</TabsTrigger>}
+            {isCashier && <TabsTrigger value="stock"><Boxes className="w-4 h-4 mr-1.5" />Stok</TabsTrigger>}
           </TabsList>
         </div>
+        <TabsContent value="riwayat" className="flex-1 min-h-0 m-0">
+          <RiwayatTab branchId={branchId ?? 0} />
+        </TabsContent>
         <TabsContent value="stock" className="flex-1 min-h-0 m-0">
-          <StockTab branchId={branchId ?? 0} />
+          <StockTab branchId={branchId ?? 0} isCashier={isCashier} />
         </TabsContent>
-        <TabsContent value="ingredients" className="flex-1 min-h-0 m-0">
+        {!isCashier && <TabsContent value="ingredients" className="flex-1 min-h-0 m-0">
           <IngredientsTab branchId={branchId ?? 0} />
-        </TabsContent>
-        <TabsContent value="semi" className="flex-1 min-h-0 m-0">
+        </TabsContent>}
+        {!isCashier && <TabsContent value="semi" className="flex-1 min-h-0 m-0">
           <SemiFinishedTab branchId={branchId ?? 0} />
-        </TabsContent>
+        </TabsContent>}
       </Tabs>
     </div>
   );
 }
 
 // ─── STOCK TAB ───────────────────────────────────────────────────────────────
-function StockTab({ branchId }: { branchId: number }) {
+function StockTab({ branchId, isCashier }: { branchId: number; isCashier?: boolean }) {
   const qc = useQueryClient();
   const { data: items = [], isLoading } = useListInventory({ branchId });
   const createAdj = useCreateStockAdjustment();
@@ -98,6 +107,7 @@ function StockTab({ branchId }: { branchId: number }) {
 
   const reset = () => { setSelectedItem(null); setAction(null); setQty(""); setPrice(""); setNotes(""); };
   const filteredItems = (items as InventoryItem[]).filter((item) => {
+    if (isCashier && !item.trackInShift) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return item.name.toLowerCase().includes(q);
@@ -107,29 +117,50 @@ function StockTab({ branchId }: { branchId: number }) {
     if (!selectedItem || !action || !branchId) return;
     const quantity = parseFloat(qty);
     if (!quantity || quantity <= 0) { toast.error("Jumlah harus lebih dari 0"); return; }
-    createAdj.mutate(
-      {
-        data: {
-          branchId,
-          itemType: selectedItem.itemType,
-          itemId: selectedItem.itemId,
-          adjustmentType: action,
-          quantity,
-          purchasePriceTotal: action === "in" && price ? parseFloat(price) : null,
-          notes: notes || null,
-        },
-      },
-      {
-        onSuccess: () => {
-          const label = action === "in" ? "ditambahkan" : action === "out" ? "dikoreksi" : "dicatat sebagai kehilangan";
-          toast.success(`Stok berhasil ${label}`);
-          reset();
-          qc.invalidateQueries({ queryKey: getListInventoryQueryKey({ branchId }) });
-          qc.invalidateQueries({ queryKey: getGetLowStockQueryKey({ branchId }) });
-        },
-        onError: () => toast.error("Gagal menyesuaikan stok"),
-      },
-    );
+
+    const doSubmit = async () => {
+      try {
+        if (isCashier) {
+          const res = await apiFetch("/api/stock-adjustments/cashier", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              branchId,
+              itemType: selectedItem.itemType,
+              itemId: selectedItem.itemId,
+              adjustmentType: action,
+              quantity,
+              notes: notes || null,
+            }),
+          });
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error || "Gagal");
+          }
+        } else {
+          await createAdj.mutateAsync({
+            data: {
+              branchId,
+              itemType: selectedItem.itemType,
+              itemId: selectedItem.itemId,
+              adjustmentType: action,
+              quantity,
+              purchasePriceTotal: action === "in" && price ? parseFloat(price) : null,
+              notes: notes || null,
+            },
+          });
+        }
+        const label = action === "in" ? "ditambahkan" : action === "out" ? "dikoreksi" : "dicatat sebagai kehilangan";
+        toast.success(`Stok berhasil ${label}`);
+        reset();
+        qc.invalidateQueries({ queryKey: getListInventoryQueryKey({ branchId }) });
+        qc.invalidateQueries({ queryKey: getGetLowStockQueryKey({ branchId }) });
+      } catch (e: any) {
+        toast.error(e.message || "Gagal menyesuaikan stok");
+      }
+    };
+    doSubmit();
   };
 
   return (
@@ -224,7 +255,7 @@ function StockTab({ branchId }: { branchId: number }) {
                   </div>
                   <div className="text-left flex-1">
                     <p className="font-semibold text-sm text-green-800">Tambah Stok</p>
-                    <p className="text-xs text-green-600 mt-px">Barang masuk & perbarui HPP</p>
+                    <p className="text-xs text-green-600 mt-px">{isCashier ? "Stok masuk" : "Barang masuk & perbarui HPP"}</p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-green-400" />
                 </button>
@@ -239,7 +270,7 @@ function StockTab({ branchId }: { branchId: number }) {
                   </div>
                   <ChevronRight className="w-5 h-5 text-orange-400" />
                 </button>
-                <button onClick={() => { setQty(""); setPrice(""); setNotes(""); setAction("loss"); }}
+                {!isCashier && <button onClick={() => { setQty(""); setPrice(""); setNotes(""); setAction("loss"); }}
                   className="w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-red-50 to-red-50/50 border border-red-200 hover:from-red-100 hover:to-red-100/50 active:scale-[0.98] transition-all">
                   <div className="w-11 h-11 rounded-xl bg-red-500 text-white flex items-center justify-center shadow-sm">
                     <AlertTriangle className="w-5 h-5" />
@@ -249,7 +280,7 @@ function StockTab({ branchId }: { branchId: number }) {
                     <p className="text-xs text-red-600 mt-px">Catat kehilangan / kerusakan</p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-red-400" />
-                </button>
+                </button>}
               </div>
               <div className="px-4 pb-4">
                 <Button variant="ghost" className="w-full rounded-xl text-muted-foreground" onClick={reset}>Tutup</Button>
@@ -277,7 +308,7 @@ function StockTab({ branchId }: { branchId: number }) {
                   <label className="text-sm font-medium">Jumlah ({selectedItem?.unit})</label>
                   <Input type="number" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="0" autoFocus className="h-10 rounded-xl" />
                 </div>
-                {action === "in" && (
+                {action === "in" && !isCashier && (
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Total Harga Beli (Rp)</label>
                     <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="cth. 150000" className="h-10 rounded-xl" />
@@ -1000,6 +1031,76 @@ export function RecipeDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ΓöÇΓöÇΓöÇ RIWAYAT TAB ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+function RiwayatTab({ branchId }: { branchId: number }) {
+  const [data, setData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!branchId) return;
+    setLoading(true);
+    apiFetch(`/api/stock-adjustments?branchId=${branchId}`)
+      .then((res) => res.json())
+      .then((rows) => setData(Array.isArray(rows) ? rows : []))
+      .catch(() => setData([]))
+      .finally(() => setLoading(false));
+  }, [branchId]);
+
+  const formatDate = (d: string) => {
+    const dt = new Date(d);
+    return dt.toLocaleDateString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <ScrollArea className="h-full">
+      <div className="p-4 md:p-6 space-y-2">
+        {loading ? (
+          [1, 2, 3, 4, 5].map((i) => <div key={i} className="h-14 rounded-xl bg-muted animate-pulse" />)
+        ) : data.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+            Belum ada riwayat penyesuaian stok
+          </div>
+        ) : (
+          data.map((adj) => (
+            <div key={adj.id} className="rounded-xl border border-border/60 bg-card p-3 md:p-4 flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                adj.adjustmentType === "in" ? "bg-green-100 text-green-600" :
+                adj.adjustmentType === "out" ? "bg-orange-100 text-orange-600" :
+                "bg-red-100 text-red-600"
+              }`}>
+                {adj.adjustmentType === "in" ? <PackagePlus className="w-4 h-4" /> :
+                 adj.adjustmentType === "out" ? <Minus className="w-4 h-4" /> :
+                 <AlertTriangle className="w-4 h-4" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-sm truncate">{adj.itemName || `Item #${adj.itemId}`}</span>
+                  <Badge variant="outline" className={`text-[10px] ${
+                    adj.adjustmentType === "in" ? "text-green-600 border-green-200 bg-green-50" :
+                    adj.adjustmentType === "out" ? "text-orange-600 border-orange-200 bg-orange-50" :
+                    "text-red-600 border-red-200 bg-red-50"
+                  }`}>
+                    {adj.adjustmentType === "in" ? "Masuk" : adj.adjustmentType === "out" ? "Keluar" : "Hilang"}
+                  </Badge>
+                </div>
+                {adj.notes && <p className="text-xs text-muted-foreground mt-0.5 truncate">{adj.notes}</p>}
+              </div>
+              <div className="text-right shrink-0">
+                <p className={`font-bold text-sm ${
+                  adj.adjustmentType === "in" ? "text-green-600" : "text-orange-600"
+                }`}>
+                  {adj.adjustmentType === "in" ? "+" : "-"}{adj.quantity}
+                </p>
+                <p className="text-[10px] text-muted-foreground">{formatDate(adj.createdAt)}</p>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </ScrollArea>
   );
 }
 

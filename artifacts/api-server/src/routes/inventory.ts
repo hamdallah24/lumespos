@@ -85,6 +85,70 @@ router.get("/stock-adjustments", requireAuth, async (req, res) => {
   );
 });
 
+// Cashier stock adjustment — hanya untuk track_in_shift items
+router.post("/stock-adjustments/cashier", requireAuth, requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
+  const { branchId, itemType, itemId, adjustmentType, quantity, notes } = req.body as {
+    branchId: number;
+    itemType: ItemType;
+    itemId: number;
+    adjustmentType: "in" | "out";
+    quantity: number;
+    notes?: string | null;
+  };
+
+  if (!branchId || !itemType || !itemId || !adjustmentType || !quantity || quantity <= 0) {
+    res.status(400).json({ error: "branchId, itemType, itemId, adjustmentType and quantity are required" });
+    return;
+  }
+  if (adjustmentType !== "in" && adjustmentType !== "out") {
+    res.status(400).json({ error: "Hanya tipe 'in' dan 'out' yang diizinkan" });
+    return;
+  }
+
+  // Validate item exists and has track_in_shift = true
+  let trackInShift = false;
+  if (itemType === "ingredient") {
+    const [ing] = await db.select({ trackInShift: ingredientsTable.trackInShift }).from(ingredientsTable).where(eq(ingredientsTable.id, itemId));
+    trackInShift = ing?.trackInShift ?? false;
+  } else if (itemType === "semi_finished") {
+    const [sf] = await db.select({ trackInShift: semiFinishedTable.trackInShift }).from(semiFinishedTable).where(eq(semiFinishedTable.id, itemId));
+    trackInShift = sf?.trackInShift ?? false;
+  }
+  if (!trackInShift) {
+    res.status(403).json({ error: "Hanya item dengan label audit yang bisa disesuaikan stoknya oleh kasir" });
+    return;
+  }
+
+  const created = await db.transaction(async (tx: Executor) => {
+    const delta = adjustmentType === "in" ? quantity : -quantity;
+    await adjustInventory(tx, branchId, itemType, itemId, delta);
+
+    const [row] = await tx
+      .insert(stockAdjustmentsTable)
+      .values({
+        branchId,
+        itemType,
+        itemId,
+        adjustmentType,
+        quantity: String(quantity),
+        notes: notes ?? null,
+      })
+      .returning();
+    return row;
+  });
+
+  res.status(201).json({
+    id: created.id,
+    branchId: created.branchId,
+    itemType: created.itemType,
+    itemId: created.itemId,
+    adjustmentType: created.adjustmentType,
+    quantity: parseFloat(created.quantity),
+    notes: created.notes,
+    createdAt: created.createdAt,
+  });
+});
+
 router.post("/stock-adjustments", requireRole("owner", "manager"), requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
   const { branchId, itemType, itemId, adjustmentType, quantity, purchasePriceTotal, notes } =
     req.body as {
