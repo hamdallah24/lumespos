@@ -538,10 +538,15 @@ function ProtectedApp() {
     return <Redirect to="/sign-in" />;
   }
 
-  // Cashier tanpa cabang → redirect ke onboard
+  // Cashier tanpa cabang atau belum pilih cabang → redirect ke onboard
   const role = me.role ?? "cashier";
   const allowedBranches = (me as any)?.allowedBranches as number[] | undefined;
+  const lockedBranch = localStorage.getItem("sayq.lockedBranch");
   const hasAccessibleBranch = !!me.branchId || (Array.isArray(allowedBranches) && allowedBranches.length > 0);
+  const hasLockedBranch = !!lockedBranch;
+  if (role === "cashier" && hasAccessibleBranch && !hasLockedBranch && currLoc !== "/onboard") {
+    return <Redirect to="/onboard" />;
+  }
   if (role === "cashier" && !hasAccessibleBranch && currLoc !== "/onboard") {
     return <Redirect to="/onboard" />;
   }
