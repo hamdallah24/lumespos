@@ -23,6 +23,7 @@ export const shiftAuditsTable = pgTable("shift_audits", {
   photoProofUrl: text("photo_proof_url"),
   status: text("status").notNull().default("pending"), // pending | verified | discrepancy | active (shift berjalan)
   notes: text("notes"),
+  cooAnalysis: text("coo_analysis"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

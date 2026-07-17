@@ -19,14 +19,18 @@ import { KnowledgeProvider } from './providers/KnowledgeProvider';
 import { MetadataProvider } from './providers/MetadataProvider';
 import { RepositoryProvider } from './providers/RepositoryProvider';
 import { resolveProvider, resolveEvidenceType } from './CapabilityRouter';
+import { CircuitBreaker } from './CircuitBreaker';
 
 export class GroundingLayer {
   private providers: Record<GroundingProviderName, { read: (reqs: unknown[]) => Promise<unknown[]>; health: () => Promise<HealthStatus> }>;
   private evidenceLog: Evidence[] = [];
   private healthCache: Map<string, { ok: boolean; checkedAt: number }> = new Map();
   private readonly HEALTH_TTL = 10000;
+  private circuitBreaker: CircuitBreaker;
 
   constructor(rootDir: string) {
+    this.circuitBreaker = new CircuitBreaker(3, 15000);
+
     this.providers = {
       operational: new OperationalTruthProvider(),
       memory: new MemoryProvider(),
@@ -99,6 +103,21 @@ export class GroundingLayer {
       const provider = this.providers[providerName];
       if (!provider) continue;
 
+      if (!this.circuitBreaker.canExecute(providerName)) {
+        this.evidenceLog.push({
+          id: `ev-${task.id}-circuit-${providerName}`,
+          type: resolveEvidenceType(task.requiredCapability),
+          source: providerName,
+          query: task.id,
+          result: { error: 'circuit_open' },
+          timestamp: Date.now(),
+          durationMs: 0,
+          confidence: 0,
+          error: `Circuit open: ${providerName}`,
+        });
+        continue;
+      }
+
       const healthy = await this.isProviderHealthy(providerName, provider);
       if (!healthy) {
         this.evidenceLog.push({
@@ -123,10 +142,14 @@ export class GroundingLayer {
       while (attempts <= maxRetries) {
         attempts++;
         try {
+          if (attempts > 1) await this.backoff(attempts - 1);
+
           const data = await this.executeWithTimeout(
             () => provider.read([task.request]),
             effectiveTimeout,
           );
+
+          this.circuitBreaker.recordSuccess(providerName);
 
           const cap = this.resolveCapabilityForProvider(providerName, task);
           const result = this.mapCapabilityResult(cap, data, task);
@@ -147,6 +170,8 @@ export class GroundingLayer {
 
           return result;
         } catch (err) {
+          this.circuitBreaker.recordFailure(providerName);
+
           const errorMessage = err instanceof Error ? err.message : String(err);
           const wasTimeout = errorMessage.includes('timed out');
           errors.push({
@@ -208,10 +233,19 @@ export class GroundingLayer {
     }
   }
 
+  private async backoff(attempt: number): Promise<void> {
+    const delay = Math.min(100 * Math.pow(2, attempt - 1), 2000);
+    await new Promise(r => setTimeout(r, delay));
+  }
+
   private async executeWithTimeout<T>(fn: () => Promise<T>, timeoutMs: number): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try { return await fn(); } finally { clearTimeout(timer); }
+  }
+
+  getCircuitStatuses(): Record<string, import('./CircuitBreaker').CircuitStatus> {
+    return this.circuitBreaker.getAllStatuses();
   }
 
   private handleFailure(

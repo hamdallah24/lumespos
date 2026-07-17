@@ -14,7 +14,7 @@ import type {
   OverallConfidence,
 } from './types';
 import { UnderstandingEngine } from './understanding';
-import { RetrievalPlanner } from './planning';
+import { RetrievalPlanner, PastPlanMemory } from './planning';
 import { GroundingLayer } from './grounding';
 import { VerificationEngine } from './verification';
 import { RuntimeContextBuilder } from './builder';
@@ -31,6 +31,7 @@ export class RuntimeIntelligenceCore {
   private awarenessEngine: UnifiedAwarenessEngine;
   private understandingEngine: UnderstandingEngine;
   private retrievalPlanner: RetrievalPlanner;
+  private pastPlanMemory: PastPlanMemory;
   private groundingLayer: GroundingLayer;
   private verificationEngine: VerificationEngine;
   private contextBuilder: RuntimeContextBuilder;
@@ -50,7 +51,8 @@ export class RuntimeIntelligenceCore {
     this.provider = provider;
     this.awarenessEngine = new UnifiedAwarenessEngine();
     this.understandingEngine = new UnderstandingEngine(provider, this.awarenessEngine);
-    this.retrievalPlanner = new RetrievalPlanner(provider);
+    this.pastPlanMemory = new PastPlanMemory(50);
+    this.retrievalPlanner = new RetrievalPlanner(provider, this.pastPlanMemory);
     this.groundingLayer = new GroundingLayer(rootDir);
     this.repoMetadataGenerator = new RepositoryMetadataGenerator(rootDir);
     this.verificationEngine = new VerificationEngine();
@@ -138,6 +140,10 @@ export class RuntimeIntelligenceCore {
 
     if (confidence.overall < CONFIDENCE_THRESHOLD) {
       this.degraded = true;
+    }
+
+    if (confidence.overall >= 0.8) {
+      this.pastPlanMemory.store(plan, understanding, confidence.overall);
     }
 
     const trace = tracer.getTrace();

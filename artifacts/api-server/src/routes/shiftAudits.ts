@@ -470,6 +470,39 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         voidedTotal: totalVoided,
       }
     });
+
+    // Fire-and-forget: COO analysis
+    (async () => {
+      try {
+        const { applicationRuntime } = await import("../ai/runtime/application-runtime-adapter");
+        const voidRow = await db.select({ count: sql<string>`COUNT(*)`, total: sql<string>`COALESCE(SUM(total), 0)` })
+          .from(ordersTable)
+          .where(and(eq(ordersTable.branchId, shift.branchId!), gte(ordersTable.createdAt, shift.shiftStart ?? new Date(0)), lte(ordersTable.createdAt, updatedShift.shiftEnd ?? new Date()), eq(ordersTable.status, "voided")));
+        const voidCount = parseInt(voidRow[0]?.count || "0");
+        const voidTotal = parseFloat(voidRow[0]?.total || "0");
+        const stockLines = (expectedStock ?? []).map((e: any) => {
+          const a = (actualStock ?? []).find((x: any) => x.name === e.name);
+          const diff = a ? a.quantity - e.quantity : 0;
+          return `${e.name}: expected ${e.quantity.toFixed(1)} ${e.unit}, actual ${a ? a.quantity.toFixed(1) : '0'} ${e.unit}, diff ${diff >= 0 ? '+' : ''}${diff.toFixed(1)}`;
+        }).join('\n') || 'Tidak ada';
+        const prompt = `Kamu adalah COO Lume's Everywhere. Analisis laporan shift secara natural:
+
+ID Shift: ${updatedShift.id}
+Cabang: ${shift.branchId}
+Revenue: Rp ${(totalCash + totalQris + totalCard).toLocaleString('id-ID')}
+Pesanan: ${cupTotal} cup, ${voidCount} void (Rp ${voidTotal.toLocaleString('id-ID')})
+Kas: awal Rp ${parseFloat(shift.openingBalance).toLocaleString('id-ID')}, akhir Rp ${closingBalance.toLocaleString('id-ID')}, selisih Rp ${Math.abs(difference).toLocaleString('id-ID')}
+Selisih stok:
+${stockLines}
+
+Evaluasi shift ini. Sorot anomali. Beri rekomendasi. Bahasa Indonesia natural.`;
+        const result = await applicationRuntime.executeMessage({ message: prompt, userId: 1, mode: "bisnis", target: "COO" });
+        if (result.success && result.text) {
+          await db.update(shiftAuditsTable).set({ cooAnalysis: result.text }).where(eq(shiftAuditsTable.id, updatedShift.id));
+        }
+      } catch (e) { console.error("[COO] Analysis error:", e); }
+    })();
+
   } catch (error) {
     console.error("POST /shift/end error:", error);
     return res.status(500).json({ error: "Internal server error" });
@@ -574,6 +607,7 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
         endingCupCount: r.endingCupCount ? parseFloat(r.endingCupCount) : null,
         createdAt: r.createdAt,
         maxDiscrepancyPct,
+        cooAnalysis: (r as any).cooAnalysis ?? null,
       };
     }),
   );
@@ -678,6 +712,7 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
     createdAt: row.createdAt,
     maxDiscrepancyPct,
     reconciliation,
+    cooAnalysis: (row as any).cooAnalysis ?? null,
   });
 });
 

@@ -11,14 +11,21 @@ import type {
 } from '../types';
 import { PLANNING_SYSTEM_PROMPT } from './prompts/planning-prompt';
 import { REPLANNING_SYSTEM_PROMPT } from './prompts/replanning-prompt';
+import { PastPlanMemory } from './PastPlanMemory';
 
 const MAX_RETRIES = 2;
 
 export class RetrievalPlanner {
   private provider: ReasoningProvider;
+  private pastPlanMemory: PastPlanMemory;
 
-  constructor(provider: ReasoningProvider) {
+  constructor(provider: ReasoningProvider, pastPlanMemory?: PastPlanMemory) {
     this.provider = provider;
+    this.pastPlanMemory = pastPlanMemory ?? new PastPlanMemory();
+  }
+
+  getPastPlanMemory(): PastPlanMemory {
+    return this.pastPlanMemory;
   }
 
   async plan(
@@ -26,8 +33,18 @@ export class RetrievalPlanner {
     metadata: RepositoryMetadata[],
     tools: ToolDescriptor[],
   ): Promise<RetrievalPlan> {
-    const context = this.buildContext(understanding, metadata, tools);
-    const fullPrompt = `${PLANNING_SYSTEM_PROMPT}\n\n## Understanding Result\n${JSON.stringify(understanding, null, 2)}\n\n## Repository Metadata\n${JSON.stringify(metadata, null, 2)}\n\n## Tool Catalog\n${JSON.stringify(tools, null, 2)}`;
+    const pastPlans = this.pastPlanMemory.findSimilar(
+      understanding.intent, understanding.domain.primary, understanding.subIntent, 2,
+    );
+
+    const pastPlanSection = pastPlans.length > 0
+      ? `\n\n## Similar Past Plans\n${pastPlans.map((p, i) =>
+        `--- Past Plan ${i + 1} (confidence: ${p.confidenceAfter.toFixed(2)}, domain: ${p.domain}) ---\n` +
+        JSON.stringify(p.plan, null, 2)
+      ).join('\n')}`
+      : '';
+
+    const fullPrompt = `${PLANNING_SYSTEM_PROMPT}${pastPlanSection}\n\n## Understanding Result\n${JSON.stringify(understanding, null, 2)}\n\n## Repository Metadata\n${JSON.stringify(metadata, null, 2)}\n\n## Tool Catalog\n${JSON.stringify(tools, null, 2)}`;
 
     let lastError: Error | null = null;
 
@@ -52,6 +69,8 @@ export class RetrievalPlanner {
       }
     }
 
+    const bestPlan = pastPlans.length > 0 ? pastPlans[0].plan : null;
+    if (bestPlan) return bestPlan;
     return this.degradedPlan(lastError);
   }
 
