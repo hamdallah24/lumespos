@@ -1,0 +1,21 @@
+export * from './types';
+export { RuntimeIntelligenceCore } from './RuntimeIntelligenceCore';
+export { UnderstandingEngine, UnderstandingFallback } from './understanding';
+export { UNDERSTANDING_SYSTEM_PROMPT } from './understanding/prompts/understanding-prompt';
+export { RetrievalPlanner, PLANNING_SYSTEM_PROMPT, REPLANNING_SYSTEM_PROMPT } from './planning';
+export { GroundingLayer, OperationalTruthProvider, MemoryProvider, KnowledgeProvider, MetadataProvider, RepositoryProvider, resolveProvider, resolveEvidenceType, isRepositoryCapability, isMemoryCapability, isOperationalCapability, getCapabilitiesByProvider } from './grounding';
+export { VerificationEngine, DomainVerificationRule, EntityVerificationRule, FileVerificationRule, ToolVerificationRule, MemoryVerificationRule, OperationalVerificationRule } from './verification';
+export { RuntimeContextBuilder } from './builder';
+export { ConfidenceAggregator } from './confidence';
+export { freezeContract, deriveContract, isCompatible, parseMajor, parseMinor } from './contract';
+export { PipelineTracer } from './RuntimeTrace';
+export { DeepSeekProvider, OpenAIProvider, RegexFallbackProvider } from './providers';
+export { CapabilityGraph } from './capability';
+export { RuntimeDiagnosticsAPI } from './diagnostics';
+export type { DiagnosticsResponse } from './diagnostics';
+export { RICAdapter, getRICAdapter, initializeRIC } from './RICAdapter';
+export { RepositoryMetadataGenerator, ToolCatalog } from './registry';
+export { getOperationalData } from './OperationalAccess';
+export { UnifiedAwarenessEngine, getRuntimeState } from './awareness';
+export type { UnifiedAwareness, RICRuntimeState } from './awareness';
+

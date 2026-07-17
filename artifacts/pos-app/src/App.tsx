@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "next-themes";
 import { Layout } from "./components/layout";
 import CashierPage from "./pages/cashier";
+import CashierOnboardPage from "./pages/onboard";
 import OrdersPage from "./pages/orders";
 import ProductsPage from "./pages/products";
 import DashboardPage from "./pages/dashboard";
@@ -537,13 +538,21 @@ function ProtectedApp() {
     return <Redirect to="/sign-in" />;
   }
 
+  // Cashier tanpa cabang → redirect ke onboard
   const role = me.role ?? "cashier";
+  const hasBranch = !!me.branchId;
+  const [currLoc] = useLocation();
+  if (role === "cashier" && !hasBranch && currLoc !== "/onboard") {
+    return <Redirect to="/onboard" />;
+  }
+
   const canManage = role === "owner" || role === "manager";
 
   return (
     <BranchProvider>
       <Layout role={role} user={me} onSignOut={signOut}>
         <Switch>
+          <Route path="/onboard" component={CashierOnboardPage} />
           <Route path="/" component={CashierPage} />
           <Route path="/orders" component={OrdersPage} />
           <Route path="/shift" component={ShiftPage} />
@@ -572,6 +581,7 @@ function ProtectedApp() {
 function AppRoutes() {
   return (
     <Switch>
+      <Route path="/onboard" component={ProtectedApp} />
       <Route path="/" component={ProtectedApp} />
       <Route path="/orders" component={ProtectedApp} />
       <Route path="/shift" component={ProtectedApp} />

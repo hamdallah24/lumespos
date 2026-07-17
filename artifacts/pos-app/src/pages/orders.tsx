@@ -245,7 +245,7 @@ export default function OrdersPage() {
       if (startDate) params.append("startDate", startDate);
       if (endDate) params.append("endDate", endDate);
       if (paymentMethodFilter && paymentMethodFilter !== "all") params.append("paymentMethod", paymentMethodFilter);
-      if (statusFilter) params.append("status", statusFilter);
+      if (statusFilter && statusFilter !== "all_status") params.append("status", statusFilter);
       const res = await fetch(`/api/orders?${params.toString()}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch orders");
       return res.json();
@@ -291,7 +291,7 @@ export default function OrdersPage() {
             <SelectContent>
               <SelectItem value="completed">Selesai</SelectItem>
               <SelectItem value="voided">Dibatalkan</SelectItem>
-              <SelectItem value="">Semua</SelectItem>
+              <SelectItem value="all_status">Semua</SelectItem>
             </SelectContent>
           </Select>
           {/* Filter tanggal range */}

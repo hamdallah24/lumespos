@@ -1,0 +1,787 @@
+{
+  "version": 1,
+  "description": "Manifest file untuk CKO — daftar file penting dengan deskripsi bahasa manusia dan keyword awam. Digunakan oleh LLM untuk mencocokkan query user ke file relevan.",
+  "files": [
+    {
+      "path": "artifacts/pos-app/src/pages/executive.tsx",
+      "name": "Executive Workspace / AI Chat",
+      "description": "Halaman utama owner. Berisi chat dengan AI asisten (CEO/CTO/dll), pipeline execution, executive report, readiness dashboard, mission tracking, dan tool execution events. Area chat bisa di-scroll untuk lihat history percakapan dengan asisten AI.",
+      "tags": [
+        "executive",
+        "eksekutif",
+        "chat",
+        "asisten",
+        "ai",
+        "ngobrol",
+        "ngeleg",
+        "lemot",
+        "lambat",
+        "scroll",
+        "respon",
+        "pesan",
+        "owner",
+        "dashboard utama",
+        "pipeline",
+        "mission",
+        "executive report",
+        "readiness"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/dashboard.tsx",
+      "name": "Dashboard Bisnis",
+      "description": "Halaman dashboard dengan grafik penjualan, statistik revenue, top produk, performa kasir, laporan keuangan, stock rendah, dan pemilihan cabang.",
+      "tags": [
+        "dashboard",
+        "grafik",
+        "penjualan",
+        "revenue",
+        "laporan",
+        "chart",
+        "statistik",
+        "omzet",
+        "bisnis",
+        "ringkasan",
+        "laporan shift"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/cashier.tsx",
+      "name": "Kasir (POS)",
+      "description": "Halaman KASIR (POS). Untuk transaksi penjualan ke customer: pilih produk, keranjang, pembayaran (tunai/kartu/QRIS), cetak struk. BUKAN untuk laporan shift atau audit.",
+      "tags": [
+        "kasir",
+        "pos",
+        "cashier",
+        "transaksi",
+        "jual",
+        "keranjang",
+        "bayar",
+        "qris",
+        "struk",
+        "pembayaran",
+        "tunai"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/inventory.tsx",
+      "name": "Inventory / Stok Barang",
+      "description": "Halaman manajemen STOK GUDANG dan BAHAN BAKU (ingredients, semi-finished). BUKAN untuk menu atau produk jualan. Mengelola stock barang di gudang, opname stock, adjustment, dan resep produksi.",
+      "tags": [
+        "inventory",
+        "stok",
+        "gudang",
+        "bahan baku",
+        "ingredient",
+        "stock",
+        "opname",
+        "semi-finished",
+        "adjustment",
+        "gudang",
+        "barang mentah"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/products.tsx",
+      "name": "Produk / Menu",
+      "description": "Halaman manajemen MENU MAKANAN/MINUMAN yang dijual ke customer. BUKAN untuk stok gudang. CRUD produk, kategori, varian (size/topping), harga jual, dan resep menu.",
+      "tags": [
+        "produk",
+        "product",
+        "menu",
+        "kategori",
+        "category",
+        "harga",
+        "price",
+        "varian",
+        "topping",
+        "size",
+        "resep menu",
+        "jualan",
+        "makanan",
+        "minuman"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/orders.tsx",
+      "name": "Riwayat Pesanan",
+      "description": "Halaman riwayat pesanan/transaksi. Filter tanggal, detail pesanan, metode pembayaran, dan status pesanan.",
+      "tags": [
+        "pesanan",
+        "order",
+        "transaksi",
+        "riwayat",
+        "history",
+        "nota",
+        "struk",
+        "pembayaran"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/pengeluaran.tsx",
+      "name": "Pengeluaran / Biaya",
+      "description": "Halaman manajemen pengeluaran dan biaya operasional. Mencatat pengelu harian, kategori biaya, dan laporan.",
+      "tags": [
+        "pengeluaran",
+        "biaya",
+        "expense",
+        "pengeluaran",
+        "cashflow",
+        "operasional"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/shift.tsx",
+      "name": "Buka/Tutup Shift",
+      "description": "Halaman untuk proses BUKA/TUTUP SHIFT kasir. Berisi stock opname, verifikasi uang, dan proses tutup shift. BUKAN untuk laporan — untuk laporan lihat audits.tsx.",
+      "tags": [
+        "shift",
+        "buka shift",
+        "tutup shift",
+        "stock opname",
+        "kasir",
+        "verifikasi",
+        "ganti shift",
+        "proses shift"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/users.tsx",
+      "name": "Pengguna / User Management",
+      "description": "Halaman manajemen pengguna. Mengelola role (owner, manager, cashier), cabang akses, dan hak akses.",
+      "tags": [
+        "pengguna",
+        "user",
+        "karyawan",
+        "staff",
+        "role",
+        "hak akses",
+        "owner",
+        "manager",
+        "cashier"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/branches.tsx",
+      "name": "Cabang / Branch",
+      "description": "Halaman manajemen cabang toko. CRUD cabang, alamat, dan status operasional.",
+      "tags": [
+        "cabang",
+        "branch",
+        "toko",
+        "outlet"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/audits.tsx",
+      "name": "Riwayat Audit Shift",
+      "description": "Halaman LAPORAN dan RIWAYAT AUDIT SHIFT. Menampilkan hasil audit shift yang sudah selesai, stock audit, verifikasi kasir. Untuk melihat laporan error shift, buka halaman ini.",
+      "tags": [
+        "audit",
+        "laporan",
+        "laporan shift",
+        "riwayat audit",
+        "shift audit",
+        "stock audit",
+        "log",
+        "histori",
+        "hasil audit"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/eng-os.tsx",
+      "name": "Engineering OS (System Status)",
+      "description": "Halaman monitoring sistem internal. Menampilkan status readiness executive (CEO, CTO, COO, dll), layer arsitektur, dan pipeline status.",
+      "tags": [
+        "engineering",
+        "os",
+        "system",
+        "status",
+        "readiness",
+        "monitoring",
+        "executive",
+        "pipeline",
+        "arsitektur",
+        "layer"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/pos-app/src/pages/not-found.tsx",
+      "name": "Halaman 404",
+      "description": "Halaman error ketika route tidak ditemukan.",
+      "tags": [
+        "404",
+        "not found",
+        "error"
+      ],
+      "type": "page"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/ai.ts",
+      "name": "AI Route / API Chat",
+      "description": "Route utama AI mencakup endpoint chatting dengan AI, mission execution, readiness, agents, organization data, history, evidence, dan synthesis report. Pusat komunikasi frontend dengan AI runtime.",
+      "tags": [
+        "ai",
+        "api",
+        "chat",
+        "route",
+        "backend",
+        "mission",
+        "execution",
+        "readiness",
+        "/api/ai"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/ai-business.ts",
+      "name": "Business API Route",
+      "description": "Route bisnis untuk endpoint keuangan, expense, pending orders, sales summary, dan laporan keuangan harian.",
+      "tags": [
+        "bisnis",
+        "route",
+        "api",
+        "keuangan",
+        "expense",
+        "penjualan",
+        "laporan",
+        "finance"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/ai-helpers.ts",
+      "name": "AI Helpers / Utility",
+      "description": "Route untuk helper tools: suggested tasks, branch-specific queries, dan utility endpoint untuk AI.",
+      "tags": [
+        "helper",
+        "tools",
+        "suggestion",
+        "utility",
+        "ai"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/ai-prompts.ts",
+      "name": "AI Prompts / History",
+      "description": "Route untuk prompt management, chat history, dan query history AI.",
+      "tags": [
+        "prompt",
+        "history",
+        "chat history",
+        "query"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/auth.ts",
+      "name": "Auth Route",
+      "description": "Route autentikasi: login, register, logout, session management. Menggunakan passport + session.",
+      "tags": [
+        "auth",
+        "login",
+        "register",
+        "logout",
+        "password",
+        "session",
+        "autentikasi"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/orders.ts",
+      "name": "Order API Route",
+      "description": "Route backend untuk CRUD pesanan dan transaksi.",
+      "tags": [
+        "order",
+        "pesanan",
+        "route",
+        "transaksi",
+        "api"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/products.ts",
+      "name": "Product API Route",
+      "description": "Halaman manajemen MENU MAKANAN/MINUMAN yang dijual ke customer. BUKAN untuk stok gudang. CRUD produk, kategori, varian (size/topping), harga jual, dan resep menu.",
+      "tags": [
+        "produk",
+        "product",
+        "menu",
+        "kategori",
+        "category",
+        "harga",
+        "price",
+        "varian",
+        "topping",
+        "size",
+        "resep menu",
+        "jualan",
+        "makanan",
+        "minuman"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/inventory.ts",
+      "name": "Inventory API Route",
+      "description": "Halaman manajemen STOK GUDANG dan BAHAN BAKU (ingredients, semi-finished). BUKAN untuk menu atau produk jualan. Mengelola stock barang di gudang, opname stock, adjustment, dan resep produksi.",
+      "tags": [
+        "inventory",
+        "stok",
+        "gudang",
+        "bahan baku",
+        "ingredient",
+        "stock",
+        "opname",
+        "semi-finished",
+        "adjustment",
+        "gudang",
+        "barang mentah"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/dashboard.ts",
+      "name": "Dashboard API Route",
+      "description": "Route backend untuk data dashboard: summary, top products, sales chart, cashier performance.",
+      "tags": [
+        "dashboard",
+        "route",
+        "summary",
+        "chart",
+        "api"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/branches.ts",
+      "name": "Branch API Route",
+      "description": "Route backend untuk CRUD cabang.",
+      "tags": [
+        "branch",
+        "cabang",
+        "route",
+        "api"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/users.ts",
+      "name": "User API Route",
+      "description": "Route backend untuk CRUD user dan manajemen role.",
+      "tags": [
+        "user",
+        "user route",
+        "pengguna",
+        "api"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/expenses.ts",
+      "name": "Expense API Route",
+      "description": "Route backend untuk CRUD pengeluaran/biaya.",
+      "tags": [
+        "expense",
+        "pengeluaran",
+        "biaya",
+        "route",
+        "api"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/api-server/src/routes/shiftAudits.ts",
+      "name": "Shift Audit API Route",
+      "description": "Route backend untuk shift audit dan stock opname.",
+      "tags": [
+        "shift",
+        "audit",
+        "shift audit",
+        "stock opname",
+        "route",
+        "api"
+      ],
+      "type": "route"
+    },
+    {
+      "path": "artifacts/pos-app/src/components/layout.tsx",
+      "name": "Layout / Sidebar",
+      "description": "Komponen layout utama aplikasi. Berisi sidebar navigasi dengan link ke semua halaman, header, dan user info. Mengatur routing dan navigasi global.",
+      "tags": [
+        "layout",
+        "sidebar",
+        "navigasi",
+        "menu",
+        "navbar",
+        "link",
+        "route"
+      ],
+      "type": "component"
+    },
+    {
+      "path": "artifacts/pos-app/src/components/ai-agent-popup.tsx",
+      "name": "AI Agent Popup",
+      "description": "Popup/wizard untuk memanggil AI agent dari halaman manapun. Digunakan untuk akses cepat ke AI.",
+      "tags": [
+        "ai",
+        "popup",
+        "modal",
+        "wizard",
+        "agent"
+      ],
+      "type": "component"
+    },
+    {
+      "path": "artifacts/pos-app/src/components/runtime-progress-card.tsx",
+      "name": "Runtime Progress Card",
+      "description": "Card yang menampilkan progress eksekusi task AI di executive workspace. Status real-time dari pipeline execution.",
+      "tags": [
+        "progress",
+        "card",
+        "runtime",
+        "execution",
+        "pipeline",
+        "status",
+        "loading"
+      ],
+      "type": "component"
+    },
+    {
+      "path": "artifacts/pos-app/src/components/active-missions.tsx",
+      "name": "Active Missions",
+      "description": "Daftar mission AI yang sedang aktif. Status, progress, dan detail mission.",
+      "tags": [
+        "mission",
+        "active",
+        "task",
+        "ai mission",
+        "progress"
+      ],
+      "type": "component"
+    },
+    {
+      "path": "artifacts/api-server/src/executive-runtime/executives/CTO/CTOProgram.ts",
+      "name": "CTO Program",
+      "description": "Executive CTO: menganalisis kode, mencari bug, merekomendasikan perbaikan teknis, dan menjalankan implementasi perubahan kode.",
+      "tags": [
+        "cto",
+        "analisis",
+        "technical",
+        "code",
+        "bug",
+        "debug",
+        "implementasi",
+        "perbaikan"
+      ],
+      "type": "executive"
+    },
+    {
+      "path": "artifacts/api-server/src/executive-runtime/executives/CTO/CTO.config.ts",
+      "name": "CTO Config",
+      "description": "Konfigurasi eksekutif CTO: identitas, kapabilitas (kapabilitas CLI tool yang tersedia), izin, dan profile.",
+      "tags": [
+        "cto",
+        "config",
+        "konfigurasi",
+        "kapabilitas",
+        "identity",
+        "allowedTools"
+      ],
+      "type": "config"
+    },
+    {
+      "path": "artifacts/api-server/src/executive-runtime/executives/CEO/CEOProgram.ts",
+      "name": "CEO Program",
+      "description": "Executive CEO: orkestrator utama. Mendelegasikan task ke CTO/COO/CFO/dll, mengelola mission pipeline, dan komunikasi dengan user.",
+      "tags": [
+        "ceo",
+        "delegasi",
+        "mission",
+        "pipeline",
+        "orkestrator",
+        "utama",
+        "manager"
+      ],
+      "type": "executive"
+    },
+    {
+      "path": "artifacts/api-server/src/executive-runtime/executives/COO/COOProgram.ts",
+      "name": "COO Program",
+      "description": "Executive COO: mengelola operasional bisnis, shift, inventory, rekomendasi operasional.",
+      "tags": [
+        "coo",
+        "operasional",
+        "shift",
+        "inventory",
+        "bisnis",
+        "rekomendasi"
+      ],
+      "type": "executive"
+    },
+    {
+      "path": "artifacts/api-server/src/executive-runtime/executives/CFO/CFOProgram.ts",
+      "name": "CFO Program",
+      "description": "Executive CFO: mengelola keuangan, expense tracking, revenue analysis, budgeting.",
+      "tags": [
+        "cfo",
+        "keuangan",
+        "finance",
+        "expense",
+        "revenue",
+        "budget",
+        "laporan"
+      ],
+      "type": "executive"
+    },
+    {
+      "path": "artifacts/api-server/src/executive-runtime/executives/CKO/CKOProgram.ts",
+      "name": "CKO Program",
+      "description": "Executive CKO: knowledge officer, advisory, council secretary, best practices, dan kurasi pengetahuan organisasi.",
+      "tags": [
+        "cko",
+        "knowledge",
+        "pengetahuan",
+        "advisory",
+        "council",
+        "best practice"
+      ],
+      "type": "executive"
+    },
+    {
+      "path": "artifacts/api-server/src/executive-runtime/executives/CMO/CMOProgram.ts",
+      "name": "CMO Program",
+      "description": "Executive CMO: marketing, promosi, customer insights, campaign management.",
+      "tags": [
+        "cmo",
+        "marketing",
+        "promosi",
+        "campaign",
+        "customer",
+        "pemasaran"
+      ],
+      "type": "executive"
+    },
+    {
+      "path": "artifacts/api-server/src/executive-runtime/executives/CAIO/CAIOProgram.ts",
+      "name": "CAIO Program",
+      "description": "Executive CAIO: Chief AI Officer, mengelola strategi AI, model, prompt engineering, dan AI safety.",
+      "tags": [
+        "caio",
+        "ai",
+        "artificial intelligence",
+        "model",
+        "prompt",
+        "strategy",
+        "safety"
+      ],
+      "type": "executive"
+    },
+    {
+      "path": "artifacts/api-server/src/executive-runtime/executives/CHRO/CHROProgram.ts",
+      "name": "CHRO Program",
+      "description": "Executive CHRO: Human Resources, manajemen karyawan, rekrutmen, performance review.",
+      "tags": [
+        "chro",
+        "hr",
+        "karyawan",
+        "sumber daya manusia",
+        "rekrutmen",
+        "performance"
+      ],
+      "type": "executive"
+    },
+    {
+      "path": "artifacts/api-server/src/ai/runtime/foundation/FoundationRegistry.ts",
+      "name": "Foundation Registry",
+      "description": "Registry dokumen foundation: direktif, kebijakan, ADR, dan arsitektur sistem AI.",
+      "tags": [
+        "foundation",
+        "registry",
+        "dokumen",
+        "kebijakan",
+        "arsitektur",
+        "direktif",
+        "adr"
+      ],
+      "type": "config"
+    },
+    {
+      "path": "artifacts/api-server/src/ai/runtime/semantic-engine.ts",
+      "name": "Semantic Engine (Intent Detection)",
+      "description": "Engine untuk mendeteksi intent dan konteks dari pesan user. Menentukan apakah user ingin analisis, implementasi, atau operasi.",
+      "tags": [
+        "semantic",
+        "intent",
+        "deteksi",
+        "nlp",
+        "natural language",
+        "konteks"
+      ],
+      "type": "engine"
+    },
+    {
+      "path": "artifacts/api-server/src/ai/runtime/execution/execution-driver.ts",
+      "name": "Execution Driver",
+      "description": "Driver utama untuk eksekusi pipeline AI multi-cycle. Mengelola EXECUTE, EXPLORE, CONCLUDE cycle dan tool execution.",
+      "tags": [
+        "execution",
+        "driver",
+        "pipeline",
+        "cycle",
+        "execute",
+        "explore",
+        "conclude",
+        "tool"
+      ],
+      "type": "engine"
+    },
+    {
+      "path": "artifacts/api-server/src/ai/runtime/execution/execution-governor.ts",
+      "name": "Execution Governor",
+      "description": "Governor untuk batasan eksekusi: max attempts, budget, allowed tools, dan policy enforcement.",
+      "tags": [
+        "governor",
+        "execution",
+        "limit",
+        "budget",
+        "policy",
+        "attempts",
+        "constraint"
+      ],
+      "type": "engine"
+    },
+    {
+      "path": "artifacts/api-server/src/ai/runtime/execution/execution-policy.ts",
+      "name": "Execution Policy / Budget Matrix",
+      "description": "Policy matrix untuk budget eksekusi per role dan konteks. Menentukan max cicilan, max tools, durasi.",
+      "tags": [
+        "policy",
+        "budget",
+        "matrix",
+        "execution",
+        "limit",
+        "max cycle"
+      ],
+      "type": "config"
+    },
+    {
+      "path": "artifacts/api-server/src/ai/runtime/execution/execution-strategy.ts",
+      "name": "Execution Strategy (CONCLUDE→EXECUTE transition)",
+      "description": "Strategi transisi antar cycle: kapan CONCLUDE beralih ke EXECUTE, tool call analysis, dan needsImpl detection.",
+      "tags": [
+        "strategy",
+        "transition",
+        "conclude",
+        "execute",
+        "cycle",
+        "needsImpl",
+        "tool"
+      ],
+      "type": "engine"
+    },
+    {
+      "path": "artifacts/api-server/src/programs/consultant/consultant-discovery.ts",
+      "name": "CKO Consultant Discovery",
+      "description": "Engine untuk scan project, extract keyword dari source code, dan mencari file relevan. Auto-build file map dari kode.",
+      "tags": [
+        "cko",
+        "discovery",
+        "scan",
+        "keyword",
+        "file map",
+        "search",
+        "find"
+      ],
+      "type": "engine"
+    },
+    {
+      "path": "artifacts/api-server/src/middlewares/requireAuth.ts",
+      "name": "Auth Middleware / Session",
+      "description": "Middleware autentikasi: passport strategi, serialize/deserialize user, session management, dan guard routes.",
+      "tags": [
+        "auth",
+        "middleware",
+        "passport",
+        "session",
+        "login",
+        "security",
+        "guard",
+        "autentikasi"
+      ],
+      "type": "middleware"
+    },
+    {
+      "path": "artifacts/api-server/src/middlewares/clerkProxyMiddleware.ts",
+      "name": "Clerk Proxy Middleware",
+      "description": "Middleware proxy untuk integrasi Clerk auth (third-party auth provider).",
+      "tags": [
+        "clerk",
+        "middleware",
+        "proxy",
+        "auth",
+        "third-party"
+      ],
+      "type": "middleware"
+    },
+    {
+      "path": "lib/db/src/schema/index.ts",
+      "name": "Database Schema",
+      "description": "Schema database utama: definisi tabel, relasi, migrasi, menggunakan Drizzle ORM dengan PostgreSQL.",
+      "tags": [
+        "database",
+        "schema",
+        "db",
+        "drizzle",
+        "postgresql",
+        "migrasi",
+        "tabel",
+        "sql"
+      ],
+      "type": "schema"
+    },
+    {
+      "path": ".ai/PROJECT_CONTEXT.md",
+      "name": "Project Context (AI Documentation)",
+      "description": "Dokumen konteks project untuk AI. Berisi arsitektur, struktur folder, framework yang digunakan, dan panduan kontribusi.",
+      "tags": [
+        "project",
+        "context",
+        "readme",
+        "dokumentasi",
+        "arsitektur",
+        "foundation"
+      ],
+      "type": "documentation"
+    },
+    {
+      "path": ".ai/foundation/global-system-prompt.md",
+      "name": "Global System Prompt",
+      "description": "System prompt global untuk seluruh executive AI. Berisi identitas, aturan main, dan panduan perilaku AI.",
+      "tags": [
+        "system prompt",
+        "global",
+        "identity",
+        "rules",
+        "behavior",
+        "foundation"
+      ],
+      "type": "documentation"
+    }
+  ]
+}
