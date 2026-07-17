@@ -540,8 +540,9 @@ function ProtectedApp() {
 
   // Cashier tanpa cabang → redirect ke onboard
   const role = me.role ?? "cashier";
-  const hasBranch = !!me.branchId;
-  if (role === "cashier" && !hasBranch && currLoc !== "/onboard") {
+  const allowedBranches = (me as any)?.allowedBranches as number[] | undefined;
+  const hasAccessibleBranch = !!me.branchId || (Array.isArray(allowedBranches) && allowedBranches.length > 0);
+  if (role === "cashier" && !hasAccessibleBranch && currLoc !== "/onboard") {
     return <Redirect to="/onboard" />;
   }
 
