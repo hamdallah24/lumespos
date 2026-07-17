@@ -113,7 +113,7 @@ function DateRangeFilter({ dateRange, onDateRangeChange }: { dateRange: DateRang
             : "Pilih Tanggal"}
         </button>
         {open && (
-          <div className="absolute top-full mt-2 left-0 z-50 bg-card border border-border/60 rounded-2xl shadow-xl backdrop-blur-xl p-3">
+          <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 z-50 bg-card border border-border/60 rounded-2xl shadow-xl backdrop-blur-xl p-3">
             <Calendar
               mode="range"
               defaultMonth={dateRange?.from}
@@ -145,7 +145,7 @@ export default function DashboardPage() {
   const today = useMemo(() => new Date(), []);
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: new Date(Date.now() - 29 * 86400000),
+    from: today,
     to: today,
   });
 
