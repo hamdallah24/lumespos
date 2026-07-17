@@ -3,7 +3,7 @@
 // Falls back to local filesystem when GitHub API is unavailable.
 
 import type { FileIndex } from "./KnowledgeBundle";
-import { searchRepoFiles, fetchGitHubFile } from "../ai/tools/tool-adapter";
+import { getExecutionEngine } from "../ai/runtime/execution/ExecutionEngine";
 import { readdirSync, readFileSync, existsSync } from "fs";
 import { join, resolve } from "path";
 
@@ -61,8 +61,10 @@ export class MissionContextRegistry {
 
   /** Get relevant files for a domain query — workspace-scoped only */
   async getRelevant(domain: string, message: string): Promise<FileIndex[]> {
-    // First try GitHub API
-    const rawPaths = await searchRepoFiles(message);
+    // First try GitHub API via ExecutionEngine
+    const engine = getExecutionEngine();
+    const searchResult = await engine.execute({ toolName: 'searchRepoFiles', args: { query: message } });
+    const rawPaths: string[] = (searchResult.output as any) ?? [];
     let filtered: string[];
 
     if (rawPaths.length > 0) {
@@ -106,11 +108,12 @@ export class MissionContextRegistry {
       return local;
     }
 
-    // Fallback to GitHub API
-    const result = await fetchGitHubFile(path, "main");
-    if (result.content) {
-      this.fileCache.set(path, { content: result.content, ts: Date.now() });
-      return result.content;
+    // Fallback to GitHub API via ExecutionEngine
+    const ghResult = await getExecutionEngine().execute({ toolName: 'fetchGitHubFile', args: { path, ref: 'main' } });
+    const ghContent = ghResult.success ? (ghResult.output as any)?.content : null;
+    if (ghContent) {
+      this.fileCache.set(path, { content: ghContent, ts: Date.now() });
+      return ghContent;
     }
     return null;
   }

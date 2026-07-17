@@ -24,7 +24,7 @@ import { PipelineTracer } from './RuntimeTrace';
 import { RuntimeDiagnosticsAPI } from './diagnostics';
 import { RepositoryMetadataGenerator } from './registry';
 import { UnifiedAwarenessEngine } from './awareness';
-import { MetricsStore, ReflectionEngine } from './learning';
+import { MetricsStore, ReflectionEngine, EvidenceStore } from './learning';
 
 export class RuntimeIntelligenceCore {
   private capabilityGraph: CapabilityGraph;
@@ -44,6 +44,7 @@ export class RuntimeIntelligenceCore {
   private diagnostics: RuntimeDiagnosticsAPI;
   private metricsStore: MetricsStore;
   private reflectionEngine: ReflectionEngine;
+  private evidenceStore: EvidenceStore;
 
   constructor(
     capabilityGraph: CapabilityGraph,
@@ -53,7 +54,7 @@ export class RuntimeIntelligenceCore {
     this.capabilityGraph = capabilityGraph;
     this.provider = provider;
     this.awarenessEngine = new UnifiedAwarenessEngine();
-    this.understandingEngine = new UnderstandingEngine(provider, this.awarenessEngine);
+    this.understandingEngine = new UnderstandingEngine(provider);
     this.pastPlanMemory = new PastPlanMemory(50);
     this.retrievalPlanner = new RetrievalPlanner(provider, this.pastPlanMemory);
     this.groundingLayer = new GroundingLayer(rootDir);
@@ -69,6 +70,22 @@ export class RuntimeIntelligenceCore {
     );
     this.metricsStore = new MetricsStore();
     this.reflectionEngine = new ReflectionEngine();
+    this.evidenceStore = new EvidenceStore();
+    this.registerObservatory();
+  }
+
+  private registerObservatory(): void {
+    try {
+      const { getAiObservatory } = require('../ai/observatory/AiObservatory');
+      const obs = getAiObservatory();
+      obs.registerMetrics(this.metricsStore);
+      obs.registerReflection(this.reflectionEngine);
+      obs.registerEvidence(this.evidenceStore);
+      obs.registerGrounding(this.groundingLayer);
+      obs.setRicReady(true);
+    } catch {
+      // Observatory module optional — non-critical
+    }
   }
 
   async initialize(): Promise<void> {
@@ -85,11 +102,17 @@ export class RuntimeIntelligenceCore {
     const createdAt = Date.now();
     const tracer = new PipelineTracer();
 
-    const { result: understanding, brief: awarenessBrief } = await tracer.traceStage('understand', this.provider.constructor?.name || 'ReasoningProvider',
-      () => this.understand(input), 0, undefined);
+    const awarenessBrief = await this.awarenessEngine.collectBrief().catch(() => undefined);
+
+    const understanding = await tracer.traceStage('understand', this.provider.constructor?.name || 'ReasoningProvider',
+      () => this.understand(input, awarenessBrief), 0, undefined);
 
     let plan = await tracer.traceStage('plan', this.provider.constructor?.name || 'ReasoningProvider',
       () => this.createRetrievalPlan(understanding, input), understanding.confidence, undefined);
+
+    if (awarenessBrief) {
+      this.groundingLayer.setAdaptiveTimeout(awarenessBrief.systemSituation.health);
+    }
 
     let grounding = await tracer.traceStage('ground', 'GroundingLayer',
       () => this.groupAndRetrieve(plan), 0.9, undefined);
@@ -203,21 +226,25 @@ export class RuntimeIntelligenceCore {
       replanCount,
     );
 
-    this.reflectionEngine.reflect(
+    const reflection = this.reflectionEngine.reflect(
       confidence.overall,
       verification,
       refinementHistory,
       this.degraded,
       this.metricsStore,
+      trace.stages,
     );
+
+    const evidenceEntries = this.evidenceStore.record(reflection);
 
     const frozen = freezeContract(context);
     this.diagnostics.recordContract(frozen);
     return frozen;
   }
 
-  private async understand(input: ReasonerInput): Promise<{ result: UnderstandingResult; brief?: import('./awareness/AwarenessTypes').AwarenessBrief }> {
-    return this.understandingEngine.analyze(input);
+  private async understand(input: ReasonerInput, brief?: import('./awareness/AwarenessTypes').AwarenessBrief): Promise<UnderstandingResult> {
+    const { result } = await this.understandingEngine.analyze(input, brief);
+    return result;
   }
 
   private async createRetrievalPlan(
@@ -284,5 +311,9 @@ export class RuntimeIntelligenceCore {
 
   public getReflections(): ReflectionEngine {
     return this.reflectionEngine;
+  }
+
+  public getEvidence(): EvidenceStore {
+    return this.evidenceStore;
   }
 }

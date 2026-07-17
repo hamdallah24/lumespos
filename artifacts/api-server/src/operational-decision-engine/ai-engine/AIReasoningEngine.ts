@@ -46,9 +46,9 @@ export class AIReasoningEngine {
     let result: AIAnalysisResult | null = null;
 
     try {
-      const { callDeepSeek } = await import("../../ai/llm/llm-adapter");
-      const raw = await callDeepSeek(prompt, prompt, 0, "ai_analysis", 1024, true);
-      result = this.parseResponse(raw);
+      const { executiveReason } = await import("../../ai/runtime/execution/ExecutiveReasoner");
+      const llmResult = await executiveReason({ persona: prompt, context: prompt, userId: 0 });
+      result = this.parseResponse(llmResult.content);
     } catch (err) {
       console.error("[AIReasoningEngine] LLM call failed:", err);
       return null;

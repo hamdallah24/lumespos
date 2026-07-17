@@ -8,6 +8,7 @@ import { CapabilityGraph as CapabilityGraphImpl } from './capability/CapabilityG
 import { ToolCatalog } from './registry/ToolCatalog';
 import { mapToExecutive } from './ExecutiveContextAdapter';
 import type { ExecutiveContext } from './ExecutiveContextAdapter';
+import { getAiObservatory } from '../ai/observatory/AiObservatory';
 
 interface AdapterInput {
   message: string;
@@ -56,8 +57,14 @@ export class RICAdapter {
 
     const ctx = await this.core.assemble(reasonerInput);
     this.lastExecutiveContext = mapToExecutive(ctx);
+    getAiObservatory().incrementRequestCount();
     return ctx;
   }
+}
+
+export function registerExecutionEngine(): void {
+  const { getExecutionEngine } = require('../ai/runtime/execution/ExecutionEngine');
+  getAiObservatory().registerExecution(getExecutionEngine());
 }
 
 let instance: RICAdapter | null = null;

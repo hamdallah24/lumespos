@@ -130,7 +130,7 @@ function extractKeywords(filename: string, content: string): string[] {
   }
 
   const textWords = content.match(/\b[a-zA-Z]{3,}\b/g) || [];
-  keywords.push(...textWords.filter(w => !["this", "that", "with", "from", "into", "your", "have", "will", "about"].includes(w.toLowerCase())));
+  keywords.push(...textWords.filter(w => !["this", "that", "with", "from", "into", "your", "have", "will", "about"].includes((w as string).toLowerCase())));
 
   return [...new Set(keywords)].filter((k): k is string => !!k && k.length > 2 && k.length < 30);
 }
@@ -275,11 +275,11 @@ export async function findRelevantFiles(query: string, maxResults: number = 5, u
   const map = getFileMap();
   if (!map) return { files: [], reason: "File index not available" };
 
+  const explicitFiles: string[] = [];
   try {
-    const { callDeepSeek } = await import("../../ai/llm/llm-adapter");
+    const { executiveReason } = await import("../../ai/runtime/execution/ExecutiveReasoner");
 
     // Phase 1: If user explicitly mentions a file path, prioritize it
-    const explicitFiles: string[] = [];
     const filePattern = /([\w\/]+\.\w+)/g;
     let match;
     while ((match = filePattern.exec(query)) !== null) {
@@ -371,8 +371,8 @@ Pilih 1-${maxResults} file. Prioritaskan:
 
 Output HANYA JSON: {"files":["path1"],"reason":"Penjelasan"}`;
 
-    const result = await callDeepSeek(prompt, "", userId, "bisnis", 500, false);
-    const cleaned = result.replace(/```(?:json)?\s*/gi, "").replace(/\s*```/g, "").trim();
+    const llmResult = await executiveReason({ persona: prompt, context: "", userId });
+    const cleaned = llmResult.content.replace(/```(?:json)?\s*/gi, "").replace(/\s*```/g, "").trim();
     const parsed = JSON.parse(cleaned);
     return {
       files: Array.isArray(parsed.files) ? parsed.files.slice(0, maxResults) : explicitFiles.slice(0, maxResults),

@@ -9,7 +9,7 @@ import { buildSpecV1 } from "../../../ai/runtime/execution-spec";
 import { verify } from "../../../ai/runtime/verification-engine";
 import { organizationEngine } from "../../../ai/runtime/organization-engine";
 import { executiveCollaboration } from "../../../organization/executive-collaboration";
-import { callDeepSeek } from "../../../ai/llm/llm-adapter";
+import { executiveReason } from "../../../ai/runtime/execution/ExecutiveReasoner";
 import { getFoundationProvider } from "../../../ai/runtime/foundation";
 import { assemble } from "../../../ai/runtime/prompt-assembler";
 import { EXECUTIVE_OUTPUT_SCHEMA } from "../../../routes/ai-prompts";
@@ -65,6 +65,7 @@ export interface CEOContext {
   onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void;
   onState?: (state: string) => void;
   onExecutionEvent?: (snapshot: import("../../../ai/runtime/execution/execution-manifest").ExecutionSnapshot) => void;
+  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
 }
 
 export interface CEOResult {
@@ -103,8 +104,8 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     }
 
     try {
-      const approved = await callDeepSeek(
-        `Kamu adalah CEO Engineering OS. Tugasmu hanya MENYETUJUI atau MENOLAK rencana implementasi dari CTO.
+      const approvedResult = await executiveReason({
+        persona: `Kamu adalah CEO Engineering OS. Tugasmu hanya MENYETUJUI atau MENOLAK rencana implementasi dari CTO.
         
         ATURAN:
         - Jika rencana CTO masuk akal dan tidak merusak sistem, balas dengan: "APPROVED"
@@ -112,8 +113,10 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
         - JANGAN berikan analisis tambahan. JANGAN gunakan format executive report.
         - Jawab LANGSUNG dengan APPROVED atau REJECTED.
         - Bahasa Indonesia.`,
-        ctx.message, ctx.userId, "ceo", 500,
-      );
+        context: ctx.message,
+        userId: ctx.userId,
+      });
+      const approved = approvedResult.content;
       const isApproved = approved.toUpperCase().includes("APPROVED");
 
       auditEngine.log({ actor: "CEO", action: "approve_plan", resource: "cto_implementation", result: "allowed", reason: `CTO implementation plan review — ${isApproved ? "APPROVED" : "REJECTED"}`, metadata: { userId: ctx.userId } });
@@ -360,9 +363,7 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
       })}`;
       ctx.onProgress?.("💼 CEO Runtime merespon...");
       try {
-        rawText = await callDeepSeek(
-          systemPrompt, ctx.message, ctx.userId, "ceo", 4000,
-        );
+        rawText = (await executiveReason({ persona: systemPrompt, context: ctx.message, userId: ctx.userId })).content;
         if (!rawText.toLowerCase().includes("buat misi")) {
           rawText += "\n\n> 💡 *Jika ingin tugas ini dijalankan sebagai misi, katakan **buat misi**.*";
         }
@@ -392,9 +393,7 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
     })}`;
     ctx.onProgress?.("💼 CEO Runtime menganalisis...");
     try {
-      rawText = await callDeepSeek(
-        systemPrompt, ctx.message, ctx.userId, "ceo", 4000,
-      );
+      rawText = (await executiveReason({ persona: systemPrompt, context: ctx.message, userId: ctx.userId })).content;
     } catch (e: any) {
       rawText = `Maaf, CEO Runtime mengalami kendala teknis saat merespon. Silakan coba lagi. (${e?.message || "unknown error"})`;
     }

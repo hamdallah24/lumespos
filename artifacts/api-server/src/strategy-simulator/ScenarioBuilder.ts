@@ -1,6 +1,8 @@
 import type { OperationalSituation } from "../operational-decision-engine/core/types";
 import type { DecisionContext, RiskProfile, BusinessState, ResourceState } from "../decision-context/types";
-import type { StrategicDirection, SimulationVariant } from "./types";
+import type { SimulationVariant } from "./types";
+import type { StrategicDirection } from "../strategy-engine/core/types";
+export type { StrategicDirection };
 
 const DIRECTIONS: StrategicDirection[] = ["growth", "optimization", "cost_reduction", "quality", "risk_mitigation"];
 

@@ -287,7 +287,7 @@ class ExecutionGovernor {
 
     // Apply contract strategy to engine
     if (contract.strategy) {
-      this.strategyEngine.startAt(contract.strategy);
+      this.strategyEngine.startAt(contract.strategy as any);
     }
 
     return contract;

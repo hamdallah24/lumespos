@@ -1,5 +1,4 @@
 import type { MemoryRecord, MemoryTraceEvent, ExecutiveScope, MemoryCategory } from "../models/MemoryRecord";
-import type { MemoryLifecycleState } from "../models/MemoryLifecycle";
 import { MemoryLifecycleEngine } from "./MemoryLifecycle";
 import { ImportanceEngine } from "./ImportanceEngine";
 import { DuplicateDetector, type DuplicateDetectorConfig } from "./DuplicateDetector";
@@ -11,7 +10,7 @@ import { ValidationEngine, type ValidationResult } from "./ValidationEngine";
 import { ImportancePolicy } from "../policy/ImportancePolicy";
 import { ForgettingPolicy } from "../policy/ForgettingPolicy";
 import { PromotionPolicy } from "../policy/PromotionPolicy";
-import { MemoryLifecycle } from "../models/MemoryLifecycle";
+import type { MemoryLifecycleState } from "../models/MemoryLifecycle";
 
 export interface WriteMemoryInput {
   content: string;

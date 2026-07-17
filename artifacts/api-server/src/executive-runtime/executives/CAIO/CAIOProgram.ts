@@ -11,7 +11,7 @@ import { JSON_OUTPUT_SCHEMA } from "../../../routes/ai-prompts";
 import { ExecutionPipeline } from "../../../ai/runtime/execution/execution-pipeline";
 import type { ExecutionContract } from "../../../eios-runtime/contracts/PipelineContracts";
 import { consultantRuntime } from "../../../programs/consultant";
-import { LOCAL_TOOLS } from "../../../ai/tools/tool-adapter";
+import { getExecutionEngine } from "../../../ai/runtime/execution/ExecutionEngine";
 import { GovernanceProvider } from "../../../governance/providers";
 import { KnowledgeProvider } from "../../../knowledge-platform/providers";
 import { auditEngine } from "../../../governance/core";
@@ -39,6 +39,7 @@ interface ExecutiveTask {
   userId: number;
   branchId?: number;
   onProgress?: (msg: string) => void;
+  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
 }
 
 interface ExecutiveResult {
@@ -177,7 +178,7 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   const messages = [{ role: "system" as const, content: systemPrompt }, { role: "user" as const, content: task.message }];
   const execResult = await ExecutionPipeline.execute(
     { role: "CAIO" as any, intent: spec.intent, domain: spec.domain },
-    messages, LOCAL_TOOLS, spec.estimatedTokens || 16000, task.userId, "caio", task.message, true,
+    messages, getExecutionEngine().getToolDefinitions(), spec.estimatedTokens || 16000, task.userId, "caio", task.message, true,
     { onProgress: task.onProgress },
     { complexity: spec.estimatedComplexity || "simple", domain: spec.domain, objective: spec.objective },
   );

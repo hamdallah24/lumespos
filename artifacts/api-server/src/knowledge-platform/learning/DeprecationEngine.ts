@@ -13,7 +13,7 @@ export const DeprecationEngine = {
     if (block.type === "procedural" && block.procedural) {
       const episodes = knowledgeBase.getAll().filter(b =>
         b.type === "episode" &&
-        b.episode?.eventType === block.procedural.action,
+        b.episode?.eventType === block.procedural!.action,
       );
       failures = episodes.filter(e => e.lastOutcome === "failure").length;
     } else if (block.lastOutcome === "failure") {

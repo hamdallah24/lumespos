@@ -1,7 +1,7 @@
 import type { UnderstandingResult, ReasoningProvider, ReasonerInput } from '../types';
 import { UNDERSTANDING_SYSTEM_PROMPT } from './prompts/understanding-prompt';
 import { UnderstandingFallback } from './UnderstandingFallback';
-import type { UnifiedAwarenessEngine, AwarenessBrief } from '../awareness';
+import type { AwarenessBrief } from '../awareness';
 
 const MAX_RETRIES = 2;
 const MIN_CONFIDENCE = 0.60;
@@ -9,19 +9,13 @@ const MIN_CONFIDENCE = 0.60;
 export class UnderstandingEngine {
   private provider: ReasoningProvider;
   private fallback: UnderstandingFallback;
-  private awarenessEngine?: UnifiedAwarenessEngine;
 
-  constructor(provider: ReasoningProvider, awarenessEngine?: UnifiedAwarenessEngine) {
+  constructor(provider: ReasoningProvider) {
     this.provider = provider;
     this.fallback = new UnderstandingFallback();
-    this.awarenessEngine = awarenessEngine;
   }
 
-  async analyze(input: ReasonerInput): Promise<{ result: UnderstandingResult; brief?: AwarenessBrief }> {
-    let brief: AwarenessBrief | null = null;
-    if (this.awarenessEngine) {
-      brief = await this.awarenessEngine.collectBrief();
-    }
+  async analyze(input: ReasonerInput, brief?: AwarenessBrief | null): Promise<{ result: UnderstandingResult; brief?: AwarenessBrief }> {
     const userContext = this.buildUserContext(input, brief);
     const userMessage = input.message;
     const fullPrompt = `${UNDERSTANDING_SYSTEM_PROMPT}\n\nUser message: ${userMessage}\nContext: ${userContext}`;

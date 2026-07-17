@@ -207,6 +207,7 @@ export const UnifiedLearningLayer = {
             condition: `Council alignment between ${alignment.executiveA} and ${alignment.executiveB}`,
             action: `Consider ${alignment.executiveA}-${alignment.executiveB} alignment (${alignment.alignmentRate}%)`,
             domain: "governance",
+            topic: "council_alignment",
             summary: `Executive alignment pattern: ${alignment.executiveA} ↔ ${alignment.executiveB}`,
           });
           synced++;

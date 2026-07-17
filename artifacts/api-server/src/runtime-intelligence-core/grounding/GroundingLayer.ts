@@ -21,12 +21,28 @@ import { RepositoryProvider } from './providers/RepositoryProvider';
 import { resolveProvider, resolveEvidenceType } from './CapabilityRouter';
 import { CircuitBreaker } from './CircuitBreaker';
 
+interface CacheEntry {
+  data: AccumulatedResult;
+  cachedAt: number;
+  ttlMs: number;
+}
+
+interface ProviderLatency {
+  totalCalls: number;
+  totalLatency: number;
+  lastLatency: number;
+}
+
 export class GroundingLayer {
   private providers: Record<GroundingProviderName, { read: (reqs: unknown[]) => Promise<unknown[]>; health: () => Promise<HealthStatus> }>;
   private evidenceLog: Evidence[] = [];
   private healthCache: Map<string, { ok: boolean; checkedAt: number }> = new Map();
   private readonly HEALTH_TTL = 10000;
   private circuitBreaker: CircuitBreaker;
+  private resultCache: Map<string, CacheEntry> = new Map();
+  private readonly CACHE_TTL = 30000;
+  private providerLatency: Map<string, ProviderLatency> = new Map();
+  private adaptiveTimeoutMultiplier = 1.0;
 
   constructor(rootDir: string) {
     this.circuitBreaker = new CircuitBreaker(3, 15000);
@@ -134,6 +150,22 @@ export class GroundingLayer {
         continue;
       }
 
+      const cacheKey = `${providerName}:${task.requiredCapability}:${this.hashRequest(task.request)}`;
+      const cached = this.resultCache.get(cacheKey);
+      if (cached && Date.now() - cached.cachedAt < cached.ttlMs) {
+        this.evidenceLog.push({
+          id: `ev-${task.id}-cache-${providerName}`,
+          type: resolveEvidenceType(task.requiredCapability),
+          source: providerName,
+          query: task.id,
+          result: { cached: true, capability: task.requiredCapability },
+          timestamp: Date.now(),
+          durationMs: 0,
+          confidence: 0.9,
+        });
+        return cached.data;
+      }
+
       const startTime = Date.now();
       const errors: GroundingError[] = [];
       let attempts = 0;
@@ -146,13 +178,17 @@ export class GroundingLayer {
 
           const data = await this.executeWithTimeout(
             () => provider.read([task.request]),
-            effectiveTimeout,
+            effectiveTimeout * this.adaptiveTimeoutMultiplier,
           );
 
           this.circuitBreaker.recordSuccess(providerName);
 
           const cap = this.resolveCapabilityForProvider(providerName, task);
           const result = this.mapCapabilityResult(cap, data, task);
+
+          const durationMs = Date.now() - startTime;
+          this.recordProviderLatency(providerName, durationMs);
+          this.resultCache.set(cacheKey, { data: result, cachedAt: Date.now(), ttlMs: this.CACHE_TTL });
 
           this.evidenceLog.push({
             id: `ev-${task.id}-${startTime}`,
@@ -246,6 +282,54 @@ export class GroundingLayer {
 
   getCircuitStatuses(): Record<string, import('./CircuitBreaker').CircuitStatus> {
     return this.circuitBreaker.getAllStatuses();
+  }
+
+  setAdaptiveTimeout(systemHealth?: string): void {
+    if (systemHealth === 'critical') this.adaptiveTimeoutMultiplier = 0.5;
+    else if (systemHealth === 'degraded') this.adaptiveTimeoutMultiplier = 0.75;
+    else this.adaptiveTimeoutMultiplier = 1.0;
+  }
+
+  getProviderLatency(): Record<string, { avg: number; last: number }> {
+    const result: Record<string, { avg: number; last: number }> = {};
+    for (const [name, lat] of this.providerLatency) {
+      result[name] = {
+        avg: lat.totalCalls > 0 ? lat.totalLatency / lat.totalCalls : 0,
+        last: lat.lastLatency,
+      };
+    }
+    return result;
+  }
+
+  getCacheStats(): { size: number; keys: string[] } {
+    return {
+      size: this.resultCache.size,
+      keys: [...this.resultCache.keys()],
+    };
+  }
+
+  clearCache(): void {
+    this.resultCache.clear();
+  }
+
+  private hashRequest(request: unknown): string {
+    const str = typeof request === 'object' && request !== null
+      ? JSON.stringify(request)
+      : String(request);
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) - hash) + str.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash).toString(16);
+  }
+
+  private recordProviderLatency(name: string, durationMs: number): void {
+    const existing = this.providerLatency.get(name) ?? { totalCalls: 0, totalLatency: 0, lastLatency: 0 };
+    existing.totalCalls++;
+    existing.totalLatency += durationMs;
+    existing.lastLatency = durationMs;
+    this.providerLatency.set(name, existing);
   }
 
   private handleFailure(

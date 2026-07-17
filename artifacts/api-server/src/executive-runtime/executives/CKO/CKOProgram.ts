@@ -1,7 +1,7 @@
 // CKO Runtime — Wrapper over programs/consultant with Knowledge Platform integration
 // Delegates to consultantRuntime for core advisory, adds EIOS knowledge recording.
 
-import { callDeepSeek } from "../../../ai/llm/llm-adapter";
+import { executiveReason } from "../../../ai/runtime/execution/ExecutiveReasoner";
 import { councilSessionManager } from "../../../executive-council";
 import { consultantRuntime, type CKOTargets } from "../../../programs/consultant";
 import { CognitiveEngine, recordTrace } from "../../cognition";
@@ -19,6 +19,7 @@ interface ExecutiveTask {
   message: string;
   userId: number;
   onProgress?: (msg: string) => void;
+  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
 }
 
 interface ExecutiveResult {
@@ -34,38 +35,36 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
   pipeline.push("Identity");
   task.onProgress?.("🧠 CKO Runtime: Knowledge Officer aktif");
 
-  // Memory Read — before Cognitive
+  // Read Memory — prefer RuntimeContext if available
   let memoryCtx = null;
-  try {
-    memoryCtx = await memoryProvider.read({
-      executive: "CKO",
-      query: task.message,
-      domain: "knowledge",
-      memoryScope: "organization",
-      maxTokens: 3000,
-    });
-  } catch (e: any) {
-    console.log(`[PIPELINE:CKO:MemoryProvider] error: ${e.message}`);
+  const rc = task.runtimeContext;
+  if (rc?.grounding.memory.entries.length) {
+    memoryCtx = { workingMemory: rc.grounding.memory.entries.map(e => e.content).join('\n'), knowledgeContext: '', organizationalMemory: '' };
+    pipeline.push("RuntimeMemory");
+  } else {
+    try {
+      memoryCtx = await memoryProvider.read({
+        executive: "CKO", query: task.message, domain: "knowledge",
+        memoryScope: "organization", maxTokens: 3000,
+      });
+    } catch { /* MemoryProvider unavailable */ }
   }
 
   // Cognitive Engine — think before advisory/LLM
   let cognitiveResult = null;
   try {
     cognitiveResult = await ckoCognitive.think({
-      role: "CKO",
-      query: task.message,
+      role: "CKO", query: task.message,
       context: { memoryContext: memoryCtx },
     });
     recordTrace("CKO", task.message, cognitiveResult.trace);
     await writeDecisionToMemory("CKO", task.message, cognitiveResult);
     pipeline.push("CognitiveEngine");
     task.onProgress?.("🧠 CKO: Cognitive reasoning completed");
-  } catch (e: any) {
-    console.log(`[PIPELINE:CKO:CognitiveEngine] error: ${e.message}`);
-  }
+  } catch { /* CognitiveEngine unavailable */ }
 
-  // Determine if this is a knowledge query, advisory request, or council request
-  const lower = task.message.toLowerCase();
+  // Use understanding from RuntimeContext instead of raw text parsing
+  const lower = (rc?.intelligence.subIntent ?? task.message).toLowerCase();
 
   // Council secretary mode
   if (lower.includes("council") || lower.includes("rapat") || lower.includes("minutes") || lower.includes("notulen")) {
@@ -120,7 +119,7 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
   // Fallback: direct LLM with knowledge context
   pipeline.push("DirectLLM");
   task.onProgress?.("📚 CKO: Menggunakan knowledge base...");
-  const knowledge = KnowledgeProvider.searchAll(task.message);
+  const knowledge: any[] = rc?.grounding.knowledge.length ? rc.grounding.knowledge : KnowledgeProvider.searchAll(task.message);
   const stats = KnowledgeProvider.getStats();
   const brief = BriefGenerator.generate({
     role: "CKO",
@@ -156,7 +155,7 @@ Tanggapi pesan user dari perspektif CKO. Fokus pada kurasi pengetahuan, best pra
 
   auditEngine.log({ actor: "CKO" as any, action: "execute", resource: "program", result: "allowed", reason: "CKO program execution", metadata: { userId: task.userId } });
 
-  const result = await callDeepSeek(prompt, task.message, task.userId, "bisnis", 2000, false);
+  const result = await executiveReason({ persona: prompt, context: task.message, userId: task.userId });
 
   KnowledgeProvider.ingestEpisode({
     eventType: "cko_direct_llm",
@@ -165,11 +164,11 @@ Tanggapi pesan user dari perspektif CKO. Fokus pada kurasi pengetahuan, best pra
     outcome: "success",
     domain: "knowledge",
     topic: task.message.slice(0, 100),
-    summary: `CKO direct: ${result.slice(0, 200)}`,
+    summary: `CKO direct: ${result.content.slice(0, 200)}`,
     tags: ["cko", "direct"],
   });
 
-  return { success: true, text: result, pipeline };
+  return { success: true, text: result.content, pipeline };
 }
 
 async function decide(brief: ExecutiveBrief, _context?: Record<string, unknown>): Promise<ExecutiveDecision> {

@@ -92,7 +92,7 @@ export class MissionIntelligence {
     const domains = DOMAIN_KNOWLEDGE[normalized] || DOMAIN_KNOWLEDGE.general;
 
     // Early phases: broader knowledge. Later phases: focused.
-    if (currentPhase === "EXPLORATION" || currentPhase === "ANALYSIS") {
+    if (currentPhase === "EXPLORATION") {
       return domains;
     }
     // Analysis/Decision: narrow to most relevant

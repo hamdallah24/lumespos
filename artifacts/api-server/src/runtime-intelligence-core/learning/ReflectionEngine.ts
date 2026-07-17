@@ -1,5 +1,12 @@
-import type { RefinementEntry, VerificationResult } from '../types';
+import type { RefinementEntry, VerificationResult, TraceStage } from '../types';
 import type { MetricsStore } from './MetricsStore';
+
+export interface StageObservation {
+  stage: string;
+  status: string;
+  durationMs: number;
+  confidence: number;
+}
 
 export interface Reflection {
   requestCount: number;
@@ -10,6 +17,7 @@ export interface Reflection {
   weakestComponent: string;
   topFailures: string[];
   patterns: string[];
+  stages: StageObservation[];
 }
 
 export class ReflectionEngine {
@@ -22,6 +30,7 @@ export class ReflectionEngine {
     refinementHistory: RefinementEntry[],
     degraded: boolean,
     metrics: MetricsStore,
+    stages?: TraceStage[],
   ): Reflection {
     const weakestComponent = verification.checks
       .filter(c => c.state !== 'verified')
@@ -38,6 +47,18 @@ export class ReflectionEngine {
     if (topFailures.length > 0) patterns.push(`failed: ${topFailures.join(', ')}`);
     if (weakestComponent) patterns.push(`weakest: ${weakestComponent}`);
 
+    const stageObs: StageObservation[] = (stages ?? []).map(s => ({
+      stage: s.name,
+      status: s.status,
+      durationMs: s.durationMs,
+      confidence: s.confidence,
+    }));
+
+    const failedStages = stageObs.filter(s => s.status === 'failed');
+    for (const fs of failedStages) {
+      patterns.push(`stage_failed: ${fs.stage}`);
+    }
+
     const summary = metrics.getSummary();
     if (summary.replanRate > 0.3) patterns.push('high replan rate in system');
     if (summary.overallAvgConfidence < 0.6) patterns.push('low system confidence trend');
@@ -51,6 +72,7 @@ export class ReflectionEngine {
       weakestComponent,
       topFailures,
       patterns: [...new Set(patterns)],
+      stages: stageObs,
     };
 
     this.reflections.unshift(reflection);

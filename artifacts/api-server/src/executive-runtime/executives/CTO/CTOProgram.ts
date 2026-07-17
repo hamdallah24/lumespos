@@ -18,9 +18,8 @@ import { getIdentity } from "../../../ai/runtime/identity";
 import { authorization as auth } from "../../../ai/runtime/authorization";
 import { withinScope } from "../../../ai/runtime/mission-scope";
 import type { ExecutionContract } from "../../../eios-runtime/contracts/PipelineContracts";
-import { callDeepSeekWithTools } from "../../../ai/llm/llm-adapter";
 import { ExecutiveDispatchRegistry } from "../../../eios-runtime";
-import { getDependencies } from "../../../ai/tools/tool-adapter";
+import { getExecutionEngine } from "../../../ai/runtime/execution/ExecutionEngine";
 import { getFoundationProvider } from "../../../ai/runtime/foundation";
 // CTO_OUTPUT_SCHEMA removed — EIOS 4.1 uses metadata-based identity + foundation
 import { resolveTools } from "../../../ai/runtime/execution/tool-registry";
@@ -159,6 +158,7 @@ interface CTOTask {
   onProgress?: (msg: string) => void;
   onTool?: (event: { name: string; status: "started" | "completed"; durationMs?: number }) => void;
   onExecutionEvent?: (snapshot: import("../../../ai/runtime/execution/execution-manifest").ExecutionSnapshot) => void;
+  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
 }
 
 interface CTOResult {
@@ -362,26 +362,11 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
   let filesRead: string[] = [];
   task.onProgress?.("⚙️ CTO: Mengeksekusi analisis (3 cycle)...");
   try {
-    const llmResult = await callDeepSeekWithTools(
+    const engine = getExecutionEngine();
+    const llmResult = await engine.executeMultiTurn(
       systemPrompt, ctoMessage, task.userId, "cto", toolSet,
       ctoMaxTokens, task.onProgress, task.onTool,
-      false, undefined, task.onExecutionEvent,
-      { complexity: spec.estimatedComplexity, domain: spec.domain, entities: spec.entities, objective: spec.objective, targetFiles: spec.targetFiles, intent: spec.intent },
-      async (plan) => {
-        // Untuk testing: owner auto-approve. Production: CEO approval.
-        if (true) return true; // Bypass CEO approval untuk testing
-        /*
-        CEO approval (akan diaktifkan di production):
-        const ceoDecision = await ExecutiveDispatchRegistry.dispatch("CEO", {
-          id: `plan-${Date.now().toString(36)}`, role: "CEO",
-          title: "Implementation Plan Approval",
-          date: new Date().toISOString(),
-          summary: plan,
-          sections: [], actionItems: [], pendingApprovals: [],
-        }, { userId: task.userId });
-        return ceoDecision !== null && ceoDecision.reasoning.includes("APPROVED");
-        */
-      },
+      task.onExecutionEvent,
     );
     responseText = normalizeOutput(llmResult.text);
     toolsUsed = llmResult.toolsUsed;

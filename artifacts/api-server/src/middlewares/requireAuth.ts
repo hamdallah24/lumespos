@@ -1,6 +1,7 @@
 import { type Request, type Response, type NextFunction } from "express";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+// @ts-ignore
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { compare, hash } from "bcryptjs";
 import { db, usersTable, userBranchesTable } from "@workspace/db";
@@ -95,7 +96,7 @@ if (googleClientId && googleClientSecret) {
         clientSecret: googleClientSecret,
         callbackURL: `${appBaseUrl}/api/auth/google/callback`,
       },
-      async (_accessToken, _refreshToken, profile, done) => {
+      async (_accessToken: any, _refreshToken: any, profile: any, done: any) => {
         try {
           const googleId = profile.id;
           const email = profile.emails?.[0]?.value?.toLowerCase().trim();

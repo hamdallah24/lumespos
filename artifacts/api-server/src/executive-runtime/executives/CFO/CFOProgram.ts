@@ -8,7 +8,7 @@ import { verify } from "../../../ai/runtime/verification-engine";
 import { getFoundationProvider } from "../../../ai/runtime/foundation";
 import { assemble } from "../../../ai/runtime/prompt-assembler";
 import { JSON_OUTPUT_SCHEMA } from "../../../routes/ai-prompts";
-import { callDeepSeek } from "../../../ai/llm/llm-adapter";
+import { executiveReason } from "../../../ai/runtime/execution/ExecutiveReasoner";
 import type { ExecutionContract } from "../../../eios-runtime/contracts/PipelineContracts";
 import { consultantRuntime } from "../../../programs/consultant";
 import { GovernanceProvider } from "../../../governance/providers";
@@ -37,6 +37,7 @@ interface ExecutiveTask {
   userId: number;
   branchId?: number;
   onProgress?: (msg: string) => void;
+  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
 }
 
 interface ExecutiveResult {
@@ -172,12 +173,12 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   systemPrompt += `- JANGAN membuat asumsi produk atau harga.\n`;
 
   pipeline.push("LLM");
-  const llmResponse = await callDeepSeek(systemPrompt, task.message, task.userId, "bisnis", 3000, false);
+  const llmResult = await executiveReason({ persona: systemPrompt, context: task.message, userId: task.userId });
 
   pipeline.push("Result");
 
-  const isSuccess = !llmResponse.startsWith("ERROR:");
-  const finalText = isSuccess ? llmResponse : "✅ Laporan finansial selesai.";
+  const isSuccess = !llmResult.content.startsWith("ERROR:");
+  const finalText = isSuccess ? llmResult.content : "✅ Laporan finansial selesai.";
 
   // EIOS: Record decision
   KnowledgeProvider.ingestEpisode({

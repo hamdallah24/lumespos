@@ -65,19 +65,19 @@ function getRollbackOrder(
   return [...forwardNodes].reverse();
 }
 
-function topologicalSortRollback(graph: typeof import("../execution-planner/core/types").ExecutionGraph): GraphNode[] {
+function topologicalSortRollback(graph: { nodes: GraphNode[] }): GraphNode[] {
   const visited = new Set<string>();
   const result: GraphNode[] = [];
 
-  function visit(nodeId: string) {
+  function visit(nodeId: string): void {
     if (visited.has(nodeId)) return;
     visited.add(nodeId);
-    const node = graph.nodes.find((n) => n.id === nodeId);
+    const node = graph.nodes.find((n: GraphNode) => n.id === nodeId);
     if (!node) return;
     for (const dep of node.dependsOn) {
       visit(dep);
     }
-    const found = graph.nodes.find((n) => n.id === nodeId);
+    const found = graph.nodes.find((n: GraphNode) => n.id === nodeId);
     if (found) result.push(found);
   }
 

@@ -148,8 +148,8 @@ export async function runCEOE2E(query?: string): Promise<E2EResult> {
       context: { intent: "strategy", domain: "expansion" },
     });
     const decisionId = `ceo-decision-${Date.now()}`;
-    traceDecision(decisionId, `Action: ${result.decision?.action || "strategic_decision"}, confidence: ${result.decision?.confidence?.overall ?? "N/A"}`);
-    pass("Decision", `Action: ${result.decision?.action || "strategic_decision"}, reasoning: ${(result.decision?.reasoning || "").slice(0, 100)}`);
+    traceDecision(decisionId, `Action: ${(result.decision as any)?.action || "strategic_decision"}, confidence: ${result.decision?.confidence?.overall ?? "N/A"}`);
+    pass("Decision", `Action: ${(result.decision as any)?.action || "strategic_decision"}, reasoning: ${(result.decision?.reasoning || "").slice(0, 100)}`);
   } catch (e: any) {
     fail("Decision", e.message);
   }

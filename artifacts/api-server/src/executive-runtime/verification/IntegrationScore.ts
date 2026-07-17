@@ -132,7 +132,7 @@ export async function scoreExecutive(role: string): Promise<ExecutiveScore> {
       context: { verify: true },
     });
     if (result.decision?.reasoning) {
-      alive("Decision", `Decision: ${result.decision.action || result.decision.reasoning.slice(0, 80)}`);
+      alive("Decision", `Decision: ${(result.decision as any).action || result.decision.reasoning.slice(0, 80)}`);
     } else {
       dead("Decision", "No decision generated");
     }

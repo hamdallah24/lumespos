@@ -206,12 +206,12 @@ export class WorkflowEngine {
 
   private async handleNodeFailure(inst: WorkflowInstance, failedNodeId: string): Promise<void> {
     const result = inst.nodeResults.get(failedNodeId);
-    const retries = result?.metadata?.["retryCount"] as number ?? 0;
+    const retries = (result as any)?.metadata?.["retryCount"] as number ?? 0;
 
     if (retries < inst.config.maxRetries) {
       const updatedResult = inst.nodeResults.get(failedNodeId);
       if (updatedResult) {
-        updatedResult.metadata = { ...updatedResult.metadata, retryCount: retries + 1 };
+        (updatedResult as any).metadata = { ...(updatedResult as any).metadata, retryCount: retries + 1 };
       }
       progressTracker.setNodeStatus(inst.plan.graph.id, failedNodeId, "pending");
 

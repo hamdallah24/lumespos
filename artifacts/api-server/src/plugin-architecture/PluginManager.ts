@@ -43,7 +43,7 @@ export const PluginManager = {
       if (!ok) return false;
     }
     try {
-      const ctx = createPluginContext(id, p.manifest);
+      const ctx = createPluginContext(id, p.manifest as any);
       await p.start?.(ctx);
       setPluginStatus(id, "active");
       return true;
@@ -79,7 +79,7 @@ export const PluginManager = {
 
       const start = Date.now();
       try {
-        const ctx = createPluginContext(plugin.manifest.id, plugin.manifest);
+        const ctx = createPluginContext(plugin.manifest.id, plugin.manifest as any);
         const result = await plugin.execute(hook, payload, ctx);
         results.push({
           pluginId: plugin.manifest.id,

@@ -54,7 +54,7 @@ router.post("/auth/signup", async (req, res, next) => {
     try {
       isFirstUser = (await db.select().from(usersTable).limit(1)).length === 0;
     } catch {
-      isFirstUser = mockStorage.list().length === 0;
+      isFirstUser = (mockStorage as any).list().length === 0;
     }
     if (!isFirstUser && (!inviteCode || inviteCode !== signupCode)) {
       res.status(403).json({ error: "Kode undangan tidak valid" });

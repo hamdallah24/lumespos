@@ -161,7 +161,16 @@ PipelineStageRegistry.register({
     const brief = ctx.read<any>("brief");
     const role = ctx.read<string>("executiveRole") || "COO";
     if (brief) {
-      const decision = await ExecutiveDispatchRegistry.dispatch(role, brief, {});
+      const pipelineContext = {
+        correlationId: ctx.correlationId,
+        situations: ctx.read<any>("situations"),
+        strategies: ctx.read<any>("strategies"),
+        plans: ctx.read<any>("plans"),
+        knowledge: ctx.read<any>("knowledge"),
+        executiveRole: role,
+        stage: "executive_runtime",
+      };
+      const decision = await ExecutiveDispatchRegistry.dispatch(role, brief, pipelineContext);
       return { correlationId: ctx.correlationId, stageId: makeStageId("executive_runtime"), patches: { executiveDecision: decision }, timestamp: "" };
     }
     return { correlationId: ctx.correlationId, stageId: makeStageId("executive_runtime"), patches: {}, timestamp: "" };

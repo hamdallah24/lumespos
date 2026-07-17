@@ -1,5 +1,5 @@
 import React from "react";
-import { Activity, CheckCircle2, XCircle, Layers, Shield, Cpu, Brain, Database, GitBranch, Zap, Users, FileText, Server } from "lucide-react";
+import { Activity, CheckCircle2, XCircle, Layers, Shield, Cpu, Brain, Database, GitBranch, Zap, Users, FileText, Server, AlertTriangle, Clock, BarChart3, Radio } from "lucide-react";
 
 const LAYER_ICONS: Record<string, React.ComponentType<any>> = {
   CEO: Zap, CTO: Cpu, COO: Database, CFO: FileText, CKO: Brain, QA: Shield, DevOps: Server, Research: GitBranch,
@@ -25,6 +25,7 @@ export default function EngineeringOSDashboard() {
   const [readiness, setReadiness] = React.useState<ReadinessData | null>(null);
   const [health, setHealth] = React.useState<HealthData | null>(null);
   const [orgData, setOrgData] = React.useState<any>(null);
+  const [observatory, setObservatory] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
@@ -32,10 +33,12 @@ export default function EngineeringOSDashboard() {
       fetch("/api/ai/readiness-public", { credentials: "include" }).then(r => r.json()),
       fetch("/api/ai/health", { credentials: "include" }).then(r => r.json()).catch(() => null),
       fetch("/api/ai/org-public", { credentials: "include" }).then(r => r.json()).catch(() => null),
-    ]).then(([r, h, o]) => {
+      fetch("/api/ai/observatory", { credentials: "include" }).then(r => r.json()).catch(() => null),
+    ]).then(([r, h, o, obs]) => {
       setReadiness(r);
       setHealth(h);
       setOrgData(o);
+      setObservatory(obs);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -154,6 +157,89 @@ export default function EngineeringOSDashboard() {
           <h2 className="text-sm font-semibold mb-4 text-slate-700 dark:text-white">Component Registry</h2>
           <p className="text-xs text-slate-400">{health?.registry || "Loading..."}</p>
         </div>
+
+        {/* AI Observatory */}
+        {observatory && (
+          <div className="bg-white dark:bg-white/[0.03] rounded-2xl border border-[#1565FF]/10 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Radio className="w-4 h-4 text-green-500" />
+              <h2 className="text-sm font-semibold text-slate-700 dark:text-white">AI Observatory</h2>
+              <span className="text-[10px] text-slate-400 ml-auto">uptime {Math.floor(observatory.gateway.uptime / 60)}m · {observatory.gateway.requestCount} requests</span>
+            </div>
+
+            {/* Pipeline Stages */}
+            {observatory.pipeline.length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase">Pipeline Stages</h3>
+                <div className="space-y-1.5">
+                  {observatory.pipeline.map((s: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <div className={`w-1.5 h-1.5 rounded-full ${s.status === 'success' ? 'bg-green-500' : s.status === 'failed' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                      <span className="w-24 text-slate-600 dark:text-slate-300">{s.name}</span>
+                      <span className="text-slate-400">{s.latencyMs}ms</span>
+                      <span className="text-slate-400">·</span>
+                      <span className={s.confidence > 0.7 ? 'text-green-600' : 'text-yellow-600'}>{Math.round(s.confidence * 100)}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* System Health */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+              <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                <div className="text-[10px] text-slate-400">Awareness</div>
+                <div className="text-sm font-bold text-slate-700 dark:text-white">{observatory.awareness?.score ?? '—'}</div>
+              </div>
+              <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                <div className="text-[10px] text-slate-400">Health</div>
+                <div className={`text-sm font-bold ${observatory.awareness?.overallHealth === 'healthy' ? 'text-green-600' : 'text-yellow-600'}`}>
+                  {observatory.awareness?.overallHealth ?? '—'}
+                </div>
+              </div>
+              <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                <div className="text-[10px] text-slate-400">Success Rate</div>
+                <div className="text-sm font-bold text-slate-700 dark:text-white">
+                  {observatory.learning ? `${Math.round(observatory.learning.overallSuccessRate * 100)}%` : '—'}
+                </div>
+              </div>
+              <div className="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                <div className="text-[10px] text-slate-400">Avg Confidence</div>
+                <div className="text-sm font-bold text-slate-700 dark:text-white">
+                  {observatory.learning ? `${Math.round(observatory.learning.overallAvgConfidence * 100)}%` : '—'}
+                </div>
+              </div>
+            </div>
+
+            {/* Provider Health */}
+            {Object.keys(observatory.providerHealth).length > 0 && (
+              <div className="mb-4">
+                <h3 className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase">Provider Circuit Status</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {Object.entries(observatory.providerHealth).map(([name, status]: [string, any]) => (
+                    <div key={name} className={`p-2 rounded-lg text-xs ${status.state === 'CLOSED' ? 'bg-green-50 dark:bg-green-950/20' : 'bg-red-50 dark:bg-red-950/20'}`}>
+                      <span className="font-medium text-slate-600 dark:text-slate-300">{name}</span>
+                      <span className={`ml-2 ${status.state === 'CLOSED' ? 'text-green-600' : 'text-red-600'}`}>{status.state}</span>
+                      <span className="text-slate-400 ml-1">({status.failureCount} failures)</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Patterns */}
+            {observatory.patterns.length > 0 && (
+              <div>
+                <h3 className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-2 uppercase">Patterns</h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {observatory.patterns.map((p: string, i: number) => (
+                    <span key={i} className="px-2 py-0.5 text-[10px] rounded-full bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900">{p}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
     </div>

@@ -5,7 +5,7 @@
 
 import { missionRuntime } from "./mission-engine";
 import { organizationEngine } from "./organization-engine";
-import { applicationRuntime } from "./application-runtime-adapter";
+import { getRuntimeGateway } from "./RuntimeGateway";
 import { aiMissionService } from "../../services/ai-mission-service";
 import { db, missionsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -134,7 +134,7 @@ class MissionEngine {
       const enrichedMessage = (mission.ckoTargets?.targetFiles?.length ?? 0) > 0
         ? `${mission.userMessage || mission.title}\n\n📌 TARGET ANALISIS DARI CKO: ${mission.ckoTargets.targetFiles.join(", ")}\n${mission.ckoTargets.businessContext || ""}`
         : (mission.userMessage || mission.title);
-      const result = await applicationRuntime.executeMessage({
+      const result = await getRuntimeGateway().assemble({
         target: "CTO",
         message: enrichedMessage,
         userId: mission.userId,
@@ -201,7 +201,7 @@ class MissionEngine {
         ceoPrompt = ceoPrompt.slice(0, 2500);
 
         const memoryContext = ceoMemory ? `\n\n## Konteks Eksekusi Sebelumnya\n${ceoMemory}` : "";
-        const ceoFeedback = await applicationRuntime.executeMessage({
+        const ceoFeedback = await getRuntimeGateway().assemble({
           target: "CEO",
           message: `[CEO APPROVAL] CTO telah selesai menganalisis. Berikut hasilnya:\n\n${ceoPrompt}${memoryContext}\n\nSetujui hasil ini untuk dikirim ke Founder? Balas dengan SETUJUI jika kualitas memadai.`,
           userId: mission.userId || 1,
@@ -242,7 +242,7 @@ class MissionEngine {
       // CEO: generate simple-language summary for founder
       let ceoSummary = "";
       try {
-        const ceoExplain = await applicationRuntime.executeMessage({
+        const ceoExplain = await getRuntimeGateway().assemble({
           target: "CEO",
           message: `[CEO EXPLAIN] CTO baru saja selesai menganalisis. Berikut hasil analisis teknisnya:\n\n${result.text.slice(0, 3000)}\n\nTugasmu: jelaskan hasil ini ke Founder (pemilik toko) dalam BAHASA INDONESIA SEDERHANA. Founder bukan programmer. Jelaskan:\n1. Apa yang ditemukan? (dengan analogi sederhana)\n2. Apa dampaknya ke bisnis?\n3. Apa rekomendasi selanjutnya?\n\nGunakan bahasa sehari-hari, hindari istilah teknis. Maksimal 3 paragraf.`,
           userId: mission.userId || 1,

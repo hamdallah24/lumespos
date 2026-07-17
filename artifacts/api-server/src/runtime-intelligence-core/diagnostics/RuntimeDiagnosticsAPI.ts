@@ -61,19 +61,19 @@ export class RuntimeDiagnosticsAPI {
       ? await this.provider.health()
       : null;
 
-    const allCaps = this.capabilityGraph?.getAllCapabilities() ?? [];
-    const domains = [...new Set(allCaps.map(c => c.domain))].sort();
-    const healthyCaps = allCaps.filter(c => c.health !== 'offline');
+    const allCaps: any[] = (this.capabilityGraph as any)?.getAllCapabilities() ?? [];
+    const domains = [...new Set(allCaps.map((c: any) => c.domain))].sort();
+    const healthyCaps = allCaps.filter((c: any) => c.health !== 'offline');
 
     return {
-      status: this.lastContext?.degraded ? 'degraded' : 'ok',
-      version: this.lastContext?.version || '1.0',
+      status: this.lastContext?.metadata.degraded ? 'degraded' : 'ok',
+      version: this.lastContext?.metadata.version || '1.0',
       uptime: Math.floor((Date.now() - this.uptimeStart) / 1000),
       lastContract: this.lastContext
         ? {
-            contractId: this.lastContext.contractId,
-            version: this.lastContext.version,
-            degraded: this.lastContext.degraded,
+            contractId: this.lastContext.metadata.contractId,
+            version: this.lastContext.metadata.version,
+            degraded: this.lastContext.metadata.degraded,
             trace: this.lastContext.runtime.trace,
             confidence: this.lastContext.runtime.confidence,
           }
@@ -94,8 +94,8 @@ export class RuntimeDiagnosticsAPI {
         },
       },
       capabilities: {
-        supportedDomains: domains,
-        supportedTools: healthyCaps.filter(c => c.tools.length > 0).length,
+        supportedDomains: domains as string[],
+        supportedTools: (healthyCaps as any[]).filter((c: any) => c.tools.length > 0).length,
         activeReasoningProvider: this.providerName,
       },
     };

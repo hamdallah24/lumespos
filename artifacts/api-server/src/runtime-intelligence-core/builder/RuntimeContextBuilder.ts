@@ -44,11 +44,13 @@ export class RuntimeContextBuilder {
     refinementHistory?: RefinementEntry[],
   ): RuntimeContext {
     return {
-      version,
-      contractId,
-      createdAt,
-      degraded,
-      degradedReason,
+      metadata: {
+        version,
+        contractId,
+        createdAt,
+        degraded,
+        degradedReason,
+      },
       intelligence: {
         goal: understanding.goal,
         intent: understanding.intent,

@@ -563,7 +563,7 @@ export async function executeOperation(action: string, params: Record<string, an
       const grouped: Record<string, { price: string; isActive: boolean; variants: { name: string; price: string }[] }> = {};
       for (const p of allProducts) {
         if (!grouped[p.name]) grouped[p.name] = { price: p.price, isActive: p.isActive, variants: [] };
-        if (p.variantName) grouped[p.name].variants.push({ name: p.variantName, price: p.variantPrice });
+        if (p.variantName) grouped[p.name].variants.push({ name: p.variantName, price: p.variantPrice || '' });
       }
       let text = `📋 Daftar Produk:\n`;
       for (const [name, info] of Object.entries(grouped)) {

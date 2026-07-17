@@ -76,7 +76,7 @@ export class ExecutionDriver {
   ) {
     this.governor = new ExecutionGovernor(complexity, domain, entities, objective, callbacks?.onExecutionEvent, needsImplementation);
     this.callbacks = callbacks || {};
-    this._needsImpl = needsImplementation;
+    (this as any)._needsImpl = needsImplementation;
   }
 
   plan(role: string, spec: { intent?: string; domain?: string; complexity?: string; objective?: string; entities?: string[]; targetFiles?: string[] }): PipelineContext {
@@ -183,7 +183,7 @@ export class ExecutionDriver {
       } else if (contract && contract.allowedTools.length === 0) {
         activeTools = [];
       }
-      console.log(`[DRIVER:EXEC] CALL LLM strategy=${strategy} tools=${activeTools.length} cycle=${context.cycle} needsImpl=${this._needsImpl}`);
+      console.log(`[DRIVER:EXEC] CALL LLM strategy=${strategy} tools=${activeTools.length} cycle=${context.cycle} needsImpl=${(this as any)._needsImpl}`);
 
       for (let i = 0; i < messages.length; i++) {
         const m = messages[i];
@@ -244,7 +244,7 @@ export class ExecutionDriver {
             if (retryText.length > finalText.length) { context.result = retryText; await remember(userId, mode, user, retryText); return retryText; }
           }
           // Jika needsImpl=true, jangan return — lanjut ke EXECUTE cycle
-          if (this._needsImpl) {
+          if ((this as any)._needsImpl) {
             if (finalText) { context.result = finalText; await remember(userId, mode, user, finalText); }
             // Summarize CONCLUDE output menjadi tech spec yang PERSIS untuk EXECUTE
             try {

@@ -53,7 +53,7 @@ export const NorthStarProvider = {
 
   evaluateStrategy(direction: string): { score: number; dimensions: Array<{ name: string; score: number; weight: number }> } {
     const config = NorthStarConfiguration.get();
-    const dimensionScores: Record<string, number> = {
+    const dimensionScores: Record<string, Record<string, number>> = {
       growth: { revenue: 80, margin: 50, coverage: 40, yield: 50, cash: 30, expense: 40, satisfaction: 50 },
       optimization: { revenue: 50, margin: 80, coverage: 70, yield: 70, cash: 60, expense: 70, satisfaction: 60 },
       cost_reduction: { revenue: 30, margin: 70, coverage: 60, yield: 50, cash: 70, expense: 90, satisfaction: 40 },

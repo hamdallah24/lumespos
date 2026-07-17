@@ -17,7 +17,7 @@ export function setMirrorState(state: TwinBusinessState): void {
 }
 
 export function updateMirrorField(field: keyof TwinBusinessState, value: number): void {
-  mirrorState[field] = value;
+  (mirrorState as any)[field] = value;
   mirrorState.updatedAt = new Date().toISOString();
 }
 

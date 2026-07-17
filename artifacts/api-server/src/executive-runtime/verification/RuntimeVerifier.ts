@@ -136,9 +136,8 @@ export async function verifyExecutive(role: string): Promise<VerificationReport>
 
   // 8. Trace Recorded
   try {
-    const traces = getRecentTraces(5);
     const roleTraces = getTracesByRole(r as any, 5);
-    check("Trace Recorded", roleTraces.length > 0, roleTraces.length > 0 ? `${roleTraces.length} traces found for ${r}` : `No traces for ${r} (may need active usage)`);
+    check("Trace Recorded", roleTraces.length > 0, roleTraces.length > 0 ? `${roleTraces.length} traces found` : `No traces for ${r} (may need active usage)`);
   } catch (e: any) {
     fail("Trace", e.message);
   }

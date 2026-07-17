@@ -1,4 +1,5 @@
-import type { KPITarget, StrategicDirection, MetricDomain } from "./types";
+import type { KPITarget, StrategicDirection } from "./types";
+import type { MetricDomain } from "../../business-intelligence/core/types";
 
 const domainKPIs: Record<string, Array<{ metric: string; unit: string; improveBy: number }>> = {
   inventory: [

@@ -2,7 +2,7 @@ import { getIdentity } from "../../../ai/runtime/identity";
 import { getFoundationProvider } from "../../../ai/runtime/foundation";
 import { consultantDomain } from "../../../programs/consultant";
 import { executeOperation } from "../../../routes/ai-business";
-import { callDeepSeek } from "../../../ai/llm/llm-adapter";
+import { executiveReason } from "../../../ai/runtime/execution/ExecutiveReasoner";
 import { BriefGenerator, type ExecutiveBrief } from "../../core";
 import { ApprovalFormatter } from "../../core";
 import type { ExecutiveDecision } from "../../../eios-runtime/contracts/PipelineContracts";
@@ -119,6 +119,7 @@ interface ExecutiveTask {
   userId: number;
   branchId?: number;
   onProgress?: (msg: string) => void;
+  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
 }
 
 interface ExecutiveResult {
@@ -284,7 +285,7 @@ async function handleStatus(query: string, branchId?: number): Promise<string> {
 
   const contextStr = parts.join("\n\n");
   const responsePrompt = `${COO_BRIEF_PROMPT}\n\n{OPERATIONAL_CONTEXT}\n${contextStr}`;
-  const llmResponse = await callDeepSeek(responsePrompt, query, 0, "bisnis", 3000, false);
+  const llmResponse = (await executiveReason({ persona: responsePrompt, context: query, userId: 0 })).content;
   return llmResponse;
 }
 
@@ -321,7 +322,7 @@ async function handleQuestion(query: string): Promise<string> {
   ].filter(Boolean).join("\n\n");
 
   const prompt = `# Identitas\nKamu adalah **Direktur Operasional (COO)** Lume's Everywhere.\n\n${context}\n\nJawab pertanyaan user berdasarkan pengetahuan di atas. Jika tidak tahu, akui dengan jujur.`;
-  const llmResponse = await callDeepSeek(prompt, query, 0, "bisnis", 1500, false);
+  const llmResponse = (await executiveReason({ persona: prompt, context: query, userId: 0 })).content;
   return llmResponse;
 }
 
@@ -367,7 +368,7 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
   }
 
   pipeline.push("IntentClassification");
-  const intentResponse = await callDeepSeek(COO_INTENT_PROMPT, task.message, userId, "bisnis", 500, false);
+  const intentResponse = (await executiveReason({ persona: COO_INTENT_PROMPT, context: task.message, userId })).content;
 
   let intentType: string | null = null;
   let intentData: Record<string, any> = {};
@@ -427,7 +428,7 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
     `\n${COO_EXECUTION_SCHEMA}`,
   ].filter(Boolean).join("\n");
 
-  const llmResponse = await callDeepSeek(systemPrompt, task.message, userId, "bisnis", 2000, false);
+  const llmResponse = (await executiveReason({ persona: systemPrompt, context: task.message, userId })).content;
 
   if (llmResponse.startsWith("ERROR:")) {
     return { success: false, text: llmResponse, pipeline };

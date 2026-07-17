@@ -14,7 +14,7 @@ export class ExecutiveAuditor {
 
   /** Audit single executive */
   audit(executive: ExecutiveRole): ExecutiveAudit {
-    const rep = executiveReputationTracker.get(executive);
+    const rep = executiveReputationTracker.get(executive as any);
     const strengths: string[] = [];
     const weaknesses: string[] = [];
     const actions: string[] = [];

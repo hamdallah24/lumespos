@@ -3,7 +3,7 @@
 // Single entry point for any approved proposal, regardless of source.
 
 import { buildSpecV1 } from "../runtime/execution-spec";
-import { applicationRuntime } from "../runtime/application-runtime-adapter";
+import { getRuntimeGateway } from "../runtime/RuntimeGateway";
 
 export interface ProposalInput {
   id: string;
@@ -53,7 +53,7 @@ export async function executeApprovedProposal(
   if (targetFiles.length > 0) ctxParts.push(`Target Files:\n${targetFiles.map(f => `- ${f}`).join("\n")}`);
 
   try {
-    const result = await applicationRuntime.executeMessage({
+    const result = await getRuntimeGateway().assemble({
       target: "CTO",
       message: ctxParts.join("\n"),
       userId: 0,

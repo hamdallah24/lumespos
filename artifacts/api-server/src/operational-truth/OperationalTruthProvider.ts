@@ -244,7 +244,7 @@ export const OperationalTruthProvider = {
           rawTexts[domain] = result;
 
           if (domain === "sales") {
-            if (tool === "get_sales_summary") { data.todaySales = parseSalesSummary(result, branchId); financeSales = data.todaySales; }
+            if (tool === "get_sales_summary") { const parsed = parseSalesSummary(result, branchId); if (parsed) (parsed as any).branchId = branchId; data.todaySales = parsed as any; financeSales = data.todaySales; }
             if (tool === "get_top_products") data.topProducts = parseTopProducts(result);
           } else if (domain === "inventory") {
             data.inventory = parseInventory(result);
@@ -252,7 +252,7 @@ export const OperationalTruthProvider = {
           } else if (domain === "products") {
             data.products = parseProducts(result);
           } else if (domain === "expenses") {
-            data.expenses = parseExpenses(result); financeExpenses = data.expenses;
+            const parsedExp = parseExpenses(result); data.expenses = parsedExp ? { ...parsedExp, period } as any : undefined; financeExpenses = data.expenses;
           } else if (domain === "branches") {
             const branchLines = result.split("\n").filter(l => l.includes("ID:"));
             data.branches = branchLines.map(l => {

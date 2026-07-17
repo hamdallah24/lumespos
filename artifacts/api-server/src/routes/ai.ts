@@ -3,7 +3,7 @@
 import { Router } from "express";
 import { requireRole, requireAuth } from "../middlewares/requireAuth";
 import { mergeDeploy, checkRateLimit, getChecklistItems, upsertChecklistItem, clearChecklistItems, saveSharedContext, getSharedContext, getOrCreateConversation, remember, clearMemory } from "./ai-helpers";
-import { applicationRuntime } from "../ai/runtime/application-runtime-adapter";
+import { getRuntimeGateway } from "../ai/runtime/RuntimeGateway";
 import { computeHealthScore } from "../ai/runtime/health-policy";
 import { registryStatus } from "../ai/runtime/registry";
 import { emitToolEvent, emitStateEvent } from "../ai/runtime/execution-stream";
@@ -111,9 +111,9 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
     try {
       // ── MULTI-MENTION PATH ──
       if (isMultiMention) {
-        const validTargets = uniqueMentions.filter(t => applicationRuntime.getExecutive(t));
+        const validTargets = uniqueMentions.filter(t => getRuntimeGateway().getExecutive(t));
         if (validTargets.length === 0) {
-          const fallback = await applicationRuntime.executeMessage({
+          const fallback = await getRuntimeGateway().assemble({
             message: clean, userId: uid, mode: m, branchId: defaultBranchId,
             onExecutionEvent: (snapshot: any) => { if (isSSE) res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`); },
             onTool: (ev: any) => { if (isSSE) emitToolEvent(res, "CEO", "ToolExecutor", ev.status, ev.name, ev.durationMs); },
@@ -123,7 +123,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           await sendResult(fallback, true);
           if (fallback.text?.length > 20) await saveSharedContext(uid, m, fallback.text.slice(0, 500));
         } else {
-          const results = await applicationRuntime.executeForTargets(validTargets, {
+          const results = await getRuntimeGateway().assembleForTargets(validTargets, {
             message: clean, userId: uid, mode: m, branchId: defaultBranchId,
           });
           if (isSSE) {
@@ -152,7 +152,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
         let isFromCEO = false;
 
         if (resolvedTarget) {
-          result = await applicationRuntime.executeMessage({
+          result = await getRuntimeGateway().assemble({
             message: clean, userId: uid, mode: m, branchId: defaultBranchId,
             target: resolvedTarget,
             onProgress: (msg: string) => { if (isSSE) emitStatus(res, msg); },
@@ -162,7 +162,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
           });
           isFromCEO = resolvedTarget === "CEO";
         } else {
-          result = await applicationRuntime.executeMessage({
+          result = await getRuntimeGateway().assemble({
             message: clean, userId: uid, mode: m, branchId: defaultBranchId,
             onExecutionEvent: (snapshot: any) => { if (isSSE) res.write(`data: ${JSON.stringify({ type: "execution_update", ...snapshot })}\n\n`); },
             onTool: (ev: any) => { if (isSSE) emitToolEvent(res, "CEO", "ToolExecutor", ev.status, ev.name, ev.durationMs); },
@@ -248,6 +248,13 @@ router.get("/ai/health", requireRole("owner"), async (_req, res) => {
     registry: registryStatus(),
     timestamp: score.timestamp,
   });
+});
+
+// ── AI OBSERVATORY (P3) ──
+router.get("/ai/observatory", requireRole("owner"), async (_req, res) => {
+  const { getAiObservatory } = await import("../ai/observatory/AiObservatory");
+  const snapshot = getAiObservatory().snapshot();
+  res.json(snapshot);
 });
 
 // ── PRODUCTION READINESS (Sprint 10) ──
@@ -378,7 +385,7 @@ router.get("/ai/missions/active", requireAuth, async (req, res) => {
 // SSE stream untuk misi background — replay snapshot + live update
 router.get("/ai/mission/:id/stream", requireAuth, async (req, res) => {
   const { aiMissionService } = await import("../services/ai-mission-service");
-  const missionId = parseInt(req.params.id);
+  const missionId = parseInt(req.params.id as string);
   if (isNaN(missionId)) { res.status(400).json({ error: "Invalid mission ID" }); return; }
 
   const mission = await aiMissionService.getById(missionId);

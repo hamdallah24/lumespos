@@ -435,96 +435,107 @@ export interface RefinementEntry {
   triggeredBy: string;
 }
 
-// ===== RuntimeContext (Final Contract) =====
+// ===== Slices (RuntimeContext Building Blocks) =====
 
-export interface RuntimeContext {
+export interface ContextMetadata {
   version: string;
   contractId: string;
   createdAt: number;
   degraded: boolean;
   degradedReason?: string;
+}
 
-  intelligence: {
-    goal: string;
-    intent: string;
-    subIntent: string;
-    domain: {
-      primary: string;
-      secondary: string[];
-    };
-    entities: Entity[];
-    reasoning: {
-      intentRationale: string;
-      domainRationale: string;
-      entityRationale: string;
-      alternativesConsidered: string[];
-    };
-    thinkingMode: 'fast' | 'balanced' | 'deep';
-    urgency: 'low' | 'medium' | 'high';
-    risk: RiskAssessment;
+export interface IntelligenceSlice {
+  goal: string;
+  intent: string;
+  subIntent: string;
+  domain: {
+    primary: string;
+    secondary: string[];
   };
-
-  planning: {
-    executionPlan: ExecutionStep[];
-    suggestedTools: ToolSuggestion[];
-    recommendedStrategy: string;
-    expectedOutput: string;
+  entities: Entity[];
+  reasoning: {
+    intentRationale: string;
+    domainRationale: string;
+    entityRationale: string;
+    alternativesConsidered: string[];
   };
+  thinkingMode: 'fast' | 'balanced' | 'deep';
+  urgency: 'low' | 'medium' | 'high';
+  risk: RiskAssessment;
+}
 
-  grounding: {
-    operational: OperationalData[];
-    memory: MemoryContext;
-    knowledge: KnowledgeBlock[];
-    repository: FileContent[];
-    metadata: MetadataNode[];
-    requiredTruth: RetrievalTask[];
-    retrievedTruth: GroundingResult[];
-    missingTruth: string[];
+export interface PlanningSlice {
+  executionPlan: ExecutionStep[];
+  suggestedTools: ToolSuggestion[];
+  recommendedStrategy: string;
+  expectedOutput: string;
+}
+
+export interface GroundingSlice {
+  operational: OperationalData[];
+  memory: MemoryContext;
+  knowledge: KnowledgeBlock[];
+  repository: FileContent[];
+  metadata: MetadataNode[];
+  requiredTruth: RetrievalTask[];
+  retrievedTruth: GroundingResult[];
+  missingTruth: string[];
+}
+
+export interface VerificationSlice {
+  results: VerificationResult;
+  explainability: {
+    whyDomain: string;
+    whyTool: string;
+    whyRepository: string;
+    whyMemory: string;
+    whyConfidence: string;
+    whyPlanning: string;
   };
+}
 
-  verification: {
-    results: VerificationResult;
-    explainability: {
-      whyDomain: string;
-      whyTool: string;
-      whyRepository: string;
-      whyMemory: string;
-      whyConfidence: string;
-      whyPlanning: string;
-    };
-  };
-
-  awareness?: {
+export interface AwarenessSlice {
+  summary: string;
+  overallHealth: string;
+  overallConfidence: number;
+  awarenessScore: number;
+  nextAttention: string;
+  businessSituation: {
     summary: string;
-    overallHealth: string;
-    overallConfidence: number;
-    awarenessScore: number;
-    nextAttention: string;
-    businessSituation: {
-      summary: string;
-      riskLevel: string;
-      trend: string;
-      focus: string;
-    };
-    systemSituation: {
-      summary: string;
-      health: string;
-      degradedServices: string[];
-      runtimeState: string;
-    };
-    criticalSignalCount: number;
-    warningCount: number;
+    riskLevel: string;
+    trend: string;
+    focus: string;
   };
+  systemSituation: {
+    summary: string;
+    health: string;
+    degradedServices: string[];
+    runtimeState: string;
+  };
+  criticalSignalCount: number;
+  warningCount: number;
+}
 
+export interface RuntimeSlice {
+  trace: RuntimeTrace;
+  evidence: Evidence[];
+  budget: RuntimeBudget;
+  confidence: OverallConfidence;
+  reasoningTrace: TraceEntry[];
+}
+
+// ===== RuntimeContext (Composable Contract) =====
+
+export interface RuntimeContext {
+  metadata: ContextMetadata;
+  intelligence: IntelligenceSlice;
+  planning: PlanningSlice;
+  grounding: GroundingSlice;
+  verification: VerificationSlice;
+  awareness?: AwarenessSlice;
   refinementHistory?: RefinementEntry[];
-
-  runtime: {
-    trace: RuntimeTrace;
-    evidence: Evidence[];
-    budget: RuntimeBudget;
-    confidence: OverallConfidence;
-    reasoningTrace: TraceEntry[];
-  };
+  runtime: RuntimeSlice;
 }
 
 export interface MemoryContext {

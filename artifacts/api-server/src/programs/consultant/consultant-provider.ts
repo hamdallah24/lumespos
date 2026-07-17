@@ -8,7 +8,6 @@ import { strategicCache } from "./consultant-cache";
 import type { StrategicCache, ConsultantMode, ConsultantKPI } from "./consultant-types";
 import { kpiTracker } from "./consultant-kpi";
 import { reportGenerator } from "./consultant-report";
-import { callDeepSeek } from "../../ai/llm/llm-adapter";
 import { consultantDiscovery } from "./consultant-discovery";
 
 export interface CKOTargets {

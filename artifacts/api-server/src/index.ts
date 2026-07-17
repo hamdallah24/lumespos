@@ -116,6 +116,17 @@ async function boot(): Promise<void> {
     schedulePipeline(30000);
     logger.info("[EIOS] Runtime v4.1.1 active — 11 stages, 6 observers, 7 profiles, 8 executives");
 
+    // T12.1: Initialize Runtime Intelligence Core (RIC) — cognitive kernel
+    try {
+      const { initializeRIC } = await import("./runtime-intelligence-core/RICAdapter");
+      await initializeRIC(process.cwd());
+      logger.info("[RIC] Runtime Intelligence Core initialized — Awareness, Understanding, Planning, Grounding, Verification active");
+      const { registerExecutionEngine } = await import("./runtime-intelligence-core/RICAdapter");
+      registerExecutionEngine();
+    } catch (err) {
+      logger.warn({ err }, "[RIC] Runtime Intelligence Core initialization skipped");
+    }
+
     // ECP-037 P1: Activate Knowledge Pipeline
     const { knowledgeManager } = await import("./ai/runtime/knowledge/knowledge-manager");
     knowledgeManager.start();
@@ -178,7 +189,7 @@ async function boot(): Promise<void> {
           if (r.actions > 0) logger.info({ engine: r.engine, actions: r.actions, details: r.details }, "Integration maintenance");
         }
         const healthStatuses = IntegrationManager.health();
-        logger.info({ engines: healthStatuses.map(h => `${h.engine}=${h.status}`).join(", ") }, "Integration engine health");
+        logger.info({ engines: healthStatuses.map((h: any) => `${h.engine}=${h.status}`).join(", ") }, "Integration engine health");
       } catch { /* non-critical */ }
       // Unified retrieval health check
       const unifiedEvidence = UnifiedLearningLayer.retrieve({ mission: "health-check", maxResults: 5 });
