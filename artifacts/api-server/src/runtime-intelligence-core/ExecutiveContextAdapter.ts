@@ -1,4 +1,26 @@
-import type { RuntimeContext, OperationalData } from './types';
+import type { RuntimeContext, OperationalData, RefinementEntry } from './types';
+
+export interface AwarenessContext {
+  summary: string;
+  overallHealth: string;
+  overallConfidence: number;
+  awarenessScore: number;
+  nextAttention: string;
+  businessSituation: {
+    summary: string;
+    riskLevel: string;
+    trend: string;
+    focus: string;
+  };
+  systemSituation: {
+    summary: string;
+    health: string;
+    degradedServices: string[];
+    runtimeState: string;
+  };
+  criticalSignalCount: number;
+  warningCount: number;
+}
 
 export interface ExecutiveContext {
   intent: {
@@ -25,11 +47,46 @@ export interface ExecutiveContext {
   repository: {
     topFiles: { path: string; confidence: number }[];
   };
+  awareness?: {
+    situation: string;
+    health: string;
+    score: number;
+    nextAction: string;
+    businessRisk: string;
+    systemHealth: string;
+  };
+  refinement?: {
+    wasRefined: boolean;
+    iterations: number;
+    confidenceDelta: number;
+    resolvedIssues: string[];
+    remainingIssues: string[];
+  };
 }
 
 export function mapToExecutive(rc: RuntimeContext): ExecutiveContext {
   const overall = rc.runtime.confidence.overall;
   const risk = rc.intelligence.risk;
+  const aw = rc.awareness;
+
+  const awareness = aw ? {
+    situation: aw.summary,
+    health: aw.overallHealth,
+    score: aw.awarenessScore,
+    nextAction: aw.nextAttention,
+    businessRisk: aw.businessSituation.riskLevel,
+    systemHealth: aw.systemSituation.health,
+  } : undefined;
+
+  const history = rc.refinementHistory;
+  const lastEntry = history && history.length > 0 ? history[history.length - 1] : undefined;
+  const refinement = history && history.length > 0 ? {
+    wasRefined: true,
+    iterations: history.length,
+    confidenceDelta: (lastEntry?.confidenceAfter ?? 0) - (history[0].confidenceBefore),
+    resolvedIssues: history.flatMap(h => h.resolvedChecks).filter((v, i, a) => a.indexOf(v) === i),
+    remainingIssues: history[history.length - 1]?.failedChecks ?? [],
+  } : undefined;
 
   return {
     intent: {
@@ -73,6 +130,8 @@ export function mapToExecutive(rc: RuntimeContext): ExecutiveContext {
         confidence: 1.0,
       })),
     },
+    awareness,
+    refinement,
   };
 }
 

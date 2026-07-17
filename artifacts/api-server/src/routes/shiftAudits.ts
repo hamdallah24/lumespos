@@ -182,14 +182,15 @@ router.get("/shift/sales", requireAuth, async (req, res) => {
 
     const result = await db.execute(sql`
       SELECT 
-        COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash,
-        COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris,
-        COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card,
-        COUNT(*) as total_orders
+        COALESCE(SUM(CASE WHEN payment_method = 'cash' AND status = 'completed' THEN total ELSE 0 END), 0) as cash,
+        COALESCE(SUM(CASE WHEN payment_method = 'qris' AND status = 'completed' THEN total ELSE 0 END), 0) as qris,
+        COALESCE(SUM(CASE WHEN payment_method = 'card' AND status = 'completed' THEN total ELSE 0 END), 0) as card,
+        COUNT(*) FILTER (WHERE status = 'completed') as total_orders,
+        COUNT(*) FILTER (WHERE status = 'voided') as voided_count,
+        COALESCE(SUM(CASE WHEN status = 'voided' THEN total ELSE 0 END), 0) as voided_total
       FROM orders 
       WHERE branch_id = ${shift.branchId}
         AND created_at >= ${shift.shiftStart}
-        AND status = 'completed'
     `);
 
     const firstRow = result.rows[0] as any;
@@ -210,6 +211,8 @@ router.get("/shift/sales", requireAuth, async (req, res) => {
       card: cardTotal,
       total: cashTotal + qrisTotal + cardTotal,
       totalOrders: firstRow ? parseInt(firstRow.total_orders || 0) : 0,
+      voidedCount: firstRow ? parseInt(firstRow.voided_count || 0) : 0,
+      voidedTotal: firstRow ? parseFloat(firstRow.voided_total || 0) : 0,
       totalCups: cupResult ? parseInt(cupResult.total || "0") : 0,
     });
   } catch (error) {
@@ -345,6 +348,24 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     const difference = closingBalance - expectedBalance;
     let status = difference !== 0 ? "discrepancy" : "pending";
 
+    // Hitung void dalam shift ini
+    const [voidResult] = await db
+      .select({
+        voidedCount: sql<string>`COUNT(*)`,
+        voidedTotal: sql<string>`COALESCE(SUM(total), 0)`,
+      })
+      .from(sql`orders`)
+      .where(
+        and(
+          eq(sql`branch_id`, shift.branchId),
+          sql`created_at >= ${shift.shiftStart}`,
+          sql`created_at <= ${windowEnd}`,
+          eq(sql`status`, "voided"),
+        ),
+      );
+    const totalVoided = voidResult ? parseFloat(voidResult.voidedTotal || "0") : 0;
+    const totalVoidedCount = voidResult ? parseInt(voidResult.voidedCount || "0") : 0;
+
     // Hitung Physical Stock Difference
     let expectedStock = null;
     if (Array.isArray(actualStock) && actualStock.length > 0) {
@@ -361,7 +382,7 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     const cupM = cupCounts ? (Number(cupCounts.m) || 0) : 0;
     const cupL = cupCounts ? (Number(cupCounts.l) || 0) : 0;
     const cupTotal = cupS + cupM + cupL;
-    const notesObj = { closingBalance, expectedBalance, difference, totalCash, totalQris, totalCard, userNotes: notes || null, cupCounts: cupTotal > 0 ? { s: cupS, m: cupM, l: cupL } : undefined };
+    const notesObj = { closingBalance, expectedBalance, difference, totalCash, totalQris, totalCard, voidedCount: totalVoidedCount, voidedTotal: totalVoided, userNotes: notes || null, cupCounts: cupTotal > 0 ? { s: cupS, m: cupM, l: cupL } : undefined };
 
     // ── Cup tracking ──
     let startingCupCount = 0;
@@ -445,6 +466,8 @@ router.post("/shift/end", requireAuth, async (req, res) => {
         totalCash,
         totalQris,
         totalCard,
+        voidedCount: totalVoidedCount,
+        voidedTotal: totalVoided,
       }
     });
   } catch (error) {
@@ -546,6 +569,8 @@ router.get("/shift-audits", requireRole("owner", "manager"), async (req, res) =>
         totalCash: moneyNote?.totalCash ?? null,
         totalQris: moneyNote?.totalQris ?? null,
         totalCard: moneyNote?.totalCard ?? null,
+        voidedCount: moneyNote?.voidedCount ?? null,
+        voidedTotal: moneyNote?.voidedTotal ?? null,
         endingCupCount: r.endingCupCount ? parseFloat(r.endingCupCount) : null,
         createdAt: r.createdAt,
         maxDiscrepancyPct,
@@ -613,6 +638,22 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
   let moneyNote: any = null;
   if (row.notes) { try { moneyNote = JSON.parse(row.notes); } catch { moneyNote = { raw: row.notes }; } }
 
+  // Hitung void dalam shift ini
+  const [voidResult] = await db
+    .select({
+      voidedCount: sql<string>`COUNT(*)`,
+      voidedTotal: sql<string>`COALESCE(SUM(total), 0)`,
+    })
+    .from(ordersTable)
+    .where(
+      and(
+        eq(ordersTable.branchId, row.branchId),
+        gte(ordersTable.createdAt, row.shiftStart ?? new Date(0)),
+        lte(ordersTable.createdAt, row.shiftEnd ?? new Date()),
+        eq(ordersTable.status, "voided"),
+      ),
+    );
+
   res.json({
     id: row.id,
     branchId: row.branchId,
@@ -630,6 +671,8 @@ router.get("/shift-audits/:id", requireRole("owner", "manager"), async (req, res
     totalCash: moneyNote?.totalCash ?? null,
     totalQris: moneyNote?.totalQris ?? null,
     totalCard: moneyNote?.totalCard ?? null,
+    voidedCount: voidResult ? parseInt(voidResult.voidedCount || "0") : 0,
+    voidedTotal: voidResult ? parseFloat(voidResult.voidedTotal || "0") : 0,
     totalExpenses,
     endingCupCount: row.endingCupCount ? parseFloat(row.endingCupCount) : null,
     createdAt: row.createdAt,

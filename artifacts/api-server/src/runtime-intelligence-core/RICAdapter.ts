@@ -6,6 +6,8 @@ import { RuntimeIntelligenceCore } from './RuntimeIntelligenceCore';
 import { DeepSeekProvider } from './providers/DeepSeekProvider';
 import { CapabilityGraph as CapabilityGraphImpl } from './capability/CapabilityGraph';
 import { ToolCatalog } from './registry/ToolCatalog';
+import { mapToExecutive } from './ExecutiveContextAdapter';
+import type { ExecutiveContext } from './ExecutiveContextAdapter';
 
 interface AdapterInput {
   message: string;
@@ -17,6 +19,7 @@ export class RICAdapter {
   private core: RuntimeIntelligenceCore | null = null;
   private toolCatalog: ToolCatalog | null = null;
   private initialized = false;
+  private lastExecutiveContext: ExecutiveContext | null = null;
 
   async initialize(rootDir: string): Promise<void> {
     if (this.initialized) return;
@@ -33,6 +36,10 @@ export class RICAdapter {
   getCore(): RuntimeIntelligenceCore | null { return this.core; }
   getToolCatalog(): ToolCatalog | null { return this.toolCatalog; }
 
+  getExecutiveContext(): ExecutiveContext | null {
+    return this.lastExecutiveContext;
+  }
+
   async assemble(input: AdapterInput): Promise<RuntimeContext> {
     if (!this.core) throw new Error('RIC not initialized');
 
@@ -47,7 +54,9 @@ export class RICAdapter {
       thinkingMode: 'balanced',
     };
 
-    return this.core.assemble(reasonerInput);
+    const ctx = await this.core.assemble(reasonerInput);
+    this.lastExecutiveContext = mapToExecutive(ctx);
+    return ctx;
   }
 }
 

@@ -18,4 +18,6 @@ export { RepositoryMetadataGenerator, ToolCatalog } from './registry';
 export { getOperationalData } from './OperationalAccess';
 export { UnifiedAwarenessEngine, getRuntimeState } from './awareness';
 export type { UnifiedAwareness, RICRuntimeState } from './awareness';
+export { mapToExecutive } from './ExecutiveContextAdapter';
+export type { ExecutiveContext, AwarenessContext } from './ExecutiveContextAdapter';
 
