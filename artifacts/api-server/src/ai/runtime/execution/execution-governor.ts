@@ -55,15 +55,15 @@ class ExecutionGovernor {
       console.log(`[GOV:DEBUG] shouldContinue=true — CONCLUDE, lanjut EXECUTE jika needsImpl`);
       return true;
     }
-    // EXECUTE — izinkan 4 cycle (readFile, editFile, verify + 1 cadangan)
+    // EXECUTE — no hard cycle limit, LLM decide via goal completion
     if (this.goalTree.isComplete() && this.strategyEngine.strategy === "EXECUTE") {
-      if (this._executeAttempted < 4) {
-        this._executeAttempted++;
-        console.log(`[GOV:DEBUG] shouldContinue=true — EXECUTE percobaan ${this._executeAttempted}/4`);
-        return true;
+      if (this.budget.isExceeded().exceeded) {
+        console.log(`[GOV:DEBUG] shouldContinue=false — budget exceeded`);
+        this._stopReason = "BUDGET_EXCEEDED"; return false;
       }
-      console.log(`[GOV:DEBUG] shouldContinue=false — EXECUTE selesai`);
-      this._stopReason = "OBJECTIVE_COMPLETED"; return false;
+      this._executeAttempted++;
+      console.log(`[GOV:DEBUG] shouldContinue=true — EXECUTE cycle ${this._executeAttempted}`);
+      return true;
     }
     // ESCALATE → tidak bisa lanjut
     if (this.strategyEngine.strategy === "ESCALATE") {
