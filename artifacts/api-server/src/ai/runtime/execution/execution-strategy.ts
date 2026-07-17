@@ -40,9 +40,8 @@ class ExecutionStrategyEngine {
     this._cycleCount++;
     this._strategyCycleCount++;
 
-    // Safety: global terlalu lama
-    if (this._cycleCount >= 14) { this._strategy = "ESCALATE"; return this._result(previous, "Safety: 14 cycle max"); }
-    if (this._cycleCount >= 10) { this._strategy = "CONCLUDE"; return this._result(previous, "Safety: 10 cycle max"); }
+    // Safety: global terlalu lama — soft guard, hard limit 50 cycle
+    if (this._cycleCount >= 50) { this._strategy = "ESCALATE"; return this._result(previous, "Safety: 50 cycle max"); }
 
     // Anti-loop: tool sama terus
     if (this.detectLoop(evidenceQuality)) {
@@ -76,8 +75,8 @@ class ExecutionStrategyEngine {
       const isRead = names.some(n => ["readFile", "fetchGitHubFile", "getDependencies"].includes(n));
       if (!isSearch && !isRead) return this._result(previous, "unchanged");
 
-      // Complete: minimal 1 file unik dibaca (readFile) ATAU max cycles habis
-      const maxExploreCycles = evidenceQuality > 0.60 ? 6 : evidenceQuality < 0.20 ? 10 : 7;
+      // Complete: minimal 1 file unik dibaca (readFile) ATAU soft max cycles
+      const maxExploreCycles = evidenceQuality > 0.60 ? 20 : evidenceQuality < 0.20 ? 30 : 25;
       if (uniqueFiles >= Math.min(this._strategyCycleCount, 2) || this._strategyCycleCount >= maxExploreCycles) {
         this._strategy = "ANALYZE";
         this._strategyCycleCount = 0;
@@ -91,8 +90,8 @@ class ExecutionStrategyEngine {
       const isRead = names.some(n => ["readFile", "fetchGitHubFile", "getDependencies", "searchContent"].includes(n));
       if (!isRead) return this._result(previous, "unchanged");
 
-      // Complete: file sudah dibaca, confidence cukup, ATAU max cycles
-      const maxAnalyzeCycles = evidenceQuality > 0.60 ? 4 : evidenceQuality < 0.20 ? 7 : 5;
+      // Complete: file sudah dibaca, confidence cukup, ATAU soft max cycles
+      const maxAnalyzeCycles = evidenceQuality > 0.60 ? 15 : evidenceQuality < 0.20 ? 25 : 20;
       if ((confidence >= 50 && uniqueFiles >= 1) || this._strategyCycleCount >= maxAnalyzeCycles) {
         this._strategy = "CONCLUDE";
         this._strategyCycleCount = 0;
