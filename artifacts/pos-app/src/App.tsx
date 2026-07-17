@@ -515,7 +515,7 @@ function ProtectedApp() {
     retryDelay: 500,
   },
 });
-  const [, setLocation] = useLocation();
+  const [currLoc, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
   useEffect(() => { initCsrf(); }, []);
@@ -541,7 +541,6 @@ function ProtectedApp() {
   // Cashier tanpa cabang → redirect ke onboard
   const role = me.role ?? "cashier";
   const hasBranch = !!me.branchId;
-  const [currLoc] = useLocation();
   if (role === "cashier" && !hasBranch && currLoc !== "/onboard") {
     return <Redirect to="/onboard" />;
   }
