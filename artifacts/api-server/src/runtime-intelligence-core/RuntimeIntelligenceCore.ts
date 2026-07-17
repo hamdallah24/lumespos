@@ -10,6 +10,8 @@ import type {
   CapabilityGraph,
   ReasoningProvider,
   RuntimeBudget,
+  RefinementEntry,
+  OverallConfidence,
 } from './types';
 import { UnderstandingEngine } from './understanding';
 import { RetrievalPlanner } from './planning';
@@ -95,9 +97,14 @@ export class RuntimeIntelligenceCore {
     const CONFIDENCE_THRESHOLD = 0.75;
     const MAX_REPLAN_ITERATIONS = 2;
     let replanCount = 0;
+    const refinementHistory: RefinementEntry[] = [];
 
     while (confidence.overall < CONFIDENCE_THRESHOLD && replanCount < MAX_REPLAN_ITERATIONS) {
       replanCount++;
+      const beforeConfidence = confidence.overall;
+      const beforeTaskCount = plan.tasks.length;
+      const beforeFailedChecks = verification.checks.filter(c => c.state !== 'verified').map(c => c.check);
+      const oldPlan = plan;
 
       plan = await this.retrievalPlanner.replan(plan, verification, grounding, understanding);
 
@@ -108,6 +115,23 @@ export class RuntimeIntelligenceCore {
         () => this.verify(understanding, plan, grounding, input), 0, undefined);
 
       confidence = this.confidenceAggregator.aggregate(understanding, grounding, verification, plan);
+
+      const afterFailedChecks = verification.checks.filter(c => c.state !== 'verified').map(c => c.check);
+      const changedCaps = plan.tasks
+        .filter(t => !oldPlan.tasks.some(ot => ot.requiredCapability === t.requiredCapability))
+        .map(t => t.requiredCapability);
+
+      refinementHistory.push({
+        iteration: replanCount,
+        confidenceBefore: beforeConfidence,
+        confidenceAfter: confidence.overall,
+        taskCountBefore: beforeTaskCount,
+        taskCountAfter: plan.tasks.length,
+        changedCapabilities: [...new Set(changedCaps)],
+        failedChecks: afterFailedChecks,
+        resolvedChecks: beforeFailedChecks.filter(c => !afterFailedChecks.includes(c)),
+        triggeredBy: this.findLowestConfidenceComponent(confidence),
+      });
 
       if (confidence.overall >= CONFIDENCE_THRESHOLD) break;
     }
@@ -157,6 +181,7 @@ export class RuntimeIntelligenceCore {
         criticalSignalCount: awarenessBrief.criticalSignals.length,
         warningCount: awarenessBrief.warnings.length,
       } : undefined,
+      refinementHistory,
     );
 
     const frozen = freezeContract(context);
@@ -194,6 +219,16 @@ export class RuntimeIntelligenceCore {
     if (replanCount > 0) reasons.push(`Replanned (${replanCount} iteration${replanCount > 1 ? 's' : ''})`);
     if (this.degraded) reasons.push('Low confidence after replan');
     return reasons.length > 0 ? reasons.join('; ') : undefined;
+  }
+
+  private findLowestConfidenceComponent(conf: OverallConfidence): string {
+    const entries: [string, number][] = [
+      ['reasoning', conf.reasoning],
+      ['grounding', conf.grounding],
+      ['verification', conf.verification],
+    ];
+    entries.sort((a, b) => a[1] - b[1]);
+    return entries[0][0];
   }
 
   public isDegraded(): boolean {

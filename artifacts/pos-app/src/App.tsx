@@ -563,6 +563,7 @@ function ProtectedApp() {
           <Route path="/shift" component={ShiftPage} />
           <Route path="/pengeluaran" component={PengeluaranPage} />
           {canManage && <Route path="/inventory" component={InventoryPage} />}
+          {!canManage && <Route path="/inventory" component={InventoryPage} />}
           {canManage && <Route path="/products" component={ProductsPage} />}
           {canManage && <Route path="/audits" component={AuditsPage} />}
           {canManage && <Route path="/dashboard" component={DashboardPage} />}
@@ -572,7 +573,6 @@ function ProtectedApp() {
           {role === "owner" && <Route path="/executive" component={ExecutiveWorkspace} />}
           {role !== "owner" && <Route path="/branches">{() => <Redirect to="/" />}</Route>}
           {role !== "owner" && <Route path="/users">{() => <Redirect to="/" />}</Route>}
-          {!canManage && <Route path="/inventory">{() => <Redirect to="/" />}</Route>}
           {!canManage && <Route path="/products">{() => <Redirect to="/" />}</Route>}
           {!canManage && <Route path="/audits">{() => <Redirect to="/" />}</Route>}
           {!canManage && <Route path="/dashboard">{() => <Redirect to="/" />}</Route>}

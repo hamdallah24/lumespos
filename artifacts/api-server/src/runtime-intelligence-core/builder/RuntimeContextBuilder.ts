@@ -41,6 +41,7 @@ export class RuntimeContextBuilder {
     evidence: Evidence[],
     budget: RuntimeBudget,
     awareness?: AwarenessInput,
+    refinementHistory?: RefinementEntry[],
   ): RuntimeContext {
     return {
       version,
@@ -95,6 +96,8 @@ export class RuntimeContextBuilder {
         criticalSignalCount: awareness.criticalSignalCount,
         warningCount: awareness.warningCount,
       } : undefined,
+
+      refinementHistory: refinementHistory && refinementHistory.length > 0 ? refinementHistory : undefined,
 
       verification: {
         results: verification,
