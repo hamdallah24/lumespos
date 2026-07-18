@@ -68,7 +68,7 @@ const EXECUTIVES: Record<string, ExecFn> = {
     return { success: r.success, text: r.text, pipeline: r.pipeline || [], toolsUsed: r.toolsUsed, filesRead: r.filesRead };
   },
   COO: async (p) => {
-    const r = await cooRuntime.execute({ message: p.message, userId: p.userId, branchId: p.branchId, onProgress: p.onProgress });
+    const r = await cooRuntime.execute({ message: p.message, userId: p.userId, branchId: p.branchId, onProgress: p.onProgress, runtimeContext: p.runtimeContext });
     return { success: r.success, text: r.text, pipeline: r.pipeline || [] };
   },
   CFO: async (p) => {

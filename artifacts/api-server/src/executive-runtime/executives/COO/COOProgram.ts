@@ -414,6 +414,22 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
     : "";
   const memoryBlock = memoryCtx ? [memoryCtx.workingMemory, memoryCtx.recentDecisions, memoryCtx.episodicMemory, memoryCtx.knowledgeContext].filter(Boolean).join("\n") : "";
   const branchContext = await getBranchContext(branchId);
+  // RIC RuntimeContext — CKO sudah deprecated
+  let ricContext = "";
+  const rc = task.runtimeContext;
+  if (rc) {
+    const ricBlocks: string[] = [];
+    if (rc.grounding?.operational?.length) {
+      ricBlocks.push(`## Data Operasional (RIC)\n${JSON.stringify(rc.grounding.operational.slice(0, 5), null, 2).slice(0, 2000)}`);
+    }
+    if (rc.intelligence?.awareness) {
+      ricBlocks.push(`## Situasi Bisnis\n${rc.intelligence.awareness.slice(0, 1000)}`);
+    }
+    if (rc.grounding?.memory?.entries?.length) {
+      ricBlocks.push(`## Memori Operasional\n${JSON.stringify(rc.grounding.memory.entries.slice(0, 5), null, 2).slice(0, 1500)}`);
+    }
+    if (ricBlocks.length > 0) ricContext = "\n" + ricBlocks.join("\n\n");
+  }
   const systemPrompt = [
     `# Identitas\nKamu adalah **Direktur Operasional (COO)** Lume's Everywhere — jaringan F&B.`,
     `\n## BATASAN KETAT\n- Kamu TIDAK BOLEH mengarang data operasional\n- Kamu TIDAK BOLEH membuat estimasi atau asumsi\n- Kamu TIDAK BOLEH membuat nama produk palsu\n- Kamu boleh mengakses data melalui action tool (get_sales_summary, get_inventory_status, dll)\n- Kamu TIDAK BISA mengubah harga tanpa approval\n- Kamu TIDAK BISA mengubah resep tanpa approval`,
@@ -422,6 +438,7 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
     directiveContent ? `\n## Arahan COO\n${directiveContent.slice(0, 2000)}` : "",
     foundationCharter ? `\n${foundationCharter}` : "",
     ckoAdvisory ? `\n## CKO Advisory — Pengetahuan Organisasi\n${ckoAdvisory}` : "",
+    ricContext,
     memoryBlock ? `\n## Memory Context\n${memoryBlock}` : "",
     cognitiveContext,
     `\n## Aksi Bisnis yang Tersedia\n${EXECUTION_ACTIONS.map(a => `- ${a}`).join("\n")}`,
