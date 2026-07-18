@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Minus, X, CreditCard, Banknote, QrCode, LayoutGrid, ShoppingBag, LogOut, Trash2 } from "lucide-react";
+import { Search, Plus, Minus, X, CreditCard, Banknote, QrCode, LayoutGrid, ShoppingBag, LogOut, Trash2, WifiOff } from "lucide-react";
 import {
   useListCategories,
   useListProducts,
@@ -21,6 +21,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { StartShiftDialog } from "@/components/StartShiftDialog";
 import { motion, AnimatePresence } from "framer-motion";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { queueOfflineOrder } from "@/lib/offline-db";
+import { cacheProducts } from "@/lib/offline-db";
 
 type Product = {
   id: number;
@@ -51,6 +54,7 @@ export default function CashierPage() {
   const queryClient = useQueryClient();
   const { data: me } = useGetMe();
   const { branchId } = useBranch();
+  const { isOnline, queuedCount } = useOnlineStatus();
 
   const [showStartShift, setShowStartShift] = useState(false);
   const [isShiftActive, setIsShiftActive] = useState(false);
@@ -133,6 +137,24 @@ export default function CashierPage() {
     { query: { queryKey: ["listProductVariants", variantProduct?.id ?? 0], enabled: !!variantProduct } }
   );
 
+  // Cache products to IndexedDB for offline browsing
+  useEffect(() => {
+    if (allProducts.length > 0 && isOnline) {
+      cacheProducts(
+        allProducts.map((p: Product) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          categoryId: p.categoryId ?? null,
+          imageUrl: p.imageUrl ?? null,
+          hasVariants: p.hasVariants ?? false,
+          minPrice: p.minPrice ?? null,
+          maxPrice: p.maxPrice ?? null,
+        }))
+      );
+    }
+  }, [allProducts, isOnline]);
+
   const createOrder = useCreateOrder();
 
   const handleAddToCart = (product: Product, variantPrice?: number, variantName?: string, variantId?: number) => {
@@ -191,30 +213,48 @@ export default function CashierPage() {
   const amountPaid = parseFloat(amountPaidStr.replace(/[^0-9]/g, "")) || 0;
   const change = amountPaid - totalWithTax;
 
-  const handleCompleteOrder = () => {
+  const handleCompleteOrder = async () => {
     if (!cart.length) return;
     if (paymentMethod === "cash" && amountPaid < totalWithTax) { toast.error("Nominal pembayaran kurang"); return; }
 
+    const orderPayload = {
+      branchId,
+      cashierName: me?.name ?? "Kasir",
+      cashierId: me?.id ?? null,
+      paymentMethod,
+      amountPaid: paymentMethod === "cash" ? amountPaid : totalWithTax,
+      discount: discountType !== "none" ? discountValue : undefined,
+      discountType: discountType !== "none" ? discountType : undefined,
+      applyTax: applyTax || undefined,
+      items: cart.map((item) => ({
+        productId: item.id < 0 ? null : item.id,
+        productVariantId: item.variantId ?? null,
+        quantity: item.cartQuantity,
+        productName: item.id < 0 ? item.name : undefined,
+        price: item.id < 0 ? item.price : undefined,
+      })),
+    };
+
+    if (!isOnline) {
+      await queueOfflineOrder({
+        id: crypto.randomUUID(),
+        payload: orderPayload,
+        status: "pending",
+        createdAt: Date.now(),
+        retryCount: 0,
+      });
+      toast.success("Transaksi di-queue (offline). Akan disync otomatis saat online.");
+      setCart([]);
+      setPaymentDialogOpen(false);
+      setAmountPaidStr("");
+      setDiscountType("none");
+      setDiscountValueStr("");
+      setApplyTax(false);
+      return;
+    }
+
     createOrder.mutate(
-      {
-        data: {
-          branchId,
-          cashierName: me?.name ?? "Kasir",
-          cashierId: me?.id ?? null,
-          paymentMethod,
-          amountPaid: paymentMethod === "cash" ? amountPaid : totalWithTax,
-          discount: discountType !== "none" ? discountValue : undefined,
-          discountType: discountType !== "none" ? discountType : undefined,
-          applyTax: applyTax || undefined,
-          items: cart.map((item) => ({
-            productId: item.id < 0 ? null : item.id,
-            productVariantId: item.variantId ?? null,
-            quantity: item.cartQuantity,
-            productName: item.id < 0 ? item.name : undefined,
-            price: item.id < 0 ? item.price : undefined,
-          })),
-        },
-      },
+      { data: orderPayload },
       {
         onSuccess: () => {
           toast.success("Transaksi berhasil");
@@ -268,6 +308,12 @@ export default function CashierPage() {
     <div className="flex h-full w-full bg-background flex-col lg:flex-row">
       <div className="flex-1 flex flex-col h-full min-w-0">
         <div className="px-3 pt-3 pb-2 lg:px-6 lg:pt-4 bg-gradient-to-r from-[#1565FF]/[0.06] via-background/80 to-background backdrop-blur-xl border-b border-[#1565FF]/10 shrink-0 sticky top-0 z-20 rounded-2xl mt-3">
+          {!isOnline && (
+            <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-medium">
+              <WifiOff size={14} />
+              <span>Offline — transaksi akan di-queue{queuedCount > 0 ? ` (${queuedCount} pending)` : ""}</span>
+            </div>
+          )}
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground w-5 h-5" />
             <Input

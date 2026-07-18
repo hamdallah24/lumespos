@@ -466,4 +466,201 @@ router.post("/orders/:id/void", requireAuth, requireRole("owner", "manager"), as
   }
 });
 
+// POST /api/orders/batch (sync offline orders)
+router.post("/orders/batch", requireAuth, async (req, res) => {
+  try {
+    const { orders } = req.body as {
+      orders: Array<{
+        branchId?: number | null;
+        cashierName?: string;
+        cashierId?: number | null;
+        paymentMethod: string;
+        amountPaid: number;
+        items: Array<{
+          productId?: number | null;
+          productVariantId?: number | null;
+          productName?: string;
+          price?: number;
+          quantity: number;
+        }>;
+        discount?: number;
+        discountType?: "none" | "percentage" | "fixed";
+        applyTax?: boolean;
+      }>;
+    };
+
+    if (!orders?.length) {
+      return res.status(400).json({ error: "orders array is required" });
+    }
+
+    const results: Array<{ success: boolean; orderId?: number; error?: string }> = [];
+
+    for (const orderData of orders) {
+      try {
+        const { branchId, cashierName, cashierId, paymentMethod, amountPaid, items, discount, discountType, applyTax } = orderData;
+
+        if (!items?.length) {
+          results.push({ success: false, error: "items are required" });
+          continue;
+        }
+
+        let validBranchId = branchId ?? (req.user as any)?.branchId ?? 1;
+        if (typeof validBranchId !== "number") validBranchId = Number(validBranchId);
+        if (isNaN(validBranchId) || validBranchId <= 0) {
+          results.push({ success: false, error: "Invalid branchId" });
+          continue;
+        }
+        if (!(await canAccessBranch(req, validBranchId))) {
+          results.push({ success: false, error: "Forbidden branch" });
+          continue;
+        }
+
+        const order = await db.transaction(async (tx: Executor) => {
+          let subtotal = 0;
+          let totalCogs = 0;
+          const itemRows: Array<{
+            productId: number | null;
+            productVariantId: number | null;
+            productName: string;
+            quantity: number;
+            priceAtSale: string;
+            subtotal: string;
+          }> = [];
+
+          for (const item of items) {
+            if (item.productId) {
+              const [prod] = await tx.select().from(productsTable).where(eq(productsTable.id, item.productId));
+              if (!prod) throw new Error(`Product ${item.productId} not found`);
+
+              let price: number;
+              if (item.productVariantId) {
+                const [variant] = await tx.select().from(productVariantsTable).where(eq(productVariantsTable.id, item.productVariantId));
+                price = variant ? parseFloat(variant.price) : parseFloat(prod.price);
+              } else {
+                price = parseFloat(prod.price);
+              }
+              const itemSubtotal = price * item.quantity;
+              subtotal += itemSubtotal;
+
+              const parentType = item.productVariantId ? "product_variant" : "product";
+              const parentId = item.productVariantId ?? prod.id;
+              let recipe = await getRecipeRows(tx, parentType, parentId);
+              if (recipe.length === 0 && parentType === "product_variant") {
+                recipe = await getRecipeRows(tx, "product", prod.id);
+              }
+
+              let itemCogs = 0;
+              for (const comp of recipe) {
+                const componentCost = await getComponentCost(tx, comp.componentType, comp.componentId);
+                itemCogs += componentCost * comp.quantity;
+              }
+              totalCogs += itemCogs * item.quantity;
+
+              itemRows.push({
+                productId: prod.id,
+                productVariantId: item.productVariantId ?? null,
+                productName: prod.name,
+                quantity: item.quantity,
+                priceAtSale: String(price),
+                subtotal: String(itemSubtotal),
+              });
+
+              for (const comp of recipe) {
+                const totalNeed = comp.quantity * item.quantity;
+                if (comp.componentType === "semi_finished") {
+                  await adjustInventory(tx, validBranchId, "semi_finished", comp.componentId, -totalNeed);
+                } else if (comp.componentType === "ingredient") {
+                  await adjustInventory(tx, validBranchId, "ingredient", comp.componentId, -totalNeed);
+                }
+              }
+            } else {
+              const price = item.price ?? 0;
+              const itemSubtotal = price * item.quantity;
+              subtotal += itemSubtotal;
+              itemRows.push({
+                productId: null,
+                productVariantId: null,
+                productName: item.productName || "Custom Order",
+                quantity: item.quantity,
+                priceAtSale: String(price),
+                subtotal: String(itemSubtotal),
+              });
+            }
+          }
+
+          const validDiscountType = discountType && ["percentage", "fixed"].includes(discountType) ? discountType : "none";
+          let discountAmount = 0;
+          if (validDiscountType === "percentage" && discount && discount > 0) {
+            discountAmount = Math.min(subtotal * (discount / 100), subtotal);
+          } else if (validDiscountType === "fixed" && discount && discount > 0) {
+            discountAmount = Math.min(discount, subtotal);
+          }
+
+          const afterDiscount = subtotal - discountAmount;
+          const taxAmount = applyTax ? Math.round(afterDiscount * PPN_RATE) : 0;
+          const total = afterDiscount + taxAmount;
+          const change = Math.max(0, amountPaid - total);
+
+          const [created] = await tx
+            .insert(ordersTable)
+            .values({
+              branchId: validBranchId,
+              cashierName: cashierName ?? null,
+              cashierId: cashierId ?? null,
+              subtotal: String(subtotal),
+              discount: String(discountAmount),
+              discountType: validDiscountType,
+              taxAmount: String(taxAmount),
+              total: String(total),
+              totalCogs: String(totalCogs),
+              amountPaid: String(amountPaid),
+              change: String(change),
+              paymentMethod: paymentMethod ?? "cash",
+              status: "completed",
+            })
+            .returning();
+
+          await tx.insert(orderItemsTable).values(itemRows.map((r) => ({ ...r, orderId: created.id })));
+          return created;
+        });
+
+        const itemsPayload = items.map((item) => ({
+          productId: item.productId ?? null,
+          productVariantId: item.productVariantId ?? null,
+          quantity: item.quantity,
+          price: item.price ?? 0,
+        }));
+
+        EventPublisher.publish(createOrderCreatedEvent({
+          branchId: validBranchId,
+          orderId: order.id,
+          total: parseFloat(order.total),
+          totalCogs: parseFloat(order.totalCogs),
+          paymentMethod: order.paymentMethod,
+          cashierName: cashierName ?? null,
+          items: itemsPayload,
+        }));
+
+        EventPublisher.publish(createOrderCompletedEvent({
+          branchId: validBranchId,
+          orderId: order.id,
+          total: parseFloat(order.total),
+          paymentMethod: order.paymentMethod,
+        }));
+
+        results.push({ success: true, orderId: order.id });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Failed to create order";
+        console.error("Batch order error:", message);
+        results.push({ success: false, error: message });
+      }
+    }
+
+    return res.json(results);
+  } catch (err) {
+    console.error("POST /orders/batch error:", err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;

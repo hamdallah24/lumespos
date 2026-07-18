@@ -1,6 +1,6 @@
 import React, { useMemo } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutGrid, ShoppingBag, PieChart, Store, Users, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, LogOut, Menu, X, User, Package, Home, Plus, Receipt, Carrot, UserPlus, Sun, Moon, Wallet, Sparkles, Zap } from "lucide-react";
+import { LayoutGrid, ShoppingBag, PieChart, Store, Users, Crown, Shield, Boxes, ClipboardCheck, ClipboardList, LogOut, Menu, X, User, Package, Home, Plus, Receipt, Carrot, UserPlus, Sun, Moon, Wallet, Sparkles, Zap, WifiOff, CloudOff } from "lucide-react";
 import { AiAgentPopup } from "@/components/ai-agent-popup";
 import type { AppUser } from "@workspace/api-client-react";
 import { useBranch } from "@/lib/branch";
@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "next-themes";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -47,6 +48,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
 
   const { theme, setTheme } = useTheme();
   const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  const { isOnline, queuedCount, isSyncing } = useOnlineStatus();
 
   const canManage = role === "owner" || role === "manager";
   const isOwner = role === "owner";
@@ -204,6 +206,18 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
             {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             <span className="font-medium">{theme === "dark" ? "Mode Terang" : "Mode Gelap"}</span>
           </button>
+          {!isOnline && (
+            <div className="flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 text-sm">
+              <WifiOff size={16} />
+              <span className="font-medium">Offline{queuedCount > 0 ? ` (${queuedCount} pending)` : ""}</span>
+            </div>
+          )}
+          {isSyncing && (
+            <div className="flex items-center gap-3.5 px-4 py-3 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm">
+              <CloudOff size={16} className="animate-pulse" />
+              <span className="font-medium">Menyinkronkan...</span>
+            </div>
+          )}
           <button
             onClick={onSignOut}
             className="w-full flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all outline-none active:scale-[0.98] text-foreground/60 hover:bg-red-500/10 dark:hover:bg-red-500/15 hover:text-red-500 text-sm"
@@ -245,6 +259,18 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
           <button onClick={toggleTheme} className="w-10 h-10 rounded-xl hover:bg-[#1565FF]/5 dark:hover:bg-white/5 active:scale-90 transition-all flex items-center justify-center text-slate-500 dark:text-slate-400">
             {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
           </button>
+          {!isOnline && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-semibold">
+              <WifiOff size={12} />
+              <span>{queuedCount > 0 ? `${queuedCount} pending` : "Offline"}</span>
+            </div>
+          )}
+          {isSyncing && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 text-[10px] font-semibold">
+              <CloudOff size={12} className="animate-pulse" />
+              <span>Syncing...</span>
+            </div>
+          )}
         </div>
 
         {/* Page content — CSS containment isolated */}

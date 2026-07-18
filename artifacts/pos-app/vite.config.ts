@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { VitePWA } from "vite-plugin-pwa";
 
 const rawPort = process.env.PORT ?? "4173";
 const port = Number(rawPort);
@@ -19,6 +20,74 @@ export default defineConfig({
     react(),
     tailwindcss({ optimize: false }),
     runtimeErrorOverlay(),
+    VitePWA({
+      registerType: "autoUpdate",
+      includeAssets: ["favicon.ico"],
+      manifest: {
+        name: "Lume's Everywhere POS",
+        short_name: "LumesPOS",
+        description: "Point of Sale - Lume's Everywhere",
+        theme_color: "#1565FF",
+        background_color: "#ffffff",
+        display: "standalone",
+        orientation: "portrait",
+        start_url: "/",
+        icons: [
+          {
+            src: "/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+          },
+          {
+            src: "/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any maskable",
+          },
+        ],
+      },
+      workbox: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        runtimeCaching: [
+          {
+            urlPattern: /^\/api\/products/,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "api-products",
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 24,
+              },
+            },
+          },
+          {
+            urlPattern: /^\/api\/categories/,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "api-categories",
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24,
+              },
+            },
+          },
+          {
+            urlPattern: /^\/api\/branches/,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "api-branches",
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24,
+              },
+            },
+          },
+        ],
+      },
+    }),
   ],
   resolve: {
     alias: {
