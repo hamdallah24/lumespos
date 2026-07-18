@@ -64,7 +64,7 @@ const EXECUTIVES: Record<string, ExecFn> = {
     return { success: r.success, text: r.text, pipeline: r.pipeline || [], decision: r.decision };
   },
   CTO: async (p) => {
-    const r = await ctoProgram.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, onExecutionEvent: p.onExecutionEvent });
+    const r = await ctoProgram.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, onExecutionEvent: p.onExecutionEvent, runtimeContext: p.runtimeContext });
     return { success: r.success, text: r.text, pipeline: r.pipeline || [], toolsUsed: r.toolsUsed, filesRead: r.filesRead };
   },
   COO: async (p) => {

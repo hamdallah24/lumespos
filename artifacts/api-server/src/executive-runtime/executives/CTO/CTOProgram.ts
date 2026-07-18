@@ -242,8 +242,29 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     const enrichedForFetch = searchTerms.length > 0
       ? `${task.message} ${searchTerms.join(" ")}`
       : task.message;
-      try { fileContext = await fetchContext(enrichedForFetch, task.userId); } catch (e: any) { console.error("[CTO] fetchContext error:", e.message); }
+    try { fileContext = await fetchContext(enrichedForFetch, task.userId); } catch (e: any) { console.error("[CTO] fetchContext error:", e.message); }
+    // Gunakan RIC RuntimeContext jika tersedia (CKO sudah deprecated)
+    const rc = task.runtimeContext;
+    if (rc?.grounding?.repository?.length) {
+      const ricFiles: string[] = [];
+      const ricBlocks: string[] = [];
+      const seen = new Set(fileContext.filePaths.map(f => f.replace(/\\/g, "/")));
+      for (const entry of rc.grounding.repository) {
+        const normalized = entry.path.replace(/\\/g, "/");
+        if (!seen.has(normalized) && entry.content?.length > 10) {
+          seen.add(normalized);
+          ricFiles.push(entry.path);
+          ricBlocks.push(`\n\n[FILE: ${entry.path}]:\n\`\`\`\n${entry.content.slice(0, 8000)}\n\`\`\``);
+        }
+      }
+      if (ricFiles.length > 0) {
+        const manifestLines = ricFiles.map((p, i) => `${i + 1}. ${p}`);
+        fileContext.text += `\n\n📋 FILE DARI RIC:\n${manifestLines.join("\n")}${ricBlocks.join("")}`;
+        fileContext.filePaths.push(...ricFiles);
+        task.onProgress?.(`📦 RIC: ${ricFiles.length} file dari konteks`);
+      }
     }
+  }
   pipeline.push("ContextFetching");
   task.onProgress?.("📂 CTO: Konteks file siap");
 
