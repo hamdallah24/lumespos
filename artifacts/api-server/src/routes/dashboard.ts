@@ -18,15 +18,22 @@ function branchId(req: { query: Record<string, unknown> }): number | undefined {
   return Number(raw);
 }
 
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
+function parseLocalEnd(dateStr: string): Date {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999);
+}
+
 router.get("/dashboard/summary", requireRole("owner", "manager"), async (req, res) => {
   const startDateStr = req.query["startDate"] as string | undefined;
   const endDateStr = req.query["endDate"] as string | undefined;
 
-  const currentStart = startDateStr ? new Date(startDateStr) : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
-  const currentEnd = endDateStr ? new Date(endDateStr) : (() => { const d = new Date(); d.setHours(23, 59, 59, 999); return d; })();
-  if (!startDateStr) currentStart.setHours(0, 0, 0, 0);
-  if (endDateStr) currentEnd.setHours(23, 59, 59, 999);
-  else currentEnd.setHours(23, 59, 59, 999);
+  const currentStart = startDateStr ? parseLocalDate(startDateStr) : (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+  const currentEnd = endDateStr ? parseLocalEnd(endDateStr) : (() => { const d = new Date(); d.setHours(23, 59, 59, 999); return d; })();
 
   const periodMs = currentEnd.getTime() - currentStart.getTime() + 1;
   const prevStart = new Date(currentStart.getTime() - periodMs);
@@ -90,12 +97,12 @@ router.get("/dashboard/summary", requireRole("owner", "manager"), async (req, re
 router.get("/dashboard/top-products", requireRole("owner", "manager"), async (req, res) => {
   const limit = Number(req.query["limit"] ?? 5);
   const branch = branchFilter(req);
-  const startDate = req.query["startDate"] ? new Date(String(req.query["startDate"])) : undefined;
-  const endDate = req.query["endDate"] ? new Date(String(req.query["endDate"])) : undefined;
+  const startDate = req.query["startDate"] ? String(req.query["startDate"]) : undefined;
+  const endDate = req.query["endDate"] ? String(req.query["endDate"]) : undefined;
 
   const conditions: any[] = [branch];
-  if (startDate) { startDate.setHours(0,0,0,0); conditions.push(gte(ordersTable.createdAt, startDate)); }
-  if (endDate) { endDate.setHours(23,59,59,999); conditions.push(lte(ordersTable.createdAt, endDate)); }
+  if (startDate) { conditions.push(gte(ordersTable.createdAt, parseLocalDate(startDate))); }
+  if (endDate) { conditions.push(lte(ordersTable.createdAt, parseLocalEnd(endDate))); }
 
   const rows = await db
     .select({
@@ -124,18 +131,18 @@ router.get("/dashboard/top-products", requireRole("owner", "manager"), async (re
 router.get("/dashboard/sales-chart", requireRole("owner", "manager"), async (req, res) => {
   const branch = branchFilter(req);
   const expBranch = branchId(req);
-  const startDate = req.query["startDate"] ? new Date(String(req.query["startDate"])) : undefined;
-  const endDate = req.query["endDate"] ? new Date(String(req.query["endDate"])) : undefined;
+  const startDate = req.query["startDate"] ? String(req.query["startDate"]) : undefined;
+  const endDate = req.query["endDate"] ? String(req.query["endDate"]) : undefined;
 
   if (!startDate && !endDate) {
     // fallback 7 hari
-    const s = new Date(Date.now() - 6 * 86400000); s.setHours(0,0,0,0);
+    const s = new Date(); s.setDate(s.getDate() - 6); s.setHours(0,0,0,0);
     const e = new Date(); e.setHours(23,59,59,999);
     return res.json(await getDailyChart(branch, expBranch, s, e));
   }
 
-  const s = new Date(startDate!); s.setHours(0,0,0,0);
-  const e = endDate ? new Date(endDate) : new Date(); e.setHours(23,59,59,999);
+  const s = parseLocalDate(startDate!);
+  const e = endDate ? parseLocalEnd(endDate) : new Date(); e.setHours(23,59,59,999);
   const diffMs = e.getTime() - s.getTime();
 
   if (diffMs <= 86400000) {
@@ -186,12 +193,12 @@ async function getHourlyChart(branch: SQL | undefined, expBranch: number | undef
 
 router.get("/dashboard/cashier-performance", requireRole("owner", "manager"), async (req, res) => {
   const branch = branchFilter(req);
-  const startDate = req.query["startDate"] ? new Date(String(req.query["startDate"])) : undefined;
-  const endDate = req.query["endDate"] ? new Date(String(req.query["endDate"])) : undefined;
+  const startDate = req.query["startDate"] ? String(req.query["startDate"]) : undefined;
+  const endDate = req.query["endDate"] ? String(req.query["endDate"]) : undefined;
 
   const conditions: any[] = [sql`${ordersTable.cashierId} is not null`, branch];
-  if (startDate) { startDate.setHours(0,0,0,0); conditions.push(gte(ordersTable.createdAt, startDate)); }
-  if (endDate) { endDate.setHours(23,59,59,999); conditions.push(lte(ordersTable.createdAt, endDate)); }
+  if (startDate) { conditions.push(gte(ordersTable.createdAt, parseLocalDate(startDate))); }
+  if (endDate) { conditions.push(lte(ordersTable.createdAt, parseLocalEnd(endDate))); }
 
   const rows = await db
     .select({
@@ -218,11 +225,10 @@ router.get("/dashboard/cashier-performance", requireRole("owner", "manager"), as
 router.get("/dashboard/financial", requireRole("owner", "manager"), async (req, res) => {
   const branch = branchFilter(req);
   const expBranch = branchId(req);
-  const startDate = req.query["startDate"] ? new Date(String(req.query["startDate"])) : undefined;
-  const endDate = req.query["endDate"] ? new Date(String(req.query["endDate"])) : undefined;
-  const start = startDate || (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0,0,0,0); return d; })();
-  const end = endDate || (() => { const d = new Date(); d.setHours(23,59,59,999); return d; })();
-  if (!startDate) start.setHours(0, 0, 0, 0);
+  const startDate = req.query["startDate"] ? String(req.query["startDate"]) : undefined;
+  const endDate = req.query["endDate"] ? String(req.query["endDate"]) : undefined;
+  const start = startDate ? parseLocalDate(startDate) : (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0,0,0,0); return d; })();
+  const end = endDate ? parseLocalEnd(endDate) : (() => { const d = new Date(); d.setHours(23,59,59,999); return d; })();
 
   const [stats] = await db
     .select({
@@ -256,11 +262,10 @@ router.get("/dashboard/financial", requireRole("owner", "manager"), async (req, 
 router.get("/dashboard/sold-items", requireRole("owner", "manager"), async (req, res) => {
   try {
     const branch = branchFilter(req);
-    const startDate = req.query["startDate"] ? new Date(String(req.query["startDate"])) : undefined;
-    const endDate = req.query["endDate"] ? new Date(String(req.query["endDate"])) : undefined;
-    const start = startDate || (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0,0,0,0); return d; })();
-    const end = endDate || (() => { const d = new Date(); d.setHours(23,59,59,999); return d; })();
-    if (!startDate) start.setHours(0, 0, 0, 0);
+    const startDateStr = req.query["startDate"] ? String(req.query["startDate"]) : undefined;
+    const endDateStr = req.query["endDate"] ? String(req.query["endDate"]) : undefined;
+    const start = startDateStr ? parseLocalDate(startDateStr) : (() => { const d = new Date(); d.setDate(d.getDate() - 30); d.setHours(0,0,0,0); return d; })();
+    const end = endDateStr ? parseLocalEnd(endDateStr) : (() => { const d = new Date(); d.setHours(23,59,59,999); return d; })();
 
     const rows = await db
       .select({

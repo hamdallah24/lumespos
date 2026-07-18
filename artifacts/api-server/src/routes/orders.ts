@@ -73,19 +73,18 @@ router.get("/orders", requireAuth, async (req, res) => {
     }
     if (branchId) conditions.push(eq(ordersTable.branchId, Number(branchId)));
     if (date) {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
+      const [y, m, d] = date.split("-").map(Number);
+      const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+      const end = new Date(y, m - 1, d, 23, 59, 59, 999);
       conditions.push(gte(ordersTable.createdAt, start));
       conditions.push(lte(ordersTable.createdAt, end));
     } else if (startDate) {
-      const s = new Date(startDate);
-      s.setHours(0, 0, 0, 0);
+      const [sy, sm, sd] = startDate.split("-").map(Number);
+      const s = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
       conditions.push(gte(ordersTable.createdAt, s));
       if (endDate) {
-        const e = new Date(endDate);
-        e.setHours(23, 59, 59, 999);
+        const [ey, em, ed] = endDate.split("-").map(Number);
+        const e = new Date(ey, em - 1, ed, 23, 59, 59, 999);
         conditions.push(lte(ordersTable.createdAt, e));
       }
     }
@@ -119,19 +118,18 @@ router.get("/orders", requireAuth, async (req, res) => {
     const aggConditions: any[] = [];
     if (branchId) aggConditions.push(eq(ordersTable.branchId, Number(branchId)));
     if (date) {
-      const start = new Date(date);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(date);
-      end.setHours(23, 59, 59, 999);
+      const [y, m, d] = date.split("-").map(Number);
+      const start = new Date(y, m - 1, d, 0, 0, 0, 0);
+      const end = new Date(y, m - 1, d, 23, 59, 59, 999);
       aggConditions.push(gte(ordersTable.createdAt, start));
       aggConditions.push(lte(ordersTable.createdAt, end));
     } else if (startDate) {
-      const s = new Date(startDate);
-      s.setHours(0, 0, 0, 0);
+      const [sy, sm, sd] = startDate.split("-").map(Number);
+      const s = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
       aggConditions.push(gte(ordersTable.createdAt, s));
       if (endDate) {
-        const e = new Date(endDate);
-        e.setHours(23, 59, 59, 999);
+        const [ey, em, ed] = endDate.split("-").map(Number);
+        const e = new Date(ey, em - 1, ed, 23, 59, 59, 999);
         aggConditions.push(lte(ordersTable.createdAt, e));
       }
     }
