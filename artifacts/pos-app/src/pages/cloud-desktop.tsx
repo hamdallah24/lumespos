@@ -1,6 +1,4 @@
-import { useIsMobile } from "@/hooks/use-mobile";
-import CloudDesktopShell from "@/components/desktop/CloudDesktopShell";
-import MobileLauncher from "@/components/desktop/MobileLauncher";
+import HomeScreen from "@/components/home/HomeScreen";
 import { useGetMe } from "@workspace/api-client-react";
 import { apiFetch } from "@/lib/csrf";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,7 +12,6 @@ export default function CloudDesktopPage() {
       retryDelay: 500,
     },
   });
-  const isMobile = useIsMobile();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
@@ -26,8 +23,8 @@ export default function CloudDesktopPage() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#071426]">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-screen items-center justify-center bg-[#F6F8FC]">
+        <div className="w-8 h-8 border-2 border-[#2563EB] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -37,9 +34,5 @@ export default function CloudDesktopPage() {
     return null;
   }
 
-  if (isMobile) {
-    return <MobileLauncher user={me} onSignOut={signOut} />;
-  }
-
-  return <CloudDesktopShell user={me} onSignOut={signOut} />;
+  return <HomeScreen user={me} onSignOut={signOut} />;
 }
