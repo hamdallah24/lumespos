@@ -71,7 +71,7 @@ function AppView({
       </div>
 
       {/* App Content */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-hidden flex flex-col">
         <AppComponent />
       </div>
     </motion.div>
@@ -185,6 +185,14 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
     setActiveApp("ai-chat");
   }, []);
 
+  const handleTabChange = useCallback((tab: BottomTab) => {
+    if (tab === "ai") {
+      setActiveApp("ai-chat");
+      return;
+    }
+    setActiveTab(tab);
+  }, []);
+
   const userName = user?.name || user?.email?.split("@")[0] || "User";
 
   return (
@@ -238,30 +246,6 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
             <MissionView />
           </motion.div>
         )}
-        {activeTab === "ai" && (
-          <motion.div
-            key="ai"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="flex-1 overflow-hidden flex flex-col"
-          >
-            <div className="flex-1 flex items-center justify-center pb-24 px-5">
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-2xl bg-[#2563EB10] flex items-center justify-center mx-auto mb-3">
-                  <span className="text-2xl">✨</span>
-                </div>
-                <p className="text-[15px] font-bold text-[#111827]">
-                  AI Assistant
-                </p>
-                <p className="text-[12px] text-[#6B7280] mt-1">
-                  Ketuk tombol AI untuk membuka asisten.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
         {activeTab === "profile" && (
           <motion.div
             key="profile"
@@ -276,7 +260,7 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
         )}
       </AnimatePresence>
 
-      <BottomNav active={activeTab} onChange={setActiveTab} />
+      <BottomNav active={activeTab} onChange={handleTabChange} />
       <FloatingAI onClick={handleAI} />
 
       {/* App overlay */}
