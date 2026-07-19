@@ -43,21 +43,23 @@ export default function Window({ window: win }: WindowProps) {
   const AppComponent = appDef?.component;
 
   const handleDragStart = useCallback(
-    (e: React.MouseEvent) => {
+    (e: React.MouseEvent | React.TouchEvent) => {
       if (win.isMaximized) return;
       e.preventDefault();
       focusWindow(win.id);
       setIsDragging(true);
-      dragStart.current = { x: e.clientX, y: e.clientY, winX: win.x, winY: win.y };
+      const point = "touches" in e ? e.touches[0] : e;
+      dragStart.current = { x: point.clientX, y: point.clientY, winX: win.x, winY: win.y };
     },
     [win.id, win.x, win.y, win.isMaximized, focusWindow]
   );
 
   useEffect(() => {
     if (!isDragging) return;
-    const handleMove = (e: MouseEvent) => {
-      const dx = e.clientX - dragStart.current.x;
-      const dy = e.clientY - dragStart.current.y;
+    const handleMove = (e: MouseEvent | TouchEvent) => {
+      const point = "touches" in e ? e.touches[0] : e;
+      const dx = point.clientX - dragStart.current.x;
+      const dy = point.clientY - dragStart.current.y;
       moveWindow(
         win.id,
         dragStart.current.winX + dx,
@@ -67,9 +69,13 @@ export default function Window({ window: win }: WindowProps) {
     const handleUp = () => setIsDragging(false);
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", handleUp);
+    window.addEventListener("touchmove", handleMove, { passive: false });
+    window.addEventListener("touchend", handleUp);
     return () => {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", handleUp);
+      window.removeEventListener("touchmove", handleMove);
+      window.removeEventListener("touchend", handleUp);
     };
   }, [isDragging, win.id, moveWindow]);
 
@@ -123,7 +129,7 @@ export default function Window({ window: win }: WindowProps) {
         left: 0,
         width: "100vw",
         height: `calc(100vh - ${MENU_BAR_HEIGHT}px)`,
-        zIndex: win.isAlwaysOnTop ? 90000 : win.zIndex,
+        zIndex: win.isAlwaysOnTop ? 90000 : Math.max(win.zIndex, 50),
         borderRadius: 0,
       }
     : {
@@ -132,7 +138,7 @@ export default function Window({ window: win }: WindowProps) {
         left: win.x,
         width: win.width,
         height: win.height,
-        zIndex: win.isAlwaysOnTop ? 90000 : win.zIndex,
+        zIndex: win.isAlwaysOnTop ? 90000 : Math.max(win.zIndex, 50),
         borderRadius: 12,
         boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(142, 216, 255, 0.08)",
       };
@@ -146,15 +152,17 @@ export default function Window({ window: win }: WindowProps) {
       style={style}
       className="flex flex-col overflow-hidden"
       onMouseDown={(e) => { e.stopPropagation(); focusWindow(win.id); }}
+      onTouchStart={(e) => { e.stopPropagation(); focusWindow(win.id); }}
     >
       {/* Title bar */}
       <div
         ref={dragRef}
         onMouseDown={handleDragStart}
+        onTouchStart={handleDragStart}
         onDoubleClick={() =>
           win.isMaximized ? restoreWindow(win.id) : maximizeWindow(win.id)
         }
-        className="h-9 flex items-center justify-between px-3 select-none shrink-0"
+        className="h-9 flex items-center justify-between px-3 select-none shrink-0 touch-none"
         style={{
           background: win.isPinned
             ? "rgba(21, 101, 255, 0.12)"
@@ -186,7 +194,6 @@ export default function Window({ window: win }: WindowProps) {
         </div>
 
         <div className="flex items-center gap-0.5">
-          {/* Pin button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -200,7 +207,6 @@ export default function Window({ window: win }: WindowProps) {
             {win.isPinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
           </button>
 
-          {/* Always on top */}
           <button
             onClick={(e) => {
               e.stopPropagation();

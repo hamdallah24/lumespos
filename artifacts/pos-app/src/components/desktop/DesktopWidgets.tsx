@@ -40,7 +40,7 @@ export default function DesktopWidgets() {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.3 }}
-      className="absolute top-12 right-5 z-[100] flex flex-col gap-3"
+      className="absolute top-12 right-5 z-[5] flex flex-col gap-3 pointer-events-none"
     >
       {/* Clock widget */}
       <div
