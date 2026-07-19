@@ -539,20 +539,24 @@ function ProtectedApp() {
     return <Redirect to="/sign-in" />;
   }
 
-  // Cashier tanpa cabang atau belum pilih cabang → redirect ke onboard
   const role = me.role ?? "cashier";
+
+  // Owner/Manager → Cloud Desktop
+  if (role === "owner" || role === "manager") {
+    return <CloudDesktopPage />;
+  }
+
+  // Cashier tanpa cabang atau belum pilih cabang → redirect ke onboard
   const allowedBranches = (me as any)?.allowedBranches as number[] | undefined;
   const lockedBranch = localStorage.getItem("sayq.lockedBranch");
   const hasAccessibleBranch = !!me.branchId || (Array.isArray(allowedBranches) && allowedBranches.length > 0);
   const hasLockedBranch = !!lockedBranch;
-  if (role === "cashier" && hasAccessibleBranch && !hasLockedBranch && currLoc !== "/onboard") {
+  if (hasAccessibleBranch && !hasLockedBranch && currLoc !== "/onboard") {
     return <Redirect to="/onboard" />;
   }
-  if (role === "cashier" && !hasAccessibleBranch && currLoc !== "/onboard") {
+  if (!hasAccessibleBranch && currLoc !== "/onboard") {
     return <Redirect to="/onboard" />;
   }
-
-  const canManage = role === "owner" || role === "manager";
 
   return (
     <BranchProvider>
@@ -563,20 +567,7 @@ function ProtectedApp() {
           <Route path="/orders" component={OrdersPage} />
           <Route path="/shift" component={ShiftPage} />
           <Route path="/pengeluaran" component={PengeluaranPage} />
-          {canManage && <Route path="/inventory" component={InventoryPage} />}
-          {!canManage && <Route path="/inventory" component={InventoryPage} />}
-          {canManage && <Route path="/products" component={ProductsPage} />}
-          {canManage && <Route path="/audits" component={AuditsPage} />}
-          {canManage && <Route path="/dashboard" component={DashboardPage} />}
-          {role === "owner" && <Route path="/branches" component={BranchesPage} />}
-          {role === "owner" && <Route path="/users" component={UsersPage} />}
-          {role === "owner" && <Route path="/eng-os" component={EngineeringOSDashboard} />}
-          {role === "owner" && <Route path="/executive" component={ExecutiveWorkspace} />}
-          {role !== "owner" && <Route path="/branches">{() => <Redirect to="/" />}</Route>}
-          {role !== "owner" && <Route path="/users">{() => <Redirect to="/" />}</Route>}
-          {!canManage && <Route path="/products">{() => <Redirect to="/" />}</Route>}
-          {!canManage && <Route path="/audits">{() => <Redirect to="/" />}</Route>}
-          {!canManage && <Route path="/dashboard">{() => <Redirect to="/" />}</Route>}
+          <Route path="/inventory" component={InventoryPage} />
           <Route component={NotFound} />
         </Switch>
       </Layout>
