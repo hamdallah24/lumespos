@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { useLocation } from "wouter";
 import TopNavbar from "./dashboard/TopNavbar";
 import MobileHeader from "./dashboard/MobileHeader";
 import MobileBottomNav from "./dashboard/MobileBottomNav";
@@ -36,6 +37,17 @@ export default function CloudDesktopShell({ user, onSignOut }: CloudDesktopShell
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("home");
+  const [, setLocation] = useLocation();
+
+  const handleAppClick = useCallback((appId: string) => {
+    if (appId === "pos") {
+      setLocation("/pos");
+    } else {
+      // For other apps, try to open via registry (window mode) or show toast
+      const app = appRegistry.find((a) => a.id === appId);
+      if (app) openApp(app);
+    }
+  }, [setLocation, openApp]);
 
   useEffect(() => {
     const vars = generateCSSVariables();
@@ -119,7 +131,7 @@ export default function CloudDesktopShell({ user, onSignOut }: CloudDesktopShell
         />
         <div className="flex-1 overflow-y-auto pb-20 px-4 pt-4">
           {activeTab === "home" && <MobileDashboardContent userName={user?.name} />}
-          {activeTab === "apps" && <ApplicationsGrid />}
+          {activeTab === "apps" && <ApplicationsGrid onAppClick={handleAppClick} />}
           {activeTab === "missions" && <MissionsWidget />}
           {activeTab === "ai" && <AIInsights />}
           {activeTab === "profile" && (
@@ -201,7 +213,7 @@ export default function CloudDesktopShell({ user, onSignOut }: CloudDesktopShell
           <div className="grid grid-cols-12 gap-5">
             {/* Left column */}
             <div className="col-span-4 flex flex-col gap-5">
-              <ApplicationsGrid />
+              <ApplicationsGrid onAppClick={handleAppClick} />
               <CashflowWidget />
               <ScheduleWidget />
             </div>

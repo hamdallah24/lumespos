@@ -563,6 +563,7 @@ function ProtectedApp() {
       <Layout role={role} user={me} onSignOut={signOut}>
         <Switch>
           <Route path="/onboard" component={CashierOnboardPage} />
+          <Route path="/pos" component={CashierPage} />
           <Route path="/" component={CashierPage} />
           <Route path="/orders" component={OrdersPage} />
           <Route path="/shift" component={ShiftPage} />
@@ -579,6 +580,7 @@ function AppRoutes() {
   return (
     <Switch>
       <Route path="/desktop" component={CloudDesktopPage} />
+      <Route path="/pos" component={ProtectedApp} />
       <Route path="/onboard" component={ProtectedApp} />
       <Route path="/" component={ProtectedApp} />
       <Route path="/orders" component={ProtectedApp} />

@@ -27,7 +27,11 @@ const APPS: AppItem[] = [
   { id: "settings", name: "Settings", subtitle: "Pengaturan", icon: <Settings className="w-5 h-5" />, color: "#64748B", bg: "#F8FAFC" },
 ];
 
-export default function ApplicationsGrid() {
+interface ApplicationsGridProps {
+  onAppClick?: (appId: string) => void;
+}
+
+export default function ApplicationsGrid({ onAppClick }: ApplicationsGridProps) {
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
       <h3 className="text-sm font-semibold text-gray-900 mb-3">Applications</h3>
@@ -35,6 +39,7 @@ export default function ApplicationsGrid() {
         {APPS.map((app) => (
           <button
             key={app.id}
+            onClick={() => onAppClick?.(app.id)}
             className="flex flex-col items-center gap-1.5 p-3 rounded-xl hover:bg-gray-50 transition-all active:scale-95 cursor-pointer group"
           >
             <div
