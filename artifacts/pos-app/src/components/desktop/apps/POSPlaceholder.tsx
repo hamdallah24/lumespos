@@ -61,7 +61,7 @@ function POSInner() {
 
   const pageLabel = [...mainNav, ...secondaryNav].find((n) => n.id === page)?.label ?? page;
 
-  const render = () => {
+  const renderPage = () => {
     switch (page) {
       case "kasir": return <CashierPage />;
       case "inventory": return <InventoryPage />;
@@ -76,23 +76,15 @@ function POSInner() {
     }
   };
 
-  const NavItem = ({ item, active }: { item: { id: Page; label: string; icon: React.ElementType }; active: boolean }) => {
-    const Icon = item.icon;
-    return (
-      <button
-        onClick={() => setPage(item.id)}
-        className={`flex items-center gap-2.5 px-2.5 lg:px-3 py-2 rounded-xl transition-all text-left w-full ${active ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-accent"}`}
-      >
-        <Icon size={16} className="shrink-0" />
-        <span className="hidden lg:inline text-xs truncate">{item.label}</span>
-      </button>
-    );
-  };
-
   return (
     <div className="flex h-full bg-background overflow-hidden text-sm">
-      <aside className="w-12 lg:w-48 shrink-0 flex flex-col border-r border-border bg-card/50 h-full">
-        <div className="hidden lg:block px-3 pt-3 shrink-0">
+      <aside
+        className="w-48 shrink-0 flex flex-col border-r border-border bg-card/50 h-full"
+        style={{ position: "relative", zIndex: 60 }}
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-3 pt-3 shrink-0">
           <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">Cabang</label>
           <Select value={branchId != null ? String(branchId) : undefined} onValueChange={(v) => setBranchId(Number(v))}>
             <SelectTrigger className="mt-1 h-8 text-xs rounded-xl">
@@ -109,33 +101,57 @@ function POSInner() {
           </Select>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-2 px-1.5 flex flex-col gap-0.5 items-center lg:items-stretch">
-          {mainNav.map((item) => (
-            <NavItem key={item.id} item={item} active={page === item.id} />
-          ))}
-          <div className="my-1 mx-2 h-px bg-border hidden lg:block" />
-          {secondaryNav.map((item) => (
-            <NavItem key={item.id} item={item} active={page === item.id} />
-          ))}
+        <nav className="flex-1 overflow-y-auto py-2 px-1.5 flex flex-col gap-0.5">
+          {mainNav.map((item) => {
+            const Icon = item.icon;
+            const active = page === item.id;
+            return (
+              <button
+                key={item.id}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); setPage(item.id); }}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all text-left w-full ${active ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-accent"}`}
+              >
+                <Icon size={16} className="shrink-0" />
+                <span className="text-xs truncate">{item.label}</span>
+              </button>
+            );
+          })}
+          <div className="my-1 mx-2 h-px bg-border" />
+          {secondaryNav.map((item) => {
+            const Icon = item.icon;
+            const active = page === item.id;
+            return (
+              <button
+                key={item.id}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); setPage(item.id); }}
+                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all text-left w-full ${active ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-accent"}`}
+              >
+                <Icon size={16} className="shrink-0" />
+                <span className="text-xs truncate">{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        <div className="p-2 border-t border-border shrink-0 flex flex-col gap-1 items-center lg:items-stretch">
+        <div className="p-2 border-t border-border shrink-0 flex flex-col gap-1">
           {!isOnline && (
             <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-500/10 text-amber-600 text-xs">
               <WifiOff size={12} />
-              <span className="hidden lg:inline">Offline{queuedCount > 0 ? ` (${queuedCount})` : ""}</span>
+              <span>Offline{queuedCount > 0 ? ` (${queuedCount})` : ""}</span>
             </div>
           )}
           <button onClick={() => setTheme(theme === "dark" ? "light" : "dark")} className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl text-muted-foreground hover:bg-accent transition-colors text-xs">
             {theme === "dark" ? <Sun size={12} /> : <Moon size={12} />}
-            <span className="hidden lg:inline">{theme === "dark" ? "Terang" : "Gelap"}</span>
+            <span>{theme === "dark" ? "Terang" : "Gelap"}</span>
           </button>
         </div>
       </aside>
 
-      <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="flex-1 min-w-0 overflow-hidden" style={{ position: "relative", zIndex: 1 }}>
         <PageBoundary key={page} page={pageLabel}>
-          {render()}
+          {renderPage()}
         </PageBoundary>
       </div>
     </div>
