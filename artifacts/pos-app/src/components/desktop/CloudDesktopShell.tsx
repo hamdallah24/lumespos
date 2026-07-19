@@ -246,7 +246,7 @@ export default function CloudDesktopShell({
 
       {/* Layer 3: Desktop area – handles right-click and click-to-dismiss */}
       <div
-        className="absolute inset-0"
+        className="absolute inset-0 z-[1]"
         style={{ top: 32, bottom: 68 }}
         onContextMenu={handleContextMenu}
         onClick={() => {

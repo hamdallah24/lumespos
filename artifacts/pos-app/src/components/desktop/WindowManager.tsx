@@ -6,7 +6,7 @@ export default function WindowManager() {
   const { state } = useDesktopStore();
 
   return (
-    <div className="absolute inset-0 pointer-events-none" style={{ top: 32 }}>
+    <div className="absolute inset-0 pointer-events-none z-[10]" style={{ top: 32 }}>
       <AnimatePresence>
         {state.windows.map((win) => (
           <div key={win.id} className="pointer-events-auto">

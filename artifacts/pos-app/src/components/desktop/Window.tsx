@@ -145,7 +145,7 @@ export default function Window({ window: win }: WindowProps) {
       transition={{ duration: 0.2 }}
       style={style}
       className="flex flex-col overflow-hidden"
-      onMouseDown={() => focusWindow(win.id)}
+      onMouseDown={(e) => { e.stopPropagation(); focusWindow(win.id); }}
     >
       {/* Title bar */}
       <div
