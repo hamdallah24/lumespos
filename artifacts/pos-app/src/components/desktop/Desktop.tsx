@@ -197,6 +197,7 @@ export default function Desktop({ user, onSignOut }: DesktopProps) {
         onLumeMenuToggle={toggleLumeMenu}
         onNotificationToggle={toggleNotif}
         onExecutiveToggle={toggleExec}
+        onSearchOpen={() => setCmdPaletteOpen(true)}
         isLumeMenuOpen={lumeMenuOpen}
       />
 

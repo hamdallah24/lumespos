@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Wifi,
@@ -6,11 +6,10 @@ import {
   BatteryMedium,
   Sparkles,
   Bell,
-  ChevronDown,
+  Search,
   Brain,
 } from "lucide-react";
 import { useDesktopStore } from "@/lib/desktop/store";
-import { useWorkspaceStore } from "@/lib/desktop/workspace-store";
 import { useNotificationStore } from "@/lib/desktop/notification-store";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 
@@ -20,6 +19,7 @@ interface MenuBarProps {
   onLumeMenuToggle: () => void;
   onNotificationToggle: () => void;
   onExecutiveToggle: () => void;
+  onSearchOpen: () => void;
   isLumeMenuOpen: boolean;
 }
 
@@ -29,14 +29,13 @@ export default function MenuBar({
   onLumeMenuToggle,
   onNotificationToggle,
   onExecutiveToggle,
+  onSearchOpen,
   isLumeMenuOpen,
 }: MenuBarProps) {
   const [time, setTime] = useState(new Date());
   const { state } = useDesktopStore();
-  const { workspaces, activeWorkspace, switchWorkspace } = useWorkspaceStore();
   const { state: notifState } = useNotificationStore();
   const { isOnline } = useOnlineStatus();
-  const [showWorkspaceMenu, setShowWorkspaceMenu] = useState(false);
 
   useEffect(() => {
     const interval = setInterval(() => setTime(new Date()), 1000);
@@ -99,60 +98,22 @@ export default function MenuBar({
         )}
       </div>
 
-      {/* Center: Workspace Switcher */}
-      <div className="absolute left-1/2 -translate-x-1/2">
-        <div className="relative">
-          <button
-            onClick={() => setShowWorkspaceMenu(!showWorkspaceMenu)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer"
-          >
-            <span className="text-[11px] text-white/50 font-medium">
-              {activeWorkspace?.name || "Workspace"}
-            </span>
-            <ChevronDown className="w-3 h-3 text-white/30" />
-          </button>
-
-          {showWorkspaceMenu && (
-            <>
-              <div
-                className="fixed inset-0 z-[9998]"
-                onClick={() => setShowWorkspaceMenu(false)}
-              />
-              <motion.div
-                initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-[180px] py-1 rounded-xl overflow-hidden z-[9999]"
-                style={{
-                  background: "rgba(10, 18, 35, 0.97)",
-                  backdropFilter: "blur(40px)",
-                  border: "1px solid rgba(142, 216, 255, 0.1)",
-                  boxShadow: "0 15px 40px -10px rgba(0, 0, 0, 0.5)",
-                }}
-              >
-                {workspaces.map((ws: { id: string; name: string }) => (
-                  <button
-                    key={ws.id}
-                    onClick={() => {
-                      switchWorkspace(ws.id);
-                      setShowWorkspaceMenu(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors cursor-pointer ${
-                      ws.id === activeWorkspace?.id
-                        ? "bg-primary/10 text-primary"
-                        : "text-white/50 hover:bg-white/5 hover:text-white/70"
-                    }`}
-                  >
-                    <span className="text-[11px] font-medium">{ws.name}</span>
-                    {ws.id === activeWorkspace?.id && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-primary" />
-                    )}
-                  </button>
-                ))}
-              </motion.div>
-            </>
-          )}
-        </div>
-      </div>
+      {/* Center: Search bar */}
+      <button
+        onClick={onSearchOpen}
+        className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1 rounded-lg hover:bg-white/5 transition-colors cursor-pointer group"
+        style={{
+          border: "1px solid rgba(142, 216, 255, 0.06)",
+        }}
+      >
+        <Search className="w-3 h-3 text-white/25 group-hover:text-white/40" />
+        <span className="text-[11px] text-white/30 group-hover:text-white/40 font-medium">
+          Cari aplikasi, perintah...
+        </span>
+        <kbd className="text-[9px] text-white/20 bg-white/5 px-1.5 py-0.5 rounded font-mono ml-2">
+          Ctrl+K
+        </kbd>
+      </button>
 
       {/* Right: Status icons */}
       <div className="flex items-center gap-1.5">

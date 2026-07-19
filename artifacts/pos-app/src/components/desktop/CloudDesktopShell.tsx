@@ -241,6 +241,7 @@ export default function CloudDesktopShell({
         onLumeMenuToggle={toggleLumeMenu}
         onNotificationToggle={toggleNotif}
         onExecutiveToggle={toggleExec}
+        onSearchOpen={() => setCmdPaletteOpen(true)}
         isLumeMenuOpen={lumeMenuOpen}
       />
 
