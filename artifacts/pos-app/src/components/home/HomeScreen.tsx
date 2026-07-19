@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import StatusBar from "./StatusBar";
 import HomeHeader from "./HomeHeader";
 import GreetingSection from "./GreetingSection";
@@ -11,6 +12,9 @@ import ApplicationGrid from "./ApplicationGrid";
 import AIInsight from "./AIInsight";
 import FloatingAI from "./FloatingAI";
 import BottomNav, { type BottomTab } from "./BottomNav";
+import CashflowWidget from "./desktop/CashflowWidget";
+import MissionsRunningWidget from "./desktop/MissionsRunningWidget";
+import UpcomingScheduleWidget from "./desktop/UpcomingScheduleWidget";
 import { getAppById } from "@/lib/desktop/registry";
 
 interface HomeScreenProps {
@@ -74,15 +78,26 @@ function AppView({
   );
 }
 
-function HomeView({ onAppClick }: { onAppClick: (id: string) => void }) {
+function HomeView({
+  userName,
+  onAppClick,
+  isMobile,
+}: {
+  userName: string;
+  onAppClick: (id: string) => void;
+  isMobile: boolean;
+}) {
   return (
     <div className="flex-1 overflow-auto pb-24">
-      <GreetingSection userName="Pengguna" />
+      <GreetingSection userName={userName} />
       <RuntimeStatus />
       <BusinessOverview />
       <DigitalTwinHero />
       <ApplicationGrid onAppClick={onAppClick} />
+      {!isMobile && <CashflowWidget />}
+      {!isMobile && <UpcomingScheduleWidget />}
       <AIInsight />
+      {!isMobile && <MissionsRunningWidget />}
     </div>
   );
 }
@@ -156,6 +171,7 @@ function ProfileView({
 export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
   const [activeTab, setActiveTab] = useState<BottomTab>("home");
   const [activeApp, setActiveApp] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   const handleAppClick = useCallback((appId: string) => {
     setActiveApp(appId);
@@ -168,6 +184,8 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
   const handleAI = useCallback(() => {
     setActiveApp("ai-chat");
   }, []);
+
+  const userName = user?.name || user?.email?.split("@")[0] || "User";
 
   return (
     <div
@@ -193,7 +211,7 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
             transition={{ duration: 0.15 }}
             className="flex-1 overflow-hidden flex flex-col"
           >
-            <HomeView onAppClick={handleAppClick} />
+            <HomeView userName={userName} onAppClick={handleAppClick} isMobile={isMobile} />
           </motion.div>
         )}
         {activeTab === "apps" && (
