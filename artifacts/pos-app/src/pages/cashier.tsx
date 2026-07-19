@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Minus, X, CreditCard, Banknote, QrCode, LayoutGrid, ShoppingBag, LogOut, Trash2, WifiOff } from "lucide-react";
+import { Search, Plus, Minus, X, CreditCard, Banknote, QrCode, LayoutGrid, ShoppingBag, LogOut, Trash2, WifiOff, TrendingUp, ShoppingCart, Package, Wallet, BarChart3 } from "lucide-react";
 import {
   useListCategories,
   useListProducts,
@@ -24,6 +24,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { queueOfflineOrder } from "@/lib/offline-db";
 import { cacheProducts } from "@/lib/offline-db";
+import ProductCard from "@/components/pos/ProductCard";
+import AddProductCard from "@/components/pos/AddProductCard";
+import { fetchPOSDailyStats, type POSDailyStats } from "@/lib/home/home-data";
 
 type Product = {
   id: number;
@@ -62,6 +65,19 @@ export default function CashierPage() {
   const [activeShiftId, setActiveShiftId] = useState<number | null>(null);
   const [openingBalance, setOpeningBalance] = useState(0);
   const [totalSales, setTotalSales] = useState(0);
+
+  const [posStats, setPosStats] = useState<POSDailyStats | null>(null);
+
+  const loadPosStats = async () => {
+    try {
+      const data = await fetchPOSDailyStats();
+      setPosStats(data);
+    } catch {}
+  };
+
+  useEffect(() => {
+    if (isShiftActive) loadPosStats();
+  }, [isShiftActive, totalSales]);
 
   const [activeCategory, setActiveCategory] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -349,7 +365,28 @@ export default function CashierPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-3 py-3 lg:px-6 lg:py-4">
+        <div className={`flex-1 overflow-y-auto px-3 py-3 lg:px-6 lg:py-4 ${cart.length > 0 ? "pb-24 lg:pb-4" : ""}`}>
+          {posStats && posStats.totalSales > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 mb-3">
+              {([
+                { label: "Penjualan Hari Ini", value: formatRp(posStats.totalSales), icon: BarChart3, color: "#2563EB" },
+                { label: "Transaksi", value: String(posStats.totalOrders), icon: ShoppingCart, color: "#10B981" },
+                { label: "Rata-rata Order", value: formatRp(posStats.avgOrderValue), icon: TrendingUp, color: "#8B5CF6" },
+                { label: "Produk Terjual", value: String(posStats.productsSold), icon: Package, color: "#F59E0B" },
+                { label: "Gross Profit", value: formatRp(posStats.grossProfit), icon: Wallet, color: "#EF4444" },
+              ] as const).map((stat) => (
+                <div key={stat.label} className="bg-card border border-border rounded-2xl p-2.5 md:p-3 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <div className="w-6 h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: `${stat.color}15` }}>
+                      <stat.icon className="w-3 h-3 md:w-3.5 md:h-3.5" style={{ color: stat.color }} />
+                    </div>
+                  </div>
+                  <p className="text-[9px] md:text-[10px] text-muted-foreground truncate leading-tight">{stat.label}</p>
+                  <p className="text-xs md:text-sm font-bold mt-0.5 truncate">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
           {isLoadingProducts ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
                 {[1,2,3,4,5,6].map((i) => (
@@ -363,36 +400,14 @@ export default function CashierPage() {
           ) : products.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-2 md:gap-3">
               {products.map((product: Product, idx: number) => (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.03 }}
+                <ProductCard
                   key={product.id}
-                  className="bg-card border border-border rounded-2xl overflow-hidden cursor-pointer active:scale-[0.97] transition-transform"
-                  onClick={() => handleProductClick(product)}
-                >
-                  <div className="aspect-square min-h-[160px] bg-muted flex items-center justify-center overflow-hidden">
-                    {product.imageUrl ? (
-                      <img src={product.imageUrl.startsWith("http") ? product.imageUrl : `/api/storage${product.imageUrl}`} alt={product.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-background flex items-center justify-center text-muted-foreground font-bold text-xl md:text-3xl shadow-sm">
-                        {product.name.charAt(0)}
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-2 md:p-3">
-                    <h3 className="font-semibold text-xs md:text-sm truncate">{product.name}</h3>
-                    <p className="text-primary font-bold text-sm md:text-base mt-0.5 md:mt-1">{product.hasVariants && product.minPrice != null ? `Rp${Number(product.minPrice).toLocaleString("id-ID")} - Rp${Number(product.maxPrice).toLocaleString("id-ID")}` : formatRp(product.price)}</p>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleProductClick(product); }}
-                      className="w-full mt-1.5 md:mt-2 h-8 md:h-10 rounded-xl bg-primary text-primary-foreground font-medium text-xs md:text-sm active:scale-[0.97] transition-transform flex items-center justify-center gap-1.5"
-                    >
-                      <Plus size={14} />
-                      Tambah
-                    </button>
-                  </div>
-                </motion.div>
+                  product={product}
+                  index={idx}
+                  onAdd={handleProductClick}
+                />
               ))}
+              <AddProductCard onClick={() => setManualDialogOpen(true)} />
             </div>
           ) : (
             <div className="h-full flex flex-col items-center justify-center text-muted-foreground py-20">
@@ -517,30 +532,30 @@ export default function CashierPage() {
       </div>
 
       {/* Mobile bottom bar — floating cart summary + pay */}
-      <div className="lg:hidden fixed bottom-36 inset-x-0 z-30 px-3 pb-3 pointer-events-none">
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-3 pointer-events-none">
         <AnimatePresence>
           {cart.length > 0 && (
             <motion.div
               initial={{ y: 60, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 60, opacity: 0 }}
-              className="bg-card border border-border rounded-2xl shadow-xl p-3 pointer-events-auto"
+              className="bg-slate-900 border border-slate-700 rounded-2xl shadow-xl p-3 pointer-events-auto"
             >
               <button onClick={() => setCartOpen(true)} className="w-full flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-                    <ShoppingBag className="w-5 h-5 text-primary-foreground" />
+                  <div className="w-10 h-10 rounded-xl bg-white/15 flex items-center justify-center">
+                    <ShoppingBag className="w-5 h-5 text-white" />
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-semibold">{cart.length} item</p>
-                    <p className="text-xs text-muted-foreground">Ketuk untuk detail</p>
+                    <p className="text-sm font-semibold text-white">{cart.length} item</p>
+                    <p className="text-xs text-slate-400">Ketuk untuk detail</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                   <span className="font-bold text-base sm:text-lg text-primary">{formatRp(totalWithTax)}</span>
+                   <span className="font-bold text-base sm:text-lg text-white">{formatRp(totalWithTax)}</span>
                   <button
                     onClick={(e) => { e.stopPropagation(); setPaymentDialogOpen(true); }}
-                    className="h-10 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-xs sm:text-sm shadow-lg shadow-primary/25 active:scale-95 transition-transform"
+                    className="h-10 px-4 rounded-xl bg-white text-slate-900 font-semibold text-xs sm:text-sm shadow-lg active:scale-95 transition-transform"
                   >
                     Bayar
                   </button>

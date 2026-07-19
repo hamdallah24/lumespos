@@ -140,6 +140,31 @@ export async function fetchUpcomingSchedule(): Promise<ScheduleItem[]> {
   ];
 }
 
+export interface POSDailyStats {
+  totalSales: number;
+  totalOrders: number;
+  avgOrderValue: number;
+  productsSold: number;
+  grossProfit: number;
+}
+
+export async function fetchPOSDailyStats(): Promise<POSDailyStats> {
+  try {
+    const res = await fetch("/api/dashboard/summary", { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch");
+    const data = await res.json();
+    return {
+      totalSales: data.todayRevenue ?? 0,
+      totalOrders: data.todayOrders ?? 0,
+      avgOrderValue: data.todayOrders ? Math.round((data.todayRevenue ?? 0) / data.todayOrders) : 0,
+      productsSold: data.todayProductsSold ?? 0,
+      grossProfit: data.grossProfit ?? 0,
+    };
+  } catch {
+    return { totalSales: 0, totalOrders: 0, avgOrderValue: 0, productsSold: 0, grossProfit: 0 };
+  }
+}
+
 export async function fetchInsights(): Promise<InsightItem[]> {
   return [
     {
