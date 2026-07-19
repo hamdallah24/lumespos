@@ -18,6 +18,7 @@ import PengeluaranPage from "./pages/pengeluaran";
 import AuditsPage from "./pages/audits";
 import EngineeringOSDashboard from "./pages/eng-os";
 import ExecutiveWorkspace from "./pages/executive";
+import CloudDesktopPage from "./pages/cloud-desktop";
 import NotFound from "@/pages/not-found";
 import { useGetMe } from "@workspace/api-client-react";
 import { BranchProvider } from "@/lib/branch";
@@ -586,6 +587,7 @@ function ProtectedApp() {
 function AppRoutes() {
   return (
     <Switch>
+      <Route path="/desktop" component={CloudDesktopPage} />
       <Route path="/onboard" component={ProtectedApp} />
       <Route path="/" component={ProtectedApp} />
       <Route path="/orders" component={ProtectedApp} />

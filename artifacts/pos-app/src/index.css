@@ -416,3 +416,74 @@ body {
 /* Copy fields */
 .copy-field { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-xs font-mono text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors; }
 .copy-btn { @apply inline-flex items-center justify-center w-4 h-4 rounded text-[10px] hover:bg-slate-200 dark:hover:bg-slate-600; }
+
+/* ═══════════════════════════════════════════ */
+/* Lumé OS Cloud Desktop                       */
+/* ═══════════════════════════════════════════ */
+
+/* Desktop: hide the regular Layout when on /desktop */
+.lume-desktop-active .layout-sidebar,
+.lume-desktop-active .layout-mobile-header,
+.lume-desktop-active .layout-mobile-bottom-nav {
+  display: none !important;
+}
+
+/* Window manager cursor states */
+.lume-desktop-dragging * {
+  cursor: grabbing !important;
+  user-select: none !important;
+}
+
+.lume-desktop-resizing * {
+  cursor: nwse-resize !important;
+  user-select: none !important;
+}
+
+/* Smooth window animations */
+.lume-window-enter {
+  animation: lume-window-in 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.lume-window-exit {
+  animation: lume-window-out 0.18s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes lume-window-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes lume-window-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.96) translateY(6px); }
+}
+
+/* Dock icon hover effect */
+.lume-dock-icon {
+  transition: transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Menu bar glass effect */
+.lume-menubar-glass {
+  background: rgba(7, 20, 38, 0.72);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+}
+
+/* Wallpaper canvas fade-in */
+.lume-wallpaper-fade {
+  animation: lume-wallpaper-in 0.8s ease-out forwards;
+}
+
+@keyframes lume-wallpaper-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Desktop: prevent body scroll */
+html.lume-desktop-active,
+body.lume-desktop-active {
+  overflow: hidden !important;
+  height: 100vh !important;
+  width: 100vw !important;
+}
