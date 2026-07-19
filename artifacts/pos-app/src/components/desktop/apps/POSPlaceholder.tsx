@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, Component, type ReactNode } from "react";
 import CashierPage from "@/pages/cashier";
 import InventoryPage from "@/pages/inventory";
 import ProductsPage from "@/pages/products";
@@ -12,7 +12,7 @@ import UsersPage from "@/pages/users";
 import { BranchProvider, useBranch } from "@/lib/branch";
 import { useTheme } from "next-themes";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { ShoppingBag, PieChart, Boxes, Package, Receipt, ClipboardList, Wallet, ClipboardCheck, Store, Users, Sun, Moon, WifiOff } from "lucide-react";
+import { ShoppingBag, PieChart, Boxes, Package, Receipt, ClipboardList, Wallet, ClipboardCheck, Store, Users, Sun, Moon, WifiOff, AlertTriangle } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Page = "kasir" | "inventory" | "products" | "orders" | "dashboard" | "shift" | "pengeluaran" | "audits" | "branches" | "users";
@@ -33,11 +33,33 @@ const secondaryNav: { id: Page; label: string; icon: React.ElementType }[] = [
   { id: "users", label: "Pengguna", icon: Users },
 ];
 
+class PageBoundary extends Component<{ children: ReactNode; page: string }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-3 p-6 text-center">
+          <AlertTriangle className="w-10 h-10 text-amber-400" />
+          <p className="text-sm font-medium text-white/70">Gagal memuat {this.props.page}</p>
+          <p className="text-xs text-white/40 max-w-xs">{this.state.error.message}</p>
+          <button onClick={() => this.setState({ error: null })} className="mt-2 px-3 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-white/60">
+            Coba lagi
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function POSInner() {
   const [page, setPage] = useState<Page>("kasir");
   const { theme, setTheme } = useTheme();
   const { isOnline, queuedCount } = useOnlineStatus();
   const { branches, branchId, setBranchId } = useBranch();
+
+  const pageLabel = [...mainNav, ...secondaryNav].find((n) => n.id === page)?.label ?? page;
 
   const render = () => {
     switch (page) {
@@ -71,11 +93,12 @@ function POSInner() {
     <div className="flex h-full bg-background overflow-hidden text-sm">
       <aside className="w-12 lg:w-48 shrink-0 flex flex-col border-r border-border bg-card/50 h-full">
         <div className="hidden lg:block px-3 pt-3 shrink-0">
+          <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider px-1">Cabang</label>
           <Select value={branchId != null ? String(branchId) : undefined} onValueChange={(v) => setBranchId(Number(v))}>
-            <SelectTrigger className="h-8 text-xs rounded-xl">
+            <SelectTrigger className="mt-1 h-8 text-xs rounded-xl">
               <div className="flex items-center gap-1.5 min-w-0">
                 <Store size={12} className="shrink-0 opacity-50" />
-                <SelectValue placeholder="Cabang" />
+                <SelectValue placeholder="Pilih cabang" />
               </div>
             </SelectTrigger>
             <SelectContent>
@@ -111,7 +134,9 @@ function POSInner() {
       </aside>
 
       <div className="flex-1 min-w-0 overflow-hidden">
-        {render()}
+        <PageBoundary key={page} page={pageLabel}>
+          {render()}
+        </PageBoundary>
       </div>
     </div>
   );
