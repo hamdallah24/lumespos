@@ -4,21 +4,33 @@ import InventoryPage from "@/pages/inventory";
 import ProductsPage from "@/pages/products";
 import OrdersPage from "@/pages/orders";
 import DashboardPage from "@/pages/dashboard";
+import ShiftPage from "@/pages/shift";
+import PengeluaranPage from "@/pages/pengeluaran";
+import AuditsPage from "@/pages/audits";
+import BranchesPage from "@/pages/branches";
+import UsersPage from "@/pages/users";
 import { BranchProvider, useBranch } from "@/lib/branch";
-import { useGetMe } from "@workspace/api-client-react";
 import { useTheme } from "next-themes";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
-import { ShoppingBag, PieChart, Boxes, Package, Receipt, Sun, Moon, WifiOff, Store } from "lucide-react";
+import { ShoppingBag, PieChart, Boxes, Package, Receipt, ClipboardList, Wallet, ClipboardCheck, Store, Users, Sun, Moon, WifiOff } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Page = "kasir" | "inventory" | "products" | "orders" | "dashboard";
+type Page = "kasir" | "inventory" | "products" | "orders" | "dashboard" | "shift" | "pengeluaran" | "audits" | "branches" | "users";
 
-const nav: { id: Page; label: string; icon: React.ElementType }[] = [
+const mainNav: { id: Page; label: string; icon: React.ElementType }[] = [
   { id: "kasir", label: "Kasir", icon: ShoppingBag },
-  { id: "inventory", label: "Stok", icon: Boxes },
+  { id: "inventory", label: "Stok & Bahan", icon: Boxes },
   { id: "products", label: "Produk", icon: Package },
-  { id: "orders", label: "Riwayat", icon: Receipt },
   { id: "dashboard", label: "Laporan", icon: PieChart },
+];
+
+const secondaryNav: { id: Page; label: string; icon: React.ElementType }[] = [
+  { id: "orders", label: "Riwayat", icon: Receipt },
+  { id: "shift", label: "Tutup Shift", icon: ClipboardList },
+  { id: "pengeluaran", label: "Pengeluaran", icon: Wallet },
+  { id: "audits", label: "Audit Shift", icon: ClipboardCheck },
+  { id: "branches", label: "Cabang", icon: Store },
+  { id: "users", label: "Pengguna", icon: Users },
 ];
 
 function POSInner() {
@@ -34,14 +46,30 @@ function POSInner() {
       case "products": return <ProductsPage />;
       case "orders": return <OrdersPage />;
       case "dashboard": return <DashboardPage />;
+      case "shift": return <ShiftPage />;
+      case "pengeluaran": return <PengeluaranPage />;
+      case "audits": return <AuditsPage />;
+      case "branches": return <BranchesPage />;
+      case "users": return <UsersPage />;
     }
+  };
+
+  const NavItem = ({ item, active }: { item: { id: Page; label: string; icon: React.ElementType }; active: boolean }) => {
+    const Icon = item.icon;
+    return (
+      <button
+        onClick={() => setPage(item.id)}
+        className={`flex items-center gap-2.5 px-2.5 lg:px-3 py-2 rounded-xl transition-all text-left w-full ${active ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-accent"}`}
+      >
+        <Icon size={16} className="shrink-0" />
+        <span className="hidden lg:inline text-xs truncate">{item.label}</span>
+      </button>
+    );
   };
 
   return (
     <div className="flex h-full bg-background overflow-hidden text-sm">
-      {/* Sidebar */}
       <aside className="w-12 lg:w-48 shrink-0 flex flex-col border-r border-border bg-card/50 h-full">
-        {/* Branch */}
         <div className="hidden lg:block px-3 pt-3 shrink-0">
           <Select value={branchId != null ? String(branchId) : undefined} onValueChange={(v) => setBranchId(Number(v))}>
             <SelectTrigger className="h-8 text-xs rounded-xl">
@@ -58,25 +86,16 @@ function POSInner() {
           </Select>
         </div>
 
-        {/* Nav */}
         <nav className="flex-1 overflow-y-auto py-2 px-1.5 flex flex-col gap-0.5 items-center lg:items-stretch">
-          {nav.map((item) => {
-            const Icon = item.icon;
-            const active = page === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setPage(item.id)}
-                className={`flex items-center gap-2.5 px-2.5 lg:px-3 py-2 rounded-xl transition-all text-left ${active ? "bg-primary/10 text-primary font-semibold" : "text-muted-foreground hover:bg-accent"}`}
-              >
-                <Icon size={16} className="shrink-0" />
-                <span className="hidden lg:inline text-xs">{item.label}</span>
-              </button>
-            );
-          })}
+          {mainNav.map((item) => (
+            <NavItem key={item.id} item={item} active={page === item.id} />
+          ))}
+          <div className="my-1 mx-2 h-px bg-border hidden lg:block" />
+          {secondaryNav.map((item) => (
+            <NavItem key={item.id} item={item} active={page === item.id} />
+          ))}
         </nav>
 
-        {/* Bottom */}
         <div className="p-2 border-t border-border shrink-0 flex flex-col gap-1 items-center lg:items-stretch">
           {!isOnline && (
             <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-amber-500/10 text-amber-600 text-xs">
@@ -91,7 +110,6 @@ function POSInner() {
         </div>
       </aside>
 
-      {/* Content */}
       <div className="flex-1 min-w-0 overflow-hidden">
         {render()}
       </div>
