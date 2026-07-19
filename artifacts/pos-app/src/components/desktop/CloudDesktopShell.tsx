@@ -1,84 +1,58 @@
-/**
- * Lumé OS Cloud Desktop Shell
- * T13S Phase 1
- *
- * The root container for the entire Cloud Desktop OS.
- * Manages 9 layers. Nothing renders outside this component.
- *
- * Layers:
- * 1. Wallpaper Layer
- * 2. Widget Layer
- * 3. Window Layer
- * 4. Dock Layer
- * 5. Menu Layer
- * 6. Overlay Layer
- * 7. Modal Layer
- * 8. Notification Layer
- * 9. System Layer (floating AI, context menu, etc.)
- */
-import { useCallback, useEffect, useState } from "react";
-import Wallpaper from "./Wallpaper";
-import MenuBar from "./MenuBar";
-import Dock from "./Dock";
-import WindowManager from "./WindowManager";
-import ContextMenu, { useContextMenu } from "./ContextMenu";
+import { useEffect, useState, useCallback } from "react";
+import TopNavbar from "./dashboard/TopNavbar";
+import MobileHeader from "./dashboard/MobileHeader";
+import MobileBottomNav from "./dashboard/MobileBottomNav";
+import HeroSection from "./dashboard/HeroSection";
+import MetricCard from "./dashboard/MetricCard";
+import ApplicationsGrid from "./dashboard/ApplicationsGrid";
+import CashflowWidget from "./dashboard/CashflowWidget";
+import ScheduleWidget from "./dashboard/ScheduleWidget";
+import AIInsights from "./dashboard/AIInsights";
+import MissionsWidget from "./dashboard/MissionsWidget";
+import ActivityFeed from "./dashboard/ActivityFeed";
 import CommandPalette from "./CommandPalette";
-import ExecutiveCenter from "./ExecutiveCenter";
 import NotificationCenter from "./NotificationCenter";
-import LumeMenu from "./LumeMenu";
-import DesktopWidgets from "./DesktopWidgets";
-import MobileLauncher from "./MobileLauncher";
 import { useDesktopStore } from "@/lib/desktop/store";
 import { registerCommands } from "@/lib/desktop/command-registry";
 import { appRegistry } from "@/lib/desktop/registry";
 import { useWorkspaceStore } from "@/lib/desktop/workspace-store";
 import { useNotificationStore } from "@/lib/desktop/notification-store";
-import { useThemeStore } from "@/lib/desktop/theme-engine";
 import { useResponsiveStore } from "@/lib/desktop/responsive-engine";
 import { emit } from "@/lib/desktop/event-bus";
 import { generateCSSVariables } from "@/lib/desktop/tokens";
-import { LayoutGrid, RefreshCw, Trash2, Sparkles } from "lucide-react";
+import {
+  ShoppingBag, TrendingUp, Wallet, Target,
+} from "lucide-react";
 
 interface CloudDesktopShellProps {
   user: { name?: string; email?: string; role?: string } | null;
   onSignOut: () => void;
 }
 
-export default function CloudDesktopShell({
-  user,
-  onSignOut,
-}: CloudDesktopShellProps) {
-  const { themeId } = useThemeStore();
-  const { breakpoint, isMobile } = useResponsiveStore();
-
-  const { menu, openMenu, closeMenu } = useContextMenu();
+export default function CloudDesktopShell({ user, onSignOut }: CloudDesktopShellProps) {
+  const { isMobile } = useResponsiveStore();
   const { closeAllWindows, openApp } = useDesktopStore();
   const { workspaces, switchWorkspace, createWorkspace } = useWorkspaceStore();
-  const { addNotification } = useNotificationStore();
-
   const [cmdPaletteOpen, setCmdPaletteOpen] = useState(false);
-  const [execCenterOpen, setExecCenterOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [lumeMenuOpen, setLumeMenuOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("home");
 
-  // Apply CSS variables from the token system on mount
   useEffect(() => {
     const vars = generateCSSVariables();
     const root = document.documentElement;
     Object.entries(vars).forEach(([key, value]) => {
       root.style.setProperty(key, value);
     });
+    document.documentElement.classList.add("lume-dashboard-active");
+    return () => document.documentElement.classList.remove("lume-dashboard-active");
   }, []);
 
-  // Emit SHELL_READY on first mount
   useEffect(() => {
     emit.shellReady();
   }, []);
 
-  // Register all commands for the Command Palette
   useEffect(() => {
     const commands = [
-      // Applications
       ...appRegistry.map((app) => ({
         id: `app-${app.id}`,
         label: app.title,
@@ -88,7 +62,6 @@ export default function CloudDesktopShell({
         keywords: [app.title.toLowerCase(), app.id, app.category || ""],
         action: () => openApp(app),
       })),
-      // Workspaces
       ...workspaces.map((ws: { id: string; name: string }) => ({
         id: `ws-${ws.id}`,
         label: ws.name,
@@ -98,13 +71,12 @@ export default function CloudDesktopShell({
         keywords: [ws.name.toLowerCase(), "workspace"],
         action: () => switchWorkspace(ws.id),
       })),
-      // Actions
       {
         id: "action-close-all",
         label: "Close All Windows",
         icon: "Trash2",
         category: "actions" as const,
-        keywords: ["close", "all", "windows", "clear"],
+        keywords: ["close", "all", "windows"],
         action: closeAllWindows,
       },
       {
@@ -112,219 +84,223 @@ export default function CloudDesktopShell({
         label: "Open Settings",
         icon: "Settings",
         category: "settings" as const,
-        keywords: ["settings", "preferences", "config"],
+        keywords: ["settings", "preferences"],
         action: () => {
-          const settingsApp = appRegistry.find((a) => a.id === "settings");
-          if (settingsApp) openApp(settingsApp);
+          const s = appRegistry.find((a) => a.id === "settings");
+          if (s) openApp(s);
         },
-      },
-      {
-        id: "action-ai-chat",
-        label: "Open AI Chat",
-        icon: "Sparkles",
-        category: "ai" as const,
-        keywords: ["ai", "chat", "assistant", "lume"],
-        shortcut: "Ctrl+Space",
-        action: () => {
-          const aiApp = appRegistry.find((a) => a.id === "ai-chat");
-          if (aiApp) openApp(aiApp);
-        },
-      },
-      {
-        id: "action-create-workspace",
-        label: "Create Workspace",
-        icon: "Layers",
-        category: "workspaces" as const,
-        keywords: ["create", "new", "workspace"],
-        action: () => createWorkspace("New Workspace"),
       },
     ];
     registerCommands(commands);
   }, [workspaces, openApp, closeAllWindows, switchWorkspace, createWorkspace]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ctrl+K / Cmd+K → Command Palette
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
         setCmdPaletteOpen((v) => !v);
-        setNotifOpen(false);
-        setLumeMenuOpen(false);
       }
-      // Ctrl+Space → AI (toggle Executive Center)
-      if (e.ctrlKey && e.code === "Space") {
-        e.preventDefault();
-        setExecCenterOpen((v) => !v);
-        setNotifOpen(false);
-        setLumeMenuOpen(false);
-      }
-      // Escape → close all overlays
       if (e.key === "Escape") {
         setCmdPaletteOpen(false);
-        setExecCenterOpen(false);
         setNotifOpen(false);
-        setLumeMenuOpen(false);
-        closeMenu();
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [closeMenu]);
-
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      openMenu(e, [
-        {
-          label: "Arrange Windows",
-          icon: <LayoutGrid className="w-3.5 h-3.5" />,
-          onClick: () => {},
-        },
-        {
-          label: "Refresh",
-          icon: <RefreshCw className="w-3.5 h-3.5" />,
-          onClick: () => window.location.reload(),
-        },
-        { label: "", separator: true },
-        {
-          label: "Close All Windows",
-          icon: <Trash2 className="w-3.5 h-3.5" />,
-          onClick: closeAllWindows,
-        },
-      ]);
-    },
-    [openMenu, closeAllWindows]
-  );
-
-  const toggleNotif = useCallback(() => {
-    setNotifOpen((v) => !v);
-    setExecCenterOpen(false);
-    setLumeMenuOpen(false);
   }, []);
 
-  const toggleExec = useCallback(() => {
-    setExecCenterOpen((v) => !v);
-    setNotifOpen(false);
-    setLumeMenuOpen(false);
-  }, []);
-
-  const toggleLumeMenu = useCallback(() => {
-    setLumeMenuOpen((v) => !v);
-    setNotifOpen(false);
-    setExecCenterOpen(false);
-  }, []);
-
-  const openSettingsApp = useCallback(() => {
-    const settingsApp = appRegistry.find((a) => a.id === "settings");
-    if (settingsApp) openApp(settingsApp);
-  }, [openApp]);
-
-  // If mobile, delegate to MobileLauncher
   if (isMobile) {
-    return <MobileLauncher user={user} onSignOut={onSignOut} />;
+    return (
+      <div className="fixed inset-0 bg-gray-50 flex flex-col overflow-hidden">
+        <MobileHeader
+          user={user}
+          onMenuToggle={() => {}}
+          onNotificationToggle={() => setNotifOpen((v) => !v)}
+        />
+        <div className="flex-1 overflow-y-auto pb-20 px-4 pt-4">
+          {activeTab === "home" && <MobileDashboardContent userName={user?.name} />}
+          {activeTab === "apps" && <ApplicationsGrid />}
+          {activeTab === "missions" && <MissionsWidget />}
+          {activeTab === "ai" && <AIInsights />}
+          {activeTab === "profile" && (
+            <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 text-center">
+              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xl font-bold mx-auto mb-3">
+                {user?.name ? user.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase() : "?"}
+              </div>
+              <p className="text-base font-semibold text-gray-900">{user?.name}</p>
+              <p className="text-xs text-gray-400 capitalize">{user?.role || "Founder"}</p>
+              <button
+                onClick={onSignOut}
+                className="mt-4 px-6 py-2 bg-rose-50 text-rose-600 rounded-xl text-sm font-semibold hover:bg-rose-100 transition-colors"
+              >
+                Keluar
+              </button>
+            </div>
+          )}
+        </div>
+        <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <CommandPalette isOpen={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} />
+        <NotificationCenter isOpen={notifOpen} onClose={() => setNotifOpen(false)} />
+      </div>
+    );
   }
 
   return (
-    <div
-      className="fixed inset-0 overflow-hidden select-none"
-      style={{ background: "var(--lume-navy-base, #071426)" }}
-      role="application"
-      aria-label="Lumé OS Cloud Desktop"
-    >
-      {/* Layer 1: Wallpaper */}
-      <Wallpaper />
-
-      {/* Layer 2: Menu Bar */}
-      <MenuBar
+    <div className="fixed inset-0 bg-gray-50 flex flex-col overflow-hidden">
+      {/* Top Navbar */}
+      <TopNavbar
         user={user}
         onSignOut={onSignOut}
-        onLumeMenuToggle={toggleLumeMenu}
-        onNotificationToggle={toggleNotif}
-        onExecutiveToggle={toggleExec}
-        isLumeMenuOpen={lumeMenuOpen}
+        onNotificationToggle={() => setNotifOpen((v) => !v)}
+        onCommandPalette={() => setCmdPaletteOpen(true)}
       />
 
-      {/* Layer 3: Desktop area – handles right-click and click-to-dismiss */}
-      <div
-        className="absolute inset-0"
-        style={{ top: 32, bottom: 68 }}
-        onContextMenu={handleContextMenu}
-        onClick={() => {
-          setNotifOpen(false);
-          setLumeMenuOpen(false);
-        }}
-      />
+      {/* Main content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-[1600px] mx-auto px-6 py-6 flex flex-col gap-6">
+          {/* Hero */}
+          <HeroSection userName={user?.name} />
 
-      {/* Layer 3b: Widget Layer */}
-      <DesktopWidgets />
+          {/* 4 Metric Cards */}
+          <div className="grid grid-cols-4 gap-4">
+            <MetricCard
+              label="Cash Today"
+              value="Rp 4.8jt"
+              delta={12.5}
+              icon={<ShoppingBag className="w-4 h-4 text-indigo-600" />}
+              iconBg="#EEF2FF"
+              sparkline={[30, 45, 35, 55, 48, 62, 70, 65, 78, 82, 75, 90]}
+            />
+            <MetricCard
+              label="Cashflow (This Week)"
+              value="Rp 18.2jt"
+              delta={8.3}
+              icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
+              iconBg="#ECFDF5"
+              sparkline={[20, 35, 28, 42, 38, 55, 48, 60, 52, 65, 58, 72]}
+            />
+            <MetricCard
+              label="Profit (This Month)"
+              value="Rp 42.5jt"
+              delta={-2.1}
+              icon={<Wallet className="w-4 h-4 text-amber-600" />}
+              iconBg="#FFFBEB"
+              sparkline={[50, 45, 48, 42, 44, 38, 40, 35, 37, 32, 34, 30]}
+            />
+            <MetricCard
+              label="Missions Running"
+              value="11"
+              delta={5}
+              icon={<Target className="w-4 h-4 text-purple-600" />}
+              iconBg="#F5F3FF"
+              sparkline={[5, 7, 6, 8, 9, 7, 10, 8, 11, 9, 10, 11]}
+            />
+          </div>
 
-      {/* Layer 4: Window Layer */}
-      <WindowManager />
+          {/* 3-column grid */}
+          <div className="grid grid-cols-12 gap-5">
+            {/* Left column */}
+            <div className="col-span-4 flex flex-col gap-5">
+              <ApplicationsGrid />
+              <CashflowWidget />
+              <ScheduleWidget />
+            </div>
 
-      {/* Layer 5: Dock Layer */}
-      <Dock />
+            {/* Center column */}
+            <div className="col-span-4 flex flex-col gap-5">
+              <CashflowWidget />
+              <ScheduleWidget />
+            </div>
 
-      {/* Layer 6: Overlay Layer – Command Palette */}
-      <CommandPalette
-        isOpen={cmdPaletteOpen}
-        onClose={() => setCmdPaletteOpen(false)}
-      />
+            {/* Right column */}
+            <div className="col-span-4 flex flex-col gap-5">
+              <AIInsights />
+              <MissionsWidget />
+              <ActivityFeed />
+            </div>
+          </div>
+        </div>
+      </div>
 
-      {/* Layer 7: Modal Layer – Executive Center */}
-      <ExecutiveCenter
-        isOpen={execCenterOpen}
-        onClose={() => setExecCenterOpen(false)}
-      />
+      {/* Overlays */}
+      <CommandPalette isOpen={cmdPaletteOpen} onClose={() => setCmdPaletteOpen(false)} />
+      <NotificationCenter isOpen={notifOpen} onClose={() => setNotifOpen(false)} />
 
-      {/* Layer 8: Notification Layer */}
-      <NotificationCenter
-        isOpen={notifOpen}
-        onClose={() => setNotifOpen(false)}
-      />
-      <LumeMenu
-        isOpen={lumeMenuOpen}
-        onClose={() => setLumeMenuOpen(false)}
-        onSignOut={onSignOut}
-        onOpenSettings={openSettingsApp}
-      />
-
-      {/* Layer 9: System Layer – Floating AI + Context Menu */}
-      <FloatingAIButton
-        onClick={() => {
-          const aiApp = appRegistry.find((a) => a.id === "ai-chat");
-          if (aiApp) openApp(aiApp);
-        }}
-      />
-      {menu && <ContextMenu menu={menu} onClose={closeMenu} />}
-
-      {/* Screen reader live region */}
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        className="sr-only"
-      />
+      {/* Screen reader */}
+      <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" />
     </div>
   );
 }
 
-function FloatingAIButton({ onClick }: { onClick: () => void }) {
-  const { state } = useDesktopStore();
-  const isAIOpen = state.windows.some((w) => w.appId === "ai-chat");
-  if (isAIOpen) return null;
+function MobileDashboardContent({ userName }: { userName?: string }) {
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good Morning";
+    if (h < 17) return "Good Afternoon";
+    return "Good Evening";
+  })();
 
   return (
-    <button
-      onClick={onClick}
-      className="fixed bottom-20 right-5 z-[9997] w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-110 active:scale-95"
-      style={{
-        background: "linear-gradient(135deg, #2563EB, #0EA5E9)",
-        boxShadow:
-          "0 8px 24px rgba(37, 99, 235, 0.4), 0 0 0 1px rgba(142, 216, 255, 0.2)",
-      }}
-      title="AI Assistant (Ctrl+Space)"
-    >
-      <Sparkles className="w-5 h-5 text-white" />
-    </button>
+    <div className="flex flex-col gap-4">
+      {/* Greeting */}
+      <div>
+        <h1 className="text-xl font-bold text-gray-900">
+          {greeting}, {userName || "User"} 👋
+        </h1>
+        <p className="text-sm text-gray-400 mt-0.5">Business is running great today.</p>
+      </div>
+
+      {/* Status row */}
+      <div className="flex items-center justify-between bg-white rounded-xl p-3 shadow-sm border border-gray-100">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-medium text-gray-600">Runtime Status</span>
+          <span className="text-xs font-semibold text-emerald-600">Healthy</span>
+        </div>
+        <div className="flex items-center gap-1 text-xs text-indigo-600 font-semibold">
+          6 Executives Online
+          <span className="text-gray-300">›</span>
+        </div>
+      </div>
+
+      {/* 2x2 Metrics */}
+      <div className="grid grid-cols-2 gap-3">
+        <MetricCard
+          label="Cash Today"
+          value="Rp 4.8jt"
+          delta={12.5}
+          icon={<ShoppingBag className="w-4 h-4 text-indigo-600" />}
+          iconBg="#EEF2FF"
+          sparkline={[30, 45, 35, 55, 48, 62, 70, 65]}
+        />
+        <MetricCard
+          label="Cashflow"
+          value="Rp 18.2jt"
+          delta={8.3}
+          icon={<TrendingUp className="w-4 h-4 text-emerald-600" />}
+          iconBg="#ECFDF5"
+          sparkline={[20, 35, 28, 42, 38, 55, 48, 60]}
+        />
+        <MetricCard
+          label="Profit"
+          value="Rp 42.5jt"
+          delta={-2.1}
+          icon={<Wallet className="w-4 h-4 text-amber-600" />}
+          iconBg="#FFFBEB"
+          sparkline={[50, 45, 48, 42, 44, 38, 40, 35]}
+        />
+        <MetricCard
+          label="Missions"
+          value="11"
+          delta={5}
+          icon={<Target className="w-4 h-4 text-purple-600" />}
+          iconBg="#F5F3FF"
+          sparkline={[5, 7, 6, 8, 9, 7, 10, 8]}
+        />
+      </div>
+
+      <AIInsights />
+      <ActivityFeed />
+    </div>
   );
 }
