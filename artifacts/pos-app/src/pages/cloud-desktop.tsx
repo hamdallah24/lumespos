@@ -3,6 +3,7 @@ import { useGetMe } from "@workspace/api-client-react";
 import { apiFetch } from "@/lib/csrf";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { BranchProvider } from "@/lib/branch";
 
 export default function CloudDesktopPage() {
   const { data: me, isLoading } = useGetMe({
@@ -34,5 +35,9 @@ export default function CloudDesktopPage() {
     return null;
   }
 
-  return <HomeScreen user={me} onSignOut={signOut} />;
+  return (
+    <BranchProvider>
+      <HomeScreen user={me} onSignOut={signOut} />
+    </BranchProvider>
+  );
 }
