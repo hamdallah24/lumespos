@@ -186,7 +186,7 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [todayTransactions, allIncomeResult, balances] = await Promise.all([
+    const [todayTransactions, allIncomeResult, allExpenseResult, balances] = await Promise.all([
       db
         .select()
         .from(transactionsTable)
@@ -195,25 +195,37 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
             ? sql`${transactionsTable.branchId} = ${branchId} AND ${transactionsTable.createdAt} >= ${today}`
             : sql`${transactionsTable.createdAt} >= ${today}`
         ),
-      // All-branch income (no branch filter)
+      // All-branch income
       db
         .select({ total: sql<string>`COALESCE(SUM(${transactionsTable.amount}), 0)` })
         .from(transactionsTable)
         .where(
           sql`${transactionsTable.type} = 'income' AND ${transactionsTable.createdAt} >= ${today}`
         ),
+      // All-branch expenses by category
+      db
+        .select({
+          category: transactionsTable.category,
+          total: sql<string>`COALESCE(SUM(${transactionsTable.amount}), 0)`,
+        })
+        .from(transactionsTable)
+        .where(
+          sql`${transactionsTable.type} = 'expense' AND ${transactionsTable.createdAt} >= ${today}`
+        )
+        .groupBy(transactionsTable.category),
       getAccountBalances(),
     ]);
 
     const todayIncome = parseFloat(allIncomeResult[0]?.total || "0");
 
-    const todayCOGS = todayTransactions
-      .filter((t) => t.type === "expense" && t.category === "cogs")
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    // All-branch COGS
+    const allCOGSResult = allExpenseResult.find(r => r.category === "cogs");
+    const todayCOGS = parseFloat(allCOGSResult?.total || "0");
 
-    const todayOperatingExpense = todayTransactions
-      .filter((t) => t.type === "expense" && t.category !== "cogs")
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    // All-branch operating expenses
+    const todayOperatingExpense = allExpenseResult
+      .filter(r => r.category !== "cogs")
+      .reduce((sum, r) => sum + parseFloat(r.total || "0"), 0);
 
     const todayExpense = todayCOGS + todayOperatingExpense;
 
