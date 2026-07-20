@@ -134,8 +134,6 @@ interface FinanceFilterContextValue {
 const FinanceFilterContext = createContext<FinanceFilterContextValue | null>(null);
 
 export function FinanceFilterProvider({ children }: { children: React.ReactNode }) {
-  const searchParams = useSearch();
-
   const [state, dispatch] = useReducer(reducer, null, () => {
     // Try load from URL first, then localStorage, then default
     try {
