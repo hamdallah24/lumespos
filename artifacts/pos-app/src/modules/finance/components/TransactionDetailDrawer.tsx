@@ -1,5 +1,5 @@
 import React from "react";
-import { useTransactionDetail, useJournalEntries } from "../hooks/useFinance";
+import { useTransactionDetail } from "../hooks/useFinance";
 import { formatRp, formatDate } from "@/lib/format";
 import {
   Sheet,
@@ -52,7 +52,7 @@ export default function TransactionDetailDrawer({
   open: boolean;
   onClose: () => void;
 }) {
-  const { data: journalData, isLoading: journalLoading } = useJournalEntries(
+  const { data: detailData, isLoading: detailLoading } = useTransactionDetail(
     transactionId || undefined
   );
 
@@ -66,11 +66,11 @@ export default function TransactionDetailDrawer({
           </SheetDescription>
         </SheetHeader>
 
-        {journalLoading ? (
+        {detailLoading ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : !journalData ? (
+        ) : !detailData ? (
           <div className="text-center py-12 text-muted-foreground text-sm">
             Transaksi tidak ditemukan
           </div>
@@ -89,8 +89,8 @@ export default function TransactionDetailDrawer({
                   label="Kategori"
                   value={
                     <Badge variant="outline">
-                      {TRANSACTION_CATEGORIES[journalData.transaction?.category]?.label ||
-                        journalData.transaction?.category}
+                      {TRANSACTION_CATEGORIES[detailData.transaction?.category]?.label ||
+                        detailData.transaction?.category}
                     </Badge>
                   }
                 />
@@ -98,22 +98,22 @@ export default function TransactionDetailDrawer({
                 <DetailRow
                   icon={FileText}
                   label="Deskripsi"
-                  value={journalData.transaction?.description}
+                  value={detailData.transaction?.description}
                 />
                 <Separator />
                 <DetailRow
                   icon={Hash}
                   label="Jumlah"
                   value={
-                    <span
+                      <span
                       className={
-                        journalData.transaction?.type === "income"
+                        detailData.transaction?.type === "income"
                           ? "text-green-600"
                           : "text-red-600"
                       }
                     >
-                      {journalData.transaction?.type === "income" ? "+" : "-"}
-                      {formatRp(parseFloat(journalData.transaction?.amount || "0"))}
+                      {detailData.transaction?.type === "income" ? "+" : "-"}
+                      {formatRp(parseFloat(detailData.transaction?.amount || "0"))}
                     </span>
                   }
                 />
@@ -124,14 +124,14 @@ export default function TransactionDetailDrawer({
                   value={
                     <Badge
                       variant={
-                        journalData.transaction?.status === "completed"
+                        detailData.transaction?.status === "completed"
                           ? "default"
                           : "secondary"
                       }
                     >
-                      {journalData.transaction?.status === "completed"
+                      {detailData.transaction?.status === "completed"
                         ? "Selesai"
-                        : journalData.transaction?.status}
+                        : detailData.transaction?.status}
                     </Badge>
                   }
                 />
@@ -139,7 +139,7 @@ export default function TransactionDetailDrawer({
                 <DetailRow
                   icon={Clock}
                   label="Dibuat"
-                  value={formatDate(journalData.transaction?.createdAt?.toString() || "")}
+                  value={formatDate(detailData.transaction?.createdAt?.toString() || "")}
                 />
               </CardContent>
             </Card>
@@ -152,13 +152,13 @@ export default function TransactionDetailDrawer({
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                {journalData.journal.length === 0 ? (
+                {detailData.journal.length === 0 ? (
                   <p className="text-xs text-muted-foreground text-center py-4">
                     Tidak ada jurnal
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {journalData.journal.map((entry: any) => (
+                    {detailData.journal.map((entry: any) => (
                       <div
                         key={entry.id}
                         className="flex items-center justify-between py-2 border-b border-border last:border-0"
