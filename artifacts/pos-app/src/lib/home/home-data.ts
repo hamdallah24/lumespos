@@ -221,22 +221,46 @@ async function getBranchMap(): Promise<Map<number, string>> {
 
 export async function fetchRecentActivity(): Promise<RecentActivityItem[]> {
   try {
+    const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
     const [branchMap, ordersRes] = await Promise.all([
       getBranchMap(),
-      fetch("/api/orders?limit=15", { credentials: "include" }),
+      fetch(`/api/orders?date=${today}&limit=20`, { credentials: "include" }),
     ]);
     if (!ordersRes.ok) throw new Error("Failed to fetch orders");
-    const data = await ordersRes.json();
-    const orders = data.orders || [];
+    const { orders = [] } = await ordersRes.json();
     if (!Array.isArray(orders) || orders.length === 0) return [];
 
-    return orders.map((o: { id: number; branchId: number; total: number; status: string; createdAt: string; itemCount: number }) => ({
-      id: `order-${o.id}`,
-      transaction: `Order #${o.id} · ${o.itemCount || 0} item${o.itemCount !== 1 ? "s" : ""}`,
-      location: branchMap.get(o.branchId) || `Branch #${o.branchId}`,
-      time: new Date(o.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
-      amount: o.status === "voided" ? -Math.abs(o.total) : o.total,
-    }));
+    interface OrderItemRaw { id: number; productName: string; quantity: number; priceAtSale: number; subtotal: number }
+    interface OrderDetailRaw { id: number; branchId: number; createdAt: string; items: OrderItemRaw[] }
+
+    // Fetch all order details in parallel to get product names
+    const details: OrderDetailRaw[] = await Promise.all(
+      orders.map((o: { id: number }) =>
+        fetch(`/api/orders/${o.id}`, { credentials: "include" })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null)
+      )
+    );
+
+    // Flatten: one activity row per sold item
+    const rows: RecentActivityItem[] = [];
+    for (const detail of details) {
+      if (!detail?.items) continue;
+      const branchName = branchMap.get(detail.branchId) || `Branch #${detail.branchId}`;
+      const time = new Date(detail.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+      for (const item of detail.items) {
+        rows.push({
+          id: `order-${detail.id}-item-${item.id}`,
+          transaction: `${item.productName}${item.quantity > 1 ? ` ×${item.quantity}` : ""}`,
+          location: branchName,
+          time,
+          amount: item.priceAtSale * item.quantity,
+        });
+      }
+    }
+
+    // Sort newest first by preserving order detail order (already desc by createdAt)
+    return rows;
   } catch {
     return [];
   }
