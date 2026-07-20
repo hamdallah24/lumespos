@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, transactionsTable } from "@workspace/db";
-import { eq, desc, sql, and, inArray, gte, lte } from "drizzle-orm";
+import { eq, desc, sql, and, inArray, gte, lte, neq } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, canAccessBranch } from "../middlewares/requireAuth";
 import {
   initializeDefaultCOA,
@@ -82,6 +82,33 @@ router.post("/finance/transactions", requireAuth, requireBranchAccess((req) => N
   } catch (err: any) {
     console.error("POST /finance/transactions error:", err);
     return res.status(500).json({ error: err.message || "Gagal membuat transaksi" });
+  }
+});
+
+// Void a transaction (set status to voided, proper accounting)
+router.patch("/finance/transactions/:id/void", requireAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid ID" });
+
+    const [existing] = await db.select().from(transactionsTable).where(eq(transactionsTable.id, id));
+    if (!existing) return res.status(404).json({ error: "Transaction not found" });
+    if (existing.status === "voided") return res.status(400).json({ error: "Already voided" });
+    if (existing.referenceType === "order") return res.status(400).json({ error: "Cannot void POS orders, void the order instead" });
+
+    await db.update(transactionsTable)
+      .set({ status: "voided", notes: (existing.notes ? existing.notes + " | " : "") + "Voided by user", updatedAt: new Date() })
+      .where(eq(transactionsTable.id, id));
+
+    await PeriodManager.writeAuditLog({
+      action: "VOID_TRANSACTION", userId: req.user?.id,
+      periodId: undefined, reason: `Voided transaction #${id}: ${existing.description}`,
+      changes: JSON.stringify({ id, amount: existing.amount, category: existing.category }),
+    });
+
+    return res.json({ success: true, message: "Transaction voided" });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 });
 
@@ -201,6 +228,8 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     } else if (branchId) {
       condBranch.push(sql`${transactionsTable.branchId} = ${branchId}`);
     }
+    // Exclude voided transactions
+    condBranch.push(neq(transactionsTable.status, "voided"));
     const branchCond = condBranch.length > 0 ? and(...condBranch) : undefined;
 
     const baseWhere = and(
