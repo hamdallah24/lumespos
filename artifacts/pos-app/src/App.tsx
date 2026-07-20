@@ -582,7 +582,7 @@ function FinancePage() {
   if (!me) return <Redirect to="/sign-in" />;
   return (
     <BranchProvider>
-      <div className="h-screen bg-background">
+      <div className="h-screen bg-background flex flex-col overflow-hidden">
         <FinanceDashboard />
       </div>
     </BranchProvider>

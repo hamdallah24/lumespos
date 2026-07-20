@@ -259,15 +259,9 @@ function FinanceDashboardInner() {
   const todayOperatingExpense = dashboard?.todayOperatingExpense || 0;
   const profitToday = dashboard?.profitToday || 0;
 
-  // Debug: visible filter state
-  const debugText = `branches=${filter.branchIds.join(",") || "all"} start=${filter.startDate} end=${filter.endDate} income=${dashboard?.todayIncome} cogs=${dashboard?.todayCOGS}`;
-
   return (
-    <div className="flex-1 flex flex-col">
+    <div className="flex-1 flex flex-col min-h-0">
       <FinanceFilterBar />
-      <div className="px-2 py-1 text-[9px] font-mono text-muted-foreground/50 truncate" title={debugText}>
-        {debugText}
-      </div>
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
