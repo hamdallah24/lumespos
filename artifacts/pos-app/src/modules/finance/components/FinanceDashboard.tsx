@@ -250,8 +250,6 @@ function FinanceDashboardInner() {
     filter.startDate,
     filter.endDate,
   );
-  console.warn("[Finance] Filter:", JSON.stringify({ branchIds: filter.branchIds, dates: [filter.startDate, filter.endDate] }));
-  console.warn("[Finance] Dashboard:", JSON.stringify({ income: dashboard?.todayIncome, cogs: dashboard?.todayCOGS, exp: dashboard?.todayOperatingExpense, profit: dashboard?.profitToday }));
 
   const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -260,11 +258,16 @@ function FinanceDashboardInner() {
   const todayIncome = dashboard?.todayIncome || 0;
   const todayOperatingExpense = dashboard?.todayOperatingExpense || 0;
   const profitToday = dashboard?.profitToday || 0;
-  const debugInfo = dashboard ? JSON.stringify({ income: dashboard.todayIncome, cogs: dashboard.todayCOGS, op: dashboard.todayOperatingExpense, profit: dashboard.profitToday }) : "no data";
+
+  // Debug: visible filter state
+  const debugText = `branches=${filter.branchIds.join(",") || "all"} start=${filter.startDate} end=${filter.endDate} income=${dashboard?.todayIncome} cogs=${dashboard?.todayCOGS}`;
 
   return (
     <div className="flex-1 flex flex-col">
       <FinanceFilterBar />
+      <div className="px-2 py-1 text-[9px] font-mono text-muted-foreground/50 truncate" title={debugText}>
+        {debugText}
+      </div>
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
