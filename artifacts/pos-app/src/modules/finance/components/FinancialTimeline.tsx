@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useTimeline } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
+import { useFinanceFilter } from "../context/FinanceFilterContext";
 import { formatRp, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -93,7 +94,9 @@ function TimelineItemCard({
 }
 
 export default function FinancialTimeline() {
-  const { branchId } = useBranch();
+  const { state: filter } = useFinanceFilter();
+  const { branchId: defaultBranchId } = useBranch();
+  const branchId = filter.branchIds.length === 1 ? filter.branchIds[0] : null;
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("");
   const [page, setPage] = useState(1);
@@ -101,7 +104,9 @@ export default function FinancialTimeline() {
 
   const filters = useMemo(
     () => ({
-      branchId: branchId || undefined,
+      branchId: branchId || defaultBranchId || undefined,
+      startDate: filter.startDate || undefined,
+      endDate: filter.endDate || undefined,
       search: search || undefined,
       category: category || undefined,
       page,

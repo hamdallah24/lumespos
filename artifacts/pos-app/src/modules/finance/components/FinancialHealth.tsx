@@ -1,6 +1,7 @@
 import React from "react";
 import { useFinancialHealth } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
+import { useFinanceFilter } from "../context/FinanceFilterContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, TrendingUp, TrendingDown, DollarSign, Activity } from "lucide-react";
 import { motion } from "framer-motion";
@@ -57,8 +58,10 @@ function HealthScoreCard({
 }
 
 export default function FinancialHealth() {
-  const { branchId } = useBranch();
-  const { data, isLoading } = useFinancialHealth(branchId);
+  const { state: filter } = useFinanceFilter();
+  const { branchId: defaultBranchId } = useBranch();
+  const branchId = filter.branchIds.length === 1 ? filter.branchIds[0] : defaultBranchId;
+  const { data, isLoading } = useFinancialHealth(branchId ?? undefined);
 
   if (isLoading) {
     return (

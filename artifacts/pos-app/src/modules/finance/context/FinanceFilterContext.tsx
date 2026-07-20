@@ -189,3 +189,19 @@ export function useFinanceFilter() {
   if (!ctx) throw new Error("useFinanceFilter must be used within FinanceFilterProvider");
   return ctx;
 }
+
+// Returns the first selected branchId from filter, or null if all branches
+export function useFilteredBranchId(): number | null {
+  const { state } = useFinanceFilter();
+  return state.branchIds.length === 1 ? state.branchIds[0] : null;
+}
+
+export function useFilteredBranchIds(): number[] {
+  const { state } = useFinanceFilter();
+  return state.branchIds;
+}
+
+export function useFilterDates(): { startDate: string | null; endDate: string | null } {
+  const { state } = useFinanceFilter();
+  return { startDate: state.startDate, endDate: state.endDate };
+}
