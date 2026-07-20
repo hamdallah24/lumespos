@@ -186,7 +186,7 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const [todayTransactions, balances] = await Promise.all([
+    const [todayTransactions, allIncomeResult, balances] = await Promise.all([
       db
         .select()
         .from(transactionsTable)
@@ -195,12 +195,17 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
             ? sql`${transactionsTable.branchId} = ${branchId} AND ${transactionsTable.createdAt} >= ${today}`
             : sql`${transactionsTable.createdAt} >= ${today}`
         ),
+      // All-branch income (no branch filter)
+      db
+        .select({ total: sql<string>`COALESCE(SUM(${transactionsTable.amount}), 0)` })
+        .from(transactionsTable)
+        .where(
+          sql`${transactionsTable.type} = 'income' AND ${transactionsTable.createdAt} >= ${today}`
+        ),
       getAccountBalances(),
     ]);
 
-    const todayIncome = todayTransactions
-      .filter((t) => t.type === "income")
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+    const todayIncome = parseFloat(allIncomeResult[0]?.total || "0");
 
     const todayCOGS = todayTransactions
       .filter((t) => t.type === "expense" && t.category === "cogs")
