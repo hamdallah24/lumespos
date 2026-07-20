@@ -48,13 +48,14 @@ export class EventBus {
       return;
     }
 
+    // Emit to subscribers first — critical: don't block on persistence
+    this.emitter.emit(event.type, event);
+    this.emitter.emit("*", event);
+
     try {
-      const sequence = await this.store.append(event);
-      const enrichedEvent = { ...event, metadata: { ...event.metadata, sequence } };
-      this.emitter.emit(event.type, enrichedEvent);
-      this.emitter.emit("*", enrichedEvent);
+      await this.store.append(event);
     } catch (err) {
-      console.error(`[EventBus] Failed to publish event ${event.type}:`, err);
+      console.error(`[EventBus] Failed to persist event ${event.type}:`, err);
     }
   }
 
