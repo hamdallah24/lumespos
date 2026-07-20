@@ -37,8 +37,13 @@ export function useFinanceDashboard(branchIds?: number[], startDate?: string | n
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
       const qs = params.toString();
-      const res = await apiFetch(`/api/finance/dashboard${qs ? "?" + qs : ""}`);
-      if (!res.ok) throw new Error("Gagal mengambil data dashboard");
+      const url = `/api/finance/dashboard${qs ? "?" + qs : ""}`;
+      const res = await apiFetch(url);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "Unknown");
+        console.error("[Finance] Dashboard API error:", res.status, errText);
+        throw new Error("Gagal mengambil data dashboard");
+      }
       return res.json();
     },
   });

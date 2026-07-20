@@ -258,6 +258,7 @@ function FinanceDashboardInner() {
   const todayIncome = dashboard?.todayIncome || 0;
   const todayOperatingExpense = dashboard?.todayOperatingExpense || 0;
   const profitToday = dashboard?.profitToday || 0;
+  const debugInfo = dashboard ? JSON.stringify({ income: dashboard.todayIncome, cogs: dashboard.todayCOGS, op: dashboard.todayOperatingExpense, profit: dashboard.profitToday }) : "no data";
 
   return (
     <div className="flex-1 flex flex-col">
