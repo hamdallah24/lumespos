@@ -2,6 +2,8 @@ import React, { useState, useMemo } from "react";
 import { useTimeline } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
 import { useFinanceFilter } from "../context/FinanceFilterContext";
+import { useQueryClient } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/csrf";
 import { formatRp, formatDate } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,12 +33,15 @@ import { id } from "date-fns/locale";
 function TimelineItemCard({
   item,
   onClick,
+  onVoid,
 }: {
   item: any;
   onClick: () => void;
+  onVoid?: (id: number) => void;
 }) {
   const isIncome = item.type === "income";
   const categoryInfo = TRANSACTION_CATEGORIES[item.category];
+  const canVoid = item.referenceType !== "order" && item.status !== "voided";
 
   return (
     <motion.div
@@ -64,12 +69,13 @@ function TimelineItemCard({
               <p className="text-sm font-semibold truncate">{item.description}</p>
               <p className="text-xs text-muted-foreground">
                 {categoryInfo?.label || item.category}
+                {item.status === "voided" && <span className="ml-2 text-red-500">(Voided)</span>}
               </p>
             </div>
             <div className="text-right shrink-0">
               <p
                 className={`text-sm font-bold ${
-                  isIncome ? "text-green-600" : "text-red-600"
+                  item.status === "voided" ? "text-muted-foreground line-through" : isIncome ? "text-green-600" : "text-red-600"
                 }`}
               >
                 {isIncome ? "+" : "-"}
@@ -83,8 +89,18 @@ function TimelineItemCard({
               <Clock className="w-3 h-3" />
               <span>{format(new Date(item.createdAt), "HH:mm", { locale: id })}</span>
             </div>
-            <div className="text-xs text-muted-foreground">
-              Saldo: {formatRp(item.balanceAfter)}
+            <div className="flex items-center gap-2">
+              {canVoid && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onVoid?.(item.id); }}
+                  className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+                >
+                  Void
+                </button>
+              )}
+              <span className="text-xs text-muted-foreground">
+                Saldo: {formatRp(item.balanceAfter)}
+              </span>
             </div>
           </div>
         </div>
@@ -101,6 +117,18 @@ export default function FinancialTimeline() {
   const [category, setCategory] = useState<string>("");
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleVoid = async (id: number) => {
+    if (!confirm("Void transaksi ini?")) return;
+    try {
+      const res = await apiFetch(`/api/finance/transactions/${id}/void`, { method: "PATCH" });
+      if (!res.ok) throw new Error("Gagal void");
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+    } catch (err) {
+      alert("Gagal void transaksi");
+    }
+  };
 
   const filters = useMemo(
     () => ({
@@ -194,6 +222,7 @@ export default function FinancialTimeline() {
               key={item.id}
               item={item}
               onClick={() => {}}
+              onVoid={handleVoid}
             />
           ))}
         </div>
