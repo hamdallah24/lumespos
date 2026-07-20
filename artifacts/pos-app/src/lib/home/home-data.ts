@@ -289,29 +289,52 @@ export async function fetchPOSDailyStats(): Promise<POSDailyStats> {
 }
 
 export async function fetchInsights(): Promise<InsightItem[]> {
-  return [
-    {
-      id: "1",
-      icon: "TrendingUp",
-      title: "Penjualan meningkat",
-      description: "Omset hari ini naik 8.4% dari kemarin",
-      time: "2 jam lalu",
-    },
-    {
-      id: "2",
-      icon: "AlertTriangle",
-      title: "Stok rendah",
-      description: "3 bahan di bawah batas minimum",
-      time: "4 jam lalu",
-    },
-    {
-      id: "3",
-      icon: "CheckCircle2",
-      title: "Shift selesai",
-      description: "Shift pagi ditutup selisih Rp 0",
-      time: "6 jam lalu",
-    },
-  ];
+  try {
+    const res = await fetch("/api/finance/dashboard", { credentials: "include" });
+    if (!res.ok) throw new Error("Failed to fetch");
+    const data = await res.json();
+    const items: InsightItem[] = [];
+
+    if (data.hasData) {
+      const income = data.todayIncome ?? 0;
+      const expense = data.todayExpense ?? 0;
+      const profit = data.profitToday ?? 0;
+
+      if (income > 0) {
+        items.push({
+          id: "income",
+          icon: "TrendingUp",
+          title: "Pemasukan hari ini",
+          description: `Rp ${income.toLocaleString("id-ID")} dari penjualan`,
+          time: "Hari ini",
+        });
+      }
+
+      if (expense > 0) {
+        items.push({
+          id: "expense",
+          icon: "AlertTriangle",
+          title: "Pengeluaran hari ini",
+          description: `Rp ${expense.toLocaleString("id-ID")} total pengeluaran`,
+          time: "Hari ini",
+        });
+      }
+
+      if (profit > 0) {
+        items.push({
+          id: "profit",
+          icon: "CheckCircle2",
+          title: "Laba bersih",
+          description: `Rp ${profit.toLocaleString("id-ID")} keuntungan bersih`,
+          time: "Hari ini",
+        });
+      }
+    }
+
+    return items;
+  } catch {
+    return [];
+  }
 }
 
 // ── Branch cache (module-level, populated once) ──
