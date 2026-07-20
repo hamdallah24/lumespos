@@ -8,11 +8,11 @@ interface ApplicationGridProps {
 
 export default function ApplicationGrid({ onAppClick }: ApplicationGridProps) {
   return (
-    <div className="px-6">
-      <h2 className="text-[24px] font-bold text-[#111827] mb-4 tracking-[-0.01em]">
+    <div className="px-6 py-0">
+      <h2 className="text-[22px] font-bold text-[#111827] mb-4 tracking-tight">
         Applications
       </h2>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-4">
         {appRegistry.map((app, i) => (
           <motion.div
             key={app.id}

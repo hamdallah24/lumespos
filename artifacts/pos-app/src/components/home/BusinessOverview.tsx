@@ -15,8 +15,8 @@ export default function BusinessOverview() {
   const missions = useWidgetProvider(fetchMissions, []);
 
   return (
-    <div className="px-6">
-      <div className="grid grid-cols-2 gap-3">
+    <div className="px-6 py-0">
+      <div className="grid grid-cols-2 gap-4">
         <BusinessCard
           title="Cash Today"
           amount={cash.data ? formatIDR(cash.data.amount) : "—"}
