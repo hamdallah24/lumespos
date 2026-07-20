@@ -260,9 +260,9 @@ function FinanceDashboardInner() {
   const profitToday = dashboard?.profitToday || 0;
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 flex flex-col">
       <FinanceFilterBar />
-      <div className="px-4 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h2 className="text-lg font-bold">Keuangan</h2>
@@ -327,9 +327,9 @@ function FinanceDashboardInner() {
         )}
       </div>
 
-      <CashPosition />
-      <FinancialHealth />
-      <DashboardInsight />
+      <CashPosition branchIds={filter.branchIds} />
+      <FinancialHealth branchId={filter.branchIds[0] || branchId || undefined} />
+      <DashboardInsight branchId={filter.branchIds[0] || branchId || undefined} />
 
       <Card>
         <CardHeader className="pb-3">
@@ -339,7 +339,11 @@ function FinanceDashboardInner() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <FinancialTimeline />
+          <FinancialTimeline
+            branchId={filter.branchIds[0] || branchId || undefined}
+            startDate={filter.startDate || undefined}
+            endDate={filter.endDate || undefined}
+          />
         </CardContent>
       </Card>
 
