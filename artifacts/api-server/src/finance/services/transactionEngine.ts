@@ -15,7 +15,7 @@ const CATEGORY_ACCOUNT_MAP: Record<string, { debitAccount: string; creditAccount
   "marketing": { debitAccount: "5000", creditAccount: "1000" },
   "maintenance": { debitAccount: "5000", creditAccount: "1000" },
   "other_expense": { debitAccount: "5000", creditAccount: "1000" },
-  "cogs": { debitAccount: "5000", creditAccount: "1000" },
+  "cogs": { debitAccount: "5000", creditAccount: "1200" },
   "pos_sale": { debitAccount: "1000", creditAccount: "4000" },
   "depot_sale": { debitAccount: "1000", creditAccount: "4000" },
   "marketplace_sale": { debitAccount: "1100", creditAccount: "4000" },
@@ -30,7 +30,13 @@ const PAYMENT_ACCOUNT_MAP: Record<string, string> = {
   hutang: "2000",
 };
 
+const ACCOUNTING_CATEGORIES = new Set(["cogs"]);
+
 export async function createTransaction(input: TransactionInput): Promise<{ transaction: any; journalEntries: any[] }> {
+  const txnClass = ACCOUNTING_CATEGORIES.has(input.category)
+    ? "ACCOUNTING_TRANSACTION" as const
+    : "CASH_TRANSACTION" as const;
+
   return db.transaction(async (tx) => {
     const [transaction] = await tx
       .insert(transactionsTable)
@@ -44,6 +50,7 @@ export async function createTransaction(input: TransactionInput): Promise<{ tran
         referenceId: input.referenceId,
         referenceCode: input.referenceCode,
         sourceModule: input.sourceModule,
+        transactionClass: txnClass,
         status: "completed",
         notes: input.notes,
         createdBy: input.createdBy,

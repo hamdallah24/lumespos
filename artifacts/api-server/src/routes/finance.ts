@@ -202,9 +202,15 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
       .filter((t) => t.type === "income")
       .reduce((sum, t) => sum + parseFloat(t.amount), 0);
 
-    const todayExpense = todayTransactions
-      .filter((t) => t.type === "expense")
+    const todayCOGS = todayTransactions
+      .filter((t) => t.type === "expense" && t.category === "cogs")
       .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+    const todayOperatingExpense = todayTransactions
+      .filter((t) => t.type === "expense" && t.category !== "cogs")
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+    const todayExpense = todayCOGS + todayOperatingExpense;
 
     const cashAccount = balances.find((b) => b.accountCode === "1000");
     const bankAccount = balances.find((b) => b.accountCode === "1100");
@@ -212,7 +218,9 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     const arAccount = balances.find((b) => b.accountCode === "1300");
     const apAccount = balances.find((b) => b.accountCode === "2000");
 
-    const cashBalance = (cashAccount?.balance || 0) + (bankAccount?.balance || 0);
+    const cashBalance = (cashAccount?.balance || 0)
+      + (bankAccount?.balance || 0)
+      + (ewalletAccount?.balance || 0);
 
     const cashPosition = {
       cash: cashAccount?.balance || 0,
@@ -231,8 +239,10 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     return res.json({
       cashBalance,
       todayIncome,
+      todayCOGS,
+      todayOperatingExpense,
       todayExpense,
-      profitToday: todayIncome - todayExpense,
+      profitToday: todayIncome - todayCOGS - todayOperatingExpense,
       hasData: todayTransactions.length > 0,
       cashPosition,
       health: healthData,

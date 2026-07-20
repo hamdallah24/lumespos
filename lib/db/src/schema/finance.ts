@@ -20,6 +20,8 @@ export const accountsTable = pgTable("accounts", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const transactionClassEnum = pgEnum("transaction_class", ["CASH_TRANSACTION", "ACCOUNTING_TRANSACTION"]);
+
 export const transactionsTable = pgTable("finance_transactions", {
   id: serial("id").primaryKey(),
   branchId: integer("branch_id").notNull().references(() => branchesTable.id, { onDelete: "restrict" }),
@@ -31,6 +33,7 @@ export const transactionsTable = pgTable("finance_transactions", {
   referenceId: integer("reference_id"),
   referenceCode: text("reference_code"),
   sourceModule: text("source_module"),
+  transactionClass: transactionClassEnum("transaction_class").notNull().default("CASH_TRANSACTION"),
   status: transactionStatusEnum("status").notNull().default("completed"),
   notes: text("notes"),
   createdBy: integer("created_by"),

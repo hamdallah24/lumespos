@@ -75,16 +75,20 @@ async function getMonthlyTotals(branchId: number, monthsAgo: number) {
 
   let income = 0;
   let expense = 0;
+  let operatingExpense = 0;
   for (const t of rows) {
     const amount = parseFloat(t.amount);
     if (t.type === "income") {
       income += amount;
     } else {
       expense += amount;
+      if (t.category !== "cogs") {
+        operatingExpense += amount;
+      }
     }
   }
 
-  return { income, expense };
+  return { income, expense, operatingExpense };
 }
 
 export async function getHealthData(branchId: number, precomputedBalances?: { cash: number; bank: number }): Promise<HealthData> {
@@ -122,7 +126,7 @@ export async function getHealthData(branchId: number, precomputedBalances?: { ca
   }
 
   const expenseRatio = currentMonth.income > 0
-    ? (currentMonth.expense / currentMonth.income) * 100
+    ? (currentMonth.operatingExpense / currentMonth.income) * 100
     : 0;
   let expenseRatioScore = 50;
   if (expenseRatio < 50) expenseRatioScore = 90;

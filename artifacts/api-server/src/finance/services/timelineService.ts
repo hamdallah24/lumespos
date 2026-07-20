@@ -59,6 +59,8 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineRes
   if (filters.endDate) {
     conditions.push(sql`${transactionsTable.createdAt} <= ${filters.endDate}`);
   }
+  // Timeline only shows cash movements
+  conditions.push(eq(transactionsTable.transactionClass, "CASH_TRANSACTION"));
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 

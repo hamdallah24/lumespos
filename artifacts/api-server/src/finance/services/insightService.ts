@@ -14,6 +14,11 @@ export interface InsightData {
     change: number;
     direction: "up" | "down" | "flat";
   };
+  cogs: {
+    current: number;
+    previous: number;
+    change: number;
+  };
   profitMargin: number;
   hasHistory: boolean;
 }
@@ -37,16 +42,19 @@ async function getDailyTotals(branchId: number, date: Date) {
 
   let income = 0;
   let expense = 0;
+  let cogs = 0;
   for (const t of rows) {
     const amount = parseFloat(t.amount);
     if (t.type === "income") {
       income += amount;
+    } else if (t.category === "cogs") {
+      cogs += amount;
     } else {
       expense += amount;
     }
   }
 
-  return { income, expense };
+  return { income, expense, cogs };
 }
 
 export async function getInsightData(branchId: number): Promise<InsightData> {
@@ -61,7 +69,7 @@ export async function getInsightData(branchId: number): Promise<InsightData> {
     getDailyTotals(branchId, yesterday),
   ]);
 
-  const hasHistory = yesterdayData.income > 0 || yesterdayData.expense > 0;
+  const hasHistory = yesterdayData.income > 0 || yesterdayData.expense > 0 || yesterdayData.cogs > 0;
 
   const incomeChange = yesterdayData.income > 0
     ? ((todayData.income - yesterdayData.income) / yesterdayData.income) * 100
@@ -72,9 +80,12 @@ export async function getInsightData(branchId: number): Promise<InsightData> {
     : 0;
 
   const totalRevenue = todayData.income;
+  const totalCOGS = todayData.cogs;
   const totalExpenses = todayData.expense;
+  const grossProfit = totalRevenue - totalCOGS;
+  const netProfit = grossProfit - totalExpenses;
   const profitMargin = totalRevenue > 0
-    ? ((totalRevenue - totalExpenses) / totalRevenue) * 100
+    ? (grossProfit / totalRevenue) * 100
     : 0;
 
   return {
@@ -89,6 +100,11 @@ export async function getInsightData(branchId: number): Promise<InsightData> {
       previous: yesterdayData.expense,
       change: Math.abs(expenseChange),
       direction: expenseChange > 0 ? "up" : expenseChange < 0 ? "down" : "flat",
+    },
+    cogs: {
+      current: todayData.cogs,
+      previous: yesterdayData.cogs,
+      change: yesterdayData.cogs > 0 ? ((todayData.cogs - yesterdayData.cogs) / yesterdayData.cogs) * 100 : 0,
     },
     profitMargin,
     hasHistory,

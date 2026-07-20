@@ -56,6 +56,8 @@ export interface FinanceLedgerEntry {
 export interface FinanceDashboardData {
   cashBalance: number;
   todayIncome: number;
+  todayCOGS: number;
+  todayOperatingExpense: number;
   todayExpense: number;
   profitToday: number;
   hasData: boolean;
