@@ -3,7 +3,6 @@ import { useFinanceDashboard, useCreateTransaction, useFinanceAccounts } from ".
 import { useBranch } from "@/lib/branch";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -236,26 +235,13 @@ export default function FinanceDashboard() {
   const { branchId } = useBranch();
   const { data: dashboard, isLoading: dashboardLoading, refetch } = useFinanceDashboard(branchId);
 
-  const [showMock, setShowMock] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const hasData = dashboard?.hasData || false;
-  const showLiveData = hasData && !showMock;
-
-  const cashBalance = showLiveData ? dashboard?.cashBalance || 0 : 0;
-  const todayIncome = showLiveData ? dashboard?.todayIncome || 0 : 0;
-  const todayExpense = showLiveData ? dashboard?.todayExpense || 0 : 0;
-  const profitToday = showLiveData ? dashboard?.profitToday || 0 : 0;
-
-  const mockData = {
-    cashBalance: 0,
-    todayIncome: 0,
-    todayExpense: 0,
-    profitToday: 0,
-  };
-
-  const displayData = showLiveData ? { cashBalance, todayIncome, todayExpense, profitToday } : mockData;
+  const cashBalance = dashboard?.cashBalance || 0;
+  const todayIncome = dashboard?.todayIncome || 0;
+  const todayExpense = dashboard?.todayExpense || 0;
+  const profitToday = dashboard?.profitToday || 0;
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
@@ -263,21 +249,11 @@ export default function FinanceDashboard() {
         <div className="min-w-0">
           <h2 className="text-lg font-bold">Keuangan</h2>
           <p className="text-xs text-muted-foreground">
-            {dashboardLoading ? "Memuat..." : showLiveData ? "Data live" : "Belum ada data transaksi"}
+            {dashboardLoading ? "Memuat..." : "Data live"}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <ExportMenu />
-          {!hasData && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowMock(!showMock)}
-              className="text-xs"
-            >
-              {showMock ? "Sembunyikan Mock" : "Lihat Contoh"}
-            </Button>
-          )}
         </div>
       </div>
 
@@ -295,25 +271,25 @@ export default function FinanceDashboard() {
           <>
             <StatCard
               title="Kas"
-              value={displayData.cashBalance}
+              value={cashBalance}
               icon={Wallet}
               color="bg-blue-500/10 text-blue-600"
             />
             <StatCard
               title="Pemasukan Hari Ini"
-              value={displayData.todayIncome}
+              value={todayIncome}
               icon={TrendingUp}
               color="bg-green-500/10 text-green-600"
             />
             <StatCard
               title="Pengeluaran Hari Ini"
-              value={displayData.todayExpense}
+              value={todayExpense}
               icon={TrendingDown}
               color="bg-red-500/10 text-red-600"
             />
             <StatCard
               title="Laba Hari Ini"
-              value={displayData.profitToday}
+              value={profitToday}
               icon={Banknote}
               color="bg-purple-500/10 text-purple-600"
             />
@@ -333,13 +309,7 @@ export default function FinanceDashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {showLiveData ? (
-            <FinancialTimeline />
-          ) : (
-            <div className="py-8 text-center text-muted-foreground text-sm">
-              Belum ada transaksi
-            </div>
-          )}
+          <FinancialTimeline />
         </CardContent>
       </Card>
 
