@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { db, transactionsTable } from "@workspace/db";
+import { db, transactionsTable, journalEntriesTable, ledgerEntriesTable } from "@workspace/db";
 import { eq, desc, sql, and, inArray, gte, lte } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, canAccessBranch } from "../middlewares/requireAuth";
 import {
   initializeDefaultCOA,
   getAllAccounts,
   getAccountByCode,
+  getAccountById,
   createTransaction,
   getJournalEntriesByTransaction,
   getLedgerByAccount,
@@ -99,6 +100,44 @@ router.patch("/finance/transactions/:id/void", requireAuth, async (req, res) => 
     await db.update(transactionsTable)
       .set({ status: "voided", notes: (existing.notes ? existing.notes + " | " : "") + "Voided by user", updatedAt: new Date() })
       .where(eq(transactionsTable.id, id));
+
+    // Create reversal journal entries (swap debit/credit to cancel original)
+    const originalJournals = await db.select().from(journalEntriesTable).where(eq(journalEntriesTable.transactionId, id));
+    for (const je of originalJournals) {
+      const [reversal] = await db.insert(journalEntriesTable).values({
+        transactionId: id,
+        accountId: je.accountId,
+        debit: je.credit,  // swap debit ↔ credit
+        credit: je.debit,
+        description: "REVERSAL: " + (je.description || existing.description),
+      }).returning();
+
+      // Update ledger for reversal
+      const [lastLedger] = await db.select()
+        .from(ledgerEntriesTable)
+        .where(eq(ledgerEntriesTable.accountId, je.accountId))
+        .orderBy(sql`${ledgerEntriesTable.id} DESC`)
+        .limit(1);
+      const prevBalance = lastLedger ? parseFloat(lastLedger.runningBalance) : 0;
+      const revDebit = parseFloat(reversal.debit);
+      const revCredit = parseFloat(reversal.credit);
+
+      // Get account's normal balance
+      const acct = await getAccountById(je.accountId);
+      const isDebitNormal = acct?.normalBalance === "debit";
+      const newBalance = isDebitNormal ? prevBalance + revDebit - revCredit : prevBalance - revDebit + revCredit;
+
+      await db.insert(ledgerEntriesTable).values({
+        accountId: je.accountId,
+        journalEntryId: reversal.id,
+        transactionId: id,
+        date: new Date(),
+        description: "REVERSAL: " + (je.description || existing.description),
+        debit: reversal.debit,
+        credit: reversal.credit,
+        runningBalance: String(newBalance),
+      });
+    }
 
     await PeriodManager.writeAuditLog({
       action: "VOID_TRANSACTION", userId: req.user?.id,
