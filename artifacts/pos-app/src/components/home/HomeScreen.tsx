@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -188,8 +188,19 @@ function ProfileView({
 
 export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
   const [activeTab, setActiveTab] = useState<BottomTab>("home");
-  const [activeApp, setActiveApp] = useState<string | null>(null);
+  const [activeApp, setActiveApp] = useState<string | null>(() => {
+    return sessionStorage.getItem("sayq.activeApp") || null;
+  });
   const isMobile = useIsMobile();
+
+  // Persist activeApp to sessionStorage (survives F5, not tab close)
+  useEffect(() => {
+    if (activeApp) {
+      sessionStorage.setItem("sayq.activeApp", activeApp);
+    } else {
+      sessionStorage.removeItem("sayq.activeApp");
+    }
+  }, [activeApp]);
 
   const handleAppClick = useCallback((appId: string) => {
     setActiveApp(appId);
