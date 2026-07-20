@@ -123,3 +123,59 @@ export type InsertLedgerEntry = z.infer<typeof insertLedgerEntrySchema>;
 export type LedgerEntry = typeof ledgerEntriesTable.$inferSelect;
 export type BalanceSnapshot = typeof balanceSnapshotsTable.$inferSelect;
 export type FinancialReport = typeof financialReportsTable.$inferSelect;
+
+// ── T14B: Accounting Period Management ──
+
+export const periodStatusEnum = pgEnum("period_status", ["OPEN", "CLOSING", "CLOSED"]);
+
+export const accountingPeriodsTable = pgTable("accounting_periods", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  startDate: timestamp("start_date", { withTimezone: true }).notNull(),
+  endDate: timestamp("end_date", { withTimezone: true }).notNull(),
+  status: periodStatusEnum("status").notNull().default("OPEN"),
+  snapshotId: integer("snapshot_id"),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  closedBy: integer("closed_by"),
+  reopenedAt: timestamp("reopened_at", { withTimezone: true }),
+  reopenedBy: integer("reopened_by"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const financialSnapshotsTable = pgTable("financial_snapshots", {
+  id: serial("id").primaryKey(),
+  periodId: integer("period_id").notNull().references(() => accountingPeriodsTable.id, { onDelete: "restrict" }),
+  branchId: integer("branch_id"),
+  cash: numeric("cash", { precision: 14, scale: 2 }).notNull().default("0"),
+  bank: numeric("bank", { precision: 14, scale: 2 }).notNull().default("0"),
+  ewallet: numeric("ewallet", { precision: 14, scale: 2 }).notNull().default("0"),
+  inventory: numeric("inventory", { precision: 14, scale: 2 }).notNull().default("0"),
+  receivable: numeric("receivable", { precision: 14, scale: 2 }).notNull().default("0"),
+  payable: numeric("payable", { precision: 14, scale: 2 }).notNull().default("0"),
+  revenue: numeric("revenue", { precision: 14, scale: 2 }).notNull().default("0"),
+  cogs: numeric("cogs", { precision: 14, scale: 2 }).notNull().default("0"),
+  operatingExpense: numeric("operating_expense", { precision: 14, scale: 2 }).notNull().default("0"),
+  grossProfit: numeric("gross_profit", { precision: 14, scale: 2 }).notNull().default("0"),
+  netProfit: numeric("net_profit", { precision: 14, scale: 2 }).notNull().default("0"),
+  equity: numeric("equity", { precision: 14, scale: 2 }).notNull().default("0"),
+  retainedEarnings: numeric("retained_earnings", { precision: 14, scale: 2 }).notNull().default("0"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const financeAuditLogsTable = pgTable("finance_audit_logs", {
+  id: serial("id").primaryKey(),
+  action: text("action").notNull(),
+  userId: integer("user_id"),
+  periodId: integer("period_id"),
+  branchId: integer("branch_id"),
+  reason: text("reason"),
+  ipAddress: text("ip_address"),
+  oldStatus: text("old_status"),
+  newStatus: text("new_status"),
+  changes: text("changes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AccountingPeriod = typeof accountingPeriodsTable.$inferSelect;
+export type FinancialSnapshot = typeof financialSnapshotsTable.$inferSelect;
+export type FinanceAuditLog = typeof financeAuditLogsTable.$inferSelect;
