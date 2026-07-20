@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useFinanceDashboard, useCreateTransaction, useFinanceAccounts } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
+import { useFinanceFilter } from "../context/FinanceFilterContext";
+import FinanceFilterBar from "./FinanceFilterBar";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -233,8 +235,21 @@ function TransactionForm({
 }
 
 export default function FinanceDashboard() {
+  return (
+    <FinanceFilterProvider>
+      <FinanceDashboardInner />
+    </FinanceFilterProvider>
+  );
+}
+
+function FinanceDashboardInner() {
   const { branchId } = useBranch();
-  const { data: dashboard, isLoading: dashboardLoading, refetch } = useFinanceDashboard(branchId);
+  const { state: filter } = useFinanceFilter();
+  const { data: dashboard, isLoading: dashboardLoading, refetch } = useFinanceDashboard(
+    filter.branchIds.length > 0 ? filter.branchIds : undefined,
+    filter.startDate,
+    filter.endDate,
+  );
 
   const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);

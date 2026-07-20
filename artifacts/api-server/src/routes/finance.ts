@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, transactionsTable } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, canAccessBranch } from "../middlewares/requireAuth";
 import {
   initializeDefaultCOA,
@@ -184,25 +184,40 @@ router.get("/finance/cashflow", requireAuth, async (_req, res) => {
 router.get("/finance/dashboard", requireAuth, async (req, res) => {
   try {
     const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    const branchIdsRaw = req.query["branchIds"] as string | undefined;
+    const branchIds = branchIdsRaw ? branchIdsRaw.split(",").map(Number).filter(n => !isNaN(n)) : undefined;
+    const startDate = req.query["startDate"] ? new Date(req.query["startDate"] as string) : undefined;
+    const endDate = req.query["endDate"] ? new Date(req.query["endDate"] as string + "T23:59:59.999Z") : undefined;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Build where clause
+    const conditions: any[] = [];
+    if (branchIds && branchIds.length > 0) {
+      conditions.push(sql`${transactionsTable.branchId} = ANY(ARRAY[${sql.join(branchIds.map(n => sql`${n}`))}])`);
+    } else if (branchId) {
+      conditions.push(sql`${transactionsTable.branchId} = ${branchId}`);
+    }
+    if (startDate) {
+      conditions.push(sql`${transactionsTable.createdAt} >= ${startDate}`);
+    } else {
+      conditions.push(sql`${transactionsTable.createdAt} >= ${today}`);
+    }
+    if (endDate) {
+      conditions.push(sql`${transactionsTable.createdAt} <= ${endDate}`);
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
     const [todayTransactions, allIncomeResult, allExpenseResult, balances] = await Promise.all([
-      db
-        .select()
-        .from(transactionsTable)
-        .where(
-          branchId
-            ? sql`${transactionsTable.branchId} = ${branchId} AND ${transactionsTable.createdAt} >= ${today}`
-            : sql`${transactionsTable.createdAt} >= ${today}`
-        ),
-      // All-branch income
+      db.select().from(transactionsTable).where(whereClause),
+      // All-branch income (no branch filter, but respect dates)
       db
         .select({ total: sql<string>`COALESCE(SUM(${transactionsTable.amount}), 0)` })
         .from(transactionsTable)
         .where(
-          sql`${transactionsTable.type} = 'income' AND ${transactionsTable.createdAt} >= ${today}`
+          sql`${transactionsTable.type} = 'income' AND ${transactionsTable.createdAt} >= ${startDate ? startDate : today}${endDate ? sql` AND ${transactionsTable.createdAt} <= ${endDate}` : sql``}`
         ),
       // All-branch expenses by category
       db
@@ -212,7 +227,7 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
         })
         .from(transactionsTable)
         .where(
-          sql`${transactionsTable.type} = 'expense' AND ${transactionsTable.createdAt} >= ${today}`
+          sql`${transactionsTable.type} = 'expense' AND ${transactionsTable.createdAt} >= ${startDate ? startDate : today}${endDate ? sql` AND ${transactionsTable.createdAt} <= ${endDate}` : sql``}`
         )
         .groupBy(transactionsTable.category),
       getAccountBalances(),

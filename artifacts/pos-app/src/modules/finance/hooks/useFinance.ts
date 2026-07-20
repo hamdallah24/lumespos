@@ -28,12 +28,16 @@ export function useFinanceAccounts() {
   });
 }
 
-export function useFinanceDashboard(branchId?: number) {
+export function useFinanceDashboard(branchIds?: number[], startDate?: string | null, endDate?: string | null) {
   return useQuery<FinanceDashboardData>({
-    queryKey: ["finance", "dashboard", branchId],
+    queryKey: ["finance", "dashboard", branchIds, startDate, endDate],
     queryFn: async () => {
-      const params = branchId ? `?branchId=${branchId}` : "";
-      const res = await apiFetch(`/api/finance/dashboard${params}`);
+      const params = new URLSearchParams();
+      if (branchIds && branchIds.length > 0) params.set("branchIds", branchIds.join(","));
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
+      const qs = params.toString();
+      const res = await apiFetch(`/api/finance/dashboard${qs ? "?" + qs : ""}`);
       if (!res.ok) throw new Error("Gagal mengambil data dashboard");
       return res.json();
     },
