@@ -227,3 +227,75 @@ export function useDailySnapshots(branchId?: number, days?: number) {
     enabled: !!branchId,
   });
 }
+
+// ── T14B: Accounting Periods ──
+
+export function useAccountingPeriods() {
+  const queryClient = useQueryClient();
+  return {
+    ...useQuery<{ periods: any[]; currentPeriod: any }>({
+      queryKey: ["finance", "periods"],
+      queryFn: async () => {
+        const res = await apiFetch("/api/finance/periods");
+        if (!res.ok) throw new Error("Gagal mengambil periode");
+        return res.json();
+      },
+      refetchInterval: 60000,
+    }),
+    invalidate: () => queryClient.invalidateQueries({ queryKey: ["finance", "periods"] }),
+  };
+}
+
+export function useClosePeriod() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (periodId: number) => {
+      const res = await apiFetch(`/api/finance/periods/${periodId}/execute-closing`, { method: "POST" });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Gagal"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["finance"] });
+    },
+  });
+}
+
+export function useValidateClosing(periodId?: number) {
+  return useQuery({
+    queryKey: ["finance", "validate-closing", periodId],
+    queryFn: async () => {
+      const res = await apiFetch(`/api/finance/periods/${periodId}/validate-closing`);
+      if (!res.ok) throw new Error("Gagal validasi");
+      return res.json();
+    },
+    enabled: !!periodId,
+  });
+}
+
+export function useReopenPeriod() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ periodId, reason }: { periodId: number; reason: string }) => {
+      const res = await apiFetch(`/api/finance/periods/${periodId}/reopen`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Gagal"); }
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["finance"] }),
+  });
+}
+
+export function useFinanceAuditLogs(periodId?: number) {
+  return useQuery({
+    queryKey: ["finance", "audit-logs", periodId],
+    queryFn: async () => {
+      const params = periodId ? `?periodId=${periodId}` : "";
+      const res = await apiFetch(`/api/finance/audit-logs${params}`);
+      if (!res.ok) throw new Error("Gagal mengambil audit logs");
+      return res.json();
+    },
+  });
+}

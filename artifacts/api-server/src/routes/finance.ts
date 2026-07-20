@@ -26,6 +26,8 @@ import {
   generateExcel,
   generatePDFPlaceholder,
 } from "../finance/services";
+import { PeriodManager } from "../finance/services/PeriodManager";
+import { ClosingEngine } from "../finance/services/ClosingEngine";
 
 const router = Router();
 
@@ -248,9 +250,10 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
       total: (cashAccount?.balance || 0) + (bankAccount?.balance || 0) + (ewalletAccount?.balance || 0) + (arAccount?.balance || 0) - (apAccount?.balance || 0),
     };
 
-    const [healthData, insightData] = await Promise.all([
+    const [healthData, insightData, currentPeriod] = await Promise.all([
       branchId ? getHealthData(branchId, { cash: cashAccount?.balance || 0, bank: bankAccount?.balance || 0 }) : null,
       branchId ? getInsightData(branchId) : null,
+      PeriodManager.getCurrentPeriod(),
     ]);
 
     return res.json({
@@ -261,6 +264,16 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
       todayExpense,
       profitToday: todayIncome - todayCOGS - todayOperatingExpense,
       hasData: todayTransactions.length > 0,
+      accountingPeriod: currentPeriod ? {
+        id: currentPeriod.id,
+        name: currentPeriod.name,
+        startDate: currentPeriod.startDate,
+        endDate: currentPeriod.endDate,
+        status: currentPeriod.status,
+        remainingDays: currentPeriod.status === "OPEN"
+          ? Math.max(0, Math.ceil((new Date(currentPeriod.endDate).getTime() - Date.now()) / 86400000))
+          : 0,
+      } : null,
       cashPosition,
       health: healthData,
       insight: insightData,
@@ -407,6 +420,120 @@ router.get("/finance/export", requireAuth, async (req, res) => {
     console.error("GET /finance/export error:", err);
     return res.status(500).json({ error: "Gagal mengambil data export" });
   }
+});
+
+// ── T14B: Accounting Period Management ──
+
+router.get("/finance/periods", requireAuth, async (_req, res) => {
+  try {
+    const periods = await PeriodManager.getAllPeriods();
+    const current = await PeriodManager.getCurrentPeriod();
+    return res.json({ periods, currentPeriod: current });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/finance/periods", requireAuth, async (req, res) => {
+  try {
+    const { name, startDate, endDate } = req.body;
+    if (!name || !startDate || !endDate) {
+      return res.status(400).json({ error: "name, startDate, endDate required" });
+    }
+    const period = await PeriodManager.createPeriod(name, new Date(startDate), new Date(endDate));
+    await PeriodManager.writeAuditLog({
+      action: "CREATE_PERIOD", userId: req.user?.id,
+      periodId: period.id, reason: `Created ${name}`,
+    });
+    return res.status(201).json(period);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/finance/periods/:id/close", requireAuth, async (req, res) => {
+  try {
+    const periodId = parseInt(req.params.id);
+    const result = await PeriodManager.closePeriod(periodId, req.user?.id);
+    if (!result.success) return res.status(400).json(result);
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/finance/periods/:id/execute-closing", requireAuth, async (req, res) => {
+  try {
+    const periodId = parseInt(req.params.id);
+    const result = await ClosingEngine.executeClosing(periodId, req.user?.id);
+    if (!result.success) return res.status(400).json(result);
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/finance/periods/:id/validate-closing", requireAuth, async (req, res) => {
+  try {
+    const periodId = parseInt(req.params.id);
+    const validation = await ClosingEngine.validatePeriod(periodId);
+    return res.json(validation);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/finance/periods/:id/reopen", requireAuth, async (req, res) => {
+  try {
+    const periodId = parseInt(req.params.id);
+    const { reason } = req.body;
+    const result = await PeriodManager.reopenPeriod(periodId, reason || "Manual reopen", req.user?.id);
+    if (!result.success) return res.status(400).json(result);
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/finance/snapshots", requireAuth, async (req, res) => {
+  try {
+    const periodId = req.query.periodId ? parseInt(req.query.periodId as string) : undefined;
+    const snapshots = await PeriodManager.getSnapshots(periodId);
+    return res.json(snapshots);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/finance/audit-logs", requireAuth, async (req, res) => {
+  try {
+    const periodId = req.query.periodId ? parseInt(req.query.periodId as string) : undefined;
+    const logs = await PeriodManager.getAuditLogs(periodId);
+    return res.json(logs);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Transaction date validation middleware
+router.use("/finance/transactions", async (req, res, next) => {
+  if (req.method === "POST" && req.body) {
+    try {
+      const date = req.body.date ? new Date(req.body.date) : new Date();
+      const branchId = req.body.branchId;
+      const validation = await PeriodManager.validateTransactionDate(date, branchId);
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.message });
+      }
+      // Attach periodId to the transaction
+      if (validation.period) {
+        (req as any).financePeriod = validation.period;
+      }
+    } catch (err) {
+      // Continue without validation if period system fails
+    }
+  }
+  next();
 });
 
 export default router;

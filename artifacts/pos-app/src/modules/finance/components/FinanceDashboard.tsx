@@ -250,10 +250,22 @@ export default function FinanceDashboard() {
         <div className="min-w-0">
           <h2 className="text-lg font-bold">Keuangan</h2>
           <p className="text-xs text-muted-foreground">
-            {dashboardLoading ? "Memuat..." : "Data live"}
+            {dashboardLoading ? "Memuat..." : dashboard?.accountingPeriod
+              ? `${dashboard.accountingPeriod.name} · ${dashboard.accountingPeriod.status === "OPEN" ? "OPEN" : "LOCKED"}`
+              : "Data live"}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {dashboard?.accountingPeriod?.status === "OPEN" && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-600 font-medium">
+              {dashboard.accountingPeriod.remainingDays}d left
+            </span>
+          )}
+          {dashboard?.accountingPeriod?.status === "CLOSED" && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 font-medium">
+              LOCKED
+            </span>
+          )}
           <ExportMenu />
         </div>
       </div>
