@@ -1,14 +1,9 @@
-// Sprint 1 — Ambient effects: glow particles + floating lights
+// Sprint 1A — Ambient particles (max 20, 5 in reduced-motion)
 import { useRef, useEffect } from "react";
 import { useDigitalTwin } from "./DigitalTwinProvider";
 
 interface Particle {
-  x: number;
-  y: number;
-  size: number;
-  opacity: number;
-  speed: number;
-  phase: number;
+  x: number; y: number; size: number; opacity: number; speed: number; phase: number;
 }
 
 function createParticles(count: number): Particle[] {
@@ -16,8 +11,8 @@ function createParticles(count: number): Particle[] {
     x: Math.random() * 100,
     y: Math.random() * 100,
     size: Math.random() * 2 + 1,
-    opacity: Math.random() * 0.3 + 0.05,
-    speed: Math.random() * 0.3 + 0.05,
+    opacity: Math.random() * 0.25 + 0.04,
+    speed: Math.random() * 0.25 + 0.04,
     phase: Math.random() * Math.PI * 2,
   }));
 }
@@ -25,15 +20,11 @@ function createParticles(count: number): Particle[] {
 export default function DigitalTwinEffects() {
   const { state } = useDigitalTwin();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const particles = useRef<Particle[]>(createParticles(state.reducedMotion ? 8 : 25));
+  const particles = useRef<Particle[]>(createParticles(20));
   const animFrame = useRef<number>(0);
 
   useEffect(() => {
-    if (state.reducedMotion) {
-      particles.current = createParticles(8);
-    } else {
-      particles.current = createParticles(25);
-    }
+    particles.current = createParticles(state.reducedMotion ? 5 : 20);
   }, [state.reducedMotion]);
 
   useEffect(() => {
@@ -41,69 +32,43 @@ export default function DigitalTwinEffects() {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-
-    const resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-    };
+    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
     resize();
     window.addEventListener("resize", resize);
 
     let elapsed = 0;
     let lastTime = Date.now();
-
     const draw = () => {
-      if (document.hidden) {
-        animFrame.current = requestAnimationFrame(draw);
-        return;
-      }
-
-      const now = Date.now();
-      const dt = (now - lastTime) / 1000;
-      lastTime = now;
+      if (document.hidden) { animFrame.current = requestAnimationFrame(draw); return; }
+      const dt = (Date.now() - lastTime) / 1000;
+      lastTime = Date.now();
       elapsed += dt;
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-
       for (const p of particles.current) {
-        p.y -= p.speed * 20 * dt;
-        if (p.y < -5) p.y = 105;
-        p.x += Math.sin(elapsed * 0.5 + p.phase) * p.speed * 5 * dt;
-
+        p.y -= p.speed * 18 * dt;
+        if (p.y < -5) { p.y = 105; p.x = Math.random() * 100; }
+        p.x += Math.sin(elapsed * 0.5 + p.phase) * p.speed * 4 * dt;
         const px = (p.x / 100) * canvas.width;
         const py = (p.y / 100) * canvas.height;
-        const glow = ctx.createRadialGradient(px, py, 0, px, py, p.size * 4);
-
+        const glow = ctx.createRadialGradient(px, py, 0, px, py, p.size * 3);
         if (state.timeOfDay === "night") {
           glow.addColorStop(0, `rgba(147,197,253,${p.opacity * 1.5})`);
-          glow.addColorStop(1, `rgba(147,197,253,0)`);
+          glow.addColorStop(1, "rgba(147,197,253,0)");
         } else {
           glow.addColorStop(0, `rgba(255,255,255,${p.opacity})`);
-          glow.addColorStop(1, `rgba(255,255,255,0)`);
+          glow.addColorStop(1, "rgba(255,255,255,0)");
         }
-
         ctx.beginPath();
         ctx.arc(px, py, p.size, 0, Math.PI * 2);
         ctx.fillStyle = glow;
         ctx.fill();
       }
-
       animFrame.current = requestAnimationFrame(draw);
     };
-
     animFrame.current = requestAnimationFrame(draw);
-
-    return () => {
-      cancelAnimationFrame(animFrame.current);
-      window.removeEventListener("resize", resize);
-    };
+    return () => { cancelAnimationFrame(animFrame.current); window.removeEventListener("resize", resize); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.reducedMotion, state.timeOfDay]);
 
-  return (
-    <canvas
-      ref={canvasRef}
-      className="absolute inset-0 w-full h-full pointer-events-none z-20"
-    />
-  );
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-20" />;
 }

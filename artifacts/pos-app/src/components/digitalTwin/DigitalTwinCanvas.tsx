@@ -1,5 +1,5 @@
-// Sprint 1 — Digital Twin Canvas
-// Main orchestrator: day/night crossfade, parallax, camera motion, overlay, hotspots
+// Sprint 1A — Living Digital Twin Canvas
+// Auto day/night, no manual toggle
 import { motion } from "framer-motion";
 import DigitalTwinProvider, { useDigitalTwin } from "./DigitalTwinProvider";
 import DigitalTwinTransition from "./DigitalTwinTransition";
@@ -7,18 +7,14 @@ import DigitalTwinOverlay from "./DigitalTwinOverlay";
 import DigitalTwinHotspots from "./DigitalTwinHotspots";
 
 function TwinInner() {
-  const { state, toggleTimeOfDay } = useDigitalTwin();
+  const { state } = useDigitalTwin();
 
   return (
     <div className="relative w-full select-none overflow-hidden" style={{ aspectRatio: "16/9", minHeight: 240 }}>
-      {/* Background layer — moves 0.5x */}
       <div
         className="absolute inset-0 scale-[1.08]"
-        style={{
-          transform: `translate(${state.parallaxBgX}px, ${state.parallaxBgY}px)`,
-        }}
+        style={{ transform: `translate(${state.parallaxBgX}px, ${state.parallaxBgY}px)` }}
       >
-        {/* City layer — moves 1x */}
         <div
           className="absolute inset-0"
           style={{
@@ -26,15 +22,10 @@ function TwinInner() {
             transformOrigin: "center center",
           }}
         >
-          {/* Day/Night crossfade */}
           <DigitalTwinTransition />
-
-          {/* Glow layer — moves 0.25x, independent from city */}
           <div
             className="absolute inset-0 pointer-events-none"
-            style={{
-              transform: `translate(${state.parallaxGlowX}px, ${state.parallaxGlowY}px)`,
-            }}
+            style={{ transform: `translate(${state.parallaxGlowX}px, ${state.parallaxGlowY}px)` }}
           >
             <div
               className="absolute inset-0"
@@ -48,18 +39,9 @@ function TwinInner() {
         </div>
       </div>
 
-      {/* Overlay (glass, grid, labels, effects) + hotspots */}
       <DigitalTwinOverlay>
         <DigitalTwinHotspots />
       </DigitalTwinOverlay>
-
-      {/* Click anywhere on the canvas to toggle day/night (when no hotspot panel open) */}
-      {!state.activeHotspot && (
-        <div
-          className="absolute inset-0 z-30 cursor-pointer"
-          onClick={() => toggleTimeOfDay()}
-        />
-      )}
     </div>
   );
 }
