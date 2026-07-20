@@ -11,6 +11,7 @@ export interface TransactionInput {
   category: string;
   description: string;
   amount: number;
+  accountId?: number;
   referenceType?: string;
   referenceId?: number;
   referenceCode?: string;

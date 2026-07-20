@@ -1,12 +1,12 @@
 import { db, transactionsTable, journalEntriesTable, ledgerEntriesTable } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import type { TransactionInput, JournalLine } from "../types";
-import { getAccountByCode } from "./chartOfAccounts";
+import { getAccountByCode, getAccountById } from "./chartOfAccounts";
 import { EventPublisher } from "../../event-bus";
 import { createFinanceTransactionCreatedEvent } from "./financeEvents";
 
 const CATEGORY_ACCOUNT_MAP: Record<string, { debitAccount: string; creditAccount: string }> = {
-  "raw_material": { debitAccount: "1200", creditAccount: "1000" },
+  "raw_material": { debitAccount: "5000", creditAccount: "1000" },
   "salary": { debitAccount: "5100", creditAccount: "1000" },
   "utilities": { debitAccount: "5200", creditAccount: "1000" },
   "internet": { debitAccount: "5300", creditAccount: "1000" },
@@ -19,6 +19,14 @@ const CATEGORY_ACCOUNT_MAP: Record<string, { debitAccount: string; creditAccount
   "depot_sale": { debitAccount: "1000", creditAccount: "4000" },
   "marketplace_sale": { debitAccount: "1100", creditAccount: "4000" },
   "service_revenue": { debitAccount: "1000", creditAccount: "4100" },
+};
+
+const PAYMENT_ACCOUNT_MAP: Record<string, string> = {
+  cash: "1000",
+  bank: "1100",
+  ewallet: "1250",
+  piutang: "1300",
+  hutang: "2000",
 };
 
 export async function createTransaction(input: TransactionInput): Promise<{ transaction: any; journalEntries: any[] }> {
@@ -47,8 +55,22 @@ export async function createTransaction(input: TransactionInput): Promise<{ tran
       throw new Error(`Unknown category: ${input.category}`);
     }
 
-    const debitAccount = await getAccountByCode(mapping.debitAccount);
-    const creditAccount = await getAccountByCode(mapping.creditAccount);
+    let creditAccountCode = mapping.creditAccount;
+    let debitAccountCode = mapping.debitAccount;
+
+    if (input.accountId) {
+      const selectedAccount = await getAccountById(input.accountId);
+      if (selectedAccount) {
+        if (input.type === "expense") {
+          creditAccountCode = selectedAccount.code;
+        } else {
+          debitAccountCode = selectedAccount.code;
+        }
+      }
+    }
+
+    const debitAccount = await getAccountByCode(debitAccountCode);
+    const creditAccount = await getAccountByCode(creditAccountCode);
 
     if (!debitAccount || !creditAccount) {
       throw new Error(`Account not found for category: ${input.category}`);

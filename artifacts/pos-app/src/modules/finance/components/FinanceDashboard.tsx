@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useFinanceDashboard, useCreateTransaction, useFinanceTransactions } from "../hooks/useFinance";
+import { useFinanceDashboard, useCreateTransaction, useFinanceTransactions, useFinanceAccounts } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +29,14 @@ import DashboardInsight from "./DashboardInsight";
 import FinancialTimeline from "./FinancialTimeline";
 import TransactionDetailDrawer from "./TransactionDetailDrawer";
 import ExportMenu from "./ExportMenu";
+
+const PAYMENT_METHODS = [
+  { id: "cash", label: "Tunai", accountCode: "1000", icon: "💵" },
+  { id: "bank", label: "Transfer Bank", accountCode: "1100", icon: "🏦" },
+  { id: "ewallet", label: "E-Wallet", accountCode: "1250", icon: "📱" },
+  { id: "piutang", label: "Piutang Usaha", accountCode: "1300", icon: "📋" },
+  { id: "hutang", label: "Hutang Usaha", accountCode: "2000", icon: "📝" },
+];
 
 function StatCard({
   title,
@@ -77,12 +85,21 @@ function TransactionForm({
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState("cash");
   const [notes, setNotes] = useState("");
   const createTransaction = useCreateTransaction();
+  const { data: accounts = [] } = useFinanceAccounts();
 
   const filteredCategories = Object.entries(TRANSACTION_CATEGORIES).filter(
     ([, v]) => v.type === type
   );
+
+  const getAccountId = (): number | undefined => {
+    const method = PAYMENT_METHODS.find((m) => m.id === paymentMethod);
+    if (!method) return undefined;
+    const account = accounts.find((a) => a.code === method.accountCode);
+    return account?.id;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,6 +111,7 @@ function TransactionForm({
       category,
       description,
       amount: Number(amount),
+      accountId: getAccountId(),
       notes: notes || undefined,
     });
 
@@ -101,6 +119,7 @@ function TransactionForm({
     setAmount("");
     setNotes("");
     setCategory("");
+    setPaymentMethod("cash");
     onSuccess();
   };
 
@@ -151,6 +170,22 @@ function TransactionForm({
               {filteredCategories.map(([key, { label }]) => (
                 <SelectItem key={key} value={key}>
                   {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Metode Bayar" />
+            </SelectTrigger>
+            <SelectContent>
+              {PAYMENT_METHODS.map((method) => (
+                <SelectItem key={method.id} value={method.id}>
+                  <span className="flex items-center gap-2">
+                    <span>{method.icon}</span>
+                    <span>{method.label}</span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>

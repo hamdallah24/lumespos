@@ -38,6 +38,7 @@ export async function initializeDefaultCOA(): Promise<void> {
     { code: "1000", name: "Kas", type: "asset", normalBalance: "debit", description: "Kas tunai" },
     { code: "1100", name: "Bank", type: "asset", normalBalance: "debit", description: "Rekening bank" },
     { code: "1200", name: "Persediaan", type: "asset", normalBalance: "debit", description: "Persediaan barang" },
+    { code: "1250", name: "E-Wallet", type: "asset", normalBalance: "debit", description: "Saldo e-wallet (GoPay, OVO, Dana, dll)" },
     { code: "1300", name: "Piutang Usaha", type: "asset", normalBalance: "debit", description: "Piutang dari pelanggan" },
     { code: "2000", name: "Hutang Usaha", type: "liability", normalBalance: "credit", description: "Hutang kepada supplier" },
     { code: "2100", name: "Hutang Pajak", type: "liability", normalBalance: "credit", description: "Pajak yang belum dibayar" },
