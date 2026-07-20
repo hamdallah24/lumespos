@@ -2,7 +2,6 @@
 import { motion } from "framer-motion";
 import DigitalTwinProvider, { useDigitalTwin } from "./DigitalTwinProvider";
 import DigitalTwinTransition from "./DigitalTwinTransition";
-import DigitalTwinBuildings from "./DigitalTwinBuildings";
 import DigitalTwinRoadLights from "./DigitalTwinRoadLights";
 import DigitalTwinAINetwork from "./DigitalTwinAINetwork";
 import DigitalTwinAtmosphere from "./DigitalTwinAtmosphere";
@@ -30,10 +29,7 @@ function TwinInner() {
           <DigitalTwinTransition />
         </div>
 
-        {/* Layer 2: Buildings — faster parallax, independent */}
-        <DigitalTwinBuildings />
-
-        {/* Road lights — night only, between buildings and atmosphere */}
+        {/* Road lights — night only, between city and atmosphere */}
         <DigitalTwinRoadLights />
       </div>
 
