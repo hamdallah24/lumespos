@@ -11,12 +11,20 @@ import MarkdownRenderer from "@/components/markdown-renderer";
 import { RuntimeProgressCard } from "@/components/runtime-progress-card";
 
 const SS_KEY_INPUT = "ai-chat.input";
+const SS_KEY_MSGS = "ai-chat.messages";
 
 function ssLoad<T>(key: string, fallback: T): T {
   try { const v = sessionStorage.getItem(key); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; }
 }
 function ssSave(key: string, val: unknown): void {
   try { sessionStorage.setItem(key, JSON.stringify(val)); } catch { /* quota */ }
+}
+
+function findLastAssistantIdx(msgs: ChatMessage[]): number {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    if (msgs[i].role === "assistant") return i;
+  }
+  return -1;
 }
 
 type ChatMessage = {
@@ -149,7 +157,7 @@ function MissionActivityCard({
 }
 
 export default function AIChatPlaceholder() {
-  const [messages, setMessages] = React.useState<ChatMessage[]>([]);
+  const [messages, setMessages] = React.useState<ChatMessage[]>(() => ssLoad<ChatMessage[]>(SS_KEY_MSGS, []));
   const [input, setInput] = React.useState(() => ssLoad<string>(SS_KEY_INPUT, ""));
   const [loading, setLoading] = React.useState(false);
   const [statusMsg, setStatusMsg] = React.useState("");
@@ -169,6 +177,7 @@ export default function AIChatPlaceholder() {
   const showMission = missionPhase !== "idle" || execCards.length > 0 || !!execSnapshot || synthesis.active || timeline.length > 0;
 
   React.useEffect(() => { ssSave(SS_KEY_INPUT, input); }, [input]);
+  React.useEffect(() => { ssSave(SS_KEY_MSGS, messages); }, [messages]);
 
   // Load health + history on mount
   React.useEffect(() => {
@@ -264,8 +273,8 @@ export default function AIChatPlaceholder() {
             if (data.type === "token" || data.type === "delta") {
               accumulated += data.token || data.delta || "";
               setMessages(prev => {
-                const copy = [...prev]; const last = copy[copy.length - 1];
-                if (last && last.role === "assistant") copy[copy.length - 1] = { ...last, text: accumulated, sender: currentSenderLocal };
+                const copy = [...prev]; const idx = findLastAssistantIdx(copy);
+                if (idx >= 0) copy[idx] = { ...copy[idx], text: accumulated, sender: currentSenderLocal };
                 return copy;
               });
             }
@@ -273,8 +282,8 @@ export default function AIChatPlaceholder() {
             if (data.type === "done") {
               accumulated = data.finalText || accumulated;
               setMessages(prev => {
-                const copy = [...prev]; const last = copy[copy.length - 1];
-                if (last && last.role === "assistant") copy[copy.length - 1] = { ...last, text: accumulated, sender: currentSenderLocal };
+                const copy = [...prev]; const idx = findLastAssistantIdx(copy);
+                if (idx >= 0) copy[idx] = { ...copy[idx], text: accumulated, sender: currentSenderLocal };
                 return copy;
               });
               break;
@@ -328,8 +337,8 @@ export default function AIChatPlaceholder() {
               accumulated = data.finalText || accumulated;
               const s = senderRef.current || "CEO";
               setMessages(prev => {
-                const copy = [...prev]; const last = copy[copy.length - 1];
-                if (last && last.role === "assistant") copy[copy.length - 1] = { ...last, text: accumulated, sender: s };
+                const copy = [...prev]; const idx = findLastAssistantIdx(copy);
+                if (idx >= 0) copy[idx] = { ...copy[idx], text: accumulated, sender: s };
                 return copy;
               });
             }
