@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useFinanceDashboard, useCreateTransaction, useFinanceAccounts } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
-import { useFinanceFilter } from "../context/FinanceFilterContext";
+import { useFinanceFilter, FinanceFilterProvider } from "../context/FinanceFilterContext";
 import FinanceFilterBar from "./FinanceFilterBar";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
