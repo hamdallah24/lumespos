@@ -250,6 +250,8 @@ function FinanceDashboardInner() {
     filter.startDate,
     filter.endDate,
   );
+  console.warn("[Finance] Filter:", JSON.stringify({ branchIds: filter.branchIds, dates: [filter.startDate, filter.endDate] }));
+  console.warn("[Finance] Dashboard:", JSON.stringify({ income: dashboard?.todayIncome, cogs: dashboard?.todayCOGS, exp: dashboard?.todayOperatingExpense, profit: dashboard?.profitToday }));
 
   const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
