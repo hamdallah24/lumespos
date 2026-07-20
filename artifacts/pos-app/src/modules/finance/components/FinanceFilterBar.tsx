@@ -42,7 +42,7 @@ export default function FinanceFilterBar() {
   const toggle = (name: string) => setOpenMenu(openMenu === name ? null : name);
 
   return (
-    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border -mx-4 px-4 py-2 flex items-center gap-2 overflow-visible">
+    <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-2 flex items-center gap-2 overflow-visible">
       {/* Branch Filter */}
       <div className="relative shrink-0">
         <button onClick={() => toggle("branch")} className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-border hover:bg-muted/50 transition-colors whitespace-nowrap">
