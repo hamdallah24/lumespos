@@ -199,15 +199,45 @@ export async function fetchInsights(): Promise<InsightItem[]> {
   ];
 }
 
+// ── Branch cache (module-level, populated once) ──
+let _branchesPromise: Promise<Map<number, string>> | null = null;
+
+async function getBranchMap(): Promise<Map<number, string>> {
+  if (_branchesPromise) return _branchesPromise;
+  _branchesPromise = fetch("/api/branches", { credentials: "include" })
+    .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+    .then((data: { branches?: Array<{ id: number; name: string }> } | Array<{ id: number; name: string }>) => {
+      const list = Array.isArray(data) ? data : data.branches || [];
+      const map = new Map<number, string>();
+      for (const b of list) map.set(b.id, b.name);
+      return map;
+    })
+    .catch(() => {
+      _branchesPromise = null;
+      return new Map<number, string>();
+    });
+  return _branchesPromise;
+}
+
 export async function fetchRecentActivity(): Promise<RecentActivityItem[]> {
-  return [
-    { id: "tx1", transaction: "Nasi Goreng Special", location: "Cabang Utama", time: "14:32", amount: 45000 },
-    { id: "tx2", transaction: "Ayam Bakar Madu", location: "Cabang Utama", time: "14:18", amount: 35000 },
-    { id: "tx3", transaction: "Es Teh Manis x2", location: "Cabang 2", time: "14:05", amount: 16000 },
-    { id: "tx4", transaction: "Refund - Mie Goreng", location: "Cabang Utama", time: "13:45", amount: -25000 },
-    { id: "tx5", transaction: "Sate Ayam x3", location: "Cabang 3", time: "13:22", amount: 75000 },
-    { id: "tx6", transaction: "Sop Buntut", location: "Cabang 2", time: "13:00", amount: 55000 },
-    { id: "tx7", transaction: "Es Jeruk x2", location: "Cabang Utama", time: "12:45", amount: 20000 },
-    { id: "tx8", transaction: "Refund - Salah Pesan", location: "Cabang 3", time: "12:20", amount: -30000 },
-  ];
+  try {
+    const [branchMap, ordersRes] = await Promise.all([
+      getBranchMap(),
+      fetch("/api/orders?limit=15", { credentials: "include" }),
+    ]);
+    if (!ordersRes.ok) throw new Error("Failed to fetch orders");
+    const data = await ordersRes.json();
+    const orders = data.orders || [];
+    if (!Array.isArray(orders) || orders.length === 0) return [];
+
+    return orders.map((o: { id: number; branchId: number; total: number; status: string; createdAt: string; itemCount: number }) => ({
+      id: `order-${o.id}`,
+      transaction: `Order #${o.id} · ${o.itemCount || 0} item${o.itemCount !== 1 ? "s" : ""}`,
+      location: branchMap.get(o.branchId) || `Branch #${o.branchId}`,
+      time: new Date(o.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }),
+      amount: o.status === "voided" ? -Math.abs(o.total) : o.total,
+    }));
+  } catch {
+    return [];
+  }
 }
