@@ -20,6 +20,7 @@ import EngineeringOSDashboard from "./pages/eng-os";
 import ExecutiveWorkspace from "./pages/executive";
 import CloudDesktopPage from "./pages/cloud-desktop";
 import NotFound from "@/pages/not-found";
+import FinanceDashboard from "@/modules/finance/components/FinanceDashboard";
 import { useGetMe } from "@workspace/api-client-react";
 import { BranchProvider } from "@/lib/branch";
 import { initCsrf, apiFetch } from "@/lib/csrf";
@@ -575,10 +576,24 @@ function ProtectedApp() {
   );
 }
 
+function FinancePage() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <BranchProvider>
+      <div className="h-screen bg-background">
+        <FinanceDashboard />
+      </div>
+    </BranchProvider>
+  );
+}
+
 function AppRoutes() {
   return (
     <Switch>
       <Route path="/desktop" component={CloudDesktopPage} />
+      <Route path="/finance" component={FinancePage} />
       <Route path="/onboard" component={ProtectedApp} />
       <Route path="/" component={ProtectedApp} />
       <Route path="/orders" component={ProtectedApp} />
