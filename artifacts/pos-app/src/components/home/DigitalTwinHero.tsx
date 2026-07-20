@@ -1,165 +1,185 @@
 import { motion } from "framer-motion";
-import { Cpu, Zap } from "lucide-react";
+import { Cpu, Zap, Activity } from "lucide-react";
+
+function AnimatedCircles() {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: 200,
+          height: 200,
+          top: -40,
+          right: -40,
+          background: "radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%)",
+          animation: "breathe 6s ease-in-out infinite",
+        }}
+      />
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: 140,
+          height: 140,
+          bottom: -20,
+          left: "30%",
+          background: "radial-gradient(circle, rgba(14,165,233,0.1) 0%, transparent 70%)",
+          animation: "breathe 4s ease-in-out 1s infinite",
+        }}
+      />
+      <div
+        className="absolute rounded-full"
+        style={{
+          width: 100,
+          height: 100,
+          top: "20%",
+          left: -20,
+          background: "radial-gradient(circle, rgba(59,130,246,0.08) 0%, transparent 70%)",
+          animation: "breathe 5s ease-in-out 2s infinite",
+        }}
+      />
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            @keyframes breathe {
+              0%, 100% { transform: scale(1); opacity: 1; }
+              50% { transform: scale(1.15); opacity: 0.6; }
+            }
+          `,
+        }}
+      />
+    </div>
+  );
+}
 
 function IsometricSkyline() {
   return (
     <svg
-      viewBox="0 0 320 120"
+      viewBox="0 0 320 80"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className="w-full h-auto"
-      style={{ maxHeight: 110 }}
     >
-      {/* Ground */}
-      <rect x="0" y="100" width="320" height="20" fill="rgba(255,255,255,0.05)" />
-
-      {/* Buildings — isometric-ish with simple perspective */}
-      {/* Building 1 — tall */}
-      <rect x="20" y="40" width="28" height="60" rx="2" fill="rgba(255,255,255,0.12)" />
-      <rect x="22" y="42" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="30" y="42" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="22" y="54" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="30" y="54" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="22" y="66" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="30" y="66" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="22" y="78" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="30" y="78" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-
-      {/* Building 2 — medium */}
-      <rect x="58" y="55" width="24" height="45" rx="2" fill="rgba(255,255,255,0.10)" />
-      <rect x="60" y="58" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="67" y="58" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="60" y="68" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="67" y="68" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="60" y="78" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="67" y="78" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-
-      {/* Building 3 — tallest with antenna */}
-      <rect x="92" y="25" width="30" height="75" rx="2" fill="rgba(255,255,255,0.14)" />
-      <rect x="104" y="15" width="6" height="10" rx="1" fill="rgba(255,255,255,0.12)" />
-      <rect x="95" y="30" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="103" y="30" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="111" y="30" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="95" y="42" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="103" y="42" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="111" y="42" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="95" y="54" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="103" y="54" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="111" y="54" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="95" y="66" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="103" y="66" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="111" y="66" width="6" height="8" rx="1" fill="rgba(255,255,255,0.08)" />
-
-      {/* Building 4 — wide low */}
-      <rect x="134" y="65" width="40" height="35" rx="2" fill="rgba(255,255,255,0.09)" />
-      <rect x="137" y="68" width="7" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
-      <rect x="146" y="68" width="7" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
-      <rect x="155" y="68" width="7" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
-      <rect x="137" y="78" width="7" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
-      <rect x="146" y="78" width="7" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
-      <rect x="155" y="78" width="7" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
-
-      {/* Building 5 — medium with dome */}
-      <rect x="182" y="48" width="26" height="52" rx="2" fill="rgba(255,255,255,0.11)" />
-      <ellipse cx="195" cy="48" rx="13" ry="6" fill="rgba(255,255,255,0.08)" />
-      <rect x="185" y="54" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="192" y="54" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="199" y="54" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="185" y="64" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="192" y="64" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="199" y="64" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-
-      {/* Building 6 — slim tall */}
-      <rect x="216" y="35" width="20" height="65" rx="2" fill="rgba(255,255,255,0.13)" />
-      <rect x="219" y="40" width="4" height="6" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="225" y="40" width="4" height="6" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="219" y="50" width="4" height="6" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="225" y="50" width="4" height="6" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="219" y="60" width="4" height="6" rx="1" fill="rgba(255,255,255,0.08)" />
-      <rect x="225" y="60" width="4" height="6" rx="1" fill="rgba(255,255,255,0.08)" />
-
-      {/* Building 7 — short wide */}
-      <rect x="244" y="70" width="32" height="30" rx="2" fill="rgba(255,255,255,0.08)" />
-      <rect x="247" y="73" width="6" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
-      <rect x="255" y="73" width="6" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
-      <rect x="263" y="73" width="6" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
-
-      {/* Building 8 — far right */}
-      <rect x="284" y="52" width="24" height="48" rx="2" fill="rgba(255,255,255,0.10)" />
-      <rect x="287" y="56" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="294" y="56" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="287" y="66" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-      <rect x="294" y="66" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
-
-      {/* Clouds */}
-      <ellipse cx="60" cy="20" rx="18" ry="6" fill="rgba(255,255,255,0.06)" />
-      <ellipse cx="170" cy="15" rx="22" ry="7" fill="rgba(255,255,255,0.05)" />
-      <ellipse cx="260" cy="22" rx="16" ry="5" fill="rgba(255,255,255,0.05)" />
-
-      {/* Data flow lines */}
-      <line x1="30" y1="95" x2="110" y2="95" stroke="rgba(37,99,235,0.3)" strokeWidth="1" strokeDasharray="4 3" />
-      <line x1="110" y1="95" x2="195" y2="95" stroke="rgba(37,99,235,0.25)" strokeWidth="1" strokeDasharray="4 3" />
-      <line x1="195" y1="95" x2="280" y2="95" stroke="rgba(37,99,235,0.2)" strokeWidth="1" strokeDasharray="4 3" />
-
-      {/* Data nodes */}
-      <circle cx="30" cy="95" r="3" fill="#2563EB" opacity="0.6" />
-      <circle cx="110" cy="95" r="3" fill="#2563EB" opacity="0.5" />
-      <circle cx="195" cy="95" r="3" fill="#2563EB" opacity="0.4" />
-      <circle cx="280" cy="95" r="3" fill="#2563EB" opacity="0.3" />
-
-      {/* Pulse dots */}
-      <circle cx="30" cy="95" r="6" fill="none" stroke="#2563EB" strokeWidth="1" opacity="0.2">
-        <animate attributeName="r" from="3" to="8" dur="2s" repeatCount="indefinite" />
-        <animate attributeName="opacity" from="0.3" to="0" dur="2s" repeatCount="indefinite" />
-      </circle>
+      <rect x="0" y="65" width="320" height="15" fill="rgba(255,255,255,0.04)" rx="2" />
+      <rect x="16" y="28" width="26" height="42" rx="3" fill="rgba(255,255,255,0.10)" />
+      <rect x="18" y="30" width="5" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="25" y="30" width="5" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="33" y="30" width="5" height="6" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="50" y="38" width="22" height="32" rx="3" fill="rgba(255,255,255,0.08)" />
+      <rect x="53" y="41" width="4" height="5" rx="1" fill="rgba(255,255,255,0.05)" />
+      <rect x="59" y="41" width="4" height="5" rx="1" fill="rgba(255,255,255,0.05)" />
+      <rect x="65" y="41" width="4" height="5" rx="1" fill="rgba(255,255,255,0.05)" />
+      <rect x="82" y="18" width="28" height="52" rx="3" fill="rgba(255,255,255,0.13)" />
+      <rect x="94" y="10" width="4" height="8" rx="1" fill="rgba(255,255,255,0.10)" />
+      <rect x="85" y="22" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
+      <rect x="92" y="22" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
+      <rect x="99" y="22" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
+      <rect x="85" y="32" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
+      <rect x="92" y="32" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
+      <rect x="99" y="32" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
+      <rect x="85" y="42" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
+      <rect x="92" y="42" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
+      <rect x="99" y="42" width="5" height="6" rx="1" fill="rgba(255,255,255,0.07)" />
+      <rect x="120" y="44" width="36" height="26" rx="3" fill="rgba(255,255,255,0.07)" />
+      <rect x="123" y="47" width="6" height="5" rx="1" fill="rgba(255,255,255,0.05)" />
+      <rect x="131" y="47" width="6" height="5" rx="1" fill="rgba(255,255,255,0.05)" />
+      <rect x="139" y="47" width="6" height="5" rx="1" fill="rgba(255,255,255,0.05)" />
+      <rect x="162" y="32" width="24" height="38" rx="3" fill="rgba(255,255,255,0.09)" />
+      <rect x="164" y="35" width="4" height="5" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="170" y="35" width="4" height="5" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="176" y="35" width="4" height="5" rx="1" fill="rgba(255,255,255,0.06)" />
+      <ellipse cx="174" cy="32" rx="12" ry="4" fill="rgba(255,255,255,0.05)" />
+      <rect x="194" y="24" width="20" height="46" rx="3" fill="rgba(255,255,255,0.11)" />
+      <rect x="196" y="28" width="4" height="5" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="202" y="28" width="4" height="5" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="208" y="28" width="4" height="5" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="222" y="42" width="36" height="28" rx="3" fill="rgba(255,255,255,0.08)" />
+      <rect x="225" y="45" width="6" height="5" rx="1" fill="rgba(255,255,255,0.05)" />
+      <rect x="233" y="45" width="6" height="5" rx="1" fill="rgba(255,255,255,0.05)" />
+      <rect x="241" y="45" width="6" height="5" rx="1" fill="rgba(255,255,255,0.05)" />
+      <rect x="268" y="36" width="22" height="34" rx="3" fill="rgba(255,255,255,0.09)" />
+      <rect x="270" y="39" width="4" height="5" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="276" y="39" width="4" height="5" rx="1" fill="rgba(255,255,255,0.06)" />
+      <rect x="282" y="39" width="4" height="5" rx="1" fill="rgba(255,255,255,0.06)" />
+      <circle cx="48" cy="62" r="2" fill="#60A5FA" opacity="0.4" />
+      <circle cx="110" cy="62" r="2" fill="#60A5FA" opacity="0.35" />
+      <circle cx="186" cy="62" r="2" fill="#60A5FA" opacity="0.3" />
+      <circle cx="256" cy="62" r="2" fill="#60A5FA" opacity="0.25" />
+      <line x1="48" y1="62" x2="110" y2="62" stroke="#60A5FA" strokeWidth="0.5" opacity="0.2" strokeDasharray="3 4" />
+      <line x1="110" y1="62" x2="186" y2="62" stroke="#60A5FA" strokeWidth="0.5" opacity="0.15" strokeDasharray="3 4" />
+      <line x1="186" y1="62" x2="256" y2="62" stroke="#60A5FA" strokeWidth="0.5" opacity="0.1" strokeDasharray="3 4" />
+      <ellipse cx="60" cy="14" rx="16" ry="5" fill="rgba(255,255,255,0.04)" />
+      <ellipse cx="210" cy="10" rx="20" ry="6" fill="rgba(255,255,255,0.03)" />
+      <ellipse cx="280" cy="18" rx="14" ry="4" fill="rgba(255,255,255,0.03)" />
     </svg>
   );
 }
 
 export default function DigitalTwinHero() {
   return (
-    <div className="px-5 py-3" style={{ background: "#F6F8FC" }}>
+    <div className="px-6 py-0">
       <motion.div
-        initial={{ opacity: 0, y: 8 }}
+        initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.15 }}
-        className="relative overflow-hidden rounded-3xl"
+        transition={{ duration: 0.3 }}
+        className="relative overflow-hidden rounded-[32px]"
         style={{
-          background:
-            "linear-gradient(135deg, #2563EB 0%, #3B82F6 50%, #0EA5E9 100%)",
-          minHeight: 180,
+          background: "linear-gradient(145deg, #0F172A 0%, #1E3A5F 35%, #1B2F4F 60%, #0F172A 100%)",
+          minHeight: 200,
         }}
       >
-        {/* Skyline */}
-        <div className="absolute bottom-0 left-0 right-0">
+        <AnimatedCircles />
+
+        <div className="absolute bottom-0 left-0 right-0 opacity-40">
           <IsometricSkyline />
         </div>
 
-        {/* Content */}
-        <div className="relative z-10 flex flex-col items-center justify-center py-6 px-6">
-          {/* Badge — top right */}
-          <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm">
-            <Cpu className="w-3 h-3 text-white" />
-            <span className="text-[10px] font-semibold text-white">
-              Digital Twin
-            </span>
-            <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#10B981]/80">
-              <Zap className="w-2 h-2 text-white" />
-              <span className="text-[8px] font-bold text-white">LIVE</span>
-            </span>
+        <div className="relative z-10 flex flex-col items-center justify-center py-8 px-6">
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            <div
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+              style={{
+                background: "rgba(255,255,255,0.08)",
+                backdropFilter: "blur(8px)",
+              }}
+            >
+              <Cpu className="w-3.5 h-3.5 text-white/80" />
+              <span className="text-[11px] font-semibold text-white/80">
+                Digital Twin
+              </span>
+            </div>
+            <div
+              className="flex items-center gap-1 px-2 py-1 rounded-full"
+              style={{
+                background: "rgba(16,185,129,0.2)",
+              }}
+            >
+              <Zap className="w-2.5 h-2.5 text-[#34D399]" />
+              <span className="text-[9px] font-bold text-[#34D399] tracking-wide">
+                LIVE
+              </span>
+            </div>
           </div>
 
-          {/* Icon */}
-          <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center mb-3 mt-2">
-            <Cpu className="w-6 h-6 text-white" />
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mb-4 mt-1"
+            style={{
+              background: "rgba(255,255,255,0.06)",
+              backdropFilter: "blur(12px)",
+              boxShadow: "0 0 32px rgba(14,165,233,0.15), inset 0 0 0 1px rgba(255,255,255,0.08)",
+            }}
+          >
+            <Activity className="w-7 h-7 text-white/90" />
           </div>
 
-          {/* Sentence */}
-          <p className="text-[12px] text-white/75 text-center leading-relaxed">
-            Semua sistem beroperasi normal.
-            <br />
-            Tidak ada anomali kritis terdeteksi.
+          <p className="text-[13px] text-white/60 text-center leading-relaxed font-medium max-w-[280px]">
+            System Operating Normally.{" "}
+            <span className="text-white/40">No critical anomalies detected.</span>
           </p>
+
+          <div className="flex items-center gap-2 mt-4">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#34D399] shadow-[0_0_6px_rgba(52,211,153,0.5)]" />
+            <span className="text-[10px] text-white/40 font-medium">All Systems Operational</span>
+          </div>
         </div>
       </motion.div>
     </div>

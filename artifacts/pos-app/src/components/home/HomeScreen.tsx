@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, LogOut } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import StatusBar from "./StatusBar";
 import HomeHeader from "./HomeHeader";
@@ -10,6 +10,7 @@ import BusinessOverview from "./BusinessOverview";
 import DigitalTwinHero from "./DigitalTwinHero";
 import ApplicationGrid from "./ApplicationGrid";
 import AIInsight from "./AIInsight";
+import RecentActivity from "./RecentActivity";
 import FloatingAI from "./FloatingAI";
 import BottomNav, { type BottomTab } from "./BottomNav";
 import CashflowWidget from "./desktop/CashflowWidget";
@@ -35,42 +36,40 @@ function AppView({
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      transition={{ duration: 0.2 }}
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: 16 }}
+      transition={{ duration: 0.18 }}
       className="fixed inset-0 z-50 flex flex-col"
       style={{ background: "#F6F8FC" }}
     >
-      {/* App Header */}
       <div
-        className="flex items-center gap-3 px-4 py-3 shrink-0"
+        className="flex items-center gap-3 px-5 shrink-0"
         style={{
-          background: "#FFFFFF",
-          boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
+          height: 72,
+          background: "transparent",
         }}
       >
         <button
           onClick={onBack}
-          className="w-9 h-9 rounded-xl flex items-center justify-center bg-[#F6F8FC] active:bg-gray-200 transition-colors"
+          className="w-10 h-10 rounded-xl flex items-center justify-center bg-white/80 backdrop-blur-sm active:scale-[0.98] transition-transform shadow-sm border border-white/60"
         >
           <ArrowLeft className="w-5 h-5 text-[#111827]" />
         </button>
         <div
-          className="w-7 h-7 rounded-lg flex items-center justify-center"
-          style={{ background: `${app.color}15` }}
+          className="w-8 h-8 rounded-lg flex items-center justify-center"
+          style={{ background: `${app.color}12` }}
         >
           <div
             className="w-3 h-3 rounded-full"
             style={{ background: app.color }}
           />
         </div>
-        <span className="text-[15px] font-bold text-[#111827]">
+        <span className="text-[17px] font-bold text-[#111827]">
           {app.title}
         </span>
       </div>
 
-      {/* App Content */}
       <div className="flex-1 overflow-hidden flex flex-col">
         <AppComponent />
       </div>
@@ -88,25 +87,28 @@ function HomeView({
   isMobile: boolean;
 }) {
   return (
-    <div className="flex-1 overflow-auto pb-24">
-      <GreetingSection userName={userName} />
-      <RuntimeStatus />
-      <BusinessOverview />
-      <DigitalTwinHero />
-      <ApplicationGrid onAppClick={onAppClick} />
-      {!isMobile && <CashflowWidget />}
-      {!isMobile && <UpcomingScheduleWidget />}
-      <AIInsight />
-      {!isMobile && <MissionsRunningWidget />}
+    <div className="flex-1 overflow-auto pb-32">
+      <div className="flex flex-col" style={{ gap: 24 }}>
+        <GreetingSection userName={userName} />
+        <RuntimeStatus />
+        <BusinessOverview />
+        <DigitalTwinHero />
+        <ApplicationGrid onAppClick={onAppClick} />
+        {!isMobile && <div className="px-6"><CashflowWidget /></div>}
+        {!isMobile && <div className="px-6"><UpcomingScheduleWidget /></div>}
+        <AIInsight />
+        <RecentActivity />
+        {!isMobile && <div className="px-6"><MissionsRunningWidget /></div>}
+      </div>
     </div>
   );
 }
 
 function AppsView({ onAppClick }: { onAppClick: (id: string) => void }) {
   return (
-    <div className="flex-1 overflow-auto pb-24 px-5 pt-4">
-      <h2 className="text-[18px] font-bold text-[#111827] mb-4">
-        Semua Aplikasi
+    <div className="flex-1 overflow-auto pb-32 px-6 pt-4">
+      <h2 className="text-[22px] font-bold text-[#111827] mb-5 tracking-tight">
+        All Applications
       </h2>
       <ApplicationGrid onAppClick={onAppClick} />
     </div>
@@ -115,14 +117,17 @@ function AppsView({ onAppClick }: { onAppClick: (id: string) => void }) {
 
 function MissionView() {
   return (
-    <div className="flex-1 flex items-center justify-center pb-24 px-5">
+    <div className="flex-1 flex items-center justify-center pb-32 px-6">
       <div className="text-center">
-        <div className="w-16 h-16 rounded-2xl bg-[#2563EB10] flex items-center justify-center mx-auto mb-3">
-          <span className="text-2xl">🎯</span>
+        <div
+          className="w-20 h-20 rounded-[24px] flex items-center justify-center mx-auto mb-4"
+          style={{ background: "#EEF2FF" }}
+        >
+          <span className="text-3xl">🎯</span>
         </div>
-        <p className="text-[15px] font-bold text-[#111827]">Misi</p>
-        <p className="text-[12px] text-[#6B7280] mt-1">
-          Panel misi akan segera hadir.
+        <p className="text-[18px] font-bold text-[#111827]">Mission Control</p>
+        <p className="text-[14px] text-[#6B7280] mt-1.5">
+          Coming soon.
         </p>
       </div>
     </div>
@@ -137,31 +142,44 @@ function ProfileView({
   onSignOut: () => void;
 }) {
   return (
-    <div className="flex-1 overflow-auto pb-24 px-5 pt-4">
-      <h2 className="text-[18px] font-bold text-[#111827] mb-4">Profil</h2>
+    <div className="flex-1 overflow-auto pb-32 px-6 pt-4">
+      <h2 className="text-[22px] font-bold text-[#111827] mb-5 tracking-tight">
+        Profile
+      </h2>
       <div
-        className="rounded-2xl bg-white p-5"
-        style={{ boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}
+        className="rounded-[24px] bg-white p-6"
+        style={{
+          boxShadow: "0 1px 3px rgba(0,0,0,0.03), 0 0 0 0.5px rgba(0,0,0,0.04)",
+        }}
       >
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-14 h-14 rounded-2xl bg-[#2563EB] flex items-center justify-center text-white text-[20px] font-bold">
+        <div className="flex items-center gap-4 mb-5">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center text-white text-[22px] font-bold shadow-md"
+            style={{
+              background: "linear-gradient(135deg, #4F46E5, #6366F1)",
+              boxShadow: "0 4px 12px rgba(79,70,229,0.3)",
+            }}
+          >
             {(user?.name || user?.email || "U").charAt(0).toUpperCase()}
           </div>
           <div>
-            <p className="text-[15px] font-bold text-[#111827]">
+            <p className="text-[17px] font-bold text-[#111827]">
               {user?.name || "User"}
             </p>
-            <p className="text-[12px] text-[#6B7280]">{user?.email}</p>
-            <span className="inline-block mt-1 px-2 py-0.5 rounded-full bg-[#2563EB10] text-[10px] font-medium text-[#2563EB] capitalize">
-              {user?.role}
+            <p className="text-[13px] text-[#6B7280]">{user?.email}</p>
+            <span className="inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold capitalize"
+              style={{ background: "#EEF2FF", color: "#4F46E5" }}>
+              {user?.role || "Owner"}
             </span>
           </div>
         </div>
         <button
           onClick={onSignOut}
-          className="w-full py-3 rounded-xl bg-[#EF4444] text-white text-[14px] font-semibold active:bg-red-600 transition-colors"
+          className="w-full py-3 rounded-xl flex items-center justify-center gap-2 text-[14px] font-semibold text-white active:scale-[0.98] transition-transform"
+          style={{ background: "#EF4444" }}
         >
-          Keluar
+          <LogOut className="w-4 h-4" />
+          Sign Out
         </button>
       </div>
     </div>
@@ -208,7 +226,6 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
         onAvatarClick={() => setActiveTab("profile")}
       />
 
-      {/* Tab content */}
       <AnimatePresence mode="wait">
         {activeTab === "home" && (
           <motion.div
@@ -263,7 +280,6 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
       <BottomNav active={activeTab} onChange={handleTabChange} />
       <FloatingAI onClick={handleAI} />
 
-      {/* App overlay */}
       <AnimatePresence>
         {activeApp && (
           <AppView appId={activeApp} onBack={handleBack} />

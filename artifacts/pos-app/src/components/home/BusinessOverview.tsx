@@ -15,10 +15,10 @@ export default function BusinessOverview() {
   const missions = useWidgetProvider(fetchMissions, []);
 
   return (
-    <div className="px-5 py-2" style={{ background: "#F6F8FC" }}>
-      <div className="grid grid-cols-2 gap-2.5">
+    <div className="px-6 py-0">
+      <div className="grid grid-cols-2 gap-4">
         <BusinessCard
-          title="Uang Hari Ini"
+          title="Cash Today"
           amount={cash.data ? formatIDR(cash.data.amount) : "—"}
           change={cash.data?.change ?? 0}
           loading={cash.loading}
@@ -26,7 +26,7 @@ export default function BusinessOverview() {
           onRetry={cash.refresh}
         />
         <BusinessCard
-          title="Arus Kas"
+          title="Cashflow"
           amount={cashflow.data ? formatIDR(cashflow.data.amount) : "—"}
           change={cashflow.data?.change ?? 0}
           loading={cashflow.loading}

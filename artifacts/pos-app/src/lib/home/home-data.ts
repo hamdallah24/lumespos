@@ -26,6 +26,14 @@ export interface InsightItem {
   time: string;
 }
 
+export interface RecentActivityItem {
+  id: string;
+  transaction: string;
+  location: string;
+  time: string;
+  amount: number;
+}
+
 export type CashflowRange = "day" | "week" | "month" | "year";
 
 export interface CashflowPoint {
@@ -188,5 +196,18 @@ export async function fetchInsights(): Promise<InsightItem[]> {
       description: "Shift pagi ditutup selisih Rp 0",
       time: "6 jam lalu",
     },
+  ];
+}
+
+export async function fetchRecentActivity(): Promise<RecentActivityItem[]> {
+  return [
+    { id: "tx1", transaction: "Nasi Goreng Special", location: "Cabang Utama", time: "14:32", amount: 45000 },
+    { id: "tx2", transaction: "Ayam Bakar Madu", location: "Cabang Utama", time: "14:18", amount: 35000 },
+    { id: "tx3", transaction: "Es Teh Manis x2", location: "Cabang 2", time: "14:05", amount: 16000 },
+    { id: "tx4", transaction: "Refund - Mie Goreng", location: "Cabang Utama", time: "13:45", amount: -25000 },
+    { id: "tx5", transaction: "Sate Ayam x3", location: "Cabang 3", time: "13:22", amount: 75000 },
+    { id: "tx6", transaction: "Sop Buntut", location: "Cabang 2", time: "13:00", amount: 55000 },
+    { id: "tx7", transaction: "Es Jeruk x2", location: "Cabang Utama", time: "12:45", amount: 20000 },
+    { id: "tx8", transaction: "Refund - Salah Pesan", location: "Cabang 3", time: "12:20", amount: -30000 },
   ];
 }

@@ -8,17 +8,17 @@ interface ApplicationGridProps {
 
 export default function ApplicationGrid({ onAppClick }: ApplicationGridProps) {
   return (
-    <div className="px-5 py-2" style={{ background: "#F6F8FC" }}>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-[15px] font-bold text-[#111827]">Aplikasi</h2>
-      </div>
-      <div className="grid grid-cols-4 gap-2.5">
+    <div className="px-6 py-0">
+      <h2 className="text-[22px] font-bold text-[#111827] mb-4 tracking-tight">
+        Applications
+      </h2>
+      <div className="grid grid-cols-2 gap-4">
         {appRegistry.map((app, i) => (
           <motion.div
             key={app.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.2, delay: i * 0.03 }}
+            transition={{ duration: 0.18, delay: i * 0.04 }}
           >
             <AppCard
               id={app.id}
