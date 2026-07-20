@@ -17,8 +17,9 @@ import { caioRuntime } from "./executive-runtime/executives/CAIO";
 import { ckoRuntime } from "./executive-runtime/executives/CKO";
 import { chroRuntime } from "./executive-runtime/executives/CHRO";
 
-// Finance Engine - subscribe to events
+// Finance Engine - subscribe to events + default Chart of Accounts
 import "./finance/services/eventHandlers";
+import { initializeDefaultCOA } from "./finance/services/chartOfAccounts";
 
 // ── Process-level crash handlers ──
 let server: ReturnType<typeof app.listen> | null = null;
@@ -82,6 +83,14 @@ async function boot(): Promise<void> {
   try {
     // Phase 0: Redis init
     await redisService.init();
+
+    // Phase 0.5: Finance — ensure default Chart of Accounts exists before any orders
+    try {
+      await initializeDefaultCOA();
+      logger.info("[Finance] Default Chart of Accounts initialized");
+    } catch (err) {
+      logger.warn({ err }, "[Finance] Default COA initialization skipped");
+    }
 
     // Phase 1: Foundation Load
     const { getFoundationProvider } = await import("./ai/runtime/foundation");
