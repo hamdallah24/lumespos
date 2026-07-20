@@ -1,8 +1,11 @@
-// Sprint 1A — Living Digital Twin Canvas
-// Auto day/night, no manual toggle
+// Sprint 3B — Living Digital Twin with depth layers
 import { motion } from "framer-motion";
 import DigitalTwinProvider, { useDigitalTwin } from "./DigitalTwinProvider";
 import DigitalTwinTransition from "./DigitalTwinTransition";
+import DigitalTwinBuildings from "./DigitalTwinBuildings";
+import DigitalTwinRoadLights from "./DigitalTwinRoadLights";
+import DigitalTwinAINetwork from "./DigitalTwinAINetwork";
+import DigitalTwinAtmosphere from "./DigitalTwinAtmosphere";
 import DigitalTwinOverlay from "./DigitalTwinOverlay";
 import DigitalTwinHotspots from "./DigitalTwinHotspots";
 
@@ -11,10 +14,12 @@ function TwinInner() {
 
   return (
     <div className="relative w-full select-none overflow-hidden" style={{ aspectRatio: "16/9", minHeight: 240 }}>
+      {/* Layer 0: Sky / background — slowest parallax */}
       <div
         className="absolute inset-0 scale-[1.08]"
         style={{ transform: `translate(${state.parallaxBgX}px, ${state.parallaxBgY}px)` }}
       >
+        {/* Layer 1: Ground / city image with road lights */}
         <div
           className="absolute inset-0"
           style={{
@@ -23,22 +28,22 @@ function TwinInner() {
           }}
         >
           <DigitalTwinTransition />
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{ transform: `translate(${state.parallaxGlowX}px, ${state.parallaxGlowY}px)` }}
-          >
-            <div
-              className="absolute inset-0"
-              style={{
-                background: state.timeOfDay === "night"
-                  ? "radial-gradient(ellipse at 50% 30%, rgba(147,197,253,0.06) 0%, transparent 60%)"
-                  : "radial-gradient(ellipse at 50% 30%, rgba(255,255,255,0.04) 0%, transparent 60%)",
-              }}
-            />
-          </div>
         </div>
+
+        {/* Layer 2: Buildings — faster parallax, independent */}
+        <DigitalTwinBuildings />
+
+        {/* Road lights — night only, between buildings and atmosphere */}
+        <DigitalTwinRoadLights />
       </div>
 
+      {/* Layer 3: Atmospheric glow behind AI Core */}
+      <DigitalTwinAtmosphere />
+
+      {/* AI Network lines */}
+      <DigitalTwinAINetwork />
+
+      {/* Layer 4: UI Overlay (glass, grid, labels, effects, hotspots) */}
       <DigitalTwinOverlay>
         <DigitalTwinHotspots />
       </DigitalTwinOverlay>

@@ -31,16 +31,19 @@ export interface DigitalTwinState {
   parallaxCityY: number;
   parallaxGlowX: number;
   parallaxGlowY: number;
+  parallaxBuildingX: number;
+  parallaxBuildingY: number;
   reducedMotion: boolean;
+  gameTime: number;
 }
 
 export type DigitalTwinAction =
   | { type: "SET_TIME_OF_DAY"; payload: TimeOfDay }
   | { type: "SET_TRANSITION_PROGRESS"; payload: number }
   | { type: "SELECT_HOTSPOT"; payload: string | null }
-  | { type: "UPDATE_METRICS"; payload: Partial<Pick<DigitalTwinState, "lastUpdated" | "ambientBrightness" | "ambientContrast" | "ambientSaturation" | "ambientGlow">> }
+  | { type: "UPDATE_METRICS"; payload: Partial<Pick<DigitalTwinState, "lastUpdated" | "ambientBrightness" | "ambientContrast" | "ambientSaturation" | "ambientGlow" | "gameTime">> }
   | { type: "CAMERA_TICK"; payload: { x: number; y: number; scale: number } }
-  | { type: "PARALLAX_TICK"; payload: { bgX: number; bgY: number; cityX: number; cityY: number; glowX: number; glowY: number } }
+  | { type: "PARALLAX_TICK"; payload: { bgX: number; bgY: number; cityX: number; cityY: number; glowX: number; glowY: number; buildingX: number; buildingY: number } }
   | { type: "SET_REDUCED_MOTION"; payload: boolean };
 
 export interface DigitalTwinContextValue {
@@ -84,5 +87,8 @@ export const INITIAL_STATE: DigitalTwinState = {
   parallaxCityY: 0,
   parallaxGlowX: 0,
   parallaxGlowY: 0,
+  parallaxBuildingX: 0,
+  parallaxBuildingY: 0,
   reducedMotion: false,
+  gameTime: 0,
 };

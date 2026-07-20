@@ -113,6 +113,20 @@ export default function DigitalTwinTransition() {
           opacity: state.ambientGlow > 0.01 ? 1 : 0,
         }}
       />
+
+      {/* Dynamic light tint — warm day, cool night */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          opacity: state.timeOfDay === "day"
+            ? Math.min(state.ambientGlow * 6, 0.08)
+            : Math.min((0.15 - state.ambientGlow) * 1.5, 0.1),
+          transition: "opacity 2.5s ease-in-out",
+          background: state.timeOfDay === "day"
+            ? "linear-gradient(180deg, rgba(251,191,36,0.06) 0%, rgba(251,191,36,0.02) 50%, transparent 100%)"
+            : "linear-gradient(180deg, rgba(30,58,138,0.12) 0%, rgba(30,58,138,0.04) 50%, transparent 100%)",
+        }}
+      />
     </>
   );
 }

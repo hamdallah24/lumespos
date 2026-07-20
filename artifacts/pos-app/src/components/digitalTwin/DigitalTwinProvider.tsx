@@ -25,6 +25,8 @@ function reducer(state: DigitalTwinState, action: DigitalTwinAction): DigitalTwi
         parallaxCityY: action.payload.cityY,
         parallaxGlowX: action.payload.glowX,
         parallaxGlowY: action.payload.glowY,
+        parallaxBuildingX: action.payload.buildingX,
+        parallaxBuildingY: action.payload.buildingY,
       };
     case "SET_REDUCED_MOTION":
       return { ...state, reducedMotion: action.payload };
@@ -101,8 +103,11 @@ export default function DigitalTwinProvider({ children }: { children: React.Reac
           cityY: Math.cos(phase * 0.9) * 3.5,
           glowX: Math.sin(phase * 0.4) * 1.5,
           glowY: Math.cos(phase * 0.35) * 1,
+          buildingX: Math.sin(phase * 1.5) * 6,
+          buildingY: Math.cos(phase * 1.2) * 4.5,
         },
       });
+      dispatch({ type: "UPDATE_METRICS", payload: { gameTime: elapsed } });
       animFrame.current = requestAnimationFrame(tick);
     };
     animFrame.current = requestAnimationFrame(tick);
