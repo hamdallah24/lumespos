@@ -192,51 +192,38 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Build where clause
-    const conditions: any[] = [];
+    // Build where clause for branch+date filtering
+    const dateStart = startDate || today;
+    const dateEnd = endDate || undefined;
+    const condBranch: any[] = [];
     if (branchIds && branchIds.length > 0) {
-      conditions.push(inArray(transactionsTable.branchId, branchIds));
+      condBranch.push(inArray(transactionsTable.branchId, branchIds));
     } else if (branchId) {
-      conditions.push(sql`${transactionsTable.branchId} = ${branchId}`);
+      condBranch.push(sql`${transactionsTable.branchId} = ${branchId}`);
     }
-    if (startDate) {
-      conditions.push(sql`${transactionsTable.createdAt} >= ${startDate}`);
-    } else {
-      conditions.push(sql`${transactionsTable.createdAt} >= ${today}`);
-    }
-    if (endDate) {
-      conditions.push(sql`${transactionsTable.createdAt} <= ${endDate}`);
-    }
+    const branchCond = condBranch.length > 0 ? and(...condBranch) : undefined;
 
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const baseWhere = and(
+      branchCond,
+      gte(transactionsTable.createdAt, dateStart),
+      dateEnd ? lte(transactionsTable.createdAt, dateEnd) : undefined,
+    );
 
     const [todayTransactions, allIncomeResult, allExpenseResult, balances] = await Promise.all([
-      db.select().from(transactionsTable).where(whereClause),
-      // All-branch income (no branch filter)
+      db.select().from(transactionsTable).where(baseWhere),
+      // Income filtered by same branch+date
       db
         .select({ total: sql<string>`COALESCE(SUM(${transactionsTable.amount}), 0)` })
         .from(transactionsTable)
-        .where(
-          and(
-            eq(transactionsTable.type, "income"),
-            gte(transactionsTable.createdAt, startDate || today),
-            endDate ? lte(transactionsTable.createdAt, endDate) : undefined,
-          )
-        ),
-      // All-branch expenses by category
+        .where(and(eq(transactionsTable.type, "income"), branchCond, gte(transactionsTable.createdAt, dateStart), dateEnd ? lte(transactionsTable.createdAt, dateEnd) : undefined)),
+      // Expenses by category, filtered by same branch+date
       db
         .select({
           category: transactionsTable.category,
           total: sql<string>`COALESCE(SUM(${transactionsTable.amount}), 0)`,
         })
         .from(transactionsTable)
-        .where(
-          and(
-            eq(transactionsTable.type, "expense"),
-            gte(transactionsTable.createdAt, startDate || today),
-            endDate ? lte(transactionsTable.createdAt, endDate) : undefined,
-          )
-        )
+        .where(and(eq(transactionsTable.type, "expense"), branchCond, gte(transactionsTable.createdAt, dateStart), dateEnd ? lte(transactionsTable.createdAt, dateEnd) : undefined))
         .groupBy(transactionsTable.category),
       getAccountBalances(),
     ]);
