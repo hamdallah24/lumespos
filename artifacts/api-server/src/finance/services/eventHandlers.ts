@@ -31,6 +31,8 @@ EventSubscriber.on("order.completed", async (event) => {
     const data = event.data as any;
     if (data.total && data.branchId) {
       const accountId = await resolveAccountId(data.paymentMethod);
+
+      // Income transaction (sale revenue)
       await createTransaction({
         branchId: data.branchId,
         type: "income",
@@ -42,6 +44,21 @@ EventSubscriber.on("order.completed", async (event) => {
         referenceId: data.orderId,
         sourceModule: "pos",
       });
+
+      // COGS expense transaction (cost of goods sold)
+      const cogs = parseFloat(data.totalCogs);
+      if (cogs > 0) {
+        await createTransaction({
+          branchId: data.branchId,
+          type: "expense",
+          category: "cogs",
+          description: `HPP Penjualan POS #${data.orderId}`,
+          amount: cogs,
+          referenceType: "order",
+          referenceId: data.orderId,
+          sourceModule: "pos",
+        });
+      }
     }
   } catch (err) {
     console.error(`[Finance] Gagal membuat transaksi untuk order ${event.data?.orderId}:`, err);

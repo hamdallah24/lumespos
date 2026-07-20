@@ -14,6 +14,7 @@ export interface OrderCompletedData {
   branchId: number;
   orderId: number;
   total: number;
+  totalCogs: number;
   paymentMethod: string;
 }
 

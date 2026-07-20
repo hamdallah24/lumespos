@@ -345,6 +345,7 @@ router.post("/orders", requireAuth, async (req, res) => {
       branchId: validBranchId,
       orderId: order.id,
       total: parseFloat(order.total),
+      totalCogs: parseFloat(order.totalCogs || "0"),
       paymentMethod: order.paymentMethod,
     }));
 
@@ -643,6 +644,7 @@ router.post("/orders/batch", requireAuth, async (req, res) => {
           branchId: validBranchId,
           orderId: order.id,
           total: parseFloat(order.total),
+          totalCogs: parseFloat(order.totalCogs || "0"),
           paymentMethod: order.paymentMethod,
         }));
 
