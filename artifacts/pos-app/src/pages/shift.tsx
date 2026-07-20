@@ -289,7 +289,8 @@ export default function ShiftPage() {
         expectedBalance: data.shift.expectedBalance,
         difference: data.shift.difference,
       });
-      sessionStorage.removeItem(SS_KEY_SHIFT); // Hapus form yg tersimpan
+      sessionStorage.removeItem(SS_KEY_SHIFT);
+      localStorage.removeItem("sayq.lockedBranch");
 
       if (data.shift.difference >= 0) {
         toast.success(`Shift ditutup. Kelebihan Kas: ${formatRp(data.shift.difference)}`);
@@ -349,7 +350,7 @@ export default function ShiftPage() {
                  <ClipboardList className="w-10 h-10 text-muted-foreground mb-4 opacity-50" />
                  <h2 className="text-lg font-semibold mb-2">Tidak Ada Shift Aktif</h2>
                  <p className="text-muted-foreground text-sm mb-6">Anda tidak memiliki shift yang sedang berjalan saat ini.</p>
-                 <Button onClick={() => setLocation("/")}>Ke Kasir</Button>
+                  <Button onClick={() => setLocation("/onboard")}>Ke Onboard</Button>
                </CardContent>
              </Card>
           ) : !result ? (
@@ -618,8 +619,8 @@ export default function ShiftPage() {
                   <p>Harapan Kas: <span className="font-medium text-foreground">{formatRp(result.expectedBalance)}</span></p>
                   <p>Aktual Kas: <span className="font-medium text-foreground">{formatRp(parseFloat(closingBalance))}</span></p>
                 </div>
-                <Button onClick={() => setLocation("/")} className="w-full sm:w-auto mt-4 px-8">
-                  Kembali ke Kasir
+                <Button onClick={() => setLocation("/onboard")} className="w-full sm:w-auto mt-4 px-8">
+                  Kembali ke Onboard
                 </Button>
               </CardContent>
             </Card>
