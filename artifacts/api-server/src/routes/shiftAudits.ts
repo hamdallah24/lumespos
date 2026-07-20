@@ -235,7 +235,43 @@ router.post("/shift/start", requireAuth, requireBranchAccess((req) => Number(req
     }
 
     // Cek apakah sudah ada shift aktif di cabang ini
-    const existingShift = await db
+    const existingShifts = await db
+      .select()
+      .from(shiftAuditsTable)
+      .where(
+        and(
+          eq(shiftAuditsTable.branchId, branchId),
+          eq(shiftAuditsTable.status, "active")
+        )
+      );
+
+    // Auto-close stale shifts from previous calendar days
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (const es of existingShifts) {
+      const shiftDate = es.shiftStart ? new Date(es.shiftStart) : null;
+      if (shiftDate && shiftDate < today) {
+        await db
+          .update(shiftAuditsTable)
+          .set({
+            status: "confirmed",
+            shiftEnd: today,
+            notes: (es.notes ? es.notes + " | " : "") + "Auto-closed: daily reset",
+          })
+          .where(eq(shiftAuditsTable.id, es.id));
+        EventPublisher.publish(createShiftClosedEvent({
+          shiftId: es.id,
+          branchId,
+          status: "auto-closed",
+          expectedBalance: parseFloat(es.openingBalance || "0"),
+          closingBalance: parseFloat(es.openingBalance || "0"),
+          difference: 0,
+        }));
+      }
+    }
+
+    // Re-check: masih ada shift aktif HARI INI?
+    const todaysActive = await db
       .select()
       .from(shiftAuditsTable)
       .where(
@@ -246,7 +282,7 @@ router.post("/shift/start", requireAuth, requireBranchAccess((req) => Number(req
       )
       .limit(1);
 
-    if (existingShift.length > 0) {
+    if (todaysActive.length > 0) {
       return res.status(400).json({ error: "Masih ada shift aktif di cabang ini. Tutup shift sebelumnya terlebih dahulu." });
     }
 

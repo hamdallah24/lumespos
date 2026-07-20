@@ -205,6 +205,39 @@ async function boot(): Promise<void> {
     });
     logger.info("Knowledge queue pruning scheduled — hourly");
 
+    // T14R: Auto-close stale shifts from previous calendar days (hourly)
+    safeSchedule("shift-auto-close", 3600000, async () => {
+      try {
+        const { db, shiftAuditsTable } = await import("@workspace/db");
+        const { eq, and, lt, sql } = await import("drizzle-orm");
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const staleShifts = await db
+          .select()
+          .from(shiftAuditsTable)
+          .where(
+            and(
+              eq(shiftAuditsTable.status, "active"),
+              lt(shiftAuditsTable.shiftStart, today)
+            )
+          );
+        if (staleShifts.length > 0) {
+          for (const s of staleShifts) {
+            await db.update(shiftAuditsTable)
+              .set({
+                status: "confirmed",
+                shiftEnd: today,
+                notes: (s.notes ? s.notes + " | " : "") + "Auto-closed: daily reset",
+              })
+              .where(eq(shiftAuditsTable.id, s.id));
+          }
+          logger.info({ count: staleShifts.length }, "Auto-closed stale shifts from previous day(s)");
+        }
+      } catch (err) {
+        logger.warn({ err }, "Shift auto-close task failed");
+      }
+    });
+    logger.info("Shift auto-close scheduled — hourly");
+
     // ECP-037 P1: Subscribe Telemetry to event bus
     const { eventBus } = await import("./ai/runtime/observability/event-bus");
     eventBus.subscribe("trace_started", (event: any) => {
