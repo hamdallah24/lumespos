@@ -532,7 +532,7 @@ export default function CashierPage() {
       </div>
 
       {/* Mobile bottom bar — floating cart summary + pay */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 px-3 pb-3 pointer-events-none">
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-50 px-3 pb-[80px] pointer-events-none">
         <AnimatePresence>
           {cart.length > 0 && (
             <motion.div
