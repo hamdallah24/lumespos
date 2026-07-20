@@ -90,7 +90,7 @@ export default function FinancialHealth() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-2 gap-2">
           <HealthScoreCard
             title="Kas"
             score={data.cashHealth.score}

@@ -95,7 +95,7 @@ export default function DashboardInsight() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <InsightCard
             title="Pendapatan"
             current={data.income.current}

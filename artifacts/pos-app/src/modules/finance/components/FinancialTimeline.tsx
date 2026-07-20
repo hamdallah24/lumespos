@@ -124,13 +124,13 @@ export default function FinancialTimeline() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Timeline Keuangan</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">Timeline Keuangan</h2>
         <Button
           variant="outline"
           size="sm"
           onClick={() => setShowFilters(!showFilters)}
-          className="gap-2"
+          className="gap-2 shrink-0"
         >
           <Filter className="w-4 h-4" />
           Filter

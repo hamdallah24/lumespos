@@ -29,8 +29,6 @@ import DashboardInsight from "./DashboardInsight";
 import FinancialTimeline from "./FinancialTimeline";
 import TransactionDetailDrawer from "./TransactionDetailDrawer";
 import ExportMenu from "./ExportMenu";
-import { format } from "date-fns";
-import { id } from "date-fns/locale";
 
 function StatCard({
   title,
@@ -225,24 +223,16 @@ export default function FinanceDashboard() {
 
   const displayData = showLiveData ? { cashBalance, todayIncome, todayExpense, profitToday } : mockData;
 
-  if (dashboardLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
+    <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
           <h2 className="text-lg font-bold">Keuangan</h2>
           <p className="text-xs text-muted-foreground">
-            {showLiveData ? "Data live" : "Belum ada data transaksi"}
+            {dashboardLoading ? "Memuat..." : showLiveData ? "Data live" : "Belum ada data transaksi"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <ExportMenu />
           {!hasData && (
             <Button
@@ -258,30 +248,43 @@ export default function FinanceDashboard() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <StatCard
-          title="Kas"
-          value={displayData.cashBalance}
-          icon={Wallet}
-          color="bg-blue-500/10 text-blue-600"
-        />
-        <StatCard
-          title="Pemasukan Hari Ini"
-          value={displayData.todayIncome}
-          icon={TrendingUp}
-          color="bg-green-500/10 text-green-600"
-        />
-        <StatCard
-          title="Pengeluaran Hari Ini"
-          value={displayData.todayExpense}
-          icon={TrendingDown}
-          color="bg-red-500/10 text-red-600"
-        />
-        <StatCard
-          title="Laba Hari Ini"
-          value={displayData.profitToday}
-          icon={Banknote}
-          color="bg-purple-500/10 text-purple-600"
-        />
+        {dashboardLoading ? (
+          <>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-card border border-border rounded-2xl p-3 sm:p-4 animate-pulse">
+                <div className="h-3 w-16 bg-muted rounded mb-2" />
+                <div className="h-5 w-24 bg-muted rounded" />
+              </div>
+            ))}
+          </>
+        ) : (
+          <>
+            <StatCard
+              title="Kas"
+              value={displayData.cashBalance}
+              icon={Wallet}
+              color="bg-blue-500/10 text-blue-600"
+            />
+            <StatCard
+              title="Pemasukan Hari Ini"
+              value={displayData.todayIncome}
+              icon={TrendingUp}
+              color="bg-green-500/10 text-green-600"
+            />
+            <StatCard
+              title="Pengeluaran Hari Ini"
+              value={displayData.todayExpense}
+              icon={TrendingDown}
+              color="bg-red-500/10 text-red-600"
+            />
+            <StatCard
+              title="Laba Hari Ini"
+              value={displayData.profitToday}
+              icon={Banknote}
+              color="bg-purple-500/10 text-purple-600"
+            />
+          </>
+        )}
       </div>
 
       <CashPosition />
