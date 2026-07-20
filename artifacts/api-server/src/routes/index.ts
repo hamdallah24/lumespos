@@ -17,6 +17,7 @@ import shiftAuditsRouter from "./shiftAudits";
 import storageRouter from "./storage";
 import aiRouter from "./ai";
 import migrateRouter from "./migrate";
+import financeRouter from "./finance";
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use("/", shiftAuditsRouter);
 router.use("/", storageRouter);
 router.use("/", aiRouter);
 router.use("/", migrateRouter);
+router.use("/", financeRouter);
 
 export default router;

@@ -17,6 +17,9 @@ import { caioRuntime } from "./executive-runtime/executives/CAIO";
 import { ckoRuntime } from "./executive-runtime/executives/CKO";
 import { chroRuntime } from "./executive-runtime/executives/CHRO";
 
+// Finance Engine - subscribe to events
+import "./finance/services/eventHandlers";
+
 // ── Process-level crash handlers ──
 let server: ReturnType<typeof app.listen> | null = null;
 

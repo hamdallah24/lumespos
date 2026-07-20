@@ -1,0 +1,368 @@
+import { Router } from "express";
+import { db, transactionsTable } from "@workspace/db";
+import { eq, desc, sql } from "drizzle-orm";
+import { requireAuth, requireBranchAccess, canAccessBranch } from "../middlewares/requireAuth";
+import {
+  initializeDefaultCOA,
+  getAllAccounts,
+  getAccountByCode,
+  createTransaction,
+  getJournalEntriesByTransaction,
+  getLedgerByAccount,
+  getAccountBalances,
+  generateTrialBalance,
+  generateBalanceSheet,
+  generateProfitLoss,
+  generateCashflow,
+  getTimeline,
+  getCashPosition,
+  getCashPositionItems,
+  createDailySnapshot,
+  getDailySnapshots,
+  getInsightData,
+  getHealthData,
+  getExportData,
+  generateCSV,
+  generateExcel,
+  generatePDFPlaceholder,
+} from "../finance/services";
+
+const router = Router();
+
+router.get("/finance/accounts", requireAuth, async (_req, res) => {
+  try {
+    await initializeDefaultCOA();
+    const accounts = await getAllAccounts();
+    return res.json(accounts);
+  } catch (err: any) {
+    console.error("GET /finance/accounts error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data akun" });
+  }
+});
+
+router.get("/finance/accounts/:code", requireAuth, async (req, res) => {
+  try {
+    const account = await getAccountByCode(req.params["code"]);
+    if (!account) return res.status(404).json({ error: "Akun tidak ditemukan" });
+    return res.json(account);
+  } catch (err: any) {
+    console.error("GET /finance/accounts/:code error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data akun" });
+  }
+});
+
+router.post("/finance/transactions", requireAuth, requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
+  try {
+    const { branchId, type, category, description, amount, referenceType, referenceId, referenceCode, sourceModule, notes } = req.body;
+
+    if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
+    if (!type) return res.status(400).json({ error: "type wajib diisi" });
+    if (!category) return res.status(400).json({ error: "category wajib diisi" });
+    if (!description) return res.status(400).json({ error: "description wajib diisi" });
+    if (!amount || Number(amount) <= 0) return res.status(400).json({ error: "amount harus lebih dari 0" });
+
+    const result = await createTransaction({
+      branchId: Number(branchId),
+      type: String(type),
+      category: String(category),
+      description: String(description).trim(),
+      amount: Number(amount),
+      referenceType: referenceType ? String(referenceType) : undefined,
+      referenceId: referenceId ? Number(referenceId) : undefined,
+      referenceCode: referenceCode ? String(referenceCode) : undefined,
+      sourceModule: sourceModule ? String(sourceModule) : undefined,
+      notes: notes ? String(notes).trim() : undefined,
+      createdBy: req.user?.id ? Number(req.user.id) : undefined,
+    });
+
+    return res.status(201).json(result);
+  } catch (err: any) {
+    console.error("POST /finance/transactions error:", err);
+    return res.status(500).json({ error: err.message || "Gagal membuat transaksi" });
+  }
+});
+
+router.get("/finance/transactions", requireAuth, async (req, res) => {
+  try {
+    const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    if (branchId && !(await canAccessBranch(req, branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+
+    const rows = await db
+      .select()
+      .from(transactionsTable)
+      .where(branchId ? eq(transactionsTable.branchId, branchId) : undefined)
+      .orderBy(desc(transactionsTable.createdAt));
+
+    return res.json(rows);
+  } catch (err: any) {
+    console.error("GET /finance/transactions error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data transaksi" });
+  }
+});
+
+router.get("/finance/journal/:transactionId", requireAuth, async (req, res) => {
+  try {
+    const transactionId = Number(req.params["transactionId"]);
+    if (isNaN(transactionId)) return res.status(400).json({ error: "ID tidak valid" });
+
+    const entries = await getJournalEntriesByTransaction(transactionId);
+    return res.json(entries);
+  } catch (err: any) {
+    console.error("GET /finance/journal/:transactionId error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data jurnal" });
+  }
+});
+
+router.get("/finance/ledger/:accountId", requireAuth, async (req, res) => {
+  try {
+    const accountId = Number(req.params["accountId"]);
+    if (isNaN(accountId)) return res.status(400).json({ error: "ID tidak valid" });
+
+    const entries = await getLedgerByAccount(accountId);
+    return res.json(entries);
+  } catch (err: any) {
+    console.error("GET /finance/ledger/:accountId error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data ledger" });
+  }
+});
+
+router.get("/finance/balances", requireAuth, async (_req, res) => {
+  try {
+    const balances = await getAccountBalances();
+    return res.json(balances);
+  } catch (err: any) {
+    console.error("GET /finance/balances error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data saldo" });
+  }
+});
+
+router.get("/finance/trial-balance", requireAuth, async (_req, res) => {
+  try {
+    const trialBalance = await generateTrialBalance();
+    return res.json(trialBalance);
+  } catch (err: any) {
+    console.error("GET /finance/trial-balance error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data trial balance" });
+  }
+});
+
+router.get("/finance/balance-sheet", requireAuth, async (_req, res) => {
+  try {
+    const balanceSheet = await generateBalanceSheet();
+    return res.json(balanceSheet);
+  } catch (err: any) {
+    console.error("GET /finance/balance-sheet error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data balance sheet" });
+  }
+});
+
+router.get("/finance/profit-loss", requireAuth, async (_req, res) => {
+  try {
+    const profitLoss = await generateProfitLoss();
+    return res.json(profitLoss);
+  } catch (err: any) {
+    console.error("GET /finance/profit-loss error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data profit loss" });
+  }
+});
+
+router.get("/finance/cashflow", requireAuth, async (_req, res) => {
+  try {
+    const cashflow = await generateCashflow();
+    return res.json(cashflow);
+  } catch (err: any) {
+    console.error("GET /finance/cashflow error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data cashflow" });
+  }
+});
+
+router.get("/finance/dashboard", requireAuth, async (req, res) => {
+  try {
+    const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayTransactions = await db
+      .select()
+      .from(transactionsTable)
+      .where(
+        branchId
+          ? sql`${transactionsTable.branchId} = ${branchId} AND ${transactionsTable.createdAt} >= ${today}`
+          : sql`${transactionsTable.createdAt} >= ${today}`
+      );
+
+    const todayIncome = todayTransactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+    const todayExpense = todayTransactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+    const balances = await getAccountBalances();
+    const cashAccount = balances.find((b) => b.accountCode === "1000");
+    const bankAccount = balances.find((b) => b.accountCode === "1100");
+    const cashBalance = (cashAccount?.balance || 0) + (bankAccount?.balance || 0);
+
+    const cashPosition = await getCashPosition();
+    const healthData = branchId ? await getHealthData(branchId) : null;
+    const insightData = branchId ? await getInsightData(branchId) : null;
+
+    return res.json({
+      cashBalance,
+      todayIncome,
+      todayExpense,
+      profitToday: todayIncome - todayExpense,
+      hasData: todayTransactions.length > 0,
+      cashPosition,
+      health: healthData,
+      insight: insightData,
+    });
+  } catch (err: any) {
+    console.error("GET /finance/dashboard error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data dashboard" });
+  }
+});
+
+router.get("/finance/timeline", requireAuth, async (req, res) => {
+  try {
+    const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    const search = req.query["search"] as string | undefined;
+    const category = req.query["category"] as string | undefined;
+    const startDate = req.query["startDate"] ? new Date(req.query["startDate"] as string) : undefined;
+    const endDate = req.query["endDate"] ? new Date(req.query["endDate"] as string) : undefined;
+    const page = req.query["page"] ? Number(req.query["page"]) : 1;
+    const limit = req.query["limit"] ? Number(req.query["limit"]) : 20;
+
+    if (branchId && !(await canAccessBranch(req, branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+
+    const result = await getTimeline({
+      branchId,
+      search,
+      category,
+      startDate,
+      endDate,
+      page,
+      limit,
+    });
+
+    return res.json(result);
+  } catch (err: any) {
+    console.error("GET /finance/timeline error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data timeline" });
+  }
+});
+
+router.get("/finance/cash-position", requireAuth, async (_req, res) => {
+  try {
+    const position = await getCashPosition();
+    const items = await getCashPositionItems();
+    return res.json({ position, items });
+  } catch (err: any) {
+    console.error("GET /finance/cash-position error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data cash position" });
+  }
+});
+
+router.get("/finance/health", requireAuth, async (req, res) => {
+  try {
+    const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
+
+    const health = await getHealthData(branchId);
+    return res.json(health);
+  } catch (err: any) {
+    console.error("GET /finance/health error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data health" });
+  }
+});
+
+router.get("/finance/insight", requireAuth, async (req, res) => {
+  try {
+    const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
+
+    const insight = await getInsightData(branchId);
+    return res.json(insight);
+  } catch (err: any) {
+    console.error("GET /finance/insight error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data insight" });
+  }
+});
+
+router.get("/finance/snapshots", requireAuth, async (req, res) => {
+  try {
+    const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    const days = req.query["days"] ? Number(req.query["days"]) : 30;
+
+    if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
+    if (!(await canAccessBranch(req, branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+
+    const snapshots = await getDailySnapshots(branchId, days);
+    return res.json(snapshots);
+  } catch (err: any) {
+    console.error("GET /finance/snapshots error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data snapshots" });
+  }
+});
+
+router.post("/finance/snapshots", requireAuth, requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
+  try {
+    const { branchId, date } = req.body;
+    if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
+
+    const snapshot = await createDailySnapshot(Number(branchId), date ? new Date(date) : undefined);
+    return res.status(201).json(snapshot);
+  } catch (err: any) {
+    console.error("POST /finance/snapshots error:", err);
+    return res.status(500).json({ error: "Gagal membuat snapshot" });
+  }
+});
+
+router.get("/finance/export", requireAuth, async (req, res) => {
+  try {
+    const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    const startDate = req.query["startDate"] ? new Date(req.query["startDate"] as string) : undefined;
+    const endDate = req.query["endDate"] ? new Date(req.query["endDate"] as string) : undefined;
+    const category = req.query["category"] as string | undefined;
+    const type = req.query["type"] as string | undefined;
+    const format = (req.query["format"] as string) || "csv";
+
+    if (branchId && !(await canAccessBranch(req, branchId))) {
+      return res.status(403).json({ error: "Forbidden branch" });
+    }
+
+    const data = await getExportData({ branchId, startDate, endDate, category, type });
+
+    if (format === "csv") {
+      const csv = generateCSV(data);
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", "attachment; filename=finance-export.csv");
+      return res.send(csv);
+    } else if (format === "excel") {
+      const excel = generateExcel(data);
+      res.setHeader("Content-Type", "application/xml");
+      res.setHeader("Content-Disposition", "attachment; filename=finance-export.xml");
+      return res.send(excel);
+    } else if (format === "pdf") {
+      const pdf = generatePDFPlaceholder(data);
+      res.setHeader("Content-Type", "text/html");
+      res.setHeader("Content-Disposition", "attachment; filename=finance-export.html");
+      return res.send(pdf);
+    }
+
+    return res.json(data);
+  } catch (err: any) {
+    console.error("GET /finance/export error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data export" });
+  }
+});
+
+export default router;

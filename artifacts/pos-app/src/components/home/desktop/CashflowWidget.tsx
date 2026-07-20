@@ -2,12 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { useWidgetProvider } from "@/lib/home/widget-provider";
-import {
-  fetchCashflowSeries,
-  formatIDR,
-  type CashflowRange,
-  type CashflowPoint,
-} from "@/lib/home/home-data";
+import { formatIDR, type CashflowRange, type CashflowPoint } from "@/lib/home/home-data";
 
 const RANGE_LABELS: Record<CashflowRange, string> = {
   day: "Hari",
@@ -17,6 +12,118 @@ const RANGE_LABELS: Record<CashflowRange, string> = {
 };
 
 const RANGES: CashflowRange[] = ["day", "week", "month", "year"];
+
+function getDateRange(range: CashflowRange): { start: Date; end: Date; labels: string[] } {
+  const end = new Date();
+  const start = new Date();
+  const labels: string[] = [];
+
+  switch (range) {
+    case "day":
+      start.setHours(0, 0, 0, 0);
+      for (let h = 8; h <= 18; h += 2) {
+        labels.push(`${h.toString().padStart(2, "0")}:00`);
+      }
+      break;
+    case "week":
+      start.setDate(end.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+      const dayNames = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(start);
+        d.setDate(d.getDate() + i);
+        labels.push(dayNames[d.getDay()]);
+      }
+      break;
+    case "month":
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+      const weeksInMonth = Math.ceil((end.getDate()) / 7);
+      for (let w = 0; w < weeksInMonth; w++) {
+        labels.push(`M${w + 1}`);
+      }
+      break;
+    case "year":
+      start.setMonth(0, 1);
+      start.setHours(0, 0, 0, 0);
+      const shortMonths = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+      for (let m = 0; m < 12; m++) {
+        labels.push(shortMonths[m]);
+      }
+      break;
+  }
+
+  return { start, end, labels };
+}
+
+async function fetchCashflowData(range: CashflowRange): Promise<CashflowPoint[]> {
+  try {
+    const { start, end, labels } = getDateRange(range);
+    const startDate = start.toISOString().slice(0, 10);
+    const endDate = end.toISOString().slice(0, 10);
+
+    const res = await fetch(
+      `/api/finance/timeline?startDate=${startDate}&endDate=${endDate}&limit=500`,
+      { credentials: "include" }
+    );
+
+    if (!res.ok) throw new Error("Failed to fetch");
+    const data = await res.json();
+    const items = data.items || [];
+
+    // Group transactions by time bucket
+    const buckets: { income: number; expense: number }[] = labels.map(() => ({ income: 0, expense: 0 }));
+
+    for (const item of items) {
+      const date = new Date(item.createdAt);
+      let bucketIndex = 0;
+
+      switch (range) {
+        case "day": {
+          const hour = date.getHours();
+          bucketIndex = Math.min(Math.floor((hour - 8) / 2), labels.length - 1);
+          if (hour < 8) bucketIndex = 0;
+          break;
+        }
+        case "week": {
+          const dayStart = new Date(start);
+          const diffDays = Math.floor((date.getTime() - dayStart.getTime()) / (1000 * 60 * 60 * 24));
+          bucketIndex = Math.min(Math.max(diffDays, 0), labels.length - 1);
+          break;
+        }
+        case "month": {
+          const weekOfMonth = Math.floor((date.getDate() - 1) / 7);
+          bucketIndex = Math.min(weekOfMonth, labels.length - 1);
+          break;
+        }
+        case "year": {
+          bucketIndex = date.getMonth();
+          break;
+        }
+      }
+
+      if (bucketIndex >= 0 && bucketIndex < labels.length) {
+        if (item.type === "income") {
+          buckets[bucketIndex].income += item.amount;
+        } else {
+          buckets[bucketIndex].expense += item.amount;
+        }
+      }
+    }
+
+    return labels.map((label, i) => ({
+      label,
+      income: buckets[i].income,
+      expense: buckets[i].expense,
+      net: buckets[i].income - buckets[i].expense,
+    }));
+  } catch {
+    // Return empty chart on error
+    const { labels } = getDateRange(range);
+    return labels.map((label) => ({ label, income: 0, expense: 0, net: 0 }));
+  }
+}
 
 function ChartSkeleton() {
   return (
@@ -147,7 +254,7 @@ function ComboChart({ data }: { data: CashflowPoint[] }) {
 export default function CashflowWidget() {
   const [range, setRange] = useState<CashflowRange>("week");
   const { data, loading, error, refresh } = useWidgetProvider(
-    () => fetchCashflowSeries(range),
+    () => fetchCashflowData(range),
     [range]
   );
 
