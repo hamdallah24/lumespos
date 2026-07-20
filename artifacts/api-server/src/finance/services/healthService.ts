@@ -87,13 +87,21 @@ async function getMonthlyTotals(branchId: number, monthsAgo: number) {
   return { income, expense };
 }
 
-export async function getHealthData(branchId: number): Promise<HealthData> {
-  const cashBalance = await getAccountBalance("1000");
-  const bankBalance = await getAccountBalance("1100");
-  const totalCash = cashBalance + bankBalance;
+export async function getHealthData(branchId: number, precomputedBalances?: { cash: number; bank: number }): Promise<HealthData> {
+  let totalCash: number;
 
-  const currentMonth = await getMonthlyTotals(branchId, 0);
-  const lastMonth = await getMonthlyTotals(branchId, 1);
+  if (precomputedBalances) {
+    totalCash = precomputedBalances.cash + precomputedBalances.bank;
+  } else {
+    const cashBalance = await getAccountBalance("1000");
+    const bankBalance = await getAccountBalance("1100");
+    totalCash = cashBalance + bankBalance;
+  }
+
+  const [currentMonth, lastMonth] = await Promise.all([
+    getMonthlyTotals(branchId, 0),
+    getMonthlyTotals(branchId, 1),
+  ]);
 
   let cashHealthScore = 50;
   if (totalCash > 10000000) cashHealthScore = 90;

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useFinanceDashboard, useCreateTransaction, useFinanceTransactions, useFinanceAccounts } from "../hooks/useFinance";
+import { useFinanceDashboard, useCreateTransaction, useFinanceAccounts } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -234,14 +234,13 @@ function TransactionForm({
 
 export default function FinanceDashboard() {
   const { branchId } = useBranch();
-  const { data: dashboard, isLoading: dashboardLoading } = useFinanceDashboard(branchId);
-  const { data: transactions = [], refetch } = useFinanceTransactions(branchId);
+  const { data: dashboard, isLoading: dashboardLoading, refetch } = useFinanceDashboard(branchId);
 
   const [showMock, setShowMock] = useState(false);
   const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const hasData = dashboard?.hasData || transactions.length > 0;
+  const hasData = dashboard?.hasData || false;
   const showLiveData = hasData && !showMock;
 
   const cashBalance = showLiveData ? dashboard?.cashBalance || 0 : 0;

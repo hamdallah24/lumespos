@@ -56,8 +56,10 @@ export async function getInsightData(branchId: number): Promise<InsightData> {
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
-  const todayData = await getDailyTotals(branchId, today);
-  const yesterdayData = await getDailyTotals(branchId, yesterday);
+  const [todayData, yesterdayData] = await Promise.all([
+    getDailyTotals(branchId, today),
+    getDailyTotals(branchId, yesterday),
+  ]);
 
   const hasHistory = yesterdayData.income > 0 || yesterdayData.expense > 0;
 

@@ -53,7 +53,7 @@ router.get("/finance/accounts/:code", requireAuth, async (req, res) => {
 
 router.post("/finance/transactions", requireAuth, requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
   try {
-    const { branchId, type, category, description, amount, referenceType, referenceId, referenceCode, sourceModule, notes } = req.body;
+    const { branchId, type, category, description, amount, accountId, referenceType, referenceId, referenceCode, sourceModule, notes } = req.body;
 
     if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
     if (!type) return res.status(400).json({ error: "type wajib diisi" });
@@ -67,6 +67,7 @@ router.post("/finance/transactions", requireAuth, requireBranchAccess((req) => N
       category: String(category),
       description: String(description).trim(),
       amount: Number(amount),
+      accountId: accountId ? Number(accountId) : undefined,
       referenceType: referenceType ? String(referenceType) : undefined,
       referenceId: referenceId ? Number(referenceId) : undefined,
       referenceCode: referenceCode ? String(referenceCode) : undefined,
@@ -185,14 +186,17 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const todayTransactions = await db
-      .select()
-      .from(transactionsTable)
-      .where(
-        branchId
-          ? sql`${transactionsTable.branchId} = ${branchId} AND ${transactionsTable.createdAt} >= ${today}`
-          : sql`${transactionsTable.createdAt} >= ${today}`
-      );
+    const [todayTransactions, balances] = await Promise.all([
+      db
+        .select()
+        .from(transactionsTable)
+        .where(
+          branchId
+            ? sql`${transactionsTable.branchId} = ${branchId} AND ${transactionsTable.createdAt} >= ${today}`
+            : sql`${transactionsTable.createdAt} >= ${today}`
+        ),
+      getAccountBalances(),
+    ]);
 
     const todayIncome = todayTransactions
       .filter((t) => t.type === "income")
@@ -202,14 +206,27 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
       .filter((t) => t.type === "expense")
       .reduce((sum, t) => sum + parseFloat(t.amount), 0);
 
-    const balances = await getAccountBalances();
     const cashAccount = balances.find((b) => b.accountCode === "1000");
     const bankAccount = balances.find((b) => b.accountCode === "1100");
+    const ewalletAccount = balances.find((b) => b.accountCode === "1250");
+    const arAccount = balances.find((b) => b.accountCode === "1300");
+    const apAccount = balances.find((b) => b.accountCode === "2000");
+
     const cashBalance = (cashAccount?.balance || 0) + (bankAccount?.balance || 0);
 
-    const cashPosition = await getCashPosition();
-    const healthData = branchId ? await getHealthData(branchId) : null;
-    const insightData = branchId ? await getInsightData(branchId) : null;
+    const cashPosition = {
+      cash: cashAccount?.balance || 0,
+      bank: bankAccount?.balance || 0,
+      eWallet: ewalletAccount?.balance || 0,
+      accountsReceivable: arAccount?.balance || 0,
+      accountsPayable: apAccount?.balance || 0,
+      total: (cashAccount?.balance || 0) + (bankAccount?.balance || 0) + (ewalletAccount?.balance || 0) + (arAccount?.balance || 0) - (apAccount?.balance || 0),
+    };
+
+    const [healthData, insightData] = await Promise.all([
+      branchId ? getHealthData(branchId, { cash: cashAccount?.balance || 0, bank: bankAccount?.balance || 0 }) : null,
+      branchId ? getInsightData(branchId) : null,
+    ]);
 
     return res.json({
       cashBalance,
