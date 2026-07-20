@@ -241,7 +241,7 @@ export default function FinanceDashboard() {
 
   const cashBalance = dashboard?.cashBalance || 0;
   const todayIncome = dashboard?.todayIncome || 0;
-  const todayExpense = dashboard?.todayExpense || 0;
+  const todayOperatingExpense = dashboard?.todayOperatingExpense || 0;
   const profitToday = dashboard?.profitToday || 0;
 
   return (
@@ -284,7 +284,7 @@ export default function FinanceDashboard() {
             />
             <StatCard
               title="Pengeluaran Hari Ini"
-              value={todayExpense}
+              value={todayOperatingExpense}
               icon={TrendingDown}
               color="bg-red-500/10 text-red-600"
             />
