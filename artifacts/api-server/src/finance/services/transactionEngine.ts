@@ -15,6 +15,7 @@ const CATEGORY_ACCOUNT_MAP: Record<string, { debitAccount: string; creditAccount
   "marketing": { debitAccount: "5000", creditAccount: "1000" },
   "maintenance": { debitAccount: "5000", creditAccount: "1000" },
   "other_expense": { debitAccount: "5000", creditAccount: "1000" },
+  "cogs": { debitAccount: "5000", creditAccount: "1000" },
   "pos_sale": { debitAccount: "1000", creditAccount: "4000" },
   "depot_sale": { debitAccount: "1000", creditAccount: "4000" },
   "marketplace_sale": { debitAccount: "1100", creditAccount: "4000" },
