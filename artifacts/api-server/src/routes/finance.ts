@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, transactionsTable } from "@workspace/db";
-import { eq, desc, sql, and, inArray, gte, lte, neq } from "drizzle-orm";
+import { eq, desc, sql, and, inArray, gte, lte } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, canAccessBranch } from "../middlewares/requireAuth";
 import {
   initializeDefaultCOA,
@@ -229,7 +229,7 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
       condBranch.push(sql`${transactionsTable.branchId} = ${branchId}`);
     }
     // Exclude voided transactions
-    condBranch.push(neq(transactionsTable.status, "voided"));
+    condBranch.push(sql`${transactionsTable.status} != 'voided'`);
     const branchCond = condBranch.length > 0 ? and(...condBranch) : undefined;
 
     const baseWhere = and(
