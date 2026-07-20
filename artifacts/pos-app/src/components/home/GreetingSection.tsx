@@ -14,11 +14,14 @@ export default function GreetingSection({ userName }: GreetingSectionProps) {
   const firstName = userName.split(" ")[0] || "User";
 
   return (
-    <div className="px-6 pt-6">
-      <h1 className="text-[32px] font-bold text-[#111827] leading-none tracking-tight">
+    <div className="px-6" style={{ paddingTop: 32, paddingBottom: 12 }}>
+      <h1
+        className="text-[36px] font-bold text-[#111827] tracking-[-0.02em]"
+        style={{ lineHeight: "42px" }}
+      >
         {greeting}, {firstName} <span className="inline-block">👋</span>
       </h1>
-      <p className="text-[15px] text-[#6B7280] mt-2 font-medium">
+      <p className="text-[14px] text-[#6B7280] font-medium mt-1.5">
         Business is running great today.
       </p>
     </div>

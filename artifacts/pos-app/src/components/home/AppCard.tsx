@@ -32,6 +32,10 @@ const descriptions: Record<string, string> = {
   settings: "System configuration",
 };
 
+function softGradient(color: string): string {
+  return `radial-gradient(circle at 30% 30%, ${color}18, ${color}06)`;
+}
+
 interface AppCardProps {
   id: string;
   title: string;
@@ -47,30 +51,23 @@ export default function AppCard({ id, title, icon, color, onClick }: AppCardProp
   return (
     <button
       onClick={onClick}
-      className="flex items-center gap-4 p-4 rounded-[22px] bg-white active:scale-[0.98] transition-transform text-left"
+      className="flex items-center gap-4 p-5 rounded-[24px] bg-white active:scale-[0.985] md:hover:-translate-y-0.5 md:hover:shadow-lg transition-all duration-180 text-left"
       style={{
-        height: 110,
-        boxShadow: "0 1px 3px rgba(0,0,0,0.03), 0 0 0 0.5px rgba(0,0,0,0.04)",
+        height: 118,
+        boxShadow: "0 8px 30px rgba(15,23,42,0.06)",
       }}
     >
       <div
-        className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-        style={{
-          background: `${color}10`,
-          boxShadow: `0 0 0 0.5px ${color}18`,
-        }}
+        className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+        style={{ background: softGradient(color) }}
       >
         <span style={{ color }}>
-          <Icon className="w-6 h-6" />
+          <Icon className="w-7 h-7" />
         </span>
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[15px] font-semibold text-[#111827] leading-tight">
-          {title}
-        </p>
-        <p className="text-[12px] text-[#6B7280] mt-0.5 leading-tight line-clamp-1">
-          {desc}
-        </p>
+        <p className="text-[16px] font-bold text-[#111827] leading-tight">{title}</p>
+        <p className="text-[12px] text-[#6B7280] mt-1 leading-tight line-clamp-1">{desc}</p>
       </div>
     </button>
   );

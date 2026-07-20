@@ -88,18 +88,24 @@ function HomeView({
 }) {
   return (
     <div className="flex-1 overflow-auto pb-32">
-      <div className="flex flex-col" style={{ gap: 24 }}>
-        <GreetingSection userName={userName} />
-        <RuntimeStatus />
+      <GreetingSection userName={userName} />
+      <RuntimeStatus />
+      <div style={{ paddingBottom: 24 }}>
         <BusinessOverview />
-        <DigitalTwinHero />
-        <ApplicationGrid onAppClick={onAppClick} />
-        {!isMobile && <div className="px-6"><CashflowWidget /></div>}
-        {!isMobile && <div className="px-6"><UpcomingScheduleWidget /></div>}
-        <AIInsight />
-        <RecentActivity />
-        {!isMobile && <div className="px-6"><MissionsRunningWidget /></div>}
       </div>
+      <div style={{ paddingBottom: 28 }}>
+        <DigitalTwinHero />
+      </div>
+      <div style={{ paddingBottom: 32 }}>
+        <ApplicationGrid onAppClick={onAppClick} />
+      </div>
+      {!isMobile && <div className="px-6" style={{ paddingBottom: 28 }}><CashflowWidget /></div>}
+      {!isMobile && <div className="px-6" style={{ paddingBottom: 28 }}><UpcomingScheduleWidget /></div>}
+      <div style={{ paddingBottom: 28 }}>
+        <AIInsight />
+      </div>
+      <RecentActivity />
+      {!isMobile && <div className="px-6"><MissionsRunningWidget /></div>}
     </div>
   );
 }
