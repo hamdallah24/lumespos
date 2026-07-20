@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, transactionsTable } from "@workspace/db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, inArray, gte, lte } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, canAccessBranch } from "../middlewares/requireAuth";
 import {
   initializeDefaultCOA,
@@ -195,7 +195,7 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     // Build where clause
     const conditions: any[] = [];
     if (branchIds && branchIds.length > 0) {
-      conditions.push(sql`${transactionsTable.branchId} = ANY(ARRAY[${sql.join(branchIds.map(n => sql`${n}`))}])`);
+      conditions.push(inArray(transactionsTable.branchId, branchIds));
     } else if (branchId) {
       conditions.push(sql`${transactionsTable.branchId} = ${branchId}`);
     }
@@ -212,12 +212,16 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
 
     const [todayTransactions, allIncomeResult, allExpenseResult, balances] = await Promise.all([
       db.select().from(transactionsTable).where(whereClause),
-      // All-branch income (no branch filter, but respect dates)
+      // All-branch income (no branch filter)
       db
         .select({ total: sql<string>`COALESCE(SUM(${transactionsTable.amount}), 0)` })
         .from(transactionsTable)
         .where(
-          sql`${transactionsTable.type} = 'income' AND ${transactionsTable.createdAt} >= ${startDate ? startDate : today}${endDate ? sql` AND ${transactionsTable.createdAt} <= ${endDate}` : sql``}`
+          and(
+            eq(transactionsTable.type, "income"),
+            gte(transactionsTable.createdAt, startDate || today),
+            endDate ? lte(transactionsTable.createdAt, endDate) : undefined,
+          )
         ),
       // All-branch expenses by category
       db
@@ -227,7 +231,11 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
         })
         .from(transactionsTable)
         .where(
-          sql`${transactionsTable.type} = 'expense' AND ${transactionsTable.createdAt} >= ${startDate ? startDate : today}${endDate ? sql` AND ${transactionsTable.createdAt} <= ${endDate}` : sql``}`
+          and(
+            eq(transactionsTable.type, "expense"),
+            gte(transactionsTable.createdAt, startDate || today),
+            endDate ? lte(transactionsTable.createdAt, endDate) : undefined,
+          )
         )
         .groupBy(transactionsTable.category),
       getAccountBalances(),
