@@ -92,8 +92,10 @@ function TimelineItemCard({
             <div className="flex items-center gap-2">
               {canVoid && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onVoid?.(item.id); }}
-                  className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 hover:bg-red-500/20 transition-colors"
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); e.preventDefault(); onVoid?.(item.id); }}
+                  className="text-xs px-3 py-1.5 rounded-full bg-red-500/10 text-red-600 active:bg-red-500/20 transition-colors touch-manipulation"
+                  style={{ touchAction: "manipulation" }}
                 >
                   Void
                 </button>
