@@ -1,6 +1,6 @@
 // Sprint 3B — Living Digital Twin with depth layers
 import { motion } from "framer-motion";
-import DigitalTwinProvider, { useDigitalTwin } from "./DigitalTwinProvider";
+import DigitalTwinProvider from "./DigitalTwinProvider";
 import DigitalTwinTransition from "./DigitalTwinTransition";
 import DigitalTwinRoadLights from "./DigitalTwinRoadLights";
 import DigitalTwinAINetwork from "./DigitalTwinAINetwork";
@@ -9,37 +9,23 @@ import DigitalTwinOverlay from "./DigitalTwinOverlay";
 import DigitalTwinHotspots from "./DigitalTwinHotspots";
 
 function TwinInner() {
-  const { state } = useDigitalTwin();
-
   return (
     <div className="relative w-full select-none overflow-hidden" style={{ aspectRatio: "16/9", minHeight: 240 }}>
-      {/* Layer 0: Sky / background — slowest parallax */}
-      <div
-        className="absolute inset-0 scale-[1.08]"
-        style={{ transform: `translate(${state.parallaxBgX}px, ${state.parallaxBgY}px)` }}
-      >
-        {/* Layer 1: Ground / city image with road lights */}
-        <div
-          className="absolute inset-0"
-          style={{
-            transform: `translate(${state.parallaxCityX}px, ${state.parallaxCityY}px) scale(${state.cameraScale})`,
-            transformOrigin: "center center",
-          }}
-        >
-          <DigitalTwinTransition />
-        </div>
-
-        {/* Road lights — night only, between city and atmosphere */}
-        <DigitalTwinRoadLights />
+      {/* Background video */}
+      <div className="absolute inset-0">
+        <DigitalTwinTransition />
       </div>
 
-      {/* Layer 3: Atmospheric glow behind AI Core */}
+      {/* Road lights — night only overlay */}
+      <DigitalTwinRoadLights />
+
+      {/* Atmospheric glow behind AI Core */}
       <DigitalTwinAtmosphere />
 
       {/* AI Network lines */}
       <DigitalTwinAINetwork />
 
-      {/* Layer 4: UI Overlay (glass, grid, labels, effects, hotspots) */}
+      {/* UI Overlay (glass, grid, labels, effects, hotspots) */}
       <DigitalTwinOverlay>
         <DigitalTwinHotspots />
       </DigitalTwinOverlay>

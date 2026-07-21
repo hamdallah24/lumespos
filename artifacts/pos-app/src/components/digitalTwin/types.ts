@@ -1,6 +1,6 @@
 // Sprint 1 — Digital Twin Proof of Concept types
 
-export type TimeOfDay = "day" | "night";
+export type TimeOfDay = "day" | "sunrise" | "night";
 
 export interface HotspotDef {
   id: string;

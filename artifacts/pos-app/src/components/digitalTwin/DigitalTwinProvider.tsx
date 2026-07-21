@@ -44,8 +44,12 @@ export function useDigitalTwin(): DigitalTwinContextValue {
 }
 
 function getAutoTimeOfDay(): TimeOfDay {
-  const hour = new Date().getHours();
-  return hour >= 6 && hour < 18 ? "day" : "night";
+  const now = new Date();
+  const hour = now.getHours();
+  const min = now.getMinutes();
+  if (hour === 5 && min >= 30) return "sunrise";
+  if (hour >= 6 && hour < 18) return "day";
+  return "night";
 }
 
 export default function DigitalTwinProvider({ children }: { children: React.ReactNode }) {
