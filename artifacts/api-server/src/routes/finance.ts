@@ -197,9 +197,18 @@ router.get("/finance/ledger/:accountId", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/finance/balances", requireAuth, async (_req, res) => {
+function parseReportFilters(req: any) {
+  const branchIdsRaw = req.query["branchIds"] as string | undefined;
+  const branchIds = branchIdsRaw ? branchIdsRaw.split(",").map(Number).filter(n => !isNaN(n)) : undefined;
+  const startDate = req.query["startDate"] ? new Date(req.query["startDate"] as string) : undefined;
+  const endDate = req.query["endDate"] ? new Date(req.query["endDate"] as string + "T23:59:59.999Z") : undefined;
+  return { branchIds, startDate, endDate };
+}
+
+router.get("/finance/balances", requireAuth, async (req, res) => {
   try {
-    const balances = await getAccountBalances();
+    const filters = parseReportFilters(req);
+    const balances = await getAccountBalances(filters);
     return res.json(balances);
   } catch (err: any) {
     console.error("GET /finance/balances error:", err);
@@ -207,9 +216,10 @@ router.get("/finance/balances", requireAuth, async (_req, res) => {
   }
 });
 
-router.get("/finance/trial-balance", requireAuth, async (_req, res) => {
+router.get("/finance/trial-balance", requireAuth, async (req, res) => {
   try {
-    const trialBalance = await generateTrialBalance();
+    const filters = parseReportFilters(req);
+    const trialBalance = await generateTrialBalance(filters);
     return res.json(trialBalance);
   } catch (err: any) {
     console.error("GET /finance/trial-balance error:", err);
@@ -217,9 +227,10 @@ router.get("/finance/trial-balance", requireAuth, async (_req, res) => {
   }
 });
 
-router.get("/finance/balance-sheet", requireAuth, async (_req, res) => {
+router.get("/finance/balance-sheet", requireAuth, async (req, res) => {
   try {
-    const balanceSheet = await generateBalanceSheet();
+    const filters = parseReportFilters(req);
+    const balanceSheet = await generateBalanceSheet(filters);
     return res.json(balanceSheet);
   } catch (err: any) {
     console.error("GET /finance/balance-sheet error:", err);
@@ -227,9 +238,10 @@ router.get("/finance/balance-sheet", requireAuth, async (_req, res) => {
   }
 });
 
-router.get("/finance/profit-loss", requireAuth, async (_req, res) => {
+router.get("/finance/profit-loss", requireAuth, async (req, res) => {
   try {
-    const profitLoss = await generateProfitLoss();
+    const filters = parseReportFilters(req);
+    const profitLoss = await generateProfitLoss(filters);
     return res.json(profitLoss);
   } catch (err: any) {
     console.error("GET /finance/profit-loss error:", err);
@@ -237,9 +249,10 @@ router.get("/finance/profit-loss", requireAuth, async (_req, res) => {
   }
 });
 
-router.get("/finance/cashflow", requireAuth, async (_req, res) => {
+router.get("/finance/cashflow", requireAuth, async (req, res) => {
   try {
-    const cashflow = await generateCashflow();
+    const filters = parseReportFilters(req);
+    const cashflow = await generateCashflow(filters);
     return res.json(cashflow);
   } catch (err: any) {
     console.error("GET /finance/cashflow error:", err);

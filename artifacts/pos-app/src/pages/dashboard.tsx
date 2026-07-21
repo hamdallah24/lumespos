@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   useGetDashboardSummary,
   useGetTopProducts,
@@ -9,31 +9,20 @@ import {
   useListBranches,
 } from "@workspace/api-client-react";
 import { useBranch } from "@/lib/branch";
+import { usePlatformFilter } from "@/platform/filter";
+import PlatformFilterBar from "@/platform/filter/components/PlatformFilterBar";
 import { formatRp } from "@/lib/format";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
 import {
   AreaChart, Area, XAxis, YAxis,
   CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import {
   TrendingUp, TrendingDown, ShoppingCart, Package,
-  AlertTriangle, Banknote, Users, Wallet, Receipt,
-  Percent, FlaskConical, Building2, LayoutGrid,
-  ArrowUpRight, ArrowDownRight, ChevronRight, CalendarDays,
+  AlertTriangle, Banknote, Wallet,
+  ArrowUpRight, ArrowDownRight, ChevronRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import type { DateRange } from "react-day-picker";
 
 function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
   title: string; value: number; diff?: number;
@@ -63,96 +52,16 @@ function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
   );
 }
 
-function DateRangeFilter({ dateRange, onDateRangeChange }: { dateRange: DateRange | undefined; onDateRangeChange: (r: DateRange | undefined) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    if (open) document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  const presets = [
-    { k: "today", l: "Hr Ini", get: () => ({ from: new Date(), to: new Date() }) },
-    { k: "7d", l: "7 Hari", get: () => ({ from: new Date(Date.now() - 6 * 86400000), to: new Date() }) },
-    { k: "30d", l: "30 Hari", get: () => ({ from: new Date(Date.now() - 29 * 86400000), to: new Date() }) },
-  ];
-
-  const isPresetMatch = (p: typeof presets[0]) => {
-    const v = p.get();
-    return dateRange?.from?.toDateString() === v.from.toDateString() && dateRange?.to?.toDateString() === v.to.toDateString();
-  };
-
-  return (
-    <div className="flex items-center gap-2 flex-wrap" ref={ref}>
-      {presets.map(p => (
-        <button key={p.k} onClick={() => { onDateRangeChange(p.get()); setOpen(false); }}
-          className={`text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
-            isPresetMatch(p)
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-          }`}>
-          {p.l}
-        </button>
-      ))}
-      <div className="relative">
-        <button onClick={() => setOpen(!open)}
-          className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-colors ${
-            !presets.some(isPresetMatch) && open
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : !presets.some(isPresetMatch)
-              ? "bg-primary/10 text-primary"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-          }`}>
-          <CalendarDays className="w-3.5 h-3.5" />
-          {dateRange?.from && dateRange?.to
-            ? `${dateRange.from.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} — ${dateRange.to.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`
-            : "Pilih Tanggal"}
-        </button>
-        {open && (
-          <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 sm:left-0 sm:translate-x-0 z-50 bg-card border border-border/60 rounded-2xl shadow-xl backdrop-blur-xl p-3">
-            <Calendar
-              mode="range"
-              defaultMonth={dateRange?.from}
-              selected={dateRange}
-              onSelect={(r) => { onDateRangeChange(r); if (r?.from && r?.to && r.to > r.from) setOpen(false); }}
-              numberOfMonths={1}
-              min={5}
-            />
-            <div className="text-muted-foreground text-center text-xs mt-1">
-              Minimum 5 hari
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 export default function DashboardPage() {
-  const { branchId, currentBranch } = useBranch();
   const { data: branchesRaw } = useListBranches();
   const allBranches = Array.isArray(branchesRaw) ? branchesRaw as { id: number; name: string }[] : [];
+  const { state: filter } = usePlatformFilter();
 
-  const [selectedBranch, setSelectedBranch] = useState<string>("all");
-  const activeBranchId = selectedBranch === "all" ? undefined : Number(selectedBranch);
-  const isAllBranches = selectedBranch === "all";
+  const activeBranchId = filter.branchIds.length === 1 ? filter.branchIds[0] : undefined;
   const params = { branchId: activeBranchId };
 
-  const today = useMemo(() => new Date(), []);
-
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: today,
-    to: today,
-  });
-
-  const startDate = dateRange?.from ? dateRange.from.toISOString().split("T")[0] : new Date(Date.now() - 29 * 86400000).toISOString().split("T")[0];
-  const endDate = dateRange?.to ? dateRange.to.toISOString().split("T")[0] : today.toISOString().split("T")[0];
-
-  const dateParams = { ...params, startDate, endDate };
+  const startDate = filter.startDate || new Date(Date.now() - 29 * 86400000).toISOString().split("T")[0];
+  const endDate = filter.endDate || new Date().toISOString().split("T")[0];
 
   const [stockIndex, setStockIndex] = useState(0);
 
@@ -213,7 +122,7 @@ export default function DashboardPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <ScrollArea className="flex-1 overflow-x-hidden min-h-0 overflow-fallback">
         <div className="px-4 py-5 space-y-3 min-w-0">
-          {/* Headline + branch selector */}
+          {/* Headline + Platform Filter Bar */}
           <div className="flex items-start justify-between">
             <div>
               <h1 className="heading-dash text-slate-800 dark:text-slate-200">Dashboard</h1>
@@ -222,19 +131,14 @@ export default function DashboardPage() {
                 {startDate !== endDate ? ` — ${new Date(endDate).toLocaleDateString("id-ID", {day:"numeric",month:"long",year:"numeric"})}` : ""}
               </p>
             </div>
-            <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-              <SelectTrigger className="shrink-0 h-[30px] text-[12px] bg-slate-100 dark:bg-slate-800 border-0 rounded-full px-2.5 w-auto">
-                <SelectValue placeholder="Cabang" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Semua Cabang</SelectItem>
-                {allBranches.map((b) => (<SelectItem key={b.id} value={String(b.id)}>{b.name}</SelectItem>))}
-              </SelectContent>
-            </Select>
           </div>
 
-          {/* Date Range Filter */}
-          <DateRangeFilter dateRange={dateRange} onDateRangeChange={setDateRange} />
+          {/* Platform Filter Bar */}
+          <PlatformFilterBar
+            branches={allBranches}
+            showPeriod={false}
+            mode="compact"
+          />
 
           {/* KPI Cards — 2-col grid */}
           <div className="grid grid-cols-2 gap-3">

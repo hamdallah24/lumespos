@@ -1,9 +1,30 @@
-import { db, accountsTable, ledgerEntriesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, accountsTable, ledgerEntriesTable, transactionsTable } from "@workspace/db";
+import { eq, sql, and, inArray, gte, lte } from "drizzle-orm";
+import { getAccountBalances as getLedgerBalances } from "./ledgerEngine";
 import type { TrialBalanceRow, BalanceSheetData, ProfitLossData, CashflowData } from "../types";
 
-export async function generateTrialBalance(): Promise<TrialBalanceRow[]> {
-  const result = await db
+export interface ReportFilters {
+  branchIds?: number[];
+  startDate?: Date;
+  endDate?: Date;
+}
+
+export async function generateTrialBalance(filters?: ReportFilters): Promise<TrialBalanceRow[]> {
+  const conditions: any[] = [];
+
+  if (filters?.branchIds && filters.branchIds.length > 0) {
+    conditions.push(inArray(transactionsTable.branchId, filters.branchIds));
+  }
+  if (filters?.startDate) {
+    conditions.push(gte(ledgerEntriesTable.date, filters.startDate));
+  }
+  if (filters?.endDate) {
+    conditions.push(lte(ledgerEntriesTable.date, filters.endDate));
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  const query = db
     .select({
       accountId: ledgerEntriesTable.accountId,
       accountCode: accountsTable.code,
@@ -13,7 +34,17 @@ export async function generateTrialBalance(): Promise<TrialBalanceRow[]> {
       totalCredit: sql<string>`COALESCE(SUM(${ledgerEntriesTable.credit}), 0)`,
     })
     .from(ledgerEntriesTable)
-    .innerJoin(accountsTable, eq(ledgerEntriesTable.accountId, accountsTable.id))
+    .innerJoin(accountsTable, eq(ledgerEntriesTable.accountId, accountsTable.id));
+
+  if (filters?.branchIds && filters.branchIds.length > 0) {
+    query.leftJoin(transactionsTable, eq(ledgerEntriesTable.transactionId, transactionsTable.id));
+  }
+
+  if (whereClause) {
+    query.where(whereClause);
+  }
+
+  const result = await query
     .groupBy(ledgerEntriesTable.accountId, accountsTable.code, accountsTable.name, accountsTable.type)
     .orderBy(accountsTable.code);
 
@@ -27,8 +58,8 @@ export async function generateTrialBalance(): Promise<TrialBalanceRow[]> {
   }));
 }
 
-export async function generateBalanceSheet(): Promise<BalanceSheetData> {
-  const balances = await getAccountBalances();
+export async function generateBalanceSheet(filters?: ReportFilters): Promise<BalanceSheetData> {
+  const balances = await getLedgerBalances(filters);
 
   const assets = balances
     .filter((b) => b.accountType === "asset")
@@ -42,7 +73,6 @@ export async function generateBalanceSheet(): Promise<BalanceSheetData> {
     .filter((b) => b.accountType === "equity")
     .map((b) => ({ code: b.accountCode, name: b.accountName, balance: b.balance }));
 
-  // Include current period net income in equity so A = L + E always balances
   const totalRevenue = balances
     .filter((b) => b.accountType === "revenue")
     .reduce((sum, b) => sum + b.balance, 0);
@@ -62,8 +92,8 @@ export async function generateBalanceSheet(): Promise<BalanceSheetData> {
   return { assets, liabilities, equity, totalAssets, totalLiabilities, totalEquity };
 }
 
-export async function generateProfitLoss(): Promise<ProfitLossData> {
-  const balances = await getAccountBalances();
+export async function generateProfitLoss(filters?: ReportFilters): Promise<ProfitLossData> {
+  const balances = await getLedgerBalances(filters);
 
   const revenue = balances
     .filter((b) => b.accountType === "revenue")
@@ -79,7 +109,7 @@ export async function generateProfitLoss(): Promise<ProfitLossData> {
   return { revenue, expenses, totalRevenue, totalExpenses, netIncome: totalRevenue - totalExpenses };
 }
 
-export async function generateCashflow(): Promise<CashflowData> {
+export async function generateCashflow(filters?: ReportFilters): Promise<CashflowData> {
   const cashAccount = await db
     .select()
     .from(accountsTable)
@@ -98,17 +128,12 @@ export async function generateCashflow(): Promise<CashflowData> {
     .where(eq(accountsTable.code, "1250"))
     .then((rows) => rows[0]);
 
-  const cashBalance = cashAccount
-    ? await getAccountBalance(cashAccount.id)
-    : 0;
+  const balances = await getLedgerBalances(filters);
+  const balanceMap = new Map(balances.map((b) => [b.accountCode, b.balance]));
 
-  const bankBalance = bankAccount
-    ? await getAccountBalance(bankAccount.id)
-    : 0;
-
-  const ewalletBalance = ewalletAccount
-    ? await getAccountBalance(ewalletAccount.id)
-    : 0;
+  const cashBalance = balanceMap.get("1000") || 0;
+  const bankBalance = balanceMap.get("1100") || 0;
+  const ewalletBalance = balanceMap.get("1250") || 0;
 
   const operating = [
     { description: "Kas", amount: cashBalance },
@@ -127,62 +152,4 @@ export async function generateCashflow(): Promise<CashflowData> {
     netFinancing: 0,
     netChange: totalCash,
   };
-}
-
-async function getAccountBalance(accountId: number): Promise<number> {
-  const [result] = await db
-    .select({
-      totalDebit: sql<string>`COALESCE(SUM(${ledgerEntriesTable.debit}), 0)`,
-      totalCredit: sql<string>`COALESCE(SUM(${ledgerEntriesTable.credit}), 0)`,
-    })
-    .from(ledgerEntriesTable)
-    .where(eq(ledgerEntriesTable.accountId, accountId));
-
-  if (!result) return 0;
-
-  const account = await db
-    .select()
-    .from(accountsTable)
-    .where(eq(accountsTable.id, accountId))
-    .then((rows) => rows[0]);
-
-  const totalDebit = parseFloat(result.totalDebit);
-  const totalCredit = parseFloat(result.totalCredit);
-
-  if (account?.normalBalance === "debit") {
-    return totalDebit - totalCredit;
-  }
-  return totalCredit - totalDebit;
-}
-
-async function getAccountBalances() {
-  const result = await db
-    .select({
-      accountId: ledgerEntriesTable.accountId,
-      accountCode: accountsTable.code,
-      accountName: accountsTable.name,
-      accountType: accountsTable.type,
-      normalBalance: accountsTable.normalBalance,
-      totalDebit: sql<string>`COALESCE(SUM(${ledgerEntriesTable.debit}), 0)`,
-      totalCredit: sql<string>`COALESCE(SUM(${ledgerEntriesTable.credit}), 0)`,
-    })
-    .from(ledgerEntriesTable)
-    .innerJoin(accountsTable, eq(ledgerEntriesTable.accountId, accountsTable.id))
-    .groupBy(ledgerEntriesTable.accountId, accountsTable.code, accountsTable.name, accountsTable.type, accountsTable.normalBalance);
-
-  return result.map((row) => {
-    const totalDebit = parseFloat(row.totalDebit);
-    const totalCredit = parseFloat(row.totalCredit);
-    const isDebitNormal = row.normalBalance === "debit";
-    const balance = isDebitNormal ? totalDebit - totalCredit : totalCredit - totalDebit;
-
-    return {
-      accountId: row.accountId,
-      accountCode: row.accountCode,
-      accountName: row.accountName,
-      accountType: row.accountType,
-      normalBalance: row.normalBalance,
-      balance,
-    };
-  });
 }

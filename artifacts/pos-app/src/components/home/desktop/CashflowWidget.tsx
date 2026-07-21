@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { useWidgetProvider } from "@/lib/home/widget-provider";
+import { usePlatformFilter } from "@/platform/filter";
 import { formatIDR, type CashflowRange, type CashflowPoint } from "@/lib/home/home-data";
 
 const RANGE_LABELS: Record<CashflowRange, string> = {
@@ -57,14 +58,15 @@ function getDateRange(range: CashflowRange): { start: Date; end: Date; labels: s
   return { start, end, labels };
 }
 
-async function fetchCashflowData(range: CashflowRange): Promise<CashflowPoint[]> {
+async function fetchCashflowData(range: CashflowRange, branchIds?: number[]): Promise<CashflowPoint[]> {
   try {
     const { start, end, labels } = getDateRange(range);
     const startDate = start.toISOString().slice(0, 10);
     const endDate = end.toISOString().slice(0, 10);
+    const branchParam = branchIds && branchIds.length > 0 ? `&branchIds=${branchIds.join(",")}` : "";
 
     const res = await fetch(
-      `/api/finance/timeline?startDate=${startDate}&endDate=${endDate}&limit=500`,
+      `/api/finance/timeline?startDate=${startDate}&endDate=${endDate}&limit=500${branchParam}`,
       { credentials: "include" }
     );
 
@@ -253,10 +255,15 @@ function ComboChart({ data }: { data: CashflowPoint[] }) {
 
 export default function CashflowWidget() {
   const [range, setRange] = useState<CashflowRange>("week");
-  const { data, loading, error, refresh } = useWidgetProvider(
-    () => fetchCashflowData(range),
-    [range]
+  const { state: filter } = usePlatformFilter();
+  const branchIds = filter.branchIds.length > 0 ? filter.branchIds : undefined;
+
+  const fetcher = useMemo(
+    () => () => fetchCashflowData(range, branchIds),
+    [range, branchIds]
   );
+
+  const { data, loading, error, refresh } = useWidgetProvider(fetcher, [range, branchIds]);
 
   const totals = data
     ? {

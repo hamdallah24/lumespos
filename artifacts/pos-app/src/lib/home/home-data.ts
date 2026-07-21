@@ -74,9 +74,18 @@ export function formatChange(value: number): string {
   return `${sign}${value.toFixed(1)}%`;
 }
 
-export async function fetchCashToday(): Promise<CashTodayData> {
+function buildFinanceQuery(branchIds?: number[], startDate?: string | null, endDate?: string | null): string {
+  const params = new URLSearchParams();
+  if (branchIds && branchIds.length > 0) params.set("branchIds", branchIds.join(","));
+  if (startDate) params.set("startDate", startDate);
+  if (endDate) params.set("endDate", endDate);
+  const qs = params.toString();
+  return qs ? `?${qs}` : "";
+}
+
+export async function fetchCashToday(branchIds?: number[], startDate?: string | null, endDate?: string | null): Promise<CashTodayData> {
   try {
-    const res = await fetch("/api/finance/dashboard", { credentials: "include" });
+    const res = await fetch(`/api/finance/dashboard${buildFinanceQuery(branchIds, startDate, endDate)}`, { credentials: "include" });
     if (!res.ok) throw new Error("Failed to fetch");
     const data = await res.json();
     return {
@@ -88,9 +97,9 @@ export async function fetchCashToday(): Promise<CashTodayData> {
   }
 }
 
-export async function fetchCashflow(): Promise<CashflowData> {
+export async function fetchCashflow(branchIds?: number[], startDate?: string | null, endDate?: string | null): Promise<CashflowData> {
   try {
-    const res = await fetch("/api/finance/dashboard", { credentials: "include" });
+    const res = await fetch(`/api/finance/dashboard${buildFinanceQuery(branchIds, startDate, endDate)}`, { credentials: "include" });
     if (!res.ok) throw new Error("Failed to fetch");
     const data = await res.json();
     return {
@@ -102,9 +111,9 @@ export async function fetchCashflow(): Promise<CashflowData> {
   }
 }
 
-export async function fetchProfit(): Promise<ProfitData> {
+export async function fetchProfit(branchIds?: number[], startDate?: string | null, endDate?: string | null): Promise<ProfitData> {
   try {
-    const res = await fetch("/api/finance/dashboard", { credentials: "include" });
+    const res = await fetch(`/api/finance/dashboard${buildFinanceQuery(branchIds, startDate, endDate)}`, { credentials: "include" });
     if (!res.ok) throw new Error("Failed to fetch");
     const data = await res.json();
     return {
@@ -121,7 +130,8 @@ export async function fetchMissions(): Promise<MissionData> {
 }
 
 export async function fetchCashflowSeries(
-  range: CashflowRange
+  range: CashflowRange,
+  branchIds?: number[]
 ): Promise<CashflowPoint[]> {
   try {
     const end = new Date();
@@ -165,9 +175,10 @@ export async function fetchCashflowSeries(
 
     const startDate = start.toISOString().slice(0, 10);
     const endDate = end.toISOString().slice(0, 10);
+    const branchParam = branchIds && branchIds.length > 0 ? `&branchIds=${branchIds.join(",")}` : "";
 
     const res = await fetch(
-      `/api/finance/timeline?startDate=${startDate}&endDate=${endDate}&limit=500`,
+      `/api/finance/timeline?startDate=${startDate}&endDate=${endDate}&limit=500${branchParam}`,
       { credentials: "include" }
     );
 

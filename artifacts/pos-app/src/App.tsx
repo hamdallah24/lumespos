@@ -20,6 +20,7 @@ import EngineeringOSDashboard from "./pages/eng-os";
 import ExecutiveWorkspace from "./pages/executive";
 import CloudDesktopPage from "./pages/cloud-desktop";
 import NotFound from "@/pages/not-found";
+import { PlatformFilterProvider } from "@/platform/filter";
 import FinanceDashboard from "@/modules/finance/components/FinanceDashboard";
 import { useGetMe } from "@workspace/api-client-react";
 import { BranchProvider } from "@/lib/branch";
@@ -621,10 +622,12 @@ function App() {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <WouterRouter base={basePath}>
         <QueryClientProvider client={queryClient}>
+          <PlatformFilterProvider>
           <TooltipProvider>
             <AppRoutes />
             <Toaster />
           </TooltipProvider>
+          </PlatformFilterProvider>
         </QueryClientProvider>
       </WouterRouter>
     </ThemeProvider>

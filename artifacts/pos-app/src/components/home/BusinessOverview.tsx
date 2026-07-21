@@ -1,5 +1,7 @@
+import { useMemo } from "react";
 import BusinessCard from "./BusinessCard";
 import { useWidgetProvider } from "@/lib/home/widget-provider";
+import { usePlatformFilter } from "@/platform/filter";
 import {
   fetchCashToday,
   fetchCashflow,
@@ -9,9 +11,25 @@ import {
 } from "@/lib/home/home-data";
 
 export default function BusinessOverview() {
-  const cash = useWidgetProvider(fetchCashToday, []);
-  const cashflow = useWidgetProvider(fetchCashflow, []);
-  const profit = useWidgetProvider(fetchProfit, []);
+  const { state: filter } = usePlatformFilter();
+  const branchIds = filter.branchIds.length > 0 ? filter.branchIds : undefined;
+
+  const cashFetcher = useMemo(
+    () => () => fetchCashToday(branchIds, filter.startDate, filter.endDate),
+    [branchIds, filter.startDate, filter.endDate]
+  );
+  const cashflowFetcher = useMemo(
+    () => () => fetchCashflow(branchIds, filter.startDate, filter.endDate),
+    [branchIds, filter.startDate, filter.endDate]
+  );
+  const profitFetcher = useMemo(
+    () => () => fetchProfit(branchIds, filter.startDate, filter.endDate),
+    [branchIds, filter.startDate, filter.endDate]
+  );
+
+  const cash = useWidgetProvider(cashFetcher, [branchIds, filter.startDate, filter.endDate]);
+  const cashflow = useWidgetProvider(cashflowFetcher, [branchIds, filter.startDate, filter.endDate]);
+  const profit = useWidgetProvider(profitFetcher, [branchIds, filter.startDate, filter.endDate]);
   const missions = useWidgetProvider(fetchMissions, []);
 
   return (

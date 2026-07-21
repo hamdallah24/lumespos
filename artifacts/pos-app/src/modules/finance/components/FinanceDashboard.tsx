@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useFinanceDashboard, useCreateTransaction, useFinanceAccounts } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
-import { useFinanceFilter, FinanceFilterProvider } from "../context/FinanceFilterContext";
+import { usePlatformFilter } from "@/platform/filter";
 import FinanceFilterBar from "./FinanceFilterBar";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -235,16 +235,8 @@ function TransactionForm({
 }
 
 export default function FinanceDashboard() {
-  return (
-    <FinanceFilterProvider>
-      <FinanceDashboardInner />
-    </FinanceFilterProvider>
-  );
-}
-
-function FinanceDashboardInner() {
   const { branchId } = useBranch();
-  const { state: filter } = useFinanceFilter();
+  const { state: filter } = usePlatformFilter();
   const { data: dashboard, isLoading: dashboardLoading, refetch } = useFinanceDashboard(
     filter.branchIds.length > 0 ? filter.branchIds : undefined,
     filter.startDate,
@@ -327,9 +319,9 @@ function FinanceDashboardInner() {
         )}
       </div>
 
-      <CashPosition branchIds={filter.branchIds} />
-      <FinancialHealth branchId={filter.branchIds[0] || branchId || undefined} />
-      <DashboardInsight branchId={filter.branchIds[0] || branchId || undefined} />
+      <CashPosition />
+      <FinancialHealth />
+      <DashboardInsight />
 
       <Card>
         <CardHeader className="pb-3">
@@ -339,15 +331,11 @@ function FinanceDashboardInner() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <FinancialTimeline
-            branchId={filter.branchIds[0] || branchId || undefined}
-            startDate={filter.startDate || undefined}
-            endDate={filter.endDate || undefined}
-          />
+          <FinancialTimeline />
         </CardContent>
       </Card>
 
-      <TransactionForm branchId={branchId} onSuccess={() => refetch()} />
+      <TransactionForm branchId={branchId ?? 0} onSuccess={() => refetch()} />
 
       <TransactionDetailDrawer
         transactionId={selectedTransactionId}
