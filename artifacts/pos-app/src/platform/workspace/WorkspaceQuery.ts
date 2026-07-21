@@ -1,0 +1,17 @@
+export const WORKSPACE_INVALIDATION_KEYS = [
+  ["dashboard"],
+  ["finance"],
+  ["cashflow"],
+  ["timeline"],
+  ["inventory"],
+  ["purchasing"],
+  ["production"],
+  ["crm"],
+  ["hr"],
+  ["analytics"],
+  ["knowledge"],
+  ["digitalTwin"],
+  ["executive"],
+  ["ai"],
+  ["reports"],
+] as const;

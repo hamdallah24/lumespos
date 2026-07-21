@@ -1,5 +1,5 @@
 import { db, transactionsTable, accountsTable, journalEntriesTable } from "@workspace/db";
-import { eq, sql, and, ilike, desc } from "drizzle-orm";
+import { eq, sql, and, ilike, desc, inArray } from "drizzle-orm";
 
 export interface TimelineFilters {
   branchId?: number;
@@ -135,7 +135,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineRes
         count: sql<number>`count(*)::int`,
       })
       .from(journalEntriesTable)
-      .where(sql`${journalEntriesTable.transactionId} IN (${txnIds.join(",")})`)
+      .where(inArray(journalEntriesTable.transactionId, txnIds))
       .groupBy(journalEntriesTable.transactionId);
 
     for (const row of counts) {
@@ -151,7 +151,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineRes
       type: row.type,
       category: row.category,
       description: row.description,
-      amount: parseFloat(row.amount),
+      amount: Math.round(parseFloat(row.amount) * 100) / 100,
       referenceType: row.referenceType,
       referenceId: row.referenceId,
       referenceCode: row.referenceCode,

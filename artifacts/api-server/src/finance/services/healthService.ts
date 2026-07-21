@@ -77,7 +77,7 @@ async function getMonthlyTotals(branchId: number, monthsAgo: number) {
   let expense = 0;
   let operatingExpense = 0;
   for (const t of rows) {
-    const amount = parseFloat(t.amount);
+    const amount = Math.round(parseFloat(t.amount) * 100) / 100;
     if (t.type === "income") {
       income += amount;
     } else {
@@ -87,6 +87,9 @@ async function getMonthlyTotals(branchId: number, monthsAgo: number) {
       }
     }
   }
+  income = Math.round(income * 100) / 100;
+  expense = Math.round(expense * 100) / 100;
+  operatingExpense = Math.round(operatingExpense * 100) / 100;
 
   return { income, expense, operatingExpense };
 }
@@ -155,16 +158,19 @@ export async function getHealthData(branchId: number, precomputedBalances?: { ca
   else if (overallScore < 60) overallLabel = "Cukup";
   else if (overallScore < 80) overallLabel = "Baik";
 
+  const roundedCash = Math.round(totalCash);
+  const roundedProfit = Math.round(currentProfit);
+
   return {
     cashHealth: {
       score: cashHealthScore,
       label: cashHealthScore >= 70 ? "Sehat" : cashHealthScore >= 40 ? "Cukup" : "Rendah",
-      description: `Saldo kas: Rp ${totalCash.toLocaleString("id-ID")}`,
+      description: `Saldo kas: Rp ${roundedCash.toLocaleString("id-ID")}`,
     },
     profitability: {
       score: profitabilityScore,
       label: profitabilityScore >= 70 ? "Profitable" : profitabilityScore >= 40 ? "Break-even" : "Rugi",
-      description: `Laba bulan ini: Rp ${currentProfit.toLocaleString("id-ID")}`,
+      description: `Laba bulan ini: Rp ${roundedProfit.toLocaleString("id-ID")}`,
     },
     expenseRatio: {
       score: expenseRatioScore,

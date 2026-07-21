@@ -1,0 +1,12 @@
+export { createMovement } from "./movementService";
+export type { MovementParams, MovementResult } from "./movementService";
+export { MOVEMENT_TYPES } from "./movementService";
+export { getStockCard, getLastStockCardEntry } from "./stockCardService";
+export type { ItemType } from "./stockCardService";
+export { getFifoValuation } from "./fifoCostingService";
+export { ensureDefaultWarehouse, getAllWarehouses, getWarehouseById } from "./warehouseService";
+export { rebuildAllProjections } from "./projectionService";
+export { runFullValidation } from "./validationEngine";
+export type { InventoryValidationCheck, InventoryValidationReport } from "./validationEngine";
+export { getInventoryDashboard } from "./dashboardService";
+export type { InventoryDashboardData } from "./dashboardService";

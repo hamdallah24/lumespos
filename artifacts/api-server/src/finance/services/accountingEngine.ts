@@ -9,6 +9,14 @@ export interface ReportFilters {
   endDate?: Date;
 }
 
+export interface EquityStatementData {
+  openingBalance: number;
+  additions: Array<{ description: string; amount: number }>;
+  deductions: Array<{ description: string; amount: number }>;
+  netIncome: number;
+  closingBalance: number;
+}
+
 export async function generateTrialBalance(filters?: ReportFilters): Promise<TrialBalanceRow[]> {
   const conditions: any[] = [];
 
@@ -53,8 +61,8 @@ export async function generateTrialBalance(filters?: ReportFilters): Promise<Tri
     accountCode: row.accountCode,
     accountName: row.accountName,
     accountType: row.accountType,
-    debit: parseFloat(row.totalDebit),
-    credit: parseFloat(row.totalCredit),
+    debit: Math.round(parseFloat(row.totalDebit) * 100) / 100,
+    credit: Math.round(parseFloat(row.totalCredit) * 100) / 100,
   }));
 }
 
@@ -85,9 +93,9 @@ export async function generateBalanceSheet(filters?: ReportFilters): Promise<Bal
     ? [...equityBase, { code: "NET_INCOME", name: "Laba Berjalan", balance: netIncome }]
     : equityBase;
 
-  const totalAssets = assets.reduce((sum, a) => sum + a.balance, 0);
-  const totalLiabilities = liabilities.reduce((sum, l) => sum + l.balance, 0);
-  const totalEquity = equity.reduce((sum, e) => sum + e.balance, 0);
+  const totalAssets = Math.round(assets.reduce((sum, a) => sum + a.balance, 0) * 100) / 100;
+  const totalLiabilities = Math.round(liabilities.reduce((sum, l) => sum + l.balance, 0) * 100) / 100;
+  const totalEquity = Math.round(equity.reduce((sum, e) => sum + e.balance, 0) * 100) / 100;
 
   return { assets, liabilities, equity, totalAssets, totalLiabilities, totalEquity };
 }
@@ -110,46 +118,94 @@ export async function generateProfitLoss(filters?: ReportFilters): Promise<Profi
 }
 
 export async function generateCashflow(filters?: ReportFilters): Promise<CashflowData> {
-  const cashAccount = await db
+  // Dynamically discover cash-equivalent accounts (type = asset, starting with 1)
+  const cashAccounts = await db
     .select()
     .from(accountsTable)
-    .where(eq(accountsTable.code, "1000"))
-    .then((rows) => rows[0]);
-
-  const bankAccount = await db
-    .select()
-    .from(accountsTable)
-    .where(eq(accountsTable.code, "1100"))
-    .then((rows) => rows[0]);
-
-  const ewalletAccount = await db
-    .select()
-    .from(accountsTable)
-    .where(eq(accountsTable.code, "1250"))
-    .then((rows) => rows[0]);
+    .where(
+      and(
+        eq(accountsTable.type, "asset"),
+        sql`${accountsTable.code} LIKE '1%'`,
+      ),
+    );
 
   const balances = await getLedgerBalances(filters);
   const balanceMap = new Map(balances.map((b) => [b.accountCode, b.balance]));
 
-  const cashBalance = balanceMap.get("1000") || 0;
-  const bankBalance = balanceMap.get("1100") || 0;
-  const ewalletBalance = balanceMap.get("1250") || 0;
+  const operating = cashAccounts.map((acc) => ({
+    description: acc.name,
+    amount: balanceMap.get(acc.code) || 0,
+  }));
 
-  const operating = [
-    { description: "Kas", amount: cashBalance },
-    { description: "Bank", amount: bankBalance },
-    { description: "E-Wallet", amount: ewalletBalance },
-  ];
+  // Investing: accounts with type=asset, code starting with '15'+
+  const investingAccounts = cashAccounts.filter((a) => a.code.startsWith("15") || a.code.startsWith("16") || a.code.startsWith("17"));
+  const investing = investingAccounts.map((acc) => ({
+    description: acc.name,
+    amount: balanceMap.get(acc.code) || 0,
+  }));
 
-  const totalCash = cashBalance + bankBalance + ewalletBalance;
+  // Financing: accounts with type=liability or equity, code starting with '3'
+  const financingAccounts = (await db
+    .select()
+    .from(accountsTable)
+    .where(
+      and(
+        sql`(${accountsTable.type} = 'liability' OR ${accountsTable.type} = 'equity')`,
+        sql`${accountsTable.code} LIKE '3%'`,
+      ),
+    ));
+  const financing = financingAccounts.map((acc) => ({
+    description: acc.name,
+    amount: balanceMap.get(acc.code) || 0,
+  }));
+
+  const netOperating = Math.round(operating.reduce((s, i) => s + i.amount, 0) * 100) / 100;
+  const netInvesting = Math.round(investing.reduce((s, i) => s + i.amount, 0) * 100) / 100;
+  const netFinancing = Math.round(financing.reduce((s, i) => s + i.amount, 0) * 100) / 100;
 
   return {
     operating,
-    investing: [],
-    financing: [],
-    netOperating: totalCash,
-    netInvesting: 0,
-    netFinancing: 0,
-    netChange: totalCash,
+    investing,
+    financing,
+    netOperating,
+    netInvesting,
+    netFinancing,
+    netChange: netOperating + netInvesting + netFinancing,
+  };
+}
+
+export async function generateEquityStatement(filters?: ReportFilters): Promise<EquityStatementData> {
+  const balances = await getLedgerBalances(filters);
+
+  const equityAccounts = balances.filter((b) => b.accountType === "equity");
+  const totalRevenue = Math.round(balances.filter((b) => b.accountType === "revenue").reduce((s, b) => s + b.balance, 0) * 100) / 100;
+  const totalExpenses = Math.round(balances.filter((b) => b.accountType === "expense").reduce((s, b) => s + b.balance, 0) * 100) / 100;
+  const netIncome = Math.round((totalRevenue - totalExpenses) * 100) / 100;
+
+  const additions = equityAccounts.filter((b) => b.balance > 0).map((b) => ({
+    description: b.accountName,
+    amount: Math.round(b.balance * 100) / 100,
+  }));
+  const deductions = equityAccounts.filter((b) => b.balance < 0).map((b) => ({
+    description: b.accountName,
+    amount: Math.round(Math.abs(b.balance) * 100) / 100,
+  }));
+
+  const priorFilters = filters ? { ...filters, endDate: filters.startDate } : undefined;
+  const priorBalances = priorFilters?.endDate
+    ? await getLedgerBalances({ ...priorFilters, startDate: undefined })
+    : [];
+  const openingEquity = Math.round(priorBalances.filter((b) => b.accountType === "equity").reduce((s, b) => s + b.balance, 0) * 100) / 100;
+
+  const totalAdditions = Math.round(additions.reduce((s, a) => s + a.amount, 0) * 100) / 100;
+  const totalDeductions = Math.round(deductions.reduce((s, d) => s + d.amount, 0) * 100) / 100;
+  const closingBalance = Math.round((openingEquity + totalAdditions - totalDeductions + netIncome) * 100) / 100;
+
+  return {
+    openingBalance: openingEquity,
+    additions,
+    deductions,
+    netIncome,
+    closingBalance,
   };
 }

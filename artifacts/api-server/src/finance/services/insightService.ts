@@ -52,7 +52,7 @@ async function getDailyTotals(branchId: number, date: Date) {
   let expense = 0;
   let cogs = 0;
   for (const t of rows) {
-    const amount = parseFloat(t.amount);
+    const amount = Math.round(parseFloat(t.amount) * 100) / 100;
     if (t.type === "income") {
       income += amount;
     } else if (t.category === "cogs") {
@@ -61,6 +61,9 @@ async function getDailyTotals(branchId: number, date: Date) {
       expense += amount;
     }
   }
+  income = Math.round(income * 100) / 100;
+  expense = Math.round(expense * 100) / 100;
+  cogs = Math.round(cogs * 100) / 100;
 
   return { income, expense, cogs };
 }
@@ -90,45 +93,44 @@ export async function getInsightData(branchId: number): Promise<InsightData> {
   const totalRevenue = todayData.income;
   const totalCOGS = todayData.cogs;
   const totalOperatingExpense = todayData.expense;
-  const totalExpenses = totalCOGS + totalOperatingExpense;
-  const grossProfit = totalRevenue - totalCOGS;
-  const netProfit = grossProfit - totalOperatingExpense;
+  const totalExpenses = Math.round((totalCOGS + totalOperatingExpense) * 100) / 100;
+  const grossProfit = Math.round((totalRevenue - totalCOGS) * 100) / 100;
+  const netProfit = Math.round((grossProfit - totalOperatingExpense) * 100) / 100;
   const grossMargin = totalRevenue > 0
-    ? (grossProfit / totalRevenue) * 100
+    ? Math.round((grossProfit / totalRevenue) * 1000) / 10
     : 0;
   const netMargin = totalRevenue > 0
-    ? (netProfit / totalRevenue) * 100
+    ? Math.round((netProfit / totalRevenue) * 1000) / 10
     : 0;
 
-  // Total expense change
-  const yesterdayTotalExpense = (yesterdayData.cogs || 0) + (yesterdayData.expense || 0);
+  const yesterdayTotalExpense = Math.round(((yesterdayData.cogs || 0) + (yesterdayData.expense || 0)) * 100) / 100;
   const totalExpenseChange = yesterdayTotalExpense > 0
-    ? ((totalExpenses - yesterdayTotalExpense) / yesterdayTotalExpense) * 100
+    ? Math.round(((totalExpenses - yesterdayTotalExpense) / yesterdayTotalExpense) * 1000) / 10
     : 0;
 
   return {
     income: {
-      current: todayData.income,
-      previous: yesterdayData.income,
-      change: Math.abs(incomeChange),
+      current: Math.round(todayData.income * 100) / 100,
+      previous: Math.round(yesterdayData.income * 100) / 100,
+      change: Math.abs(Math.round(incomeChange * 10) / 10),
       direction: incomeChange > 0 ? "up" : incomeChange < 0 ? "down" : "flat",
     },
     operatingExpense: {
-      current: todayData.expense,
-      previous: yesterdayData.expense,
-      change: Math.abs(expenseChange),
+      current: Math.round(todayData.expense * 100) / 100,
+      previous: Math.round(yesterdayData.expense * 100) / 100,
+      change: Math.abs(Math.round(expenseChange * 10) / 10),
       direction: expenseChange > 0 ? "up" : expenseChange < 0 ? "down" : "flat",
     },
     totalExpense: {
       current: totalExpenses,
       previous: yesterdayTotalExpense,
-      change: Math.abs(totalExpenseChange),
+      change: Math.abs(Math.round(totalExpenseChange * 10) / 10),
       direction: totalExpenseChange > 0 ? "up" : totalExpenseChange < 0 ? "down" : "flat",
     },
     cogs: {
-      current: todayData.cogs,
-      previous: yesterdayData.cogs,
-      change: yesterdayData.cogs > 0 ? ((todayData.cogs - yesterdayData.cogs) / yesterdayData.cogs) * 100 : 0,
+      current: Math.round(todayData.cogs * 100) / 100,
+      previous: Math.round(yesterdayData.cogs * 100) / 100,
+      change: yesterdayData.cogs > 0 ? Math.round(((todayData.cogs - yesterdayData.cogs) / yesterdayData.cogs) * 1000) / 10 : 0,
     },
     grossMargin,
     profitMargin: netMargin,

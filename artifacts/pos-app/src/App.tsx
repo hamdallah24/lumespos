@@ -20,8 +20,11 @@ import EngineeringOSDashboard from "./pages/eng-os";
 import ExecutiveWorkspace from "./pages/executive";
 import CloudDesktopPage from "./pages/cloud-desktop";
 import NotFound from "@/pages/not-found";
-import { PlatformFilterProvider } from "@/platform/filter";
+import { WorkspaceProvider } from "@/platform/workspace";
 import FinanceDashboard from "@/modules/finance/components/FinanceDashboard";
+import StockCardPage from "@/modules/inventory/pages/StockCardPage";
+import InventoryWorkspace from "@/modules/inventory/pages/InventoryWorkspace";
+import EmployeeListPage from "@/modules/hr/pages/EmployeeListPage";
 import { useGetMe } from "@workspace/api-client-react";
 import { BranchProvider } from "@/lib/branch";
 import { initCsrf, apiFetch } from "@/lib/csrf";
@@ -590,11 +593,53 @@ function FinancePage() {
   );
 }
 
+function InventoryStockCardPageRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <BranchProvider>
+      <div className="h-screen bg-background flex flex-col overflow-hidden">
+        <StockCardPage />
+      </div>
+    </BranchProvider>
+  );
+}
+
+function HrEmployeePageRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <BranchProvider>
+      <div className="h-screen bg-background flex flex-col overflow-hidden">
+        <EmployeeListPage />
+      </div>
+    </BranchProvider>
+  );
+}
+
+function InventoryWorkspaceRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <BranchProvider>
+      <div className="h-screen bg-background flex flex-col overflow-hidden">
+        <InventoryWorkspace />
+      </div>
+    </BranchProvider>
+  );
+}
+
 function AppRoutes() {
   return (
     <Switch>
       <Route path="/desktop" component={CloudDesktopPage} />
       <Route path="/finance" component={FinancePage} />
+      <Route path="/inventory-workspace" component={InventoryWorkspaceRoute} />
+      <Route path="/stock-card" component={InventoryStockCardPageRoute} />
+      <Route path="/hr/employees" component={HrEmployeePageRoute} />
       <Route path="/onboard" component={ProtectedApp} />
       <Route path="/" component={ProtectedApp} />
       <Route path="/orders" component={ProtectedApp} />
@@ -622,12 +667,12 @@ function App() {
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <WouterRouter base={basePath}>
         <QueryClientProvider client={queryClient}>
-          <PlatformFilterProvider>
+          <WorkspaceProvider>
           <TooltipProvider>
             <AppRoutes />
             <Toaster />
           </TooltipProvider>
-          </PlatformFilterProvider>
+          </WorkspaceProvider>
         </QueryClientProvider>
       </WouterRouter>
     </ThemeProvider>

@@ -1,7 +1,7 @@
 import type { AppDefinition } from "./types";
 import POSPlaceholder from "@/components/desktop/apps/POSPlaceholder";
 import FinancePlaceholder from "@/components/desktop/apps/FinancePlaceholder";
-import InventoryPlaceholder from "@/components/desktop/apps/InventoryPlaceholder";
+import InventoryApp from "@/components/desktop/apps/InventoryApp";
 import CRMPlaceholder from "@/components/desktop/apps/CRMPlaceholder";
 import HRPlaceholder from "@/components/desktop/apps/HRPlaceholder";
 import AIChatPlaceholder from "@/components/desktop/apps/AIChatPlaceholder";
@@ -36,7 +36,7 @@ export const appRegistry: AppDefinition[] = [
     title: "Inventory",
     icon: "Package",
     color: "#D97706",
-    component: InventoryPlaceholder,
+    component: InventoryApp,
     defaultWidth: 850,
     defaultHeight: 550,
     category: "business",

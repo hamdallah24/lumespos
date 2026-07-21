@@ -90,6 +90,7 @@ export function Layout({ children, role, user, onSignOut }: LayoutProps) {
     { href: "/orders", label: "Riwayat", icon: Receipt, show: true },
     { href: "/shift", label: "Tutup Shift", icon: ClipboardList, show: true },
     { href: "/pengeluaran", label: "Pengeluaran", icon: Wallet, show: canManage },
+    { href: "/inventory-workspace", label: "Inventory WH", icon: Boxes, show: true },
     { href: "/inventory", label: "Stok & Bahan", icon: Boxes, show: true },
     { href: "/audits", label: "Audit Shift", icon: ClipboardCheck, show: canManage },
     { href: "/branches", label: "Cabang", icon: Store, show: isOwner },

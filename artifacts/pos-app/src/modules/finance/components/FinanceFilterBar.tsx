@@ -1,7 +1,7 @@
 import React from "react";
 import { useBranch } from "@/lib/branch";
 import { useAccountingPeriods } from "../hooks/useFinance";
-import PlatformFilterBar from "@/platform/filter/components/PlatformFilterBar";
+import WorkspaceBar from "@/platform/workspace/components/WorkspaceBar";
 
 export default function FinanceFilterBar() {
   const { branches } = useBranch();
@@ -12,7 +12,7 @@ export default function FinanceFilterBar() {
 
   return (
     <div className="sticky top-0 z-30 bg-background/95 backdrop-blur border-b border-border px-4 py-2">
-      <PlatformFilterBar
+      <WorkspaceBar
         branches={branches}
         periods={periods}
         currentPeriod={currentPeriod}

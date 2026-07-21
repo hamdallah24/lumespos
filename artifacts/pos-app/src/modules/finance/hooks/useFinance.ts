@@ -8,6 +8,9 @@ import type {
   TrialBalanceRow,
   BalanceSheetData,
   ProfitLossData,
+  CashflowData,
+  GeneralLedgerRow,
+  EquityStatementData,
   CashPosition,
   CashPositionItem,
   FinancialHealth,
@@ -174,36 +177,84 @@ export function useTransactionDetail(transactionId?: number) {
   });
 }
 
-export function useTrialBalance() {
+function reportQueryKey(prefix: string, branchIds?: number[], startDate?: string | null, endDate?: string | null) {
+  return ["finance", prefix, { branchIds, startDate, endDate }];
+}
+
+function reportQueryFn(path: string, branchIds?: number[], startDate?: string | null, endDate?: string | null) {
+  return async () => {
+    const params = new URLSearchParams();
+    if (branchIds && branchIds.length > 0) params.set("branchIds", branchIds.join(","));
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
+    const qs = params.toString();
+    const res = await apiFetch(`/api/finance/${path}${qs ? "?" + qs : ""}`);
+    if (!res.ok) throw new Error(`Gagal mengambil data ${path}`);
+    return res.json();
+  };
+}
+
+export function useTrialBalance(branchIds?: number[], startDate?: string | null, endDate?: string | null) {
   return useQuery<TrialBalanceRow[]>({
-    queryKey: ["finance", "trial-balance"],
-    queryFn: async () => {
-      const res = await apiFetch("/api/finance/trial-balance");
-      if (!res.ok) throw new Error("Gagal mengambil data trial balance");
-      return res.json();
-    },
+    queryKey: reportQueryKey("trial-balance", branchIds, startDate, endDate),
+    queryFn: reportQueryFn("trial-balance", branchIds, startDate, endDate),
   });
 }
 
-export function useBalanceSheet() {
+export function useBalanceSheet(branchIds?: number[], startDate?: string | null, endDate?: string | null) {
   return useQuery<BalanceSheetData>({
-    queryKey: ["finance", "balance-sheet"],
+    queryKey: reportQueryKey("balance-sheet", branchIds, startDate, endDate),
+    queryFn: reportQueryFn("balance-sheet", branchIds, startDate, endDate),
+  });
+}
+
+export function useProfitLoss(branchIds?: number[], startDate?: string | null, endDate?: string | null) {
+  return useQuery<ProfitLossData>({
+    queryKey: reportQueryKey("profit-loss", branchIds, startDate, endDate),
+    queryFn: reportQueryFn("profit-loss", branchIds, startDate, endDate),
+  });
+}
+
+export function useCashflow(branchIds?: number[], startDate?: string | null, endDate?: string | null) {
+  return useQuery<CashflowData>({
+    queryKey: reportQueryKey("cashflow", branchIds, startDate, endDate),
+    queryFn: reportQueryFn("cashflow", branchIds, startDate, endDate),
+  });
+}
+
+export function useGeneralLedger(accountId?: number, branchIds?: number[], startDate?: string | null, endDate?: string | null) {
+  return useQuery<GeneralLedgerRow[]>({
+    queryKey: ["finance", "general-ledger", { accountId, branchIds, startDate, endDate }],
     queryFn: async () => {
-      const res = await apiFetch("/api/finance/balance-sheet");
-      if (!res.ok) throw new Error("Gagal mengambil data balance sheet");
+      const params = new URLSearchParams();
+      if (accountId) params.set("accountId", String(accountId));
+      if (branchIds && branchIds.length > 0) params.set("branchIds", branchIds.join(","));
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
+      const qs = params.toString();
+      const res = await apiFetch(`/api/finance/general-ledger${qs ? "?" + qs : ""}`);
+      if (!res.ok) throw new Error("Gagal mengambil data general ledger");
       return res.json();
     },
   });
 }
 
-export function useProfitLoss() {
-  return useQuery<ProfitLossData>({
-    queryKey: ["finance", "profit-loss"],
+export function useEquityStatement(branchIds?: number[], startDate?: string | null, endDate?: string | null) {
+  return useQuery<EquityStatementData>({
+    queryKey: reportQueryKey("equity-statement", branchIds, startDate, endDate),
+    queryFn: reportQueryFn("equity-statement", branchIds, startDate, endDate),
+  });
+}
+
+export function useLedgerByAccount(accountId?: number) {
+  return useQuery({
+    queryKey: ["finance", "ledger", accountId],
     queryFn: async () => {
-      const res = await apiFetch("/api/finance/profit-loss");
-      if (!res.ok) throw new Error("Gagal mengambil data profit loss");
+      const res = await apiFetch(`/api/finance/ledger/${accountId}`);
+      if (!res.ok) throw new Error("Gagal mengambil data ledger");
       return res.json();
     },
+    enabled: !!accountId,
   });
 }
 

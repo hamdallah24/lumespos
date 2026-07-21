@@ -1,6 +1,6 @@
 import React from "react";
 import { useCashPosition } from "../hooks/useFinance";
-import { usePlatformFilter } from "@/platform/filter";
+import { useWorkspace } from "@/platform/workspace";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Wallet, Building2, CreditCard, Users, TrendingDown } from "lucide-react";
@@ -50,7 +50,7 @@ function PositionCard({
 }
 
 export default function CashPosition() {
-  const { state: filter } = usePlatformFilter();
+  const { state: filter } = useWorkspace();
   const branchId = filter.branchIds.length === 1 ? filter.branchIds[0] : undefined;
   const { data, isLoading } = useCashPosition(branchId);
 

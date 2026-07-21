@@ -59,3 +59,32 @@ export interface CashflowData {
 
 export type AccountType = "asset" | "liability" | "equity" | "revenue" | "expense";
 export type NormalBalance = "debit" | "credit";
+
+export type ValidationSeverity = "critical" | "error" | "warning" | "info";
+export type ValidationStatus = "passed" | "failed" | "warning";
+
+export interface ValidationCheckResult {
+  name: string;
+  status: ValidationStatus;
+  severity: ValidationSeverity;
+  detail: string;
+  recommendation: string;
+  autoFix: boolean;
+  affectedCount: number;
+}
+
+export interface ValidationReport {
+  runAt: string;
+  totalChecks: number;
+  passedChecks: number;
+  failedChecks: number;
+  warningChecks: number;
+  overallScore: number;
+  checks: ValidationCheckResult[];
+  summary: {
+    critical: number;
+    error: number;
+    warning: number;
+    info: number;
+  };
+}

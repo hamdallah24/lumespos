@@ -3,6 +3,7 @@ import { db, transactionsTable, journalEntriesTable, ledgerEntriesTable } from "
 import { eq, sql } from "drizzle-orm";
 import { createTransaction } from "./transactionEngine";
 import { getAccountByCode, getAccountById } from "./chartOfAccounts";
+import { AccountingHealthCache } from "./AccountingHealthCache";
 
 const PAYMENT_METHOD_TO_ACCOUNT: Record<string, string> = {
   cash: "1000",
@@ -65,6 +66,15 @@ EventSubscriber.on("order.completed", async (event) => {
   } catch (err) {
     console.error(`[Finance] Gagal membuat transaksi untuk order ${event.data?.orderId}:`, err);
   }
+});
+
+// Invalidate accounting health cache after any finance event
+EventSubscriber.on("finance.transaction.created", async () => {
+  AccountingHealthCache.invalidate();
+});
+
+EventSubscriber.on("finance.transaction.updated", async () => {
+  AccountingHealthCache.invalidate();
 });
 
 EventSubscriber.on("expense.recorded", async (event) => {

@@ -2,6 +2,7 @@ import { db, transactionsTable, accountsTable, ledgerEntriesTable, journalEntrie
 import { eq, and, sql, gte, lt } from "drizzle-orm";
 import { PeriodManager } from "./PeriodManager";
 import { getAccountByCode, getAccountById } from "./chartOfAccounts";
+import { ValidationEngine, type ValidationCheckResult, type ValidationReport } from "./ValidationEngine";
 
 export interface ClosingValidation {
   valid: boolean;
@@ -25,25 +26,18 @@ export class ClosingEngine {
       return { valid: false, checks: [], score: 0, warnings: [], message: "Period not found" };
     }
 
-    const checks: ClosingCheck[] = [];
+    const filters = { startDate: period.startDate, endDate: period.endDate };
+    const report = await ValidationEngine.runFullValidation(filters);
     const warnings: string[] = [];
 
-    // 1. Journal balanced (debit = credit)
-    checks.push(await this.checkJournalBalanced(period.startDate, period.endDate));
+    // Map ValidationEngine results to ClosingCheck format
+    const checks: ClosingCheck[] = report.checks.map((c: ValidationCheckResult) => ({
+      name: c.name,
+      passed: c.status === "passed",
+      detail: c.detail,
+      critical: c.severity === "critical",
+    }));
 
-    // 2. Ledger balanced
-    checks.push(await this.checkLedgerBalanced());
-
-    // 3. Cash balance valid
-    checks.push(await this.checkCashBalance(period.startDate, period.endDate));
-
-    // 4. No pending transactions
-    checks.push(await this.checkNoPendingTransactions(period.startDate, period.endDate));
-
-    // 5. No duplicate journals
-    checks.push(await this.checkNoDuplicates(period.startDate, period.endDate));
-
-    // Collect warnings
     for (const check of checks) {
       if (!check.passed) {
         warnings.push(check.detail);
@@ -51,9 +45,9 @@ export class ClosingEngine {
     }
 
     const criticalFailed = checks.filter(c => c.critical && !c.passed).length;
-    const totalChecks = checks.length;
     const passedChecks = checks.filter(c => c.passed).length;
-    const score = Math.round((passedChecks / totalChecks) * 100);
+    const totalChecks = checks.length;
+    const score = totalChecks > 0 ? Math.round((passedChecks / totalChecks) * 100) : 100;
 
     return {
       valid: criticalFailed === 0,
@@ -310,96 +304,6 @@ export class ClosingEngine {
       reason: `Opening balance for ${name}`,
       changes: JSON.stringify({ cash: snapshot.cash, bank: snapshot.bank }),
     });
-  }
-
-  // ── Validation checks ──
-
-  private static async checkJournalBalanced(startDate: Date, endDate: Date): Promise<ClosingCheck> {
-    const [result] = await db
-      .select({
-        totalDebit: sql<string>`COALESCE(SUM(${journalEntriesTable.debit}::numeric), 0)`,
-        totalCredit: sql<string>`COALESCE(SUM(${journalEntriesTable.credit}::numeric), 0)`,
-      })
-      .from(journalEntriesTable)
-      .where(
-        and(
-          gte(journalEntriesTable.createdAt, startDate),
-          lt(journalEntriesTable.createdAt, endDate)
-        )
-      );
-
-    const debit = parseFloat(result.totalDebit);
-    const credit = parseFloat(result.totalCredit);
-    const diff = Math.abs(debit - credit);
-    const passed = diff < 0.01;
-
-    return {
-      name: "Journal Balanced",
-      passed,
-      detail: passed ? "Debit = Credit" : `Imbalance: Rp ${diff.toLocaleString()}`,
-      critical: true,
-    };
-  }
-
-  private static async checkLedgerBalanced(): Promise<ClosingCheck> {
-    return { name: "Ledger Balanced", passed: true, detail: "All accounts balanced", critical: false };
-  }
-
-  private static async checkCashBalance(startDate: Date, endDate: Date): Promise<ClosingCheck> {
-    // Check if there are any negative cash entries
-    const [result] = await db
-      .select({ cnt: sql<number>`COUNT(*)::int` })
-      .from(ledgerEntriesTable)
-      .where(
-        and(
-          sql`${ledgerEntriesTable.runningBalance}::numeric < 0`,
-          gte(ledgerEntriesTable.date, startDate),
-          lt(ledgerEntriesTable.date, endDate)
-        )
-      );
-
-    return {
-      name: "Cash Balance",
-      passed: result.cnt === 0,
-      detail: result.cnt === 0 ? "No negative balances" : `${result.cnt} negative balance entries`,
-      critical: false,
-    };
-  }
-
-  private static async checkNoPendingTransactions(startDate: Date, endDate: Date): Promise<ClosingCheck> {
-    const [result] = await db
-      .select({ cnt: sql<number>`COUNT(*)::int` })
-      .from(transactionsTable)
-      .where(
-        and(
-          eq(transactionsTable.status, "pending"),
-          gte(transactionsTable.createdAt, startDate),
-          lt(transactionsTable.createdAt, endDate)
-        )
-      );
-
-    return {
-      name: "Pending Transactions",
-      passed: result.cnt === 0,
-      detail: result.cnt === 0 ? "None pending" : `${result.cnt} pending`,
-      critical: true,
-    };
-  }
-
-  private static async checkNoDuplicates(startDate: Date, endDate: Date): Promise<ClosingCheck> {
-    const [result] = await db
-      .select({ cnt: sql<number>`COUNT(*)::int` })
-      .from(transactionsTable)
-      .having(sql`COUNT(*) > 1`)
-      .groupBy(transactionsTable.referenceId, transactionsTable.referenceType);
-
-    const hasDupes = result && parseInt(String(result.cnt)) > 1;
-    return {
-      name: "Duplicate Journals",
-      passed: !hasDupes,
-      detail: hasDupes ? "Duplicates found" : "None",
-      critical: false,
-    };
   }
 
   // ── Aggregation helpers ──

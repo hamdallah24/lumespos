@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, transactionsTable, journalEntriesTable, ledgerEntriesTable } from "@workspace/db";
-import { eq, desc, sql, and, inArray, gte, lte } from "drizzle-orm";
+import { db, transactionsTable, journalEntriesTable, ledgerEntriesTable, accountsTable, accountingPeriodsTable } from "@workspace/db";
+import { eq, desc, sql, and, inArray, gte, lte, isNull } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, canAccessBranch } from "../middlewares/requireAuth";
 import {
   initializeDefaultCOA,
@@ -15,6 +15,8 @@ import {
   generateBalanceSheet,
   generateProfitLoss,
   generateCashflow,
+  generateEquityStatement,
+  getGeneralLedger,
   getTimeline,
   getCashPosition,
   getCashPositionItems,
@@ -29,6 +31,8 @@ import {
 } from "../finance/services";
 import { PeriodManager } from "../finance/services/PeriodManager";
 import { ClosingEngine } from "../finance/services/ClosingEngine";
+import { ValidationEngine } from "../finance/services/ValidationEngine";
+import { AccountingHealthCache } from "../finance/services/AccountingHealthCache";
 
 const router = Router();
 
@@ -56,13 +60,29 @@ router.get("/finance/accounts/:code", requireAuth, async (req, res) => {
 
 router.post("/finance/transactions", requireAuth, requireBranchAccess((req) => Number(req.body.branchId)), async (req, res) => {
   try {
-    const { branchId, type, category, description, amount, accountId, referenceType, referenceId, referenceCode, sourceModule, notes } = req.body;
+    const { branchId, type, category, description, amount, accountId, referenceType, referenceId, referenceCode, sourceModule, notes, date } = req.body;
 
     if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
     if (!type) return res.status(400).json({ error: "type wajib diisi" });
     if (!category) return res.status(400).json({ error: "category wajib diisi" });
     if (!description) return res.status(400).json({ error: "description wajib diisi" });
     if (!amount || Number(amount) <= 0) return res.status(400).json({ error: "amount harus lebih dari 0" });
+
+    // Pre-posting validation
+    const postingValidation = await ValidationEngine.validatePrePosting({
+      branchId: Number(branchId),
+      category: String(category),
+      amount: Number(amount),
+      accountId: accountId ? Number(accountId) : undefined,
+      date: date ? new Date(String(date)) : new Date(),
+    });
+
+    if (!postingValidation.valid) {
+      return res.status(400).json({
+        error: "Transaksi ditolak — validasi gagal",
+        validationErrors: postingValidation.errors,
+      });
+    }
 
     const result = await createTransaction({
       branchId: Number(branchId),
@@ -79,6 +99,7 @@ router.post("/finance/transactions", requireAuth, requireBranchAccess((req) => N
       createdBy: req.user?.id ? Number(req.user.id) : undefined,
     });
 
+    AccountingHealthCache.invalidate();
     return res.status(201).json(result);
   } catch (err: any) {
     console.error("POST /finance/transactions error:", err);
@@ -145,6 +166,7 @@ router.patch("/finance/transactions/:id/void", requireAuth, async (req, res) => 
       changes: JSON.stringify({ id, amount: existing.amount, category: existing.category }),
     });
 
+    AccountingHealthCache.invalidate();
     return res.json({ success: true, message: "Transaction voided" });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -260,6 +282,29 @@ router.get("/finance/cashflow", requireAuth, async (req, res) => {
   }
 });
 
+router.get("/finance/general-ledger", requireAuth, async (req, res) => {
+  try {
+    const filters = parseReportFilters(req);
+    const accountId = req.query["accountId"] ? parseInt(req.query["accountId"] as string) : undefined;
+    const ledger = await getGeneralLedger({ ...filters, accountId });
+    return res.json(ledger);
+  } catch (err: any) {
+    console.error("GET /finance/general-ledger error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data general ledger" });
+  }
+});
+
+router.get("/finance/equity-statement", requireAuth, async (req, res) => {
+  try {
+    const filters = parseReportFilters(req);
+    const equityStmt = await generateEquityStatement(filters);
+    return res.json(equityStmt);
+  } catch (err: any) {
+    console.error("GET /finance/equity-statement error:", err);
+    return res.status(500).json({ error: "Gagal mengambil data equity statement" });
+  }
+});
+
 router.get("/finance/dashboard", requireAuth, async (req, res) => {
   try {
     const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
@@ -341,10 +386,11 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
       total: (cashAccount?.balance || 0) + (bankAccount?.balance || 0) + (ewalletAccount?.balance || 0) + (arAccount?.balance || 0) - (apAccount?.balance || 0),
     };
 
-    const [healthData, insightData, currentPeriod] = await Promise.all([
+    const [healthData, insightData, currentPeriod, accountingHealth] = await Promise.all([
       branchId ? getHealthData(branchId, { cash: cashAccount?.balance || 0, bank: bankAccount?.balance || 0, ewallet: ewalletAccount?.balance || 0 }) : null,
       branchId ? getInsightData(branchId) : null,
       PeriodManager.getCurrentPeriod(),
+      AccountingHealthCache.get({ branchIds: branchIds || (branchId ? [branchId] : undefined) }).catch(() => null),
     ]);
 
     return res.json({
@@ -368,6 +414,7 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
       cashPosition,
       health: healthData,
       insight: insightData,
+      accountingHealth,
     });
   } catch (err: any) {
     console.error("GET /finance/dashboard error:", err);
@@ -559,6 +606,7 @@ router.post("/finance/periods/:id/execute-closing", requireAuth, async (req, res
     const periodId = parseInt(req.params.id);
     const result = await ClosingEngine.executeClosing(periodId, req.user?.id);
     if (!result.success) return res.status(400).json(result);
+    AccountingHealthCache.invalidate();
     return res.json(result);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
@@ -603,6 +651,177 @@ router.get("/finance/audit-logs", requireAuth, async (req, res) => {
     const logs = await PeriodManager.getAuditLogs(periodId);
     return res.json(logs);
   } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── T15: Accounting Validation Engine ──
+
+router.get("/finance/validation", requireAuth, async (req, res) => {
+  try {
+    const filters = parseReportFilters(req);
+    const report = await ValidationEngine.runFullValidation(filters);
+    return res.json(report);
+  } catch (err: any) {
+    console.error("GET /finance/validation error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.get("/finance/validation/issues", requireAuth, async (req, res) => {
+  try {
+    const filters = parseReportFilters(req);
+    const report = await ValidationEngine.runFullValidation(filters);
+    const issues = report.checks.filter((c) => c.status !== "passed");
+    return res.json({ issues, summary: report.summary, overallScore: report.overallScore });
+  } catch (err: any) {
+    console.error("GET /finance/validation/issues error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/finance/validation/run", requireAuth, async (req, res) => {
+  try {
+    const { branchIds, startDate, endDate, periodId } = req.body || {};
+    const filters: any = {};
+    if (branchIds) filters.branchIds = Array.isArray(branchIds) ? branchIds : [branchIds];
+    if (startDate) filters.startDate = new Date(startDate);
+    if (endDate) filters.endDate = new Date(endDate);
+    if (periodId) {
+      const period = await PeriodManager.getPeriodById(periodId);
+      if (period) {
+        filters.startDate = period.startDate;
+        filters.endDate = period.endDate;
+      }
+    }
+    const report = await ValidationEngine.runFullValidation(
+      Object.keys(filters).length > 0 ? filters : undefined
+    );
+    return res.json(report);
+  } catch (err: any) {
+    console.error("POST /finance/validation/run error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/finance/validation/fix", requireAuth, async (req, res) => {
+  try {
+    const { issueNames } = req.body || {};
+    const namesToFix: string[] = issueNames
+      ? (Array.isArray(issueNames) ? issueNames : [issueNames])
+      : [];
+
+    const filters = req.body?.periodId
+      ? { startDate: (await PeriodManager.getPeriodById(req.body.periodId))?.startDate, endDate: undefined }
+      : undefined;
+
+    const report = await ValidationEngine.runFullValidation(filters);
+    const fixable = report.checks.filter(
+      (c) => c.status !== "passed" && c.autoFix && (namesToFix.length === 0 || namesToFix.includes(c.name))
+    );
+
+    const fixes: { name: string; success: boolean; detail: string }[] = [];
+
+    for (const issue of fixable) {
+      try {
+        if (issue.name === "Orphan Journal Entries") {
+          await db.execute(sql`
+            DELETE FROM ${journalEntriesTable}
+            WHERE ${journalEntriesTable.transactionId} NOT IN (
+              SELECT id FROM ${transactionsTable}
+            )
+          `);
+          fixes.push({ name: issue.name, success: true, detail: "Orphan journal entries deleted" });
+        } else if (issue.name === "Orphan Ledger Entries") {
+          await db.execute(sql`
+            DELETE FROM ${ledgerEntriesTable}
+            WHERE ${ledgerEntriesTable.journalEntryId} NOT IN (
+              SELECT id FROM ${journalEntriesTable}
+            )
+          `);
+          fixes.push({ name: issue.name, success: true, detail: "Orphan ledger entries deleted" });
+        } else if (issue.name === "Zero-Amount Journal Entries") {
+          await db.execute(sql`
+            DELETE FROM ${journalEntriesTable}
+            WHERE ${journalEntriesTable.debit}::numeric = 0
+            AND ${journalEntriesTable.credit}::numeric = 0
+          `);
+          fixes.push({ name: issue.name, success: true, detail: "Zero-amount journal entries deleted" });
+        } else if (issue.name === "Missing Ledger Posting") {
+          // Recreate ledger entries from journal entries that are missing them
+          await db.execute(sql`
+            INSERT INTO ${ledgerEntriesTable} (account_id, journal_entry_id, transaction_id, date, description, debit, credit, running_balance)
+            SELECT
+              je.account_id, je.id, je.transaction_id,
+              COALESCE(t.created_at, NOW()), je.description, je.debit, je.credit,
+              COALESCE((
+                SELECT SUM(
+                  CASE WHEN a.normal_balance = 'debit'
+                    THEN le2.debit::numeric - le2.credit::numeric
+                    ELSE le2.credit::numeric - le2.debit::numeric
+                  END
+                ) FROM ${ledgerEntriesTable} le2
+                JOIN ${accountsTable} a ON a.id = le2.account_id
+                WHERE le2.account_id = je.account_id
+                AND le2.id < COALESCE((SELECT MAX(le3.id) FROM ${ledgerEntriesTable} le3 WHERE le3.account_id = je.account_id), 0)
+              ), 0) + CASE WHEN a.normal_balance = 'debit'
+                THEN je.debit::numeric - je.credit::numeric
+                ELSE je.credit::numeric - je.debit::numeric
+              END
+            FROM ${journalEntriesTable} je
+            JOIN ${accountsTable} a ON a.id = je.account_id
+            LEFT JOIN ${transactionsTable} t ON t.id = je.transaction_id
+            LEFT JOIN ${ledgerEntriesTable} le ON le.journal_entry_id = je.id
+            WHERE le.id IS NULL
+          `);
+          fixes.push({ name: issue.name, success: true, detail: "Missing ledger postings recreated" });
+        } else if (issue.name === "Closing Integrity") {
+          // Regenerate snapshots for closed periods missing them
+          const closedPeriods = await db
+            .select({ id: accountingPeriodsTable.id, name: accountingPeriodsTable.name })
+            .from(accountingPeriodsTable)
+            .where(
+              and(
+                eq(accountingPeriodsTable.status, "CLOSED"),
+                isNull(accountingPeriodsTable.snapshotId),
+              )
+            );
+          for (const p of closedPeriods) {
+            await ClosingEngine.executeClosing(p.id, req.user?.id);
+          }
+          fixes.push({ name: issue.name, success: true, detail: `Snapshots regenerated for ${closedPeriods.length} periods` });
+        } else {
+          fixes.push({ name: issue.name, success: false, detail: "No auto-fix implementation for this issue" });
+        }
+      } catch (fixErr: any) {
+        fixes.push({ name: issue.name, success: false, detail: fixErr.message });
+      }
+    }
+
+    // Re-run validation after fixes to get updated report
+    const updatedReport = await ValidationEngine.runFullValidation(filters);
+
+    return res.json({
+      fixes,
+      total: fixes.length,
+      successful: fixes.filter((f) => f.success).length,
+      updatedReport,
+    });
+  } catch (err: any) {
+    console.error("POST /finance/validation/fix error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Accounting Health ──
+
+router.get("/finance/accounting-health", requireAuth, async (req, res) => {
+  try {
+    const filters = parseReportFilters(req);
+    const health = await AccountingHealthCache.get(filters);
+    return res.json(health);
+  } catch (err: any) {
+    console.error("GET /finance/accounting-health error:", err);
     return res.status(500).json({ error: err.message });
   }
 });

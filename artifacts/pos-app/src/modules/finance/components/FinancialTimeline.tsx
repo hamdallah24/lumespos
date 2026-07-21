@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useTimeline } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
-import { usePlatformFilter } from "@/platform/filter";
+import { useWorkspace } from "@/platform/workspace";
 import { useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/csrf";
 import { formatRp, formatDate } from "@/lib/format";
@@ -112,7 +112,7 @@ function TimelineItemCard({
 }
 
 export default function FinancialTimeline() {
-  const { state: filter } = usePlatformFilter();
+  const { state: filter } = useWorkspace();
   const { branchId: defaultBranchId } = useBranch();
   const branchId = filter.branchIds.length === 1 ? filter.branchIds[0] : null;
   const [search, setSearch] = useState("");

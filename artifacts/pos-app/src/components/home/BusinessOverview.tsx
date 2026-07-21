@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import BusinessCard from "./BusinessCard";
 import { useWidgetProvider } from "@/lib/home/widget-provider";
-import { usePlatformFilter } from "@/platform/filter";
+import { useWorkspace } from "@/platform/workspace";
 import {
   fetchCashToday,
   fetchCashflow,
@@ -11,7 +11,7 @@ import {
 } from "@/lib/home/home-data";
 
 export default function BusinessOverview() {
-  const { state: filter } = usePlatformFilter();
+  const { state: filter } = useWorkspace();
   const branchIds = filter.branchIds.length > 0 ? filter.branchIds : undefined;
 
   const cashFetcher = useMemo(

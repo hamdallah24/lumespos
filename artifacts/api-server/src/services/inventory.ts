@@ -4,11 +4,21 @@ import {
   semiFinishedTable,
   recipesTable,
   currentInventoryTable,
+  warehousesTable,
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 
 export type Executor = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type ItemType = "ingredient" | "semi_finished";
+
+async function getDefaultWarehouseId(tx: Executor, branchId: number): Promise<number> {
+  const [wh] = await tx.select({ id: warehousesTable.id }).from(warehousesTable).where(eq(warehousesTable.branchId, branchId)).limit(1);
+  if (wh) return wh.id;
+  const [created] = await tx.insert(warehousesTable).values({
+    branchId, code: `WH-DEF-${branchId}`, name: `Default WH ${branchId}`, type: "branch",
+  }).returning({ id: warehousesTable.id });
+  return created.id;
+}
 
 /** Read the cost_price_per_unit for an item. */
 export async function getUnitCost(tx: Executor, itemType: ItemType, itemId: number): Promise<number> {
@@ -35,13 +45,17 @@ export async function adjustInventory(
   itemType: ItemType,
   itemId: number,
   delta: number,
+  warehouseId?: number,
 ): Promise<AdjustInventoryResult> {
+  const whId = warehouseId || (await getDefaultWarehouseId(tx, branchId));
+
   const [existing] = await tx
     .select()
     .from(currentInventoryTable)
     .where(
       and(
         eq(currentInventoryTable.branchId, branchId),
+        eq(currentInventoryTable.warehouseId, whId),
         eq(currentInventoryTable.itemType, itemType),
         eq(currentInventoryTable.itemId, itemId),
       ),
@@ -51,6 +65,7 @@ export async function adjustInventory(
     const newStock = delta;
     await tx.insert(currentInventoryTable).values({
       branchId,
+      warehouseId: whId,
       itemType,
       itemId,
       currentStock: String(newStock),

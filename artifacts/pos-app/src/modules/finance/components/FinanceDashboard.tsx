@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useFinanceDashboard, useCreateTransaction, useFinanceAccounts } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
-import { usePlatformFilter } from "@/platform/filter";
+import { useWorkspace } from "@/platform/workspace";
 import FinanceFilterBar from "./FinanceFilterBar";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -236,7 +236,7 @@ function TransactionForm({
 
 export default function FinanceDashboard() {
   const { branchId } = useBranch();
-  const { state: filter } = usePlatformFilter();
+  const { state: filter } = useWorkspace();
   const { data: dashboard, isLoading: dashboardLoading, refetch } = useFinanceDashboard(
     filter.branchIds.length > 0 ? filter.branchIds : undefined,
     filter.startDate,

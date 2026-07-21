@@ -2,8 +2,10 @@ import { pgTable, serial, text, integer, numeric, timestamp, unique } from "driz
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { branchesTable } from "./branches";
+import { warehousesTable } from "./warehouses";
 
-// Live stock level per item per branch.
+// Projection cache — current stock per item per warehouse per branch.
+// Rebuildable from stock_card at any time.
 export const currentInventoryTable = pgTable(
   "current_inventory",
   {
@@ -11,11 +13,14 @@ export const currentInventoryTable = pgTable(
     branchId: integer("branch_id")
       .notNull()
       .references(() => branchesTable.id, { onDelete: "cascade" }),
-    itemType: text("item_type").notNull(), // 'ingredient' | 'semi_finished'
+    warehouseId: integer("warehouse_id")
+      .notNull()
+      .references(() => warehousesTable.id, { onDelete: "cascade" }),
+    itemType: text("item_type").notNull(), // 'ingredient' | 'semi_finished' | 'product'
     itemId: integer("item_id").notNull(),
     currentStock: numeric("current_stock", { precision: 14, scale: 2 }).notNull().default("0"),
   },
-  (t) => [unique("uniq_inventory_item").on(t.branchId, t.itemType, t.itemId)],
+  (t) => [unique("uniq_inventory_item").on(t.branchId, t.warehouseId, t.itemType, t.itemId)],
 );
 
 // Ledger of every stock movement.

@@ -179,6 +179,37 @@ export interface ProfitLossData {
   netIncome: number;
 }
 
+export interface CashflowData {
+  operating: Array<{ description: string; amount: number }>;
+  investing: Array<{ description: string; amount: number }>;
+  financing: Array<{ description: string; amount: number }>;
+  netOperating: number;
+  netInvesting: number;
+  netFinancing: number;
+  netChange: number;
+}
+
+export interface GeneralLedgerRow {
+  entryId: number;
+  date: string;
+  transactionRef: string;
+  description: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+  accountCode: string;
+  accountName: string;
+  accountType: string;
+}
+
+export interface EquityStatementData {
+  openingBalance: number;
+  additions: Array<{ description: string; amount: number }>;
+  deductions: Array<{ description: string; amount: number }>;
+  netIncome: number;
+  closingBalance: number;
+}
+
 export type TransactionCategory =
   | "pos_sale"
   | "depot_sale"

@@ -3,9 +3,11 @@ import {
   db,
   branchesTable,
   userBranchesTable,
+  employeesTable,
+  ordersTable,
 } from "@workspace/db";
 import { requireAuth, requireRole } from "../middlewares/requireAuth";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 const router = Router();
 
@@ -96,6 +98,36 @@ router.patch("/branches/:id", requireAuth, requireRole("owner", "manager"), asyn
   } catch (err) {
     console.error("PATCH /branches/:id error:", err);
     res.status(500).json({ error: "Gagal mengupdate cabang" });
+  }
+});
+
+router.delete("/branches/:id", requireAuth, requireRole("owner"), async (req, res) => {
+  try {
+    const id = Number(req.params["id"]);
+
+    const [branch] = await db.select().from(branchesTable).where(eq(branchesTable.id, id));
+    if (!branch) return res.status(404).json({ error: "Cabang tidak ditemukan" });
+
+    const [empResult] = await db.select({ count: sql<string>`count(*)::int` }).from(employeesTable).where(eq(employeesTable.branchId, id));
+    const empCount = parseInt(empResult?.count || "0");
+    const [orderResult] = await db.select({ count: sql<string>`count(*)::int` }).from(ordersTable).where(eq(ordersTable.branchId, id));
+    const orderCount = parseInt(orderResult?.count || "0");
+
+    const deps: string[] = [];
+    if (empCount > 0) deps.push(`${empCount} karyawan`);
+    if (orderCount > 0) deps.push(`${orderCount} pesanan`);
+
+    if (deps.length > 0) {
+      return res.status(400).json({
+        error: `Tidak bisa hapus cabang "${branch.name}". Masih terhubung dengan: ${deps.join(", ")}. Hapus data tersebut terlebih dahulu.`,
+      });
+    }
+
+    await db.delete(branchesTable).where(eq(branchesTable.id, id));
+    return res.json({ success: true, message: `Cabang "${branch.name}" berhasil dihapus` });
+  } catch (err: any) {
+    console.error("DELETE /branches/:id error:", err);
+    return res.status(500).json({ error: "Gagal menghapus cabang: " + (err.message || "Unknown error") });
   }
 });
 

@@ -9,8 +9,7 @@ import {
   useListBranches,
 } from "@workspace/api-client-react";
 import { useBranch } from "@/lib/branch";
-import { usePlatformFilter } from "@/platform/filter";
-import PlatformFilterBar from "@/platform/filter/components/PlatformFilterBar";
+import { useWorkspace, WorkspaceBar } from "@/platform/workspace";
 import { formatRp } from "@/lib/format";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
@@ -55,7 +54,7 @@ function StatCard({ title, value, diff, icon: Icon, format = "number" }: {
 export default function DashboardPage() {
   const { data: branchesRaw } = useListBranches();
   const allBranches = Array.isArray(branchesRaw) ? branchesRaw as { id: number; name: string }[] : [];
-  const { state: filter } = usePlatformFilter();
+  const { state: filter } = useWorkspace();
 
   const activeBranchId = filter.branchIds.length === 1 ? filter.branchIds[0] : undefined;
   const params = { branchId: activeBranchId };
@@ -134,7 +133,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Platform Filter Bar */}
-          <PlatformFilterBar
+          <WorkspaceBar
             branches={allBranches}
             showPeriod={false}
             mode="compact"

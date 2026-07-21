@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { RefreshCw } from "lucide-react";
 import { useWidgetProvider } from "@/lib/home/widget-provider";
-import { usePlatformFilter } from "@/platform/filter";
+import { useWorkspace } from "@/platform/workspace";
 import { formatIDR, type CashflowRange, type CashflowPoint } from "@/lib/home/home-data";
 
 const RANGE_LABELS: Record<CashflowRange, string> = {
@@ -255,7 +255,7 @@ function ComboChart({ data }: { data: CashflowPoint[] }) {
 
 export default function CashflowWidget() {
   const [range, setRange] = useState<CashflowRange>("week");
-  const { state: filter } = usePlatformFilter();
+  const { state: filter } = useWorkspace();
   const branchIds = filter.branchIds.length > 0 ? filter.branchIds : undefined;
 
   const fetcher = useMemo(

@@ -1,7 +1,7 @@
 import React from "react";
 import { useInsight } from "../hooks/useFinance";
 import { useBranch } from "@/lib/branch";
-import { usePlatformFilter } from "@/platform/filter";
+import { useWorkspace } from "@/platform/workspace";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, TrendingDown, Minus, Sparkles } from "lucide-react";
@@ -56,7 +56,7 @@ function InsightCard({
 }
 
 export default function DashboardInsight() {
-  const { state: filter } = usePlatformFilter();
+  const { state: filter } = useWorkspace();
   const { branchId: defaultBranchId } = useBranch();
   const branchId = filter.branchIds.length === 1 ? filter.branchIds[0] : defaultBranchId;
   const { data, isLoading } = useInsight(branchId ?? undefined);
