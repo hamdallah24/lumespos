@@ -38,9 +38,22 @@ export async function generateBalanceSheet(): Promise<BalanceSheetData> {
     .filter((b) => b.accountType === "liability")
     .map((b) => ({ code: b.accountCode, name: b.accountName, balance: b.balance }));
 
-  const equity = balances
+  const equityBase = balances
     .filter((b) => b.accountType === "equity")
     .map((b) => ({ code: b.accountCode, name: b.accountName, balance: b.balance }));
+
+  // Include current period net income in equity so A = L + E always balances
+  const totalRevenue = balances
+    .filter((b) => b.accountType === "revenue")
+    .reduce((sum, b) => sum + b.balance, 0);
+  const totalExpenses = balances
+    .filter((b) => b.accountType === "expense")
+    .reduce((sum, b) => sum + b.balance, 0);
+  const netIncome = totalRevenue - totalExpenses;
+
+  const equity = netIncome !== 0
+    ? [...equityBase, { code: "NET_INCOME", name: "Laba Berjalan", balance: netIncome }]
+    : equityBase;
 
   const totalAssets = assets.reduce((sum, a) => sum + a.balance, 0);
   const totalLiabilities = liabilities.reduce((sum, l) => sum + l.balance, 0);
@@ -79,6 +92,12 @@ export async function generateCashflow(): Promise<CashflowData> {
     .where(eq(accountsTable.code, "1100"))
     .then((rows) => rows[0]);
 
+  const ewalletAccount = await db
+    .select()
+    .from(accountsTable)
+    .where(eq(accountsTable.code, "1250"))
+    .then((rows) => rows[0]);
+
   const cashBalance = cashAccount
     ? await getAccountBalance(cashAccount.id)
     : 0;
@@ -87,12 +106,17 @@ export async function generateCashflow(): Promise<CashflowData> {
     ? await getAccountBalance(bankAccount.id)
     : 0;
 
+  const ewalletBalance = ewalletAccount
+    ? await getAccountBalance(ewalletAccount.id)
+    : 0;
+
   const operating = [
     { description: "Kas", amount: cashBalance },
     { description: "Bank", amount: bankBalance },
+    { description: "E-Wallet", amount: ewalletBalance },
   ];
 
-  const totalCash = cashBalance + bankBalance;
+  const totalCash = cashBalance + bankBalance + ewalletBalance;
 
   return {
     operating,

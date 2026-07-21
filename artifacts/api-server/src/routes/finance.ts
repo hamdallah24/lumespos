@@ -329,7 +329,7 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     };
 
     const [healthData, insightData, currentPeriod] = await Promise.all([
-      branchId ? getHealthData(branchId, { cash: cashAccount?.balance || 0, bank: bankAccount?.balance || 0 }) : null,
+      branchId ? getHealthData(branchId, { cash: cashAccount?.balance || 0, bank: bankAccount?.balance || 0, ewallet: ewalletAccount?.balance || 0 }) : null,
       branchId ? getInsightData(branchId) : null,
       PeriodManager.getCurrentPeriod(),
     ]);
@@ -393,10 +393,11 @@ router.get("/finance/timeline", requireAuth, async (req, res) => {
   }
 });
 
-router.get("/finance/cash-position", requireAuth, async (_req, res) => {
+router.get("/finance/cash-position", requireAuth, async (req, res) => {
   try {
-    const position = await getCashPosition();
-    const items = await getCashPositionItems();
+    const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
+    const position = await getCashPosition(branchId);
+    const items = await getCashPositionItems(branchId);
     return res.json({ position, items });
   } catch (err: any) {
     console.error("GET /finance/cash-position error:", err);

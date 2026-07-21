@@ -147,9 +147,17 @@ export async function createDailySnapshot(branchId: number, date?: Date): Promis
     }
   }
 
-  const cashBalance = await getAccountBalanceByCode("1000");
-  const bankBalance = await getAccountBalanceByCode("1100");
-  const closingCash = cashBalance;
+  const [cashBalance, bankBalance, ewalletBalance, inventoryBalance, receivableBalance, payableBalance, equityBalance] = await Promise.all([
+    getAccountBalanceByCode("1000"),
+    getAccountBalanceByCode("1100"),
+    getAccountBalanceByCode("1250"),
+    getAccountBalanceByCode("1200"),
+    getAccountBalanceByCode("1300"),
+    getAccountBalanceByCode("2000"),
+    getAccountBalanceByCode("3000"),
+  ]);
+  const closingCash = cashBalance + bankBalance + ewalletBalance;
+  const totalAssetsValue = cashBalance + bankBalance + ewalletBalance + inventoryBalance + receivableBalance;
 
   const [snapshot] = await db
     .insert(balanceSnapshotsTable)
@@ -158,9 +166,9 @@ export async function createDailySnapshot(branchId: number, date?: Date): Promis
       snapshotDate,
       openingCash: String(openingCash),
       closingCash: String(closingCash),
-      totalAssets: String(cashBalance + bankBalance),
-      totalLiabilities: String(await getAccountBalanceByCode("2000")),
-      totalEquity: String(await getAccountBalanceByCode("3000")),
+      totalAssets: String(totalAssetsValue),
+      totalLiabilities: String(payableBalance),
+      totalEquity: String(equityBalance),
       totalRevenue: String(income),
       totalExpenses: String(expense),
       netIncome: String(income - expense),

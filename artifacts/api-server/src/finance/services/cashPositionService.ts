@@ -1,5 +1,5 @@
-import { db, accountsTable, ledgerEntriesTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { db, accountsTable, transactionsTable, ledgerEntriesTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
 
 export interface CashPositionItem {
   code: string;
@@ -16,7 +16,7 @@ export interface CashPosition {
   total: number;
 }
 
-async function getAccountBalance(code: string): Promise<number> {
+async function getAccountBalance(code: string, branchId?: number): Promise<number> {
   const account = await db
     .select()
     .from(accountsTable)
@@ -25,13 +25,20 @@ async function getAccountBalance(code: string): Promise<number> {
 
   if (!account) return 0;
 
-  const [result] = await db
+  let query = db
     .select({
       totalDebit: sql<string>`COALESCE(SUM(${ledgerEntriesTable.debit}), 0)`,
       totalCredit: sql<string>`COALESCE(SUM(${ledgerEntriesTable.credit}), 0)`,
     })
-    .from(ledgerEntriesTable)
-    .where(eq(ledgerEntriesTable.accountId, account.id));
+    .from(ledgerEntriesTable);
+
+  const conditions = [eq(ledgerEntriesTable.accountId, account.id)];
+  if (branchId) {
+    query = query.innerJoin(transactionsTable, eq(ledgerEntriesTable.transactionId, transactionsTable.id)) as any;
+    conditions.push(eq(transactionsTable.branchId, branchId));
+  }
+
+  const [result] = await query.where(and(...conditions));
 
   if (!result) return 0;
 
@@ -43,12 +50,14 @@ async function getAccountBalance(code: string): Promise<number> {
     : totalCredit - totalDebit;
 }
 
-export async function getCashPosition(): Promise<CashPosition> {
-  const cash = await getAccountBalance("1000");
-  const bank = await getAccountBalance("1100");
-  const eWallet = 0;
-  const accountsReceivable = await getAccountBalance("1300");
-  const accountsPayable = await getAccountBalance("2000");
+export async function getCashPosition(branchId?: number): Promise<CashPosition> {
+  const [cash, bank, eWallet, accountsReceivable, accountsPayable] = await Promise.all([
+    getAccountBalance("1000", branchId),
+    getAccountBalance("1100", branchId),
+    getAccountBalance("1250", branchId),
+    getAccountBalance("1300", branchId),
+    getAccountBalance("2000", branchId),
+  ]);
 
   return {
     cash,
@@ -60,17 +69,19 @@ export async function getCashPosition(): Promise<CashPosition> {
   };
 }
 
-export async function getCashPositionItems(): Promise<CashPositionItem[]> {
-  const cash = await getAccountBalance("1000");
-  const bank = await getAccountBalance("1100");
-  const eWallet = 0;
-  const accountsReceivable = await getAccountBalance("1300");
-  const accountsPayable = await getAccountBalance("2000");
+export async function getCashPositionItems(branchId?: number): Promise<CashPositionItem[]> {
+  const [cash, bank, eWallet, accountsReceivable, accountsPayable] = await Promise.all([
+    getAccountBalance("1000", branchId),
+    getAccountBalance("1100", branchId),
+    getAccountBalance("1250", branchId),
+    getAccountBalance("1300", branchId),
+    getAccountBalance("2000", branchId),
+  ]);
 
   return [
     { code: "1000", name: "Kas", balance: cash },
     { code: "1100", name: "Bank", balance: bank },
-    { code: "E-Wallet", name: "E-Wallet", balance: eWallet },
+    { code: "1250", name: "E-Wallet", balance: eWallet },
     { code: "1300", name: "Piutang Usaha", balance: accountsReceivable },
     { code: "2000", name: "Hutang Usaha", balance: accountsPayable },
   ];

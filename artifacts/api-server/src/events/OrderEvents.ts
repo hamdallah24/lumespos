@@ -25,10 +25,19 @@ export interface PaymentReceivedData {
   paymentMethod: string;
 }
 
+export interface OrderVoidedData {
+  branchId: number;
+  orderId: number;
+  total: number;
+  totalCogs: number;
+  reason?: string;
+}
+
 export type OrderEvent =
   | { type: "order.created"; data: OrderCreatedData }
   | { type: "order.completed"; data: OrderCompletedData }
-  | { type: "payment.received"; data: PaymentReceivedData };
+  | { type: "payment.received"; data: PaymentReceivedData }
+  | { type: "order.voided"; data: OrderVoidedData };
 
 export function createOrderCreatedEvent(
   data: OrderCreatedData,
@@ -69,6 +78,22 @@ export function createPaymentReceivedEvent(
   return {
     id: `payment-received-${data.orderId}`,
     type: "payment.received",
+    version: 1,
+    timestamp: new Date(),
+    aggregateId: `order:${data.orderId}`,
+    aggregateType: "order",
+    data: data as unknown as Record<string, unknown>,
+    metadata,
+  };
+}
+
+export function createOrderVoidedEvent(
+  data: OrderVoidedData,
+  metadata?: Record<string, unknown>,
+): BaseEvent {
+  return {
+    id: `order-voided-${data.orderId}`,
+    type: "order.voided",
     version: 1,
     timestamp: new Date(),
     aggregateId: `order:${data.orderId}`,

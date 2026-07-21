@@ -4,7 +4,7 @@ import { eq, and, gte, lte, count, sql } from "drizzle-orm";
 import { canAccessBranch, requireAuth, requireRole } from "../middlewares/requireAuth";
 import { getRecipeRows, adjustInventory, type Executor } from "../services/inventory";
 import { EventPublisher } from "../event-bus";
-import { createOrderCreatedEvent, createOrderCompletedEvent } from "../events";
+import { createOrderCreatedEvent, createOrderCompletedEvent, createOrderVoidedEvent } from "../events";
 
 const router = Router();
 
@@ -456,6 +456,14 @@ router.post("/orders/:id/void", requireAuth, requireRole("owner", "manager"), as
         }
       }
     });
+
+    EventPublisher.publish(createOrderVoidedEvent({
+      branchId: order.branchId!,
+      orderId: order.id,
+      total: parseFloat(order.total),
+      totalCogs: parseFloat(order.totalCogs || "0"),
+      reason: reason ?? "Dibatalkan",
+    }));
 
     return res.json({ success: true, message: "Order voided successfully" });
   } catch (err) {

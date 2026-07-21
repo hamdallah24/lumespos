@@ -43,7 +43,7 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineRes
   const limit = Math.min(filters.limit || 20, 100);
   const offset = (page - 1) * limit;
 
-  const conditions = [];
+  const conditions: any[] = [];
   if (filters.branchId) {
     conditions.push(eq(transactionsTable.branchId, filters.branchId));
   }
@@ -59,8 +59,8 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineRes
   if (filters.endDate) {
     conditions.push(sql`${transactionsTable.createdAt} <= ${filters.endDate}`);
   }
-  // Timeline only shows cash movements
   conditions.push(eq(transactionsTable.transactionClass, "CASH_TRANSACTION"));
+  conditions.push(sql`${transactionsTable.status} != 'voided'`);
 
   const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
@@ -79,44 +79,73 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineRes
     .limit(limit)
     .offset(offset);
 
-  const items: TimelineItem[] = [];
+  // Batch 1: Get cash account once
+  const cashAccount = await db
+    .select()
+    .from(accountsTable)
+    .where(eq(accountsTable.code, "1000"))
+    .then((r) => r[0]);
 
-  for (const row of rows) {
-    const cashAccount = await db
-      .select()
-      .from(accountsTable)
-      .where(eq(accountsTable.code, "1000"))
-      .then((r) => r[0]);
+  // Batch 2: Precompute running balances for cash account at each timeline point
+  const balanceMap = new Map<string, number>();
+  if (cashAccount && rows.length > 0) {
+    const sortedRows = [...rows].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+    const firstDate = sortedRows[0].createdAt;
+    const lastDate = sortedRows[sortedRows.length - 1].createdAt;
 
-    let balanceAfter = 0;
-    if (cashAccount) {
-      const [balanceResult] = await db
-        .select({
-          totalDebit: sql<string>`COALESCE(SUM(${journalEntriesTable.debit}), 0)`,
-          totalCredit: sql<string>`COALESCE(SUM(${journalEntriesTable.credit}), 0)`,
-        })
-        .from(journalEntriesTable)
-        .where(
-          and(
-            eq(journalEntriesTable.accountId, cashAccount.id),
-            sql`${journalEntriesTable.createdAt} <= ${row.createdAt}`
-          )
-        );
-
-      if (balanceResult) {
-        const totalDebit = parseFloat(balanceResult.totalDebit);
-        const totalCredit = parseFloat(balanceResult.totalCredit);
-        balanceAfter = totalDebit - totalCredit;
-      }
-    }
-
-    const journalCount = await db
-      .select({ count: sql<number>`count(*)::int` })
+    // Single query: get all cash journal entries up to last timeline date
+    const allCashJournals = await db
+      .select({
+        debit: sql<string>`${journalEntriesTable.debit}`,
+        credit: sql<string>`${journalEntriesTable.credit}`,
+        createdAt: journalEntriesTable.createdAt,
+      })
       .from(journalEntriesTable)
-      .where(eq(journalEntriesTable.transactionId, row.id))
-      .then((r) => r[0]?.count || 0);
+      .where(
+        and(
+          eq(journalEntriesTable.accountId, cashAccount.id),
+          sql`${journalEntriesTable.createdAt} <= ${lastDate}`
+        )
+      )
+      .orderBy(journalEntriesTable.createdAt);
 
-    items.push({
+    // Compute running balance at each timeline point
+    let runningDebit = 0;
+    let runningCredit = 0;
+    let entryIdx = 0;
+
+    for (const txn of sortedRows) {
+      const txnTime = txn.createdAt.getTime();
+      while (entryIdx < allCashJournals.length && allCashJournals[entryIdx].createdAt.getTime() <= txnTime) {
+        runningDebit += parseFloat(allCashJournals[entryIdx].debit);
+        runningCredit += parseFloat(allCashJournals[entryIdx].credit);
+        entryIdx++;
+      }
+      balanceMap.set(String(txn.id), runningDebit - runningCredit);
+    }
+  }
+
+  // Batch 3: Get all journal counts in a single query
+  const txnIds = rows.map((r) => r.id);
+  const journalCountMap = new Map<number, number>();
+  if (txnIds.length > 0) {
+    const counts = await db
+      .select({
+        transactionId: journalEntriesTable.transactionId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(journalEntriesTable)
+      .where(sql`${journalEntriesTable.transactionId} IN (${txnIds.join(",")})`)
+      .groupBy(journalEntriesTable.transactionId);
+
+    for (const row of counts) {
+      journalCountMap.set(row.transactionId, row.count);
+    }
+  }
+
+  const items: TimelineItem[] = rows.map((row) => {
+    const journalCount = journalCountMap.get(row.id) || 0;
+    return {
       id: row.id,
       branchId: row.branchId,
       type: row.type,
@@ -130,11 +159,11 @@ export async function getTimeline(filters: TimelineFilters): Promise<TimelineRes
       status: row.status,
       createdBy: row.createdBy,
       createdAt: row.createdAt,
-      balanceAfter,
+      balanceAfter: balanceMap.get(String(row.id)) || 0,
       journalGenerated: journalCount > 0,
       ledgerUpdated: journalCount > 0,
-    });
-  }
+    };
+  });
 
   return {
     items,

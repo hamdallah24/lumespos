@@ -64,6 +64,14 @@ export interface FinanceDashboardData {
   cashPosition: CashPosition;
   health: FinancialHealth | null;
   insight: InsightData | null;
+  accountingPeriod?: {
+    id: number;
+    name: string;
+    startDate: string;
+    endDate: string;
+    status: string;
+    remainingDays: number;
+  } | null;
 }
 
 export interface CashPositionItem {
@@ -92,8 +100,12 @@ export interface FinancialHealth {
 
 export interface InsightData {
   income: { current: number; previous: number; change: number; direction: "up" | "down" | "flat" };
-  expense: { current: number; previous: number; change: number; direction: "up" | "down" | "flat" };
+  operatingExpense: { current: number; previous: number; change: number; direction: "up" | "down" | "flat" };
+  totalExpense: { current: number; previous: number; change: number; direction: "up" | "down" | "flat" };
+  cogs: { current: number; previous: number; change: number };
+  grossMargin: number;
   profitMargin: number;
+  netProfit: number;
   hasHistory: boolean;
 }
 

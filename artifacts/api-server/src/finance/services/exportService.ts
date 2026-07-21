@@ -62,6 +62,14 @@ export async function getExportData(filters: ExportFilters): Promise<ExportRow[]
   }));
 }
 
+function csvEscape(val: any): string {
+  const str = String(val ?? "");
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
 export function generateCSV(data: ExportRow[]): string {
   const headers = ["ID", "Tanggal", "Tipe", "Kategori", "Deskripsi", "Jumlah", "Referensi", "Kode Referensi", "Modul Sumber", "Status"];
   const rows = data.map((row) => [
@@ -77,7 +85,7 @@ export function generateCSV(data: ExportRow[]): string {
     row.status,
   ]);
 
-  const csvContent = [headers.join(","), ...rows.map((row) => row.join(","))].join("\n");
+  const csvContent = [headers.map(csvEscape).join(","), ...rows.map((row) => row.map(csvEscape).join(","))].join("\n");
   return csvContent;
 }
 

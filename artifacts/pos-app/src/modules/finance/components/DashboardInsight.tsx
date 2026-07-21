@@ -109,10 +109,10 @@ export default function DashboardInsight() {
           />
           <InsightCard
             title="Pengeluaran"
-            current={data.expense.current}
-            previous={data.expense.previous}
-            change={data.expense.change}
-            direction={data.expense.direction}
+            current={data.totalExpense.current}
+            previous={data.totalExpense.previous}
+            change={data.totalExpense.change}
+            direction={data.totalExpense.direction}
             isCurrency
           />
           <InsightCard

@@ -1,6 +1,8 @@
 import { EventSubscriber } from "../../event-bus";
+import { db, transactionsTable, journalEntriesTable, ledgerEntriesTable } from "@workspace/db";
+import { eq, sql } from "drizzle-orm";
 import { createTransaction } from "./transactionEngine";
-import { getAccountByCode } from "./chartOfAccounts";
+import { getAccountByCode, getAccountById } from "./chartOfAccounts";
 
 const PAYMENT_METHOD_TO_ACCOUNT: Record<string, string> = {
   cash: "1000",
@@ -72,7 +74,7 @@ EventSubscriber.on("expense.recorded", async (event) => {
       await createTransaction({
         branchId: data.branchId,
         type: "expense",
-        category: "other_expense",
+        category: data.category || "other_expense",
         description: data.description || "Pengeluaran",
         amount: data.amount,
         referenceType: "expense",
@@ -82,5 +84,65 @@ EventSubscriber.on("expense.recorded", async (event) => {
     }
   } catch (err) {
     console.error(`[Finance] Gagal membuat transaksi untuk pengeluaran ${event.data?.expenseId}:`, err);
+  }
+});
+
+EventSubscriber.on("order.voided", async (event) => {
+  try {
+    const data = event.data as any;
+    if (!data.orderId) return;
+
+    // Find finance transactions linked to this order
+    const orderTxns = await db
+      .select()
+      .from(transactionsTable)
+      .where(
+        eq(transactionsTable.referenceType, "order"),
+        eq(transactionsTable.referenceId, data.orderId)
+      );
+
+    for (const txn of orderTxns) {
+      if (txn.status === "voided") continue;
+
+      await db.update(transactionsTable)
+        .set({ status: "voided", notes: (txn.notes ? txn.notes + " | " : "") + "Voided via order void", updatedAt: new Date() })
+        .where(eq(transactionsTable.id, txn.id));
+
+      const originalJournals = await db.select().from(journalEntriesTable).where(eq(journalEntriesTable.transactionId, txn.id));
+      for (const je of originalJournals) {
+        const [reversal] = await db.insert(journalEntriesTable).values({
+          transactionId: txn.id,
+          accountId: je.accountId,
+          debit: je.credit,
+          credit: je.debit,
+          description: "REVERSAL: " + (je.description || txn.description),
+        }).returning();
+
+        const [lastLedger] = await db.select()
+          .from(ledgerEntriesTable)
+          .where(eq(ledgerEntriesTable.accountId, je.accountId))
+          .orderBy(sql`${ledgerEntriesTable.id} DESC`)
+          .limit(1);
+        const prevBalance = lastLedger ? parseFloat(lastLedger.runningBalance) : 0;
+        const revDebit = parseFloat(reversal.debit);
+        const revCredit = parseFloat(reversal.credit);
+        const acct = await getAccountById(je.accountId);
+        const isDebitNormal = acct?.normalBalance === "debit";
+        const newBalance = isDebitNormal ? prevBalance + revDebit - revCredit : prevBalance - revDebit + revCredit;
+
+        await db.insert(ledgerEntriesTable).values({
+          accountId: je.accountId,
+          journalEntryId: reversal.id,
+          transactionId: txn.id,
+          date: new Date(),
+          description: "REVERSAL: " + (je.description || txn.description),
+          debit: reversal.debit,
+          credit: reversal.credit,
+          runningBalance: String(newBalance),
+        });
+      }
+    }
+  } catch (err) {
+    console.error(`[Finance] Gagal void transaksi untuk order ${event.data?.orderId}:`, err);
   }
 });

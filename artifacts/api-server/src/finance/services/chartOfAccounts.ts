@@ -1,5 +1,5 @@
 import { db, accountsTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { InsertAccount, Account } from "@workspace/db";
 
 export async function getAllAccounts(): Promise<Account[]> {

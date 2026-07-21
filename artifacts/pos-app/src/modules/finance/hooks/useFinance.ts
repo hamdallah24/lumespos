@@ -124,11 +124,12 @@ export function useTimeline(filters: {
   });
 }
 
-export function useCashPosition() {
+export function useCashPosition(branchId?: number) {
   return useQuery<{ position: CashPosition; items: CashPositionItem[] }>({
-    queryKey: ["finance", "cash-position"],
+    queryKey: ["finance", "cash-position", branchId],
     queryFn: async () => {
-      const res = await apiFetch("/api/finance/cash-position");
+      const params = branchId ? `?branchId=${branchId}` : "";
+      const res = await apiFetch(`/api/finance/cash-position${params}`);
       if (!res.ok) throw new Error("Gagal mengambil data cash position");
       return res.json();
     },
@@ -162,16 +163,12 @@ export function useInsight(branchId?: number) {
 }
 
 export function useTransactionDetail(transactionId?: number) {
-  return useQuery<{
-    transaction: FinanceTransaction;
-    journal: FinanceJournalEntry[];
-  }>({
+  return useQuery<FinanceJournalEntry[]>({
     queryKey: ["finance", "transaction-detail", transactionId],
     queryFn: async () => {
       const res = await apiFetch(`/api/finance/journal/${transactionId}`);
       if (!res.ok) throw new Error("Gagal mengambil data transaksi");
-      const journal = await res.json();
-      return { transaction: null as any, journal };
+      return res.json();
     },
     enabled: !!transactionId,
   });

@@ -1,6 +1,7 @@
 import { db, transactionsTable, accountsTable, ledgerEntriesTable, journalEntriesTable } from "@workspace/db";
 import { eq, and, sql, gte, lt } from "drizzle-orm";
 import { PeriodManager } from "./PeriodManager";
+import { getAccountByCode, getAccountById } from "./chartOfAccounts";
 
 export interface ClosingValidation {
   valid: boolean;
@@ -148,19 +149,135 @@ export class ClosingEngine {
   }
 
   static async generateClosingJournal(period: any, snapshot: any, userId?: number): Promise<void> {
-    // Close Revenue → Income Summary
-    const { createTransaction } = await import("./transactionEngine");
-    if (snapshot.revenue > 0) {
-      await createTransaction({
-        branchId: 1, // consolidated
-        type: "income",
-        category: "pos_sale",
-        description: "Closing: Transfer Revenue to Income Summary",
-        amount: parseFloat(snapshot.revenue),
-        referenceType: "closing",
-        referenceId: period.id,
-        sourceModule: "closing_engine",
-        createdBy: userId,
+    const balances = await this.getAccountBalances();
+
+    // Find revenue accounts (credit-normal) and expense accounts (debit-normal)
+    const revenueAccountCodes = ["4000", "4100", "4200"];
+    const expenseAccountCodes = ["5000", "6000", "6100", "6200", "6300", "6400", "6500"];
+
+    let totalRevenue = 0;
+    let totalExpense = 0;
+
+    const revenueLines: { accountId: number; amount: number }[] = [];
+    const expenseLines: { accountId: number; amount: number }[] = [];
+
+    for (const code of revenueAccountCodes) {
+      const balance = balances[code] || 0;
+      if (balance > 0) {
+        const account = await getAccountByCode(code);
+        if (account) {
+          revenueLines.push({ accountId: account.id, amount: balance });
+          totalRevenue += balance;
+        }
+      }
+    }
+
+    for (const code of expenseAccountCodes) {
+      const balance = balances[code] || 0;
+      if (balance > 0) {
+        const account = await getAccountByCode(code);
+        if (account) {
+          expenseLines.push({ accountId: account.id, amount: balance });
+          totalExpense += balance;
+        }
+      }
+    }
+
+    if (totalRevenue === 0 && totalExpense === 0) {
+      await PeriodManager.writeAuditLog({ action: "CLOSING_JOURNAL", userId, periodId: period.id, reason: "No revenue or expense to close" });
+      return;
+    }
+
+    // Create a closing transaction header
+    const [closingTxn] = await db.insert(transactionsTable).values({
+      branchId: 1,
+      type: "closing",
+      category: "period_closing",
+      description: `Closing entries for ${period.name}`,
+      amount: String(Math.abs(totalRevenue - totalExpense)),
+      referenceType: "closing",
+      referenceId: period.id,
+      sourceModule: "closing_engine",
+      transactionClass: "ACCOUNTING_TRANSACTION",
+      status: "completed",
+      createdBy: userId,
+    }).returning();
+
+    // Insert closing journal entries:
+    // 1. Debit each revenue account → zeroes them out (credit-normal, so debit reduces)
+    const closingLines: { accountId: number; debit: number; credit: number; description: string }[] = [];
+
+    for (const line of revenueLines) {
+      closingLines.push({
+        accountId: line.accountId,
+        debit: line.amount,
+        credit: 0,
+        description: `Close Revenue: ${line.amount}`,
+      });
+    }
+
+    // 2. Credit each expense account → zeroes them out (debit-normal, so credit reduces)
+    for (const line of expenseLines) {
+      closingLines.push({
+        accountId: line.accountId,
+        debit: 0,
+        credit: line.amount,
+        description: `Close Expense: ${line.amount}`,
+      });
+    }
+
+    // 3. Net income goes to Retained Earnings (3100)
+    const netIncome = totalRevenue - totalExpense;
+    const retainedEarningsAccount = await getAccountByCode("3100");
+    if (retainedEarningsAccount && netIncome !== 0) {
+      if (netIncome > 0) {
+        closingLines.push({
+          accountId: retainedEarningsAccount.id,
+          debit: 0,
+          credit: netIncome,
+          description: "Net income transferred to Retained Earnings",
+        });
+      } else {
+        closingLines.push({
+          accountId: retainedEarningsAccount.id,
+          debit: Math.abs(netIncome),
+          credit: 0,
+          description: "Net loss transferred to Retained Earnings",
+        });
+      }
+    }
+
+    // Insert all closing journal entries and update ledger
+    for (const line of closingLines) {
+      const [je] = await db.insert(journalEntriesTable).values({
+        transactionId: closingTxn.id,
+        accountId: line.accountId,
+        debit: String(line.debit),
+        credit: String(line.credit),
+        description: line.description,
+      }).returning();
+
+      const account = await getAccountById(line.accountId);
+      const isDebitNormal = account?.normalBalance === "debit";
+      const [lastLedger] = await db.select()
+        .from(ledgerEntriesTable)
+        .where(eq(ledgerEntriesTable.accountId, line.accountId))
+        .orderBy(sql`${ledgerEntriesTable.id} DESC`)
+        .limit(1);
+      const prevBalance = lastLedger ? parseFloat(lastLedger.runningBalance) : 0;
+      const newBalance = isDebitNormal
+        ? prevBalance + line.debit - line.credit
+        : prevBalance - line.debit + line.credit;
+
+      await db.insert(ledgerEntriesTable).values({
+        accountId: line.accountId,
+        journalEntryId: je.id,
+        transactionId: closingTxn.id,
+        date: new Date(),
+        description: line.description,
+        debit: String(line.debit),
+        credit: String(line.credit),
+        runningBalance: String(newBalance),
       });
     }
 
@@ -168,8 +285,8 @@ export class ClosingEngine {
       action: "CLOSING_JOURNAL",
       userId,
       periodId: period.id,
-      reason: "Auto-generated closing journal",
-      changes: JSON.stringify({ revenue: snapshot.revenue, cogs: snapshot.cogs, netProfit: snapshot.netProfit }),
+      reason: "Auto-generated closing journal with proper revenue/expense closure",
+      changes: JSON.stringify({ revenue: totalRevenue, expense: totalExpense, netIncome, retainedEarnings: netIncome }),
     });
   }
 
@@ -334,16 +451,21 @@ export class ClosingEngine {
     const rows = await db
       .select({
         code: accountsTable.code,
+        normalBalance: accountsTable.normalBalance,
         totalDebit: sql<string>`COALESCE(SUM(${ledgerEntriesTable.debit}), 0)`,
         totalCredit: sql<string>`COALESCE(SUM(${ledgerEntriesTable.credit}), 0)`,
       })
       .from(accountsTable)
       .leftJoin(ledgerEntriesTable, eq(accountsTable.id, ledgerEntriesTable.accountId))
-      .groupBy(accountsTable.code);
+      .groupBy(accountsTable.code, accountsTable.normalBalance);
 
     const balances: Record<string, number> = {};
     for (const row of rows) {
-      balances[row.code] = parseFloat(row.totalDebit) - parseFloat(row.totalCredit);
+      const totalDebit = parseFloat(row.totalDebit);
+      const totalCredit = parseFloat(row.totalCredit);
+      balances[row.code] = row.normalBalance === "debit"
+        ? totalDebit - totalCredit
+        : totalCredit - totalDebit;
     }
     return balances;
   }

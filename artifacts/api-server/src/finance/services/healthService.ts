@@ -91,15 +91,18 @@ async function getMonthlyTotals(branchId: number, monthsAgo: number) {
   return { income, expense, operatingExpense };
 }
 
-export async function getHealthData(branchId: number, precomputedBalances?: { cash: number; bank: number }): Promise<HealthData> {
+export async function getHealthData(branchId: number, precomputedBalances?: { cash: number; bank: number; ewallet?: number }): Promise<HealthData> {
   let totalCash: number;
 
   if (precomputedBalances) {
-    totalCash = precomputedBalances.cash + precomputedBalances.bank;
+    totalCash = precomputedBalances.cash + precomputedBalances.bank + (precomputedBalances.ewallet || 0);
   } else {
-    const cashBalance = await getAccountBalance("1000");
-    const bankBalance = await getAccountBalance("1100");
-    totalCash = cashBalance + bankBalance;
+    const [cashBalance, bankBalance, ewalletBalance] = await Promise.all([
+      getAccountBalance("1000"),
+      getAccountBalance("1100"),
+      getAccountBalance("1250"),
+    ]);
+    totalCash = cashBalance + bankBalance + ewalletBalance;
   }
 
   const [currentMonth, lastMonth] = await Promise.all([

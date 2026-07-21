@@ -8,7 +8,13 @@ export interface InsightData {
     change: number;
     direction: "up" | "down" | "flat";
   };
-  expense: {
+  operatingExpense: {
+    current: number;
+    previous: number;
+    change: number;
+    direction: "up" | "down" | "flat";
+  };
+  totalExpense: {
     current: number;
     previous: number;
     change: number;
@@ -19,7 +25,9 @@ export interface InsightData {
     previous: number;
     change: number;
   };
+  grossMargin: number;
   profitMargin: number;
+  netProfit: number;
   hasHistory: boolean;
 }
 
@@ -81,11 +89,21 @@ export async function getInsightData(branchId: number): Promise<InsightData> {
 
   const totalRevenue = todayData.income;
   const totalCOGS = todayData.cogs;
-  const totalExpenses = todayData.expense;
+  const totalOperatingExpense = todayData.expense;
+  const totalExpenses = totalCOGS + totalOperatingExpense;
   const grossProfit = totalRevenue - totalCOGS;
-  const netProfit = grossProfit - totalExpenses;
-  const profitMargin = totalRevenue > 0
+  const netProfit = grossProfit - totalOperatingExpense;
+  const grossMargin = totalRevenue > 0
     ? (grossProfit / totalRevenue) * 100
+    : 0;
+  const netMargin = totalRevenue > 0
+    ? (netProfit / totalRevenue) * 100
+    : 0;
+
+  // Total expense change
+  const yesterdayTotalExpense = (yesterdayData.cogs || 0) + (yesterdayData.expense || 0);
+  const totalExpenseChange = yesterdayTotalExpense > 0
+    ? ((totalExpenses - yesterdayTotalExpense) / yesterdayTotalExpense) * 100
     : 0;
 
   return {
@@ -95,18 +113,26 @@ export async function getInsightData(branchId: number): Promise<InsightData> {
       change: Math.abs(incomeChange),
       direction: incomeChange > 0 ? "up" : incomeChange < 0 ? "down" : "flat",
     },
-    expense: {
+    operatingExpense: {
       current: todayData.expense,
       previous: yesterdayData.expense,
       change: Math.abs(expenseChange),
       direction: expenseChange > 0 ? "up" : expenseChange < 0 ? "down" : "flat",
+    },
+    totalExpense: {
+      current: totalExpenses,
+      previous: yesterdayTotalExpense,
+      change: Math.abs(totalExpenseChange),
+      direction: totalExpenseChange > 0 ? "up" : totalExpenseChange < 0 ? "down" : "flat",
     },
     cogs: {
       current: todayData.cogs,
       previous: yesterdayData.cogs,
       change: yesterdayData.cogs > 0 ? ((todayData.cogs - yesterdayData.cogs) / yesterdayData.cogs) * 100 : 0,
     },
-    profitMargin,
+    grossMargin,
+    profitMargin: netMargin,
+    netProfit,
     hasHistory,
   };
 }
