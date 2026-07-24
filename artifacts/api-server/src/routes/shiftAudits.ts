@@ -1,8 +1,9 @@
 import { Router } from "express";
-import { db, shiftAuditsTable, usersTable, currentInventoryTable, stockAdjustmentsTable, ordersTable, orderItemsTable, productsTable, productVariantsTable, recipesTable, expensesTable } from "@workspace/db";
+import { db, shiftAuditsTable, usersTable, currentInventoryTable, stockAdjustmentsTable, ordersTable, orderItemsTable, productsTable, productVariantsTable, recipesTable, expensesTable, ingredientsTable, semiFinishedTable } from "@workspace/db";
 import { and, desc, eq, sql, gte, lte } from "drizzle-orm";
 import { canAccessBranch, requireAuth, requireBranchAccess, requireRole } from "../middlewares/requireAuth";
-import { listInventoryForBranch, listInventoryForShift, adjustInventory, getRecipeRows, type Executor, type ItemType } from "../services/inventory";
+import { listInventoryForBranch, listInventoryForShift, getRecipeRows, type ItemType } from "../services/inventory";
+import { createMovement, MOVEMENT_TYPES } from "../inventory/services/movementService";
 import { EventPublisher } from "../event-bus";
 import { createShiftOpenedEvent, createShiftClosedEvent } from "../events";
 
@@ -453,25 +454,56 @@ router.post("/shift/end", requireAuth, async (req, res) => {
     if (expectedStock && Array.isArray(actualStock) && actualStock.length > 0) {
       const details: { item: string; diff: number; type: string }[] = [];
       let corrected = 0;
-      try {
-        await db.transaction(async (tx: any) => {
-          for (const item of expectedStock) {
-            const actual = (actualStock as any[]).find((a: any) => a.name === item.name);
-            if (!actual) continue;
-            const diff = actual.quantity - item.quantity;
-            if (Math.abs(diff) < 0.01) continue;
-            await adjustInventory(tx, shift.branchId, item.itemType, item.itemId, diff);
-            await tx.insert(stockAdjustmentsTable).values({
-              branchId: shift.branchId, itemType: item.itemType, itemId: item.itemId,
-              adjustmentType: diff < 0 ? "loss" : "in",
-              quantity: String(Math.abs(diff)),
-              notes: `Auto-koreksi dari tutup shift #${shiftId}`,
-            });
-            details.push({ item: item.name, diff: Number(diff.toFixed(2)), type: diff < 0 ? "loss" : "in" });
-            corrected++;
+      const errors: string[] = [];
+      for (const item of expectedStock) {
+        const actual = (actualStock as any[]).find((a: any) => a.name === item.name);
+        if (!actual) continue;
+        const diff = actual.quantity - item.quantity;
+        if (Math.abs(diff) < 0.01) continue;
+
+        const movementType = diff > 0 ? MOVEMENT_TYPES.STOCK_OPNAME : MOVEMENT_TYPES.WASTE_DAMAGE;
+        const qty = Math.abs(diff);
+        let unitCost: number | undefined;
+        if (diff > 0) {
+          if (item.itemType === "ingredient") {
+            const [row] = await db.select({ c: ingredientsTable.costPricePerUnit }).from(ingredientsTable).where(eq(ingredientsTable.id, item.itemId));
+            unitCost = row ? parseFloat(row.c) : undefined;
+          } else if (item.itemType === "semi_finished") {
+            const [row] = await db.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, item.itemId));
+            unitCost = row ? parseFloat(row.c) : undefined;
           }
+        }
+        try {
+          await createMovement({
+            branchId: shift.branchId,
+            itemType: item.itemType,
+            itemId: item.itemId,
+            movementType,
+            quantity: qty,
+            unitCost,
+            referenceType: "shift_audit",
+            referenceId: shiftId,
+            description: `Auto-koreksi dari tutup shift #${shiftId}`,
+            itemName: item.name,
+          });
+        } catch (mvErr: any) {
+          console.error(`[Shift] Movement failed for ${item.name}:`, mvErr.message);
+          errors.push(`${item.name}: ${mvErr.message}`);
+          continue;
+        }
+
+        await db.insert(stockAdjustmentsTable).values({
+          branchId: shift.branchId, itemType: item.itemType, itemId: item.itemId,
+          adjustmentType: diff < 0 ? "loss" : "in",
+          quantity: String(Math.abs(diff)),
+          notes: `Auto-koreksi dari tutup shift #${shiftId}`,
         });
-      } catch (e) { console.error("Auto-correction error:", e); }
+        details.push({ item: item.name, diff: Number(diff.toFixed(2)), type: diff < 0 ? "loss" : "in" });
+        corrected++;
+      }
+      if (errors.length > 0) {
+        console.error(`[Shift] ${errors.length} item(s) gagal dikoreksi:`, errors.join("; "));
+      }
       if (corrected > 0) {
         correction = { corrected, details };
         await db.update(shiftAuditsTable)
@@ -805,49 +837,71 @@ router.post("/shift-audits", requireAuth, requireBranchAccess((req) => Number(re
 router.patch("/shift-audits/:id/verify", requireRole("owner", "manager"), async (req, res) => {
   const id = Number(req.params["id"]);
 
-  const updated = await db.transaction(async (tx: Executor) => {
-    const [audit] = await tx.select().from(shiftAuditsTable).where(eq(shiftAuditsTable.id, id));
-    if (!audit) return null;
-
-    const actual = (audit.actualStockJson as StockEntry[] | null) ?? [];
-    for (const a of actual) {
-      const [existing] = await tx
-        .select()
-        .from(currentInventoryTable)
-        .where(
-          and(
-            eq(currentInventoryTable.branchId, audit.branchId),
-            eq(currentInventoryTable.itemType, a.itemType),
-            eq(currentInventoryTable.itemId, a.itemId),
-          ),
-        );
-      if (existing) {
-        await tx
-          .update(currentInventoryTable)
-          .set({ currentStock: String(a.quantity) })
-          .where(eq(currentInventoryTable.id, existing.id));
-      } else {
-        await tx.insert(currentInventoryTable).values({
-          branchId: audit.branchId,
-          itemType: a.itemType,
-          itemId: a.itemId,
-          currentStock: String(a.quantity),
-        });
-      }
-    }
-
-    const [row] = await tx
-      .update(shiftAuditsTable)
-      .set({ status: "verified" })
-      .where(eq(shiftAuditsTable.id, id))
-      .returning();
-    return row;
-  });
-
-  if (!updated) {
+  const [audit] = await db.select().from(shiftAuditsTable).where(eq(shiftAuditsTable.id, id));
+  if (!audit) {
     res.status(404).json({ error: "Not found" });
     return;
   }
+
+  const actual = (audit.actualStockJson as StockEntry[] | null) ?? [];
+  const errors: string[] = [];
+
+  for (const a of actual) {
+    const [existing] = await db
+      .select({ currentStock: currentInventoryTable.currentStock })
+      .from(currentInventoryTable)
+      .where(
+        and(
+          eq(currentInventoryTable.branchId, audit.branchId),
+          eq(currentInventoryTable.itemType, a.itemType),
+          eq(currentInventoryTable.itemId, a.itemId),
+        ),
+      );
+
+    const currentStock = existing ? parseFloat(existing.currentStock) : 0;
+    const delta = a.quantity - currentStock;
+    if (Math.abs(delta) < 0.01) continue;
+
+    const movementType = delta > 0 ? MOVEMENT_TYPES.STOCK_OPNAME : MOVEMENT_TYPES.WASTE_DAMAGE;
+    const qty = Math.abs(delta);
+    let unitCost: number | undefined;
+    if (delta > 0) {
+      if (a.itemType === "ingredient") {
+        const [row] = await db.select({ c: ingredientsTable.costPricePerUnit }).from(ingredientsTable).where(eq(ingredientsTable.id, a.itemId));
+        unitCost = row ? parseFloat(row.c) : undefined;
+      } else if (a.itemType === "semi_finished") {
+        const [row] = await db.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, a.itemId));
+        unitCost = row ? parseFloat(row.c) : undefined;
+      }
+    }
+    try {
+      await createMovement({
+        branchId: audit.branchId,
+        itemType: a.itemType,
+        itemId: a.itemId,
+        movementType,
+        quantity: qty,
+        unitCost,
+        referenceType: "shift_audit_verify",
+        referenceId: id,
+        description: `Owner verify shift #${id} — ${a.name}`,
+      });
+    } catch (mvErr: any) {
+      console.error(`[Verify] Movement failed for ${a.name}:`, mvErr.message);
+      errors.push(`${a.name}: ${mvErr.message}`);
+    }
+  }
+
+  if (errors.length > 0) {
+    console.error(`[Verify] ${errors.length} item(s) gagal:`, errors.join("; "));
+  }
+
+  const [updated] = await db
+    .update(shiftAuditsTable)
+    .set({ status: "verified" })
+    .where(eq(shiftAuditsTable.id, id))
+    .returning();
+
   res.json({
     id: updated.id,
     branchId: updated.branchId,

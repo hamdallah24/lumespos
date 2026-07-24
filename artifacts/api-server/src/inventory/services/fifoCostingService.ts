@@ -1,5 +1,5 @@
-import { db, fifoLayersTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { db, fifoLayersTable, ingredientsTable, semiFinishedTable, productsTable, itemsTable } from "@workspace/db";
+import { eq, and, sql, inArray } from "drizzle-orm";
 
 export interface FifoConsumptionResult {
   consumedLayers: Array<{ layerId: number; qty: number; unitCost: number; totalCost: number }>;
@@ -90,7 +90,7 @@ export async function consumeFifo(
 export async function getFifoValuation(
   branchId: number,
   warehouseId?: number,
-): Promise<{ itemType: string; itemId: number; quantity: number; unitCost: number; totalValue: number }[]> {
+): Promise<{ itemType: string; itemId: number; itemName: string; quantity: number; unitCost: number; totalValue: number }[]> {
   const where = eq(fifoLayersTable.branchId, branchId);
   const w = warehouseId ? and(where, eq(fifoLayersTable.warehouseId, warehouseId)) : where;
 
@@ -114,7 +114,7 @@ export async function getFifoValuation(
     }
   }
 
-  return Array.from(grouped.entries()).map(([key, val]) => {
+  let result = Array.from(grouped.entries()).map(([key, val]) => {
     const [itemType, itemIdStr] = key.split(":");
     return {
       itemType,
@@ -124,4 +124,35 @@ export async function getFifoValuation(
       totalValue: Math.round(val.value * 100) / 100,
     };
   });
+
+  // Resolve item names from source tables
+  const nameMap = new Map<string, string>();
+  const byType: Record<string, number[]> = {};
+  for (const r of result) {
+    if (!byType[r.itemType]) byType[r.itemType] = [];
+    byType[r.itemType].push(r.itemId);
+  }
+  if (byType["ingredient"]?.length) {
+    const rows = await db.select({ id: ingredientsTable.id, name: ingredientsTable.name }).from(ingredientsTable).where(inArray(ingredientsTable.id, byType["ingredient"]));
+    for (const r of rows) nameMap.set(`ingredient:${r.id}`, r.name);
+  }
+  if (byType["semi_finished"]?.length) {
+    const rows = await db.select({ id: semiFinishedTable.id, name: semiFinishedTable.name }).from(semiFinishedTable).where(inArray(semiFinishedTable.id, byType["semi_finished"]));
+    for (const r of rows) nameMap.set(`semi_finished:${r.id}`, r.name);
+  }
+  if (byType["product"]?.length) {
+    const rows = await db.select({ id: productsTable.id, name: productsTable.name }).from(productsTable).where(inArray(productsTable.id, byType["product"]));
+    for (const r of rows) nameMap.set(`product:${r.id}`, r.name);
+  }
+  if (byType["item"]?.length) {
+    const rows = await db.select({ id: itemsTable.id, name: itemsTable.name }).from(itemsTable).where(inArray(itemsTable.id, byType["item"]));
+    for (const r of rows) nameMap.set(`item:${r.id}`, r.name);
+  }
+
+  result = result.map(r => ({
+    ...r,
+    itemName: nameMap.get(`${r.itemType}:${r.itemId}`) || `${r.itemType} #${r.itemId}`,
+  }));
+
+  return result;
 }

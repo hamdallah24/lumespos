@@ -3,6 +3,7 @@ import { useFinanceDashboard, useCreateTransaction, useFinanceAccounts } from ".
 import { useBranch } from "@/lib/branch";
 import { useWorkspace } from "@/platform/workspace";
 import FinanceFilterBar from "./FinanceFilterBar";
+import ProfitLossReport from "./ProfitLossReport";
 import { formatRp } from "@/lib/format";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ import {
   ArrowDownRight,
   Plus,
   Clock,
+  LayoutDashboard,
+  FileText,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { TRANSACTION_CATEGORIES } from "../types";
@@ -243,6 +246,7 @@ export default function FinanceDashboard() {
     filter.endDate,
   );
 
+  const [view, setView] = useState<"dashboard" | "profit-loss">("dashboard");
   const [selectedTransactionId, setSelectedTransactionId] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -279,63 +283,92 @@ export default function FinanceDashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        {dashboardLoading ? (
-          <>
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-card border border-border rounded-2xl p-3 sm:p-4 animate-pulse">
-                <div className="h-3 w-16 bg-muted rounded mb-2" />
-                <div className="h-5 w-24 bg-muted rounded" />
-              </div>
-            ))}
-          </>
-        ) : (
-          <>
-            <StatCard
-              title="Kas"
-              value={cashBalance}
-              icon={Wallet}
-              color="bg-blue-500/10 text-blue-600"
-            />
-            <StatCard
-              title="Pemasukan Hari Ini"
-              value={todayIncome}
-              icon={TrendingUp}
-              color="bg-green-500/10 text-green-600"
-            />
-            <StatCard
-              title="Pengeluaran Hari Ini"
-              value={todayOperatingExpense}
-              icon={TrendingDown}
-              color="bg-red-500/10 text-red-600"
-            />
-            <StatCard
-              title="Laba Hari Ini"
-              value={profitToday}
-              icon={Banknote}
-              color="bg-purple-500/10 text-purple-600"
-            />
-          </>
-        )}
+      <div className="flex gap-1 bg-muted/50 rounded-xl p-1">
+        <button
+          type="button"
+          onClick={() => setView("dashboard")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-colors flex-1 justify-center ${
+            view === "dashboard" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4" />
+          Dashboard
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("profit-loss")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-medium transition-colors flex-1 justify-center ${
+            view === "profit-loss" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Laba Rugi
+        </button>
       </div>
 
-      <CashPosition />
-      <FinancialHealth />
-      <DashboardInsight />
+      {view === "dashboard" ? (
+        <>
+          <div className="grid grid-cols-2 gap-3">
+            {dashboardLoading ? (
+              <>
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-card border border-border rounded-2xl p-3 sm:p-4 animate-pulse">
+                    <div className="h-3 w-16 bg-muted rounded mb-2" />
+                    <div className="h-5 w-24 bg-muted rounded" />
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <StatCard
+                  title="Kas"
+                  value={cashBalance}
+                  icon={Wallet}
+                  color="bg-blue-500/10 text-blue-600"
+                />
+                <StatCard
+                  title="Pemasukan Hari Ini"
+                  value={todayIncome}
+                  icon={TrendingUp}
+                  color="bg-green-500/10 text-green-600"
+                />
+                <StatCard
+                  title="Pengeluaran Hari Ini"
+                  value={todayOperatingExpense}
+                  icon={TrendingDown}
+                  color="bg-red-500/10 text-red-600"
+                />
+                <StatCard
+                  title="Laba Hari Ini"
+                  value={profitToday}
+                  icon={Banknote}
+                  color="bg-purple-500/10 text-purple-600"
+                />
+              </>
+            )}
+          </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <Clock className="w-4 h-4" />
-            Transaksi Terakhir
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <FinancialTimeline />
-        </CardContent>
-      </Card>
+          <CashPosition />
+          <FinancialHealth />
+          <DashboardInsight />
 
-      <TransactionForm branchId={branchId ?? 0} onSuccess={() => refetch()} />
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Transaksi Terakhir
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FinancialTimeline />
+            </CardContent>
+          </Card>
+
+          <TransactionForm branchId={branchId ?? 0} onSuccess={() => refetch()} />
+        </>
+      ) : (
+        <ProfitLossReport />
+      )}
 
       <TransactionDetailDrawer
         transactionId={selectedTransactionId}

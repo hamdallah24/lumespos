@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db, ordersTable, orderItemsTable, productsTable, productVariantsTable, semiFinishedTable, ingredientsTable } from "@workspace/db";
 import { eq, and, gte, lte, count, sql } from "drizzle-orm";
 import { canAccessBranch, requireAuth, requireRole } from "../middlewares/requireAuth";
-import { getRecipeRows, adjustInventory, type Executor } from "../services/inventory";
+import { getRecipeRows, type Executor } from "../services/inventory";
 import { EventPublisher } from "../event-bus";
 import { createOrderCreatedEvent, createOrderCompletedEvent, createOrderVoidedEvent } from "../events";
 
@@ -259,17 +259,8 @@ router.post("/orders", requireAuth, async (req, res) => {
             subtotal: String(itemSubtotal),
           });
 
-          // Kurangi stok komponen (semi_finished DAN ingredient) sesuai BOM
-          for (const comp of recipe) {
-            const totalNeed = comp.quantity * item.quantity;
-            
-            if (comp.componentType === "semi_finished") {
-              await adjustInventory(tx, validBranchId, "semi_finished", comp.componentId, -totalNeed);
-            } 
-            else if (comp.componentType === "ingredient") {
-              await adjustInventory(tx, validBranchId, "ingredient", comp.componentId, -totalNeed);
-            }
-          }
+          // Stock deducted async via orderConsumer (order.completed → Movement Engine)
+          
         } else {
           // Manual custom order
           const price = item.price ?? 0;
@@ -445,14 +436,7 @@ router.post("/orders/:id/void", requireAuth, requireRole("owner", "manager"), as
             recipe = await getRecipeRows(tx, "product", item.productId);
           }
 
-          for (const comp of recipe) {
-            const totalRestore = comp.quantity * item.quantity;
-            if (comp.componentType === "semi_finished") {
-              await adjustInventory(tx, order.branchId!, "semi_finished", comp.componentId, totalRestore);
-            } else if (comp.componentType === "ingredient") {
-              await adjustInventory(tx, order.branchId!, "ingredient", comp.componentId, totalRestore);
-            }
-          }
+          // Stock restore async via orderConsumer (order.voided → Movement Engine)
         }
       }
     });
@@ -572,14 +556,7 @@ router.post("/orders/batch", requireAuth, async (req, res) => {
                 subtotal: String(itemSubtotal),
               });
 
-              for (const comp of recipe) {
-                const totalNeed = comp.quantity * item.quantity;
-                if (comp.componentType === "semi_finished") {
-                  await adjustInventory(tx, validBranchId, "semi_finished", comp.componentId, -totalNeed);
-                } else if (comp.componentType === "ingredient") {
-                  await adjustInventory(tx, validBranchId, "ingredient", comp.componentId, -totalNeed);
-                }
-              }
+              // Stock deducted async via orderConsumer
             } else {
               const price = item.price ?? 0;
               const itemSubtotal = price * item.quantity;

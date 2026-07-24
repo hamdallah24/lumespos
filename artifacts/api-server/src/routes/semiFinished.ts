@@ -2,34 +2,12 @@ import { Router } from "express";
 import { db, semiFinishedTable, currentInventoryTable, ingredientsTable } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, requireRole, canAccessBranch } from "../middlewares/requireAuth";
-import { adjustInventory, getRecipeRows, getInventoryStock, type Executor } from "../services/inventory";
+import { getRecipeRows, getInventoryStock } from "../services/inventory";
+import { createMovement, MOVEMENT_TYPES } from "../inventory/services/movementService";
 import { EventPublisher } from "../event-bus";
 import { createIngredientConsumedEvent, createBatchProducedEvent } from "../events";
 
 const router = Router();
-
-// Helper: ambil cost per unit dari komponen (semi_finished atau ingredient)
-async function getComponentCost(
-  tx: Executor,
-  componentType: string,
-  componentId: number
-): Promise<number> {
-  if (componentType === "semi_finished") {
-    const [sf] = await tx
-      .select({ costPricePerUnit: semiFinishedTable.costPricePerUnit })
-      .from(semiFinishedTable)
-      .where(eq(semiFinishedTable.id, componentId));
-    return sf ? parseFloat(sf.costPricePerUnit) : 0;
-  } 
-  else if (componentType === "ingredient") {
-    const [ing] = await tx
-      .select({ costPricePerUnit: ingredientsTable.costPricePerUnit })
-      .from(ingredientsTable)
-      .where(eq(ingredientsTable.id, componentId));
-    return ing ? parseFloat(ing.costPricePerUnit) : 0;
-  }
-  return 0;
-}
 
 // Helper serialize
 function serialize(row: typeof semiFinishedTable.$inferSelect, currentStock: number) {
@@ -189,7 +167,7 @@ router.delete("/semi-finished/:id", requireAuth, requireRole("owner", "manager")
 });
 
 // ============================================================
-// PRODUCTION ENDPOINT — HPP dihitung dari hasil timbangan riil
+// PRODUCTION ENDPOINT — HPP dihitung dari FIFO
 // ============================================================
 router.post("/semi-finished/:id/produce", requireRole("owner", "manager"), async (req, res) => {
   const id = Number(req.params["id"]);
@@ -210,67 +188,75 @@ router.post("/semi-finished/:id/produce", requireRole("owner", "manager"), async
       sfName: string;
     };
 
-    await db.transaction(async (tx: Executor) => {
-      const [sf] = await tx
-        .select()
-        .from(semiFinishedTable)
-        .where(eq(semiFinishedTable.id, id));
-      if (!sf) throw new Error("Not found");
+    const [sf] = await db.select().from(semiFinishedTable).where(eq(semiFinishedTable.id, id));
+    if (!sf) throw new Error("Not found");
+    if (sf.branchId && !(await canAccessBranch(req as any, sf.branchId))) throw new Error("Forbidden branch");
 
-      if (sf.branchId && !(await canAccessBranch(req as any, sf.branchId))) {
-        throw new Error("Forbidden branch");
-      }
+    const branchId = sf.branchId!;
+    const recipe = await getRecipeRows(db as any, "semi_finished", id);
+    if (recipe.length === 0) throw new Error("Resep belum diisi. Silakan isi BOM terlebih dahulu.");
 
-      const branchId = sf.branchId!;
-      const recipe = await getRecipeRows(tx, "semi_finished", id);
-
-      if (recipe.length === 0) {
-        throw new Error("Resep belum diisi. Silakan isi BOM terlebih dahulu.");
-      }
-
-      for (const r of recipe) {
-        const currentStock = await getInventoryStock(tx, branchId, r.componentType, r.componentId);
-        if (currentStock < r.quantity) {
-          let name = `ID ${r.componentId}`;
-          if (r.componentType === "ingredient") {
-            const [ing] = await tx.select({ name: ingredientsTable.name }).from(ingredientsTable).where(eq(ingredientsTable.id, r.componentId));
-            if (ing) name = ing.name;
-          } else {
-            const [sfComp] = await tx.select({ name: semiFinishedTable.name }).from(semiFinishedTable).where(eq(semiFinishedTable.id, r.componentId));
-            if (sfComp) name = sfComp.name;
-          }
-          throw new Error(`Stok bahan baku "${name}" tidak mencukupi! Dibutuhkan ${r.quantity}, tapi sisa stok hanya ${currentStock}. Silakan isi stok terlebih dahulu.`);
+    for (const r of recipe) {
+      const currentStock = await getInventoryStock(db as any, branchId, r.componentType, r.componentId);
+      if (currentStock < r.quantity) {
+        let name = `ID ${r.componentId}`;
+        if (r.componentType === "ingredient") {
+          const [ing] = await db.select({ name: ingredientsTable.name }).from(ingredientsTable).where(eq(ingredientsTable.id, r.componentId));
+          if (ing) name = ing.name;
+        } else {
+          const [sfComp] = await db.select({ name: semiFinishedTable.name }).from(semiFinishedTable).where(eq(semiFinishedTable.id, r.componentId));
+          if (sfComp) name = sfComp.name;
         }
+        throw new Error(`Stok bahan baku "${name}" tidak mencukupi! Dibutuhkan ${r.quantity}, tapi sisa stok hanya ${currentStock}. Silakan isi stok terlebih dahulu.`);
       }
+    }
 
-      let totalCost = 0;
-      for (const r of recipe) {
-        const componentCost = await getComponentCost(tx, r.componentType, r.componentId);
-        totalCost += componentCost * r.quantity;
-        await adjustInventory(tx, branchId, r.componentType, r.componentId, -r.quantity);
-      }
+    let totalCost = 0;
 
-      const newHpp = totalCost / producedWeight;
-      const oldStock = await getCurrentStock(tx, branchId, id);
-      await adjustInventory(tx, branchId, "semi_finished", id, producedWeight);
-
-      const oldTotalValue = (parseFloat(sf.costPricePerUnit) || 0) * oldStock;
-      const newTotalValue = newHpp * producedWeight;
-      const avgHpp = (oldTotalValue + newTotalValue) / (oldStock + producedWeight);
-
-      await tx
-        .update(semiFinishedTable)
-        .set({ costPricePerUnit: String(avgHpp) })
-        .where(eq(semiFinishedTable.id, id));
-
-      produceResult = {
+    for (const r of recipe) {
+      const result = await createMovement({
         branchId,
-        recipe: recipe.map(r => ({ componentType: r.componentType, componentId: r.componentId, quantity: r.quantity })),
-        totalCost,
-        newHpp,
-        sfName: sf.name,
-      };
+        itemType: r.componentType,
+        itemId: r.componentId,
+        movementType: MOVEMENT_TYPES.RECIPE_CONSUMPTION,
+        quantity: r.quantity,
+        referenceType: "production",
+        referenceId: id,
+        description: `Produksi #${id}: ${sf.name}`,
+      });
+      totalCost += result.totalCost;
+    }
+
+    const newHpp = producedWeight > 0 ? totalCost / producedWeight : 0;
+    const oldStock = await getCurrentStock(db as any, branchId, id);
+
+    await createMovement({
+      branchId,
+      itemType: "semi_finished",
+      itemId: id,
+      movementType: MOVEMENT_TYPES.PRODUCTION_OUTPUT,
+      quantity: producedWeight,
+      unitCost: newHpp,
+      referenceType: "production",
+      referenceId: id,
+      description: `Produksi ${sf.name}: ${producedWeight} unit`,
     });
+
+    const oldTotalValue = (parseFloat(sf.costPricePerUnit) || 0) * oldStock;
+    const newTotalValue = newHpp * producedWeight;
+    const avgHpp = (oldStock + producedWeight) > 0
+      ? (oldTotalValue + newTotalValue) / (oldStock + producedWeight)
+      : newHpp;
+
+    await db.update(semiFinishedTable).set({ costPricePerUnit: String(avgHpp) }).where(eq(semiFinishedTable.id, id));
+
+    produceResult = {
+      branchId,
+      recipe: recipe.map(r => ({ componentType: r.componentType, componentId: r.componentId, quantity: r.quantity })),
+      totalCost,
+      newHpp,
+      sfName: sf.name,
+    };
 
     for (const r of produceResult!.recipe) {
       EventPublisher.publish(createIngredientConsumedEvent({
@@ -294,7 +280,9 @@ router.post("/semi-finished/:id/produce", requireRole("owner", "manager"), async
     return res.json({ 
       success: true, 
       producedWeight,
-      message: "Produksi berhasil, HPP dihitung dari hasil timbangan"
+      message: USE_MOVEMENT_ENGINE_FOR_PRODUCTION
+        ? "Produksi berhasil, HPP dari FIFO"
+        : "Produksi berhasil, HPP dari weighted average",
     });
   } catch (error: any) {
     console.error("Production error:", error);

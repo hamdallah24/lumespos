@@ -48,19 +48,24 @@ EventSubscriber.on("order.completed", async (event) => {
         sourceModule: "pos",
       });
 
-      // COGS expense transaction (cost of goods sold)
-      const cogs = parseFloat(data.totalCogs);
-      if (cogs > 0) {
-        await createTransaction({
-          branchId: data.branchId,
-          type: "expense",
-          category: "cogs",
-          description: `HPP Penjualan POS #${data.orderId}`,
-          amount: cogs,
-          referenceType: "order",
-          referenceId: data.orderId,
-          sourceModule: "pos",
-        });
+      // COGS now sourced from FIFO via inventory.sales_consumption event
+      // (Finance inventoryEventConsumer creates Dr COGS / Cr Inventory)
+      // Legacy COGS from order.totalCogs is disabled when engine is active
+      const USE_FIFO_FOR_COGS = true;
+      if (!USE_FIFO_FOR_COGS) {
+        const cogs = parseFloat(data.totalCogs);
+        if (cogs > 0) {
+          await createTransaction({
+            branchId: data.branchId,
+            type: "expense",
+            category: "cogs",
+            description: `HPP Penjualan POS #${data.orderId}`,
+            amount: cogs,
+            referenceType: "order",
+            referenceId: data.orderId,
+            sourceModule: "pos",
+          });
+        }
       }
     }
   } catch (err) {

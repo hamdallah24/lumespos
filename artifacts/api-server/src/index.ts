@@ -19,6 +19,7 @@ import { chroRuntime } from "./executive-runtime/executives/CHRO";
 
 // Finance Engine - subscribe to events + default Chart of Accounts
 import "./finance/services/eventHandlers";
+import "./inventory/services/orderConsumer";
 import { initializeDefaultCOA } from "./finance/services/chartOfAccounts";
 
 // ── Process-level crash handlers ──
@@ -45,6 +46,10 @@ function gracefulShutdown(signal: string, error?: unknown) {
       try {
         const { shutdownEIOSRuntime } = await import("./eios-runtime");
         await shutdownEIOSRuntime();
+      } catch { }
+      try {
+        const { stopSubscriber } = await import("./finance/services/inventoryEventSubscriber");
+        stopSubscriber();
       } catch { }
       doExit(error ? 1 : 0);
     });
@@ -90,6 +95,15 @@ async function boot(): Promise<void> {
       logger.info("[Finance] Default Chart of Accounts initialized");
     } catch (err) {
       logger.warn({ err }, "[Finance] Default COA initialization skipped");
+    }
+
+    // Phase 0.6: Start Inventory Event Subscriber (Finance polls event_store)
+    try {
+      const { startSubscriber } = await import("./finance/services/inventoryEventSubscriber");
+      await startSubscriber();
+      logger.info("[Finance] Inventory Event Subscriber started — polling for inventory events");
+    } catch (err) {
+      logger.warn({ err }, "[Finance] Inventory Event Subscriber start skipped");
     }
 
     // Phase 1: Foundation Load

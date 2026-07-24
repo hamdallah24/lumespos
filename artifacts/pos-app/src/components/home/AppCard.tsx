@@ -7,6 +7,7 @@ import {
   Sparkles,
   Store,
   Settings,
+  ShoppingCart,
 } from "lucide-react";
 import type { ComponentType } from "react";
 
@@ -19,6 +20,7 @@ const iconMap: Record<string, ComponentType<{ className?: string }>> = {
   Sparkles,
   Store,
   Settings,
+  ShoppingCart,
 };
 
 const descriptions: Record<string, string> = {
@@ -27,6 +29,7 @@ const descriptions: Record<string, string> = {
   inventory: "Stock management & alerts",
   crm: "Customers & relationships",
   hr: "Staff, payroll & shifts",
+  purchasing: "Procurement & supplier management",
   "ai-chat": "AI Executive Intelligence",
   marketplace: "Vendors & procurement",
   settings: "System configuration",

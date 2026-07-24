@@ -34,6 +34,15 @@ export interface StockCardEntry {
 export interface StockCardResult {
   items: StockCardEntry[];
   total: number;
+  totalPages: number;
+  page: number;
+}
+
+export interface StockCardSearchItem {
+  itemType: string;
+  itemId: number;
+  itemName: string;
+  unit: string;
 }
 
 export interface MovementPayload {
@@ -61,6 +70,7 @@ export interface MovementResult {
 export interface ValuationItem {
   itemType: string;
   itemId: number;
+  itemName: string;
   quantity: number;
   unitCost: number;
   totalValue: number;
