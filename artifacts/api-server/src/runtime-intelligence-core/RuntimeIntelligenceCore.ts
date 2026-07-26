@@ -13,6 +13,14 @@ import type {
   RefinementEntry,
   OverallConfidence,
 } from './types';
+import { ContextRegistry } from '../ric/context-builders/ContextRegistry';
+import { InventoryContextBuilder } from '../ric/context-builders/inventory/InventoryContextBuilder';
+import { FinanceContextBuilder } from '../ric/context-builders/finance/FinanceContextBuilder';
+import { SalesContextBuilder } from '../ric/context-builders/sales/SalesContextBuilder';
+import { HRContextBuilder } from '../ric/context-builders/hr/HRContextBuilder';
+import { PurchasingContextBuilder } from '../ric/context-builders/purchasing/PurchasingContextBuilder';
+import { ProductionContextBuilder } from '../ric/context-builders/production/ProductionContextBuilder';
+import { getERPGroundingProvider } from '../ric/ERPGroundingProvider';
 import { UnderstandingEngine } from './understanding';
 import { RetrievalPlanner, PastPlanMemory } from './planning';
 import { GroundingLayer } from './grounding';
@@ -45,6 +53,8 @@ export class RuntimeIntelligenceCore {
   private metricsStore: MetricsStore;
   private reflectionEngine: ReflectionEngine;
   private evidenceStore: EvidenceStore;
+  private contextRegistry: ContextRegistry;
+  private erpGroundingProvider: ReturnType<typeof getERPGroundingProvider>;
 
   constructor(
     capabilityGraph: CapabilityGraph,
@@ -71,7 +81,19 @@ export class RuntimeIntelligenceCore {
     this.metricsStore = new MetricsStore();
     this.reflectionEngine = new ReflectionEngine();
     this.evidenceStore = new EvidenceStore();
+    this.erpGroundingProvider = getERPGroundingProvider();
+    this.contextRegistry = new ContextRegistry();
+    this.registerContextBuilders();
     this.registerObservatory();
+  }
+
+  private registerContextBuilders(): void {
+    this.contextRegistry.register(new InventoryContextBuilder());
+    this.contextRegistry.register(new FinanceContextBuilder());
+    this.contextRegistry.register(new SalesContextBuilder());
+    this.contextRegistry.register(new HRContextBuilder());
+    this.contextRegistry.register(new PurchasingContextBuilder());
+    this.contextRegistry.register(new ProductionContextBuilder());
   }
 
   private registerObservatory(): void {
@@ -118,6 +140,30 @@ export class RuntimeIntelligenceCore {
       () => this.groupAndRetrieve(plan), 0.9, undefined);
 
     tracer.addEvidence(this.groundingLayer.getEvidence());
+
+    let erpRaw: Record<string, any> | null = null;
+    let erpContexts: Record<string, any> | null = null;
+    let operationalState: any = null;
+
+    if (input.tenantContext?.branchId || input.userRole !== 'system') {
+      try {
+        const domains = this.contextRegistry.getAllDomains();
+        erpRaw = await this.erpGroundingProvider.readAll(
+          domains,
+          Number(input.tenantContext?.branchId) || undefined,
+        );
+        erpContexts = await this.contextRegistry.buildAll(erpRaw, {
+          branchId: Number(input.tenantContext?.branchId) || undefined,
+          userId: Number(input.tenantContext?.userId) || undefined,
+        });
+        operationalState = {
+          ...(erpContexts as any),
+          timestamp: Date.now(),
+        };
+      } catch (e: any) {
+        console.error(`[RIC:ERP] context build failed: ${e.message}`);
+      }
+    }
 
     let verification = await tracer.traceStage('verify', 'VerificationEngine',
       () => this.verify(understanding, plan, grounding, input), 0, undefined);
@@ -216,6 +262,8 @@ export class RuntimeIntelligenceCore {
         warningCount: awarenessBrief.warnings.length,
       } : undefined,
       refinementHistory,
+      erpContexts ?? undefined,
+      operationalState ?? undefined,
     );
 
     this.metricsStore.recordRequest(

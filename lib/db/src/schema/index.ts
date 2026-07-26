@@ -33,6 +33,8 @@ export * from "./goodsReceipts";
 export * from "./supplierInvoices";
 export * from "./session";
 export * from "./finance";
+export * from "./employeeDocuments";
+export * from "./employeeAssignments";
 export * from "./items";
 export * from "./uoms";
 export * from "./bins";

@@ -1,6 +1,3 @@
-// CAIO Runtime — Chief AI Officer, new program with EIOS integrations
-// Identity from identity.ts, directive from Foundation, prompt from PromptAssembler.
-
 import { getIdentity } from "../../../ai/runtime/identity";
 import { understand } from "../../../ai/runtime/semantic-engine";
 import { buildSpecV1 } from "../../../ai/runtime/execution-spec";
@@ -22,8 +19,8 @@ import { CAIO_CONFIG } from "./CAIO.config";
 import { CognitiveEngine, recordTrace } from "../../cognition";
 import { memoryProvider } from "../../memory-provider";
 import { writeDecisionToMemory } from "../../memory-provider/decision-hook";
-import { db, branchesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import type { IntelligenceContext } from "../../../executive-context/types";
+import type { DecisionObject } from "../../types";
 
 const CAIO_IDENTITY = getIdentity("CAIO")!;
 const caioCognitive = new CognitiveEngine();
@@ -39,36 +36,14 @@ interface ExecutiveTask {
   userId: number;
   branchId?: number;
   onProgress?: (msg: string) => void;
-  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
+  context: IntelligenceContext;
 }
 
 interface ExecutiveResult {
   success: boolean;
   text: string;
   pipeline: string[];
-}
-
-async function getBranchContext(branchId: number): Promise<string> {
-  try {
-    const branches = await db
-      .select({ id: branchesTable.id, name: branchesTable.name, location: branchesTable.location })
-      .from(branchesTable)
-      .orderBy(branchesTable.id);
-    if (branches.length === 0) return "";
-    const active = branches.find(b => b.id === branchId);
-    const activeLine = active
-      ? `Kamu sedang menganalisis sistem untuk cabang **${active.name}** (ID:${active.id})${active.location ? ` — ${active.location}` : ""}`
-      : `Cabang aktif: ID ${branchId}`;
-    let text = `\n## Context Cabang\n${activeLine}\n\n### Daftar Semua Cabang:\n`;
-    for (const b of branches) {
-      const marker = b.id === branchId ? " ⬅️ AKTIF" : "";
-      text += `  - ID ${b.id}: ${b.name}${b.location ? ` (${b.location})` : ""}${marker}\n`;
-    }
-    text += `\nSistem AI bisa berbeda per cabang. Sertakan konteks cabang dalam analisa.\n`;
-    return text;
-  } catch {
-    return "";
-  }
+  decision: DecisionObject | null;
 }
 
 async function execute(task: ExecutiveTask, execContract?: ExecutionContract): Promise<ExecutiveResult> {
@@ -94,26 +69,23 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   const verification = verify(spec);
   if (!verification.passed) {
     auditEngine.log({ actor: "CAIO", action: "verify", resource: "spec", result: "denied", reason: verification.stopReason || "Verification failed", metadata: { userId: task.userId } });
-    return { success: false, text: `❌ ${verification.stopReason}`, pipeline };
+    return { success: false, text: `❌ ${verification.stopReason}`, pipeline, decision: null };
   }
 
-  // Governance check
   const govCheck = GovernanceProvider.canExecute("CAIO" as any, "analyze", spec.domain);
   if (!govCheck.allow) {
     auditEngine.log({ actor: "CAIO", action: "analyze", resource: spec.domain, result: "denied", reason: govCheck.reason, metadata: { userId: task.userId } });
-    return { success: false, text: `❌ Governance denied: ${govCheck.reason}`, pipeline };
+    return { success: false, text: `❌ Governance denied: ${govCheck.reason}`, pipeline, decision: null };
   }
 
-  // CKO Consultation
   let ckoText = "";
   try {
     const ckoResult = await consultantRuntime.analyze("founder_advisory" as any, task.message);
     if (ckoResult.success && ckoResult.text) ckoText = ckoResult.text;
-  } catch { /* CKO unavailable */ }
+  } catch { }
   pipeline.push("CKO");
   task.onProgress?.("🤖 CAIO: Consult CKO untuk sistem AI");
 
-  // Memory Read — before Cognitive
   let memoryCtx = null;
   try {
     memoryCtx = await memoryProvider.read({
@@ -127,7 +99,6 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     console.log(`[PIPELINE:CAIO:MemoryProvider] error: ${e.message}`);
   }
 
-  // Cognitive Engine — think before LLM
   let cognitiveResult = null;
   try {
     if (spec.intent !== "greeting") {
@@ -145,17 +116,14 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     console.log(`[PIPELINE:CAIO:CognitiveEngine] error: ${e.message}`);
   }
 
-  // Context — CAIO-specific: query knowledge platform stats
   pipeline.push("Context");
   task.onProgress?.("🔍 CAIO: Mengumpulkan konteks sistem AI");
+
+  const intelCtx = task.context;
   const plans = PlanProvider.getAll();
   const knowledge = KnowledgeProvider.searchAll(task.message);
   const stats = KnowledgeProvider.getStats();
 
-  // Branch context
-  const branchContext = await getBranchContext(branchId);
-
-  // Decision via ExecutionPipeline
   pipeline.push("PipelineLLM");
   let systemPrompt = assemble({
     identity: CAIO_IDENTITY,
@@ -169,8 +137,21 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     const memBlock = [memoryCtx.workingMemory, memoryCtx.recentDecisions, memoryCtx.knowledgeContext, memoryCtx.memoryEngineRecords].filter(Boolean).join("\n");
     if (memBlock) systemPrompt += `\n\n## Memory Context\n${memBlock}`;
   }
-  if (branchContext) systemPrompt += `\n${branchContext}\n`;
   if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n`;
+
+  systemPrompt += `\n\n## Intelligence Context\n`;
+  systemPrompt += `### Knowledge Platform\n`;
+  systemPrompt += `- Total Blocks: ${intelCtx.knowledgeStats.total}\n`;
+  systemPrompt += `- Semantic: ${intelCtx.knowledgeStats.semantic} | Episode: ${intelCtx.knowledgeStats.episode} | Procedural: ${intelCtx.knowledgeStats.procedural}\n`;
+  systemPrompt += `\n### System Health\n`;
+  systemPrompt += `- Status: ${intelCtx.systemHealth.status}\n`;
+  systemPrompt += `- Uptime: ${intelCtx.systemHealth.uptime}s\n`;
+  systemPrompt += `- Active Missions: ${intelCtx.systemHealth.activeMissions}\n`;
+  systemPrompt += `\n### Platform Metrics\n`;
+  systemPrompt += `- Total Requests: ${intelCtx.platformMetrics.totalRequests}\n`;
+  systemPrompt += `- Avg Confidence: ${(intelCtx.platformMetrics.avgConfidence * 100).toFixed(1)}%\n`;
+  systemPrompt += `- Degraded Rate: ${(intelCtx.platformMetrics.degradedRate * 100).toFixed(1)}%\n`;
+
   systemPrompt += `\n\n## Plans Context\n${plans.slice(0, 3).map(p => `- Plan ${p.graph.id}: ${p.criticalPath.length} steps`).join("\n") || "Tidak ada plan aktif"}`;
   systemPrompt += `\n\n## Knowledge Platform Stats\nTotal: ${stats.total} blocks | Semantic: ${stats.semantic} | Episode: ${stats.episode} | Procedural: ${stats.procedural} | Confirmed: ${stats.learning?.confirmed ?? 0}`;
   systemPrompt += `\n\n## Knowledge\n${knowledge.slice(0, 5).map(k => `[${k.type}] ${k.summary}`).join("\n") || "Tidak ada pengetahuan relevan"}`;
@@ -185,7 +166,6 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
 
   pipeline.push("Result");
 
-  // EIOS: Record decision
   KnowledgeProvider.ingestEpisode({
     eventType: "caio_execution",
     eventId: `CAIO-${Date.now()}`,
@@ -205,6 +185,7 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     success: execResult.success,
     text: execResult.text || "✅ Laporan sistem AI selesai.",
     pipeline,
+    decision: null,
   };
 }
 

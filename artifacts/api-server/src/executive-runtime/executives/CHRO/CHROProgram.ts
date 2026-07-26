@@ -19,8 +19,8 @@ import { CHRO_CONFIG } from "./CHRO.config";
 import { CognitiveEngine, recordTrace } from "../../cognition";
 import { memoryProvider } from "../../memory-provider";
 import { writeDecisionToMemory } from "../../memory-provider/decision-hook";
-import { db, branchesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import type { PeopleContext } from "../../../executive-context/types";
+import type { DecisionObject } from "../../types";
 
 const CHRO_IDENTITY = getIdentity("CHRO")!;
 const chroCognitive = new CognitiveEngine();
@@ -36,36 +36,14 @@ interface ExecutiveTask {
   userId: number;
   branchId?: number;
   onProgress?: (msg: string) => void;
-  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
+  context: PeopleContext;
 }
 
 interface ExecutiveResult {
   success: boolean;
   text: string;
   pipeline: string[];
-}
-
-async function getBranchContext(branchId: number): Promise<string> {
-  try {
-    const branches = await db
-      .select({ id: branchesTable.id, name: branchesTable.name, location: branchesTable.location })
-      .from(branchesTable)
-      .orderBy(branchesTable.id);
-    if (branches.length === 0) return "";
-    const active = branches.find(b => b.id === branchId);
-    const activeLine = active
-      ? `Kamu sedang mengelola SDM untuk cabang **${active.name}** (ID:${active.id})${active.location ? ` — ${active.location}` : ""}`
-      : `Cabang aktif: ID ${branchId}`;
-    let text = `\n## Context Cabang\n${activeLine}\n\n### Daftar Semua Cabang:\n`;
-    for (const b of branches) {
-      const marker = b.id === branchId ? " ⬅️ AKTIF" : "";
-      text += `  - ID ${b.id}: ${b.name}${b.location ? ` (${b.location})` : ""}${marker}\n`;
-    }
-    text += `\nData SDM bisa berbeda per cabang. Sertakan konteks cabang dalam analisa.\n`;
-    return text;
-  } catch {
-    return "";
-  }
+  decision: DecisionObject | null;
 }
 
 async function execute(task: ExecutiveTask, execContract?: ExecutionContract): Promise<ExecutiveResult> {
@@ -91,24 +69,23 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   const verification = verify(spec);
   if (!verification.passed) {
     auditEngine.log({ actor: "CHRO", action: "verify", resource: "spec", result: "denied", reason: verification.stopReason || "Verification failed", metadata: { userId: task.userId } });
-    return { success: false, text: `❌ ${verification.stopReason}`, pipeline };
+    return { success: false, text: `❌ ${verification.stopReason}`, pipeline, decision: null };
   }
 
   const govCheck = GovernanceProvider.canExecute("CHRO" as any, "analyze", spec.domain);
   if (!govCheck.allow) {
     auditEngine.log({ actor: "CHRO", action: "analyze", resource: spec.domain, result: "denied", reason: govCheck.reason, metadata: { userId: task.userId } });
-    return { success: false, text: `❌ Governance denied: ${govCheck.reason}`, pipeline };
+    return { success: false, text: `❌ Governance denied: ${govCheck.reason}`, pipeline, decision: null };
   }
 
   let ckoText = "";
   try {
     const ckoResult = await consultantRuntime.analyze("founder_advisory" as any, task.message);
     if (ckoResult.success && ckoResult.text) ckoText = ckoResult.text;
-  } catch { /* CKO unavailable */ }
+  } catch { }
   pipeline.push("CKO");
   task.onProgress?.("🤖 CHRO: Consult CKO untuk data SDM");
 
-  // Memory Read — before Cognitive
   let memoryCtx = null;
   try {
     memoryCtx = await memoryProvider.read({
@@ -141,10 +118,17 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
 
   pipeline.push("Context");
   task.onProgress?.("👥 CHRO: Mengumpulkan konteks SDM");
+
+  const peopleCtx = task.context.people;
+  const branchCtx = task.context.branches;
   const plans = PlanProvider.getAll();
   const knowledge = KnowledgeProvider.searchAll(task.message);
+  const activeBranch = branchCtx.find(b => b.id === branchId);
 
-  const branchContext = await getBranchContext(branchId);
+  let branchContextStr = "";
+  if (branchCtx.length > 0) {
+    branchContextStr = `\n## Context Cabang\nKamu sedang mengelola SDM untuk cabang **${activeBranch?.name || `ID ${branchId}`}** (ID:${branchId})${activeBranch?.location ? ` — ${activeBranch.location}` : ""}\n\n### Daftar Semua Cabang:\n${branchCtx.map(b => `  - ID ${b.id}: ${b.name}${b.location ? ` (${b.location})` : ""}${b.id === branchId ? " ⬅️ AKTIF" : ""}`).join("\n")}\n\nData SDM bisa berbeda per cabang. Sertakan konteks cabang dalam analisa.\n`;
+  }
 
   pipeline.push("PipelineLLM");
   let systemPrompt = assemble({
@@ -159,8 +143,28 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     const memBlock = [memoryCtx.workingMemory, memoryCtx.recentDecisions, memoryCtx.knowledgeContext].filter(Boolean).join("\n");
     if (memBlock) systemPrompt += `\n\n## Memory Context\n${memBlock}`;
   }
-  if (branchContext) systemPrompt += `\n${branchContext}\n`;
+  if (branchContextStr) systemPrompt += `${branchContextStr}\n`;
   if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n`;
+
+  systemPrompt += `\n\n## People Context\n`;
+  systemPrompt += `- Total Headcount: ${peopleCtx.headcount.total}\n`;
+  systemPrompt += `- Karyawan Aktif: ${peopleCtx.headcount.active}\n`;
+  systemPrompt += `- Kontrak: ${peopleCtx.headcount.contract}\n`;
+  systemPrompt += `- Karyawan Tidak Aktif: ${peopleCtx.headcount.inactive}\n`;
+  if (peopleCtx.attendance) {
+    systemPrompt += `\n## Attendance Rate: ${(peopleCtx.attendance.rate * 100).toFixed(1)}%\n`;
+    systemPrompt += `- Hadir: ${peopleCtx.attendance.present} | Izin: ${peopleCtx.attendance.leave} | Absen: ${peopleCtx.attendance.absent}\n`;
+  }
+  if (peopleCtx.leave && peopleCtx.leave.pending > 0) {
+    systemPrompt += `\n## Izin Pending: ${peopleCtx.leave.pending} permohonan\n`;
+  }
+  if (peopleCtx.performance && peopleCtx.performance.length > 0) {
+    systemPrompt += `\n## Performance\n${peopleCtx.performance.slice(0, 5).map(p => `- ${p.employee}: rating ${p.rating} (${p.category})`).join("\n")}\n`;
+  }
+  if (peopleCtx.risks && peopleCtx.risks.length > 0) {
+    systemPrompt += `\n## HR Risks\n${peopleCtx.risks.map(r => `- [${r.severity}] ${r.description}`).join("\n")}\n`;
+  }
+
   systemPrompt += `\n\n## Plans Context\n${plans.slice(0, 3).map(p => `- Plan ${p.graph.id}: ${p.criticalPath.length} steps`).join("\n") || "Tidak ada plan aktif"}`;
   systemPrompt += `\n\n## Knowledge\n${knowledge.slice(0, 5).map(k => `- ${k.summary}`).join("\n") || "Tidak ada pengetahuan relevan"}`;
 
@@ -193,6 +197,7 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     success: execResult.success,
     text: execResult.text || "✅ Laporan SDM selesai.",
     pipeline,
+    decision: null,
   };
 }
 

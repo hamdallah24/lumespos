@@ -42,6 +42,8 @@ export class RuntimeContextBuilder {
     budget: RuntimeBudget,
     awareness?: AwarenessInput,
     refinementHistory?: RefinementEntry[],
+    erpContexts?: Record<string, unknown>,
+    operationalState?: { inventory?: unknown; finance?: unknown; people?: unknown; suppliers?: unknown; production?: unknown; sales?: unknown; timestamp: number },
   ): RuntimeContext {
     return {
       metadata: {
@@ -125,6 +127,8 @@ export class RuntimeContextBuilder {
         confidence,
         reasoningTrace: [],
       },
+      erpContexts: erpContexts ?? undefined,
+      operationalState: operationalState ?? undefined,
     };
   }
 

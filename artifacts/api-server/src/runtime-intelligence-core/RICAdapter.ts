@@ -21,6 +21,7 @@ export class RICAdapter {
   private toolCatalog: ToolCatalog | null = null;
   private initialized = false;
   private lastExecutiveContext: ExecutiveContext | null = null;
+  private _lastRuntimeContext: RuntimeContext | null = null;
 
   async initialize(rootDir: string): Promise<void> {
     if (this.initialized) return;
@@ -36,6 +37,8 @@ export class RICAdapter {
   isEnabled(): boolean { return this.core !== null; }
   getCore(): RuntimeIntelligenceCore | null { return this.core; }
   getToolCatalog(): ToolCatalog | null { return this.toolCatalog; }
+  getLastRuntimeContext(): RuntimeContext | null { return this._lastRuntimeContext; }
+  getContextDomains(): string[] { return this.core ? Array.from((this.core as any).contextRegistry?.getAllDomains?.() ?? []) : []; }
 
   getExecutiveContext(): ExecutiveContext | null {
     return this.lastExecutiveContext;
@@ -57,6 +60,7 @@ export class RICAdapter {
 
     const ctx = await this.core.assemble(reasonerInput);
     this.lastExecutiveContext = mapToExecutive(ctx);
+    this._lastRuntimeContext = ctx;
     getAiObservatory().incrementRequestCount();
     return ctx;
   }

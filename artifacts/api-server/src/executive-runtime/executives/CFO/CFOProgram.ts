@@ -1,6 +1,3 @@
-// CFO Runtime — Expanded from executive-runtime template with EIOS integrations
-// Identity from identity.ts, directive from Foundation, prompt from PromptAssembler.
-
 import { getIdentity } from "../../../ai/runtime/identity";
 import { understand } from "../../../ai/runtime/semantic-engine";
 import { buildSpecV1 } from "../../../ai/runtime/execution-spec";
@@ -21,7 +18,8 @@ import { CFO_CONFIG } from "./CFO.config";
 import { CognitiveEngine, recordTrace } from "../../cognition";
 import { memoryProvider } from "../../memory-provider";
 import { writeDecisionToMemory } from "../../memory-provider/decision-hook";
-import { OperationalTruthProvider } from "../../../operational-truth";
+import type { CFOContext } from "../../../executive-context/types";
+import type { DecisionObject } from "../../types";
 
 const CFO_IDENTITY = getIdentity("CFO")!;
 const cfoCognitive = new CognitiveEngine();
@@ -37,13 +35,14 @@ interface ExecutiveTask {
   userId: number;
   branchId?: number;
   onProgress?: (msg: string) => void;
-  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
+  context: CFOContext;
 }
 
 interface ExecutiveResult {
   success: boolean;
   text: string;
   pipeline: string[];
+  decision: DecisionObject | null;
 }
 
 async function execute(task: ExecutiveTask, execContract?: ExecutionContract): Promise<ExecutiveResult> {
@@ -69,26 +68,23 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   const verification = verify(spec);
   if (!verification.passed) {
     auditEngine.log({ actor: "CFO", action: "verify", resource: "spec", result: "denied", reason: verification.stopReason || "Verification failed", metadata: { userId: task.userId } });
-    return { success: false, text: `❌ ${verification.stopReason}`, pipeline };
+    return { success: false, text: `❌ ${verification.stopReason}`, pipeline, decision: null };
   }
 
-  // Governance check
   const govCheck = GovernanceProvider.canExecute("CFO" as any, "analyze", spec.domain);
   if (!govCheck.allow) {
     auditEngine.log({ actor: "CFO", action: "analyze", resource: spec.domain, result: "denied", reason: govCheck.reason, metadata: { userId: task.userId } });
-    return { success: false, text: `❌ Governance denied: ${govCheck.reason}`, pipeline };
+    return { success: false, text: `❌ Governance denied: ${govCheck.reason}`, pipeline, decision: null };
   }
 
-  // CKO Consultation
   let ckoText = "";
   try {
     const ckoResult = await consultantRuntime.analyze("cfo_advisory" as any, task.message);
     if (ckoResult.success && ckoResult.text) ckoText = ckoResult.text;
-  } catch { /* CKO unavailable */ }
+  } catch { }
   pipeline.push("CKO");
   task.onProgress?.("🤖 CFO: Consult CKO untuk struktur finansial");
 
-  // Memory Read — before Cognitive
   let memoryCtx = null;
   try {
     memoryCtx = await memoryProvider.read({
@@ -102,7 +98,6 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     console.log(`[PIPELINE:CFO:MemoryProvider] error: ${e.message}`);
   }
 
-  // Cognitive Engine — think before LLM
   let cognitiveResult = null;
   try {
     if (spec.intent !== "greeting") {
@@ -120,16 +115,20 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     console.log(`[PIPELINE:CFO:CognitiveEngine] error: ${e.message}`);
   }
 
-  // T6.7: Get financial intelligence from OperationalTruthProvider
   pipeline.push("FinanceContext");
-  task.onProgress?.("💰 CFO: Mengambil data keuangan dari provider");
-  const finCtx = await OperationalTruthProvider.getFinanceContext(branchId, "today", task.userId);
+  task.onProgress?.("💰 CFO: Mengambil data keuangan dari context");
+
+  const finCtx = task.context.finance;
+  const salesCtx = task.context.sales;
+  const branchCtx = task.context.branches;
   const plans = PlanProvider.getAll();
+  const activeBranch = branchCtx.find(b => b.id === branchId);
 
-  // Branch context from provider (no direct SQL)
-  const branchContext = await OperationalTruthProvider.getBranchContextString(branchId);
+  let branchContextStr = "";
+  if (branchCtx.length > 0) {
+    branchContextStr = `\n## Context Cabang\nKamu sedang menganalisis keuangan untuk cabang **${activeBranch?.name || `ID ${branchId}`}** (ID:${branchId})${activeBranch?.location ? ` — ${activeBranch.location}` : ""}\n\n### Daftar Semua Cabang:\n${branchCtx.map(b => `  - ID ${b.id}: ${b.name}${b.location ? ` (${b.location})` : ""}${b.id === branchId ? " ⬅️ AKTIF" : ""}`).join("\n")}\n`;
+  }
 
-  // Decision: structured report from LLM via ExecutionPipeline
   pipeline.push("PipelineLLM");
   let systemPrompt = assemble({
     identity: CFO_IDENTITY,
@@ -143,28 +142,31 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     const memBlock = [memoryCtx.workingMemory, memoryCtx.recentDecisions, memoryCtx.knowledgeContext].filter(Boolean).join("\n");
     if (memBlock) systemPrompt += `\n\n## Memory Context\n${memBlock}`;
   }
-  if (branchContext) systemPrompt += `\n${branchContext}\n`;
+  if (branchContextStr) systemPrompt += `${branchContextStr}\n`;
   if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n`;
 
-  // Finance Intelligence Context (replaces direct tool/SQL access)
   systemPrompt += `\n\n## Finance Context\n`;
-  if (finCtx.finance) {
-    const f = finCtx.finance;
-    systemPrompt += `- Revenue: Rp${f.revenue.toLocaleString("id-ID")}\n`;
-    systemPrompt += `- Total Orders: ${f.totalOrders}\n`;
-    systemPrompt += `- Average Order Value: Rp${f.averageOrderValue.toLocaleString("id-ID")}\n`;
-    systemPrompt += `- Total Expenses: Rp${f.totalExpenses.toLocaleString("id-ID")}\n`;
-    systemPrompt += `- Gross Profit: Rp${f.grossProfit.toLocaleString("id-ID")}\n`;
-    systemPrompt += `- Gross Margin: ${f.grossMargin}%\n`;
-  } else {
-    systemPrompt += `Data keuangan tidak tersedia.\n`;
+  systemPrompt += `- Revenue: Rp${finCtx.revenue.toLocaleString("id-ID")}\n`;
+  systemPrompt += `- Total Orders: ${finCtx.totalOrders}\n`;
+  systemPrompt += `- Average Order Value: Rp${finCtx.averageOrderValue.toLocaleString("id-ID")}\n`;
+  systemPrompt += `- Total Expenses: Rp${finCtx.totalExpenses.toLocaleString("id-ID")}\n`;
+  systemPrompt += `- Gross Profit: Rp${finCtx.grossProfit.toLocaleString("id-ID")}\n`;
+  systemPrompt += `- Gross Margin: ${finCtx.grossMargin}%\n`;
+  systemPrompt += `- Net Profit: Rp${finCtx.netProfit.toLocaleString("id-ID")}\n`;
+  systemPrompt += `- Cash Position: Rp${finCtx.cashPosition.toLocaleString("id-ID")}\n`;
+
+  if (finCtx.expenseTrend && finCtx.expenseTrend.length > 0) {
+    systemPrompt += `\n## Expense Trend\n${finCtx.expenseTrend.slice(0, 10).map(e => `- ${e.category}: Rp${e.amount.toLocaleString("id-ID")} (${e.period}, Δ${e.change > 0 ? "+" : ""}${e.change}%)`).join("\n")}\n`;
   }
-  if (finCtx.topProducts && finCtx.topProducts.length > 0) {
-    systemPrompt += `\n## Top Products\n${finCtx.topProducts.slice(0, 5).map(p => `- ${p.name}: ${p.sold} sold (Rp${p.revenue.toLocaleString("id-ID")})`).join("\n")}\n`;
+  if (finCtx.financialRisks && finCtx.financialRisks.length > 0) {
+    systemPrompt += `\n## Financial Risks\n${finCtx.financialRisks.map(r => `- [${r.severity}] ${r.description}`).join("\n")}\n`;
+  }
+
+  if (salesCtx.topProducts && salesCtx.topProducts.length > 0) {
+    systemPrompt += `\n## Top Products\n${salesCtx.topProducts.slice(0, 5).map(p => `- ${p.name}: ${p.sold} sold (Rp${p.revenue.toLocaleString("id-ID")})`).join("\n")}\n`;
   }
   systemPrompt += `\n## Plans Context\n${plans.slice(0, 3).map(p => `- Plan ${p.graph.id}: ${p.criticalPath.length} steps`).join("\n") || "Tidak ada plan aktif"}`;
 
-  // Grounding policy
   systemPrompt += `\n\n## ATURAN GROUNDING KEUANGAN\n`;
   systemPrompt += `- JANGAN mengarang angka keuangan.\n`;
   systemPrompt += `- Semua angka harus berasal dari Finance Context di atas.\n`;
@@ -180,7 +182,6 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   const isSuccess = !llmResult.content.startsWith("ERROR:");
   const finalText = isSuccess ? llmResult.content : "✅ Laporan finansial selesai.";
 
-  // EIOS: Record decision
   KnowledgeProvider.ingestEpisode({
     eventType: "cfo_execution",
     eventId: `CFO-${Date.now()}`,
@@ -200,6 +201,7 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     success: isSuccess,
     text: finalText,
     pipeline,
+    decision: null,
   };
 }
 

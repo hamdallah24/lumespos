@@ -536,6 +536,16 @@ export interface RuntimeContext {
   awareness?: AwarenessSlice;
   refinementHistory?: RefinementEntry[];
   runtime: RuntimeSlice;
+  erpContexts?: Record<string, unknown>;
+  operationalState?: {
+    inventory?: unknown;
+    finance?: unknown;
+    people?: unknown;
+    suppliers?: unknown;
+    production?: unknown;
+    sales?: unknown;
+    timestamp: number;
+  };
 }
 
 export interface MemoryContext {

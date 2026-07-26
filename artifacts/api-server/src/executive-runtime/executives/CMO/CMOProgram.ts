@@ -1,6 +1,3 @@
-// CMO Runtime — Expanded from executive-runtime template with EIOS integrations
-// Identity from identity.ts, directive from Foundation, prompt from PromptAssembler.
-
 import { getIdentity } from "../../../ai/runtime/identity";
 import { understand } from "../../../ai/runtime/semantic-engine";
 import { buildSpecV1 } from "../../../ai/runtime/execution-spec";
@@ -21,7 +18,8 @@ import { CMO_CONFIG } from "./CMO.config";
 import { CognitiveEngine, recordTrace } from "../../cognition";
 import { memoryProvider } from "../../memory-provider";
 import { writeDecisionToMemory } from "../../memory-provider/decision-hook";
-import { OperationalTruthProvider } from "../../../operational-truth";
+import type { MarketingContext } from "../../../executive-context/types";
+import type { DecisionObject } from "../../types";
 
 const CMO_IDENTITY = getIdentity("CMO")!;
 const cmoCognitive = new CognitiveEngine();
@@ -37,13 +35,14 @@ interface ExecutiveTask {
   userId: number;
   branchId?: number;
   onProgress?: (msg: string) => void;
-  runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext;
+  context: MarketingContext;
 }
 
 interface ExecutiveResult {
   success: boolean;
   text: string;
   pipeline: string[];
+  decision: DecisionObject | null;
 }
 
 async function execute(task: ExecutiveTask, execContract?: ExecutionContract): Promise<ExecutiveResult> {
@@ -69,26 +68,23 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   const verification = verify(spec);
   if (!verification.passed) {
     auditEngine.log({ actor: "CMO", action: "verify", resource: "spec", result: "denied", reason: verification.stopReason || "Verification failed", metadata: { userId: task.userId } });
-    return { success: false, text: `❌ ${verification.stopReason}`, pipeline };
+    return { success: false, text: `❌ ${verification.stopReason}`, pipeline, decision: null };
   }
 
-  // Governance check
   const govCheck = GovernanceProvider.canExecute("CMO" as any, "analyze", spec.domain);
   if (!govCheck.allow) {
     auditEngine.log({ actor: "CMO", action: "analyze", resource: spec.domain, result: "denied", reason: govCheck.reason, metadata: { userId: task.userId } });
-    return { success: false, text: `❌ Governance denied: ${govCheck.reason}`, pipeline };
+    return { success: false, text: `❌ Governance denied: ${govCheck.reason}`, pipeline, decision: null };
   }
 
-  // CKO Consultation
   let ckoText = "";
   try {
     const ckoResult = await consultantRuntime.analyze("founder_advisory" as any, task.message);
     if (ckoResult.success && ckoResult.text) ckoText = ckoResult.text;
-  } catch { /* CKO unavailable */ }
+  } catch { }
   pipeline.push("CKO");
   task.onProgress?.("🤖 CMO: Consult CKO untuk insight pasar");
 
-  // Memory Read — before Cognitive
   let memoryCtx = null;
   try {
     memoryCtx = await memoryProvider.read({
@@ -102,7 +98,6 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     console.log(`[PIPELINE:CMO:MemoryProvider] error: ${e.message}`);
   }
 
-  // Cognitive Engine — think before LLM
   let cognitiveResult = null;
   try {
     if (spec.intent !== "greeting") {
@@ -120,16 +115,20 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     console.log(`[PIPELINE:CMO:CognitiveEngine] error: ${e.message}`);
   }
 
-  // Context from OperationalTruthProvider
   pipeline.push("MarketingContext");
-  task.onProgress?.("📊 CMO: Mengambil data marketing dari provider");
-  const mktCtx = await OperationalTruthProvider.getMarketingContext(branchId, "today", task.userId);
+  task.onProgress?.("📊 CMO: Mengambil data marketing dari context");
+
+  const salesCtx = task.context.sales;
+  const products = task.context.products;
+  const branchCtx = task.context.branches;
   const plans = PlanProvider.getAll();
+  const activeBranch = branchCtx.find(b => b.id === branchId);
 
-  // Branch context from provider (no direct SQL)
-  const branchContext = await OperationalTruthProvider.getBranchContextString(branchId);
+  let branchContextStr = "";
+  if (branchCtx.length > 0) {
+    branchContextStr = `\n## Context Cabang\nKamu sedang menganalisis pasar untuk cabang **${activeBranch?.name || `ID ${branchId}`}** (ID:${branchId})${activeBranch?.location ? ` — ${activeBranch.location}` : ""}\n\n### Daftar Semua Cabang:\n${branchCtx.map(b => `  - ID ${b.id}: ${b.name}${b.location ? ` (${b.location})` : ""}${b.id === branchId ? " ⬅️ AKTIF" : ""}`).join("\n")}\n`;
+  }
 
-  // Decision via direct LLM
   pipeline.push("LLM");
   let systemPrompt = assemble({
     identity: CMO_IDENTITY,
@@ -143,24 +142,23 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     const memBlock = [memoryCtx.workingMemory, memoryCtx.recentDecisions, memoryCtx.knowledgeContext].filter(Boolean).join("\n");
     if (memBlock) systemPrompt += `\n\n## Memory Context\n${memBlock}`;
   }
-  if (branchContext) systemPrompt += `\n${branchContext}\n`;
+  if (branchContextStr) systemPrompt += `${branchContextStr}\n`;
   if (ckoText) systemPrompt += `\n\n## CKO Advisory\n${ckoText}\n`;
 
-  // Marketing Context (replaces direct tool/SQL access)
   systemPrompt += `\n\n## Marketing Context\n`;
-  if (mktCtx.todaySales) {
-    systemPrompt += `- Total Sales: Rp${mktCtx.todaySales.total.toLocaleString("id-ID")}\n`;
-    systemPrompt += `- Orders: ${mktCtx.todaySales.count}\n`;
+  systemPrompt += `- Total Sales Hari Ini: Rp${salesCtx.today.revenue.toLocaleString("id-ID")}\n`;
+  systemPrompt += `- Orders Hari Ini: ${salesCtx.today.orders}\n`;
+  systemPrompt += `- Total Sales Periode (${salesCtx.period.label}): Rp${salesCtx.period.revenue.toLocaleString("id-ID")}\n`;
+  systemPrompt += `- Orders Periode: ${salesCtx.period.orders}\n`;
+
+  if (salesCtx.topProducts && salesCtx.topProducts.length > 0) {
+    systemPrompt += `\n## Top Products\n${salesCtx.topProducts.slice(0, 8).map(p => `- ${p.name}: ${p.sold} sold (Rp${p.revenue.toLocaleString("id-ID")})`).join("\n")}\n`;
   }
-  if (mktCtx.topProducts && mktCtx.topProducts.length > 0) {
-    systemPrompt += `\n## Top Products\n${mktCtx.topProducts.slice(0, 8).map(p => `- ${p.name}: ${p.sold} sold (Rp${p.revenue.toLocaleString("id-ID")})`).join("\n")}\n`;
-  }
-  if (mktCtx.products && mktCtx.products.length > 0) {
-    systemPrompt += `\n## Product Catalog\n${mktCtx.products.slice(0, 10).map(p => `- ${p.name} (${p.isActive ? "Active" : "Inactive"})`).join("\n")}\n`;
+  if (products && products.length > 0) {
+    systemPrompt += `\n## Product Catalog\n${products.slice(0, 10).map(p => `- ${p.name} (${p.isActive ? "Active" : "Inactive"}) — Rp${p.price.toLocaleString("id-ID")}`).join("\n")}\n`;
   }
   systemPrompt += `\n## Plans Context\n${plans.slice(0, 3).map(p => `- Plan ${p.graph.id}: ${p.criticalPath.length} steps`).join("\n") || "Tidak ada plan aktif"}`;
 
-  // Grounding policy
   systemPrompt += `\n\n## ATURAN GROUNDING MARKETING\n`;
   systemPrompt += `- JANGAN mengarang angka penjualan atau data produk.\n`;
   systemPrompt += `- Semua data harus berasal dari Marketing Context di atas.\n`;
@@ -175,7 +173,6 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
   const isSuccess = !llmResult.content.startsWith("ERROR:");
   const finalText = isSuccess ? llmResult.content : "✅ Laporan marketing selesai.";
 
-  // EIOS: Record decision
   KnowledgeProvider.ingestEpisode({
     eventType: "cmo_execution",
     eventId: `CMO-${Date.now()}`,
@@ -195,6 +192,7 @@ async function execute(task: ExecutiveTask, execContract?: ExecutionContract): P
     success: isSuccess,
     text: finalText,
     pipeline,
+    decision: null,
   };
 }
 
