@@ -1,5 +1,13 @@
 import type { COOContext, CFOContext, MarketingContext, PeopleContext, IntelligenceContext, CompanyContext, KnowledgeContext, EngineeringContext } from '../executive-context/types';
 
+export interface BusinessEvidence {
+  healthScore?: number;
+  forecast?: { metric: string; value: number }[];
+  benchmarks?: { entity: string; score: number; rank: number }[];
+  alerts?: { kpi: string; severity: string; message: string }[];
+  trends?: { metric: string; direction: string; changePct: number }[];
+}
+
 export interface DecisionObject {
   decisionId: string;
   executive: string;
@@ -11,6 +19,7 @@ export interface DecisionObject {
   recommendation: string;
   requiresApproval: boolean;
   priority: "low" | "normal" | "high" | "critical";
+  businessEvidence?: BusinessEvidence;
 }
 
 export interface ExecutiveTask<TContext = any> {

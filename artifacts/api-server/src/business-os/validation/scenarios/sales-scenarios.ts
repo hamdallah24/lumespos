@@ -1,0 +1,60 @@
+import type { BusinessScenario } from "../types";
+
+export const salesScenarios: BusinessScenario[] = [
+  {
+    id: "sal-001", name: "Sales Spike Detected", domain: "sales",
+    description: "Penjualan melonjak drastis, perlu penambahan stok dan tenaga",
+    trigger: { type: "event", eventType: "sales.spike", data: { productId: 201, productName: "Es Krim", dailySales: 500, avgDailySales: 120, increasePct: 317, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CMO", expectedCapabilities: ["cap_sales", "cap_inventory", "cap_hr"],
+    expectedActions: ["IncreaseForecast", "RushOrder"], expectedEvents: ["sales.forecast_updated", "inventory.rush_order"],
+    priority: "high", tags: ["sales", "demand", "inventory-impact"],
+  },
+  {
+    id: "sal-002", name: "Sales Drop Warning", domain: "sales",
+    description: "Penjualan turun signifikan dibanding periode sebelumnya",
+    trigger: { type: "event", eventType: "sales.drop", data: { productId: 202, productName: "Snack Bar", weeklySales: 340, prevWeekSales: 890, dropPct: 62, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CMO", expectedCapabilities: ["cap_sales", "cap_marketing"],
+    expectedActions: ["InvestigateDrop", "CreatePromo"], expectedEvents: ["sales.drop_investigated", "marketing.promo_created"],
+    priority: "high", tags: ["sales", "decline", "marketing"],
+  },
+  {
+    id: "sal-003", name: "Refund Request", domain: "sales",
+    description: "Pelanggan mengajukan refund untuk produk cacat",
+    trigger: { type: "event", eventType: "sales.refund", data: { orderId: "ORD-2026-07-1234", customerId: 301, productId: 203, amount: 150000, reason: "Produk rusak saat diterima", branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CMO", expectedCapabilities: ["cap_sales", "cap_finance"],
+    expectedActions: ["ProcessRefund", "UpdateReturnRate"], expectedEvents: ["sales.refund_processed", "finance.refund_recorded"],
+    priority: "normal", tags: ["sales", "customer-service", "finance"],
+  },
+  {
+    id: "sal-004", name: "Target Miss Alert", domain: "sales",
+    description: "Penjualan bulanan tidak mencapai target",
+    trigger: { type: "event", eventType: "sales.target_miss", data: { target: 50000000, actual: 32500000, gap: 17500000, month: "July", branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CMO", expectedCapabilities: ["cap_sales", "cap_marketing"],
+    expectedActions: ["AccelerateSales", "FlashSalePlan"], expectedEvents: ["sales.acceleration_plan", "marketing.flash_sale"],
+    priority: "critical", tags: ["sales", "target", "revenue"],
+  },
+  {
+    id: "sal-005", name: "New Customer Acquisition", domain: "sales",
+    description: "Pelanggan baru mendaftar, perlu onboarding",
+    trigger: { type: "event", eventType: "crm.new_customer", data: { customerId: 401, name: "Budi Santoso", segment: "wholesale", estimatedAnnualValue: 120000000, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CMO", expectedCapabilities: ["cap_crm", "cap_sales"],
+    expectedActions: ["AssignSalesRep", "WelcomeSequence"], expectedEvents: ["crm.customer_onboarded", "sales.rep_assigned"],
+    priority: "high", tags: ["sales", "crm", "growth"],
+  },
+  {
+    id: "sal-006", name: "Top Customer Churn Risk", domain: "sales",
+    description: "Pelanggan top menunjukkan tanda-tanda churn",
+    trigger: { type: "event", eventType: "crm.churn_risk", data: { customerId: 402, name: "PT Maju Jaya", orderFrequency: "menurun 60%", lastOrder: "2026-06-15", annualValue: 250000000, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CMO", expectedCapabilities: ["cap_crm", "cap_sales"],
+    expectedActions: ["RetentionPlan", "ExecutiveVisit"], expectedEvents: ["crm.retention_plan", "sales.visit_scheduled"],
+    priority: "critical", tags: ["sales", "crm", "retention"],
+  },
+  {
+    id: "sal-007", name: "Bulk Order Received", domain: "sales",
+    description: "Pesanan dalam jumlah besar dari klien korporat",
+    trigger: { type: "event", eventType: "sales.bulk_order", data: { orderId: "ORD-2026-07-5678", customerId: 403, items: [{ productId: 205, qty: 1000 }, { productId: 206, qty: 500 }], totalValue: 85000000, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CMO", expectedCapabilities: ["cap_sales", "cap_inventory", "cap_production"],
+    expectedActions: ["ValidateInventory", "ConfirmOrder"], expectedEvents: ["sales.order_confirmed", "inventory.reserved"],
+    priority: "high", tags: ["sales", "bulk", "coordination"],
+  },
+];

@@ -1,5 +1,8 @@
 import type { RuntimeContext } from './types';
 import { mapContextForRole } from '../executive-context/ExecutiveContextAdapter';
+import type { CapabilityExecutiveContext, CapabilityContextEntry, CapabilityDomain } from '../business-os/capabilities/types';
+import { getAllCapabilities, getCapabilitiesByDomain, recommendCapabilities, getDependencies, getDependents, getCapabilityById } from '../business-os/capabilities';
+import type { BIContext } from '../business-os/bi/context/BIContext';
 
 export interface ExecutiveContext {
   intent: { intent: string; confidence: number };
@@ -12,14 +15,18 @@ export interface ExecutiveContext {
   awareness?: { situation: string; health: string; score: number; nextAction: string; businessRisk: string; systemHealth: string };
   refinement?: { wasRefined: boolean; iterations: number; confidenceDelta: number; resolvedIssues: string[]; remainingIssues: string[] };
   contextual?: Record<string, unknown>;
+  capabilities?: CapabilityExecutiveContext;
+  businessIntelligence?: BIContext;
 }
 
-export function mapToExecutive(rc: RuntimeContext): ExecutiveContext {
+export function mapToExecutive(rc: RuntimeContext, targetExecutive?: string, biContext?: BIContext): ExecutiveContext {
   const overall = rc.runtime.confidence.overall;
   const risk = rc.intelligence.risk;
   const aw = rc.awareness;
 
-  return {
+  const capabilities = buildCapabilityContext(rc, targetExecutive);
+
+  const execCtx = {
     intent: { intent: rc.intelligence.intent, confidence: rc.runtime.confidence.provenance.intentConfidence },
     domain: { primaryDomain: rc.intelligence.domain.primary },
     confidence: {
@@ -34,7 +41,57 @@ export function mapToExecutive(rc: RuntimeContext): ExecutiveContext {
     awareness: aw ? { situation: aw.summary, health: aw.overallHealth, score: aw.awarenessScore, nextAction: aw.nextAttention, businessRisk: aw.businessSituation.riskLevel, systemHealth: aw.systemSituation.health } : undefined,
     refinement: buildRefinement(rc.refinementHistory),
     contextual: rc.erpContexts as Record<string, unknown> | undefined,
+    capabilities,
+    businessIntelligence: biContext,
   };
+  return execCtx;
+}
+
+function buildCapabilityContext(rc: RuntimeContext, targetExecutive?: string): CapabilityExecutiveContext | undefined {
+  try {
+    const primaryDomain = rc.intelligence.domain.primary as CapabilityDomain;
+    const domainCaps = getCapabilitiesByDomain(primaryDomain);
+    const allCaps = getAllCapabilities();
+
+    let relevantCaps: ReturnType<typeof getAllCapabilities>;
+    if (targetExecutive) {
+      relevantCaps = allCaps.filter(c => c.ownerExecutive === targetExecutive);
+    } else if (domainCaps.length > 0) {
+      relevantCaps = domainCaps;
+    } else {
+      relevantCaps = allCaps;
+    }
+
+    const availableCapabilities: CapabilityContextEntry[] = relevantCaps.map(cap => ({
+      id: cap.id,
+      name: cap.name,
+      domain: cap.domain,
+      ownerExecutive: cap.ownerExecutive,
+      actions: cap.supportedActions.map(a => ({ name: a.name, purpose: a.purpose, approvalLevel: a.approvalLevel, riskLevel: a.riskLevel })),
+      requiredCapabilities: cap.dependencies,
+      status: cap.status,
+    }));
+
+    const operationalCtx = buildOperationalContext(rc.grounding.operational) || {};
+    const recommended = recommendCapabilities({ ...operationalCtx, intent: rc.intelligence.intent }, 5);
+
+    const blockedCapabilities: { capabilityId: string; reason: string }[] = [];
+    const dependencySummary: { capabilityId: string; dependsOn: string[]; dependedBy: string[] }[] = [];
+
+    for (const cap of relevantCaps) {
+      const dependsOn = getDependencies(cap.id);
+      const dependedBy = getDependents(cap.id);
+      dependencySummary.push({ capabilityId: cap.id, dependsOn, dependedBy });
+
+      if (dependsOn.some(d => !getCapabilityById(d))) {
+        blockedCapabilities.push({ capabilityId: cap.id, reason: `Missing dependencies: ${dependsOn.filter(d => !getCapabilityById(d)).join(", ")}` });
+      }
+    }
+
+    return { availableCapabilities, recommendedCapabilities: recommended, blockedCapabilities, dependencySummary };
+  } catch {
+    return undefined;
+  }
 }
 
 function buildRefinement(history?: any[]): ExecutiveContext["refinement"] | undefined {

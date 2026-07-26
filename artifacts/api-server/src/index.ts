@@ -142,15 +142,15 @@ async function boot(): Promise<void> {
     schedulePipeline(30000);
     logger.info("[EIOS] Runtime v4.1.1 active — 11 stages, 6 observers, 7 profiles, 8 executives");
 
-    // T12.1: Initialize Runtime Intelligence Core (RIC) — cognitive kernel
+    // T12.1: Initialize Business OS — activates Runtime, RIC, Capability, Events, Workspace, Council, Execution
     try {
-      const { initializeRIC } = await import("./runtime-intelligence-core/RICAdapter");
-      await initializeRIC(process.cwd());
-      logger.info("[RIC] Runtime Intelligence Core initialized — Awareness, Understanding, Planning, Grounding, Verification active");
+      const { initializeBusinessOS } = await import("./business-os/bootstrap");
+      await initializeBusinessOS(process.cwd());
+      logger.info("[BusinessOS] Business OS initialized — Runtime, RIC, Capability, Events, Workspace, Council, Execution active");
       const { registerExecutionEngine } = await import("./runtime-intelligence-core/RICAdapter");
       registerExecutionEngine();
     } catch (err) {
-      logger.warn({ err }, "[RIC] Runtime Intelligence Core initialization skipped");
+      logger.warn({ err }, "[BusinessOS] Business OS initialization skipped");
     }
 
     // ECP-037 P1: Activate Knowledge Pipeline

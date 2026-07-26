@@ -1,0 +1,15 @@
+export { getAllCapabilities, getCapabilityById, getCapabilitiesByDomain, getCapabilitiesByExecutive, getCapabilityByAction, getAllActionsByActionName, hasCapability, count, reload } from "./CapabilityRegistry";
+export { getCapabilityStatus, setCapabilityStatus, isCapabilityActive, getActiveCapabilities, getCapabilitiesByStatus, getCapabilityOwner, getCapabilityDomain, getCapabilityVersion, resetStatuses } from "./CapabilityManager";
+export { resolveCapability, resolveCapabilities, resolveAction, resolveActions, resolveByContext, resolveByExecutive, resolveByDomain, resolveHandler, resolveApprovalLevel, resolveRequiredCapabilities, resolveExecutivesForAction, resolveAllEvents, resolveAllKPIs } from "./CapabilityResolver";
+export { describeCapability, describeAction, summarizeCapability, getActionMetadata, listAllCapabilities, listActionsForExecutive } from "./CapabilityMetadata";
+export { getDependencies, getDependents, resolveDependencyChain, resolveUpstreamDependencies, resolveDownstreamDependents, getDependencyTree, areDependenciesSatisfied, findMissingDependencies, getCapabilitiesThatNeed } from "./CapabilityDependency";
+export { validateCapabilityAction, validateCapability, validateExecutionContext, validatePlan, isActionAvailable } from "./CapabilityValidator";
+export { searchCapabilities, searchByDomain, searchByExecutive, searchByAction, searchByKeyword, quickSearch } from "./CapabilitySearch";
+export { recommendCapabilities, recommendByObjective, getTopRecommendations } from "./CapabilityRecommendation";
+export { createPlan, createDynamicPlan, getAvailableTemplates } from "./CapabilityPlanner";
+export { buildGraph, getUpstream, getDownstream, getDependencyTree as getGraphDependencyTree, detectCircularDependencies, getIsolatedCapabilities, getLeafCapabilities, getRootCapabilities, getCriticalPath, hasCycles, getGraphStats } from "./CapabilityGraph";
+export { getAvailableChains, buildChain, buildChainForTrigger, buildAllChains } from "./CapabilityChaining";
+export type { ChainStep, CapabilityChain } from "./CapabilityChaining";
+export { CapabilityOptimization } from "./CapabilityOptimization";
+export type { CapabilityPerformance } from "./CapabilityOptimization";
+export type * from "./types";

@@ -1,0 +1,60 @@
+import type { BusinessScenario } from "../types";
+
+export const crossDomainScenarios: BusinessScenario[] = [
+  {
+    id: "xdm-001", name: "New Product Launch", domain: "cross-domain",
+    description: "Peluncuran produk baru yang melibatkan banyak departemen",
+    trigger: { type: "event", eventType: "product.launch", data: { productName: "Minuman Probiotik X", targetLaunch: "2026-09-01", departments: ["R&D", "Produksi", "Marketing", "Sales", "Finance"], budget: 500000000, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CEO", expectedCapabilities: ["cap_marketing", "cap_production", "cap_sales", "cap_finance"],
+    expectedActions: ["CrossDeptCoordination", "LaunchPlan"], expectedEvents: ["product.launch_planned"],
+    priority: "high", tags: ["cross-domain", "product", "coordination"],
+  },
+  {
+    id: "xdm-002", name: "Disaster Recovery", domain: "cross-domain",
+    description: "Bencana alam mengganggu operasional seluruh cabang",
+    trigger: { type: "event", eventType: "disaster.operational_disruption", data: { disasterType: "Banjir", affectedBranches: [1, 3, 5], estimatedDowntimeDays: 3, revenueImpact: 500000000, employeeSafety: true, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CEO", expectedCapabilities: ["cap_platform", "cap_hr", "cap_production", "cap_warehouse"],
+    expectedActions: ["EmergencyResponse", "BusinessContinuity"], expectedEvents: ["disaster.response_activated"],
+    priority: "critical", tags: ["cross-domain", "disaster", "continuity"],
+  },
+  {
+    id: "xdm-003", name: "Major Process Automation", domain: "cross-domain",
+    description: "Implementasi otomatisasi proses bisnis lintas departemen",
+    trigger: { type: "event", eventType: "process.automation_opportunity", data: { processName: "Order-to-Cash", currentCycleTime: "5 hari", targetCycleTime: "1 hari", estimatedSavings: 250000000, departments: ["Sales", "Warehouse", "Finance", "IT"], branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CTO", expectedCapabilities: ["cap_platform", "cap_sales", "cap_finance", "cap_warehouse"],
+    expectedActions: ["AutomationBlueprint", "ImplementationPlan"], expectedEvents: ["process.automation_planned"],
+    priority: "high", tags: ["cross-domain", "automation", "efficiency"],
+  },
+  {
+    id: "xdm-004", name: "Working Capital Crisis", domain: "cross-domain",
+    description: "Krisis modal kerja yang membutuhkan koordinasi multi-departemen",
+    trigger: { type: "event", eventType: "finance.working_capital_crisis", data: { currentRatio: 0.8, quickRatio: 0.4, receivableDays: 65, inventoryDays: 90, payableDays: 30, cashConversionCycle: 125, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CFO", expectedCapabilities: ["cap_finance", "cap_inventory", "cap_sales", "cap_purchasing"],
+    expectedActions: ["CashPreservationPlan", "InventoryLiquidation", "ReceivableAcceleration"], expectedEvents: ["finance.working_capital_plan"],
+    priority: "critical", tags: ["cross-domain", "finance", "cash"],
+  },
+  {
+    id: "xdm-005", name: "Merger & Acquisition Consideration", domain: "cross-domain",
+    description: "Peluang akuisisi perusahaan kompetitor",
+    trigger: { type: "event", eventType: "corporate.m&a_opportunity", data: { targetCompany: "PT Pesaing Kecil", valuation: 75000000000, revenueSynergy: 15000000000, costSynergy: 5000000000, riskLevel: "medium", branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CEO", expectedCapabilities: ["cap_expansion", "cap_finance", "cap_platform"],
+    expectedActions: ["DueDiligence", "ValuationAnalysis"], expectedEvents: ["corporate.due_diligence_started"],
+    priority: "high", tags: ["cross-domain", "m&a", "strategy", "expansion"],
+  },
+  {
+    id: "xdm-006", name: "Sustainability Initiative", domain: "cross-domain",
+    description: "Inisiatif keberlanjutan dan ESG", 
+    trigger: { type: "event", eventType: "esg.initiative", data: { scope: ["carbon_footprint", "waste_management", "employee_welfare"], target: "Pengurangan emisi 30% tahun depan", currentEmissions: 5000, targetEmissions: 3500, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CEO", expectedCapabilities: ["cap_production", "cap_hr", "cap_platform"],
+    expectedActions: ["ESGAssessment", "SustainabilityRoadmap"], expectedEvents: ["esg.program_launched"],
+    priority: "normal", tags: ["cross-domain", "esg", "sustainability"],
+  },
+  {
+    id: "xdm-007", name: "Digital Transformation Phase", domain: "cross-domain",
+    description: "Implementasi transformasi digital tahap berikutnya",
+    trigger: { type: "event", eventType: "digital.transformation_phase", data: { phase: 3, focus: ["AI-driven demand forecasting", "Automated warehouse", "Real-time dashboards"], budget: 1500000000, timeline: "6 months", branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CTO", expectedCapabilities: ["cap_platform", "cap_inventory", "cap_warehouse", "cap_sales"],
+    expectedActions: ["TechRoadmap", "ChangeManagement"], expectedEvents: ["digital.transformation_launched"],
+    priority: "high", tags: ["cross-domain", "digital", "transformation"],
+  },
+];
