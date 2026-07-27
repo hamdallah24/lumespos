@@ -150,8 +150,19 @@ const mappers: Record<string, (rc: RuntimeContext) => any> = {
   CTO: mapToEngineeringContext,
 };
 
+const DEFAULT_RC: RuntimeContext = {
+  metadata: { model: "", version: "", degraded: false, contractId: "", createdAt: new Date().toISOString() },
+  intelligence: { intent: "", confidence: { provenance: { intentConfidence: 0 } }, domain: { primary: "" } },
+  planning: { tasks: [], suggestedTools: [] },
+  grounding: { knowledge: [], memory: { entries: [], type: "working" }, repository: [], operational: [] },
+  verification: { checks: [] },
+  runtime: { confidence: { overall: 0.5, provenance: { intentConfidence: 0.5, domainConfidence: 0.5, groundingConfidence: 0.5, planningConfidence: 0.5, verificationConfidence: 0.5 }, weakAreas: [] } },
+  erpContexts: {},
+  operationalState: { timestamp: Date.now() },
+};
+
 export function mapContextForRole(role: string, rc: RuntimeContext): any {
   const mapper = mappers[role];
-  if (!mapper || !rc) return {};
-  return mapper(rc);
+  if (!mapper) return {};
+  return mapper(rc || DEFAULT_RC);
 }
