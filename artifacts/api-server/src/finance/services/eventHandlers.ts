@@ -89,7 +89,7 @@ EventSubscriber.on("expense.recorded", async (event) => {
       await createTransaction({
         branchId: data.branchId,
         type: "expense",
-        category: data.category || "other_expense",
+        category: "other_expense",
         description: data.description || "Pengeluaran",
         amount: data.amount,
         referenceType: "expense",

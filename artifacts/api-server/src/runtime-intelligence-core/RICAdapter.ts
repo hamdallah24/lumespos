@@ -40,7 +40,10 @@ export class RICAdapter {
   getLastRuntimeContext(): RuntimeContext | null { return this._lastRuntimeContext; }
   getContextDomains(): string[] { return this.core ? Array.from((this.core as any).contextRegistry?.getAllDomains?.() ?? []) : []; }
 
-  getExecutiveContext(): ExecutiveContext | null {
+  getExecutiveContext(targetExecutive?: string): ExecutiveContext | null {
+    if (targetExecutive && this._lastRuntimeContext) {
+      return mapToExecutive(this._lastRuntimeContext, targetExecutive);
+    }
     return this.lastExecutiveContext;
   }
 

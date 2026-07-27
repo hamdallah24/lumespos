@@ -27,7 +27,7 @@ let intervalId: ReturnType<typeof setInterval> | null = null;
  */
 async function loadLastSequence(): Promise<number> {
   const [row] = await db
-    .select({ seq: sql<number>`COALESCE(MAX(es.sequence), 0)` })
+    .select({ seq: sql<number>`COALESCE(MAX(${eventStoreTable.sequence}), 0)` })
     .from(eventStoreTable)
     .innerJoin(transactionsTable, sql`${transactionsTable.referenceType} = ${eventStoreTable.eventType} AND ${transactionsTable.referenceId}::text = (${eventStoreTable.data}::json->>'stockCardId')`)
     .where(
