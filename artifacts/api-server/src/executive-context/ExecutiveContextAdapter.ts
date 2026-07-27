@@ -152,6 +152,6 @@ const mappers: Record<string, (rc: RuntimeContext) => any> = {
 
 export function mapContextForRole(role: string, rc: RuntimeContext): any {
   const mapper = mappers[role];
-  if (!mapper) return {};
+  if (!mapper || !rc) return {};
   return mapper(rc);
 }
