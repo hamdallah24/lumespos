@@ -1,5 +1,7 @@
 import type {
   RuntimeContext,
+  RuntimeTrace,
+  Evidence,
   ReasonerInput,
   RepositoryMetadata,
   ToolDescriptor,
@@ -12,7 +14,9 @@ import type {
   RuntimeBudget,
   RefinementEntry,
   OverallConfidence,
+  ModuleStatusValue,
 } from './types';
+import { parseTimeOrThrow } from '../business-os/temporal/TimeParser';
 import { ContextRegistry } from '../ric/context-builders/ContextRegistry';
 import { InventoryContextBuilder } from '../ric/context-builders/inventory/InventoryContextBuilder';
 import { FinanceContextBuilder } from '../ric/context-builders/finance/FinanceContextBuilder';
@@ -34,6 +38,42 @@ import { RepositoryMetadataGenerator } from './registry';
 import { UnifiedAwarenessEngine } from './awareness';
 import { MetricsStore, ReflectionEngine, EvidenceStore } from './learning';
 
+// ===== Structural defaults for failed stages (executives must check moduleStatus) =====
+const FAILED_UNDERSTANDING: UnderstandingResult = {
+  goal: "unavailable", intent: "unavailable", subIntent: "unavailable",
+  domain: { primary: "general", secondary: [] },
+  entities: [],
+  reasoning: { intentRationale: "Module failed", domainRationale: "Module failed", entityRationale: "Module failed", alternativesConsidered: [] },
+  thinkingMode: "balanced", urgency: "low",
+  risk: { level: "low", factors: ["Module unavailable"], requiresApproval: false },
+  confidence: 0, needClarification: false,
+};
+
+const FAILED_PLAN: RetrievalPlan = {
+  tasks: [],
+  executionGraph: { steps: [], parallel: [], estimatedCost: "low", estimatedDuration: "0ms", riskNotes: ["Planning failed"] },
+  toolNeeds: [],
+};
+
+const FAILED_GROUNDING: GroundingResult = {
+  operationalData: [], memoryEntries: [], knowledgeBlocks: [],
+  metadataNodes: [], fileContents: [], errors: [], executionTimeMs: 0,
+};
+
+const FAILED_VERIFICATION: VerificationResult = {
+  state: "unverified", checks: [], verificationConfidence: 0,
+  contradictions: [], warnings: [], recovery: [], confidenceAdjustment: 0,
+};
+
+const FAILED_CONFIDENCE: OverallConfidence = {
+  reasoning: 0, grounding: 0, verification: 0, overall: 0,
+  provenance: {
+    intentConfidence: 0, entityConfidence: 0, groundingCompleteness: 0,
+    verificationStatus: "unverified", planningConfidence: 0, toolResolutionConfidence: 0,
+  },
+  weakAreas: ["assembly-degraded"], safeToExecute: false,
+};
+
 export class RuntimeIntelligenceCore {
   private capabilityGraph: CapabilityGraph;
   private provider: ReasoningProvider;
@@ -48,7 +88,6 @@ export class RuntimeIntelligenceCore {
   private repoMetadataGenerator: RepositoryMetadataGenerator;
   private repoMetadata: RepositoryMetadata[] = [];
   private tools: ToolDescriptor[] = [];
-  private degraded: boolean = false;
   private diagnostics: RuntimeDiagnosticsAPI;
   private metricsStore: MetricsStore;
   private reflectionEngine: ReflectionEngine;
@@ -123,34 +162,76 @@ export class RuntimeIntelligenceCore {
     const version = '1.0';
     const createdAt = Date.now();
     const tracer = new PipelineTracer();
+    const moduleStatus: Record<string, ModuleStatusValue> = {};
+    const degradedModules: string[] = [];
+    const degradedReasons: Record<string, string> = {};
+    const timeCtx = parseTimeOrThrow(input.message);
 
-    const awarenessBrief = await this.awarenessEngine.collectBrief().catch(() => undefined);
-
-    const understanding = await tracer.traceStage('understand', this.provider.constructor?.name || 'ReasoningProvider',
-      () => this.understand(input, awarenessBrief), 0, undefined);
-
-    let plan = await tracer.traceStage('plan', this.provider.constructor?.name || 'ReasoningProvider',
-      () => this.createRetrievalPlan(understanding, input), understanding.confidence, undefined);
-
-    if (awarenessBrief) {
-      this.groundingLayer.setAdaptiveTimeout(awarenessBrief.systemSituation.health);
+    // ---- STAGE: Understanding ----
+    let understanding: UnderstandingResult;
+    try {
+      const awarenessBrief = await this.awarenessEngine.collectBrief().catch(() => undefined);
+      understanding = await tracer.traceStage('understand', this.provider.constructor?.name || 'ReasoningProvider',
+        () => this.understand(input, awarenessBrief), 0, undefined);
+      moduleStatus.understanding = "ready";
+    } catch (e: unknown) {
+      const err = e as Error;
+      moduleStatus.understanding = "failed";
+      degradedModules.push("understanding");
+      degradedReasons.understanding = `${err.message}\n${err.stack}`;
+      console.error(`[RIC:Module] understanding failed: ${err.message}`, err.stack);
+      understanding = FAILED_UNDERSTANDING;
     }
 
-    let grounding = await tracer.traceStage('ground', 'GroundingLayer',
-      () => this.groupAndRetrieve(plan), 0.9, undefined);
+    // ---- STAGE: Planning ----
+    let plan: RetrievalPlan;
+    try {
+      plan = await tracer.traceStage('plan', this.provider.constructor?.name || 'ReasoningProvider',
+        () => this.createRetrievalPlan(understanding, input), understanding.confidence, undefined);
+      moduleStatus.planning = "ready";
+    } catch (e: unknown) {
+      const err = e as Error;
+      moduleStatus.planning = "failed";
+      degradedModules.push("planning");
+      degradedReasons.planning = `${err.message}\n${err.stack}`;
+      console.error(`[RIC:Module] planning failed: ${err.message}`, err.stack);
+      plan = FAILED_PLAN;
+    }
 
-    tracer.addEvidence(this.groundingLayer.getEvidence());
+    // ---- STAGE: Grounding ----
+    let grounding: GroundingResult;
+    try {
+      if (moduleStatus.understanding === "ready") {
+        try {
+          const brief = await this.awarenessEngine.collectBrief().catch(() => undefined);
+          if (brief) {
+            this.groundingLayer.setAdaptiveTimeout(brief.systemSituation.health);
+          }
+        } catch { /* non-critical */ }
+      }
+      grounding = await tracer.traceStage('ground', 'GroundingLayer',
+        () => this.groupAndRetrieve(plan), 0.9, undefined);
+      tracer.addEvidence(this.groundingLayer.getEvidence());
+      moduleStatus.grounding = "ready";
+    } catch (e: unknown) {
+      const err = e as Error;
+      moduleStatus.grounding = "failed";
+      degradedModules.push("grounding");
+      degradedReasons.grounding = `${err.message}\n${err.stack}`;
+      console.error(`[RIC:Module] grounding failed: ${err.message}`, err.stack);
+      grounding = FAILED_GROUNDING;
+    }
 
-    let erpRaw: Record<string, any> | null = null;
+    // ---- STAGE: ERP Context ----
     let erpContexts: Record<string, any> | null = null;
     let operationalState: any = null;
-
-    if (input.tenantContext?.branchId || input.userRole !== 'system') {
-      try {
+    try {
+      if (input.tenantContext?.branchId || input.userRole !== 'system') {
         const domains = this.contextRegistry.getAllDomains();
-        erpRaw = await this.erpGroundingProvider.readAll(
+        const erpRaw = await this.erpGroundingProvider.readAll(
           domains,
           Number(input.tenantContext?.branchId) || undefined,
+          timeCtx,
         );
         erpContexts = await this.contextRegistry.buildAll(erpRaw, {
           branchId: Number(input.tenantContext?.branchId) || undefined,
@@ -160,37 +241,82 @@ export class RuntimeIntelligenceCore {
           ...(erpContexts as any),
           timestamp: Date.now(),
         };
-      } catch (e: any) {
-        console.error(`[RIC:ERP] context build failed: ${e.message}`);
       }
+      moduleStatus.erp = "ready";
+    } catch (e: unknown) {
+      const err = e as Error;
+      moduleStatus.erp = "failed";
+      degradedModules.push("erp");
+      degradedReasons.erp = `${err.message}\n${err.stack}`;
+      console.error(`[RIC:Module] ERP context build failed: ${err.message}`, err.stack);
+      erpContexts = null;
+      operationalState = null;
     }
 
-    let verification = await tracer.traceStage('verify', 'VerificationEngine',
-      () => this.verify(understanding, plan, grounding, input), 0, undefined);
+    // ---- STAGE: Verification ----
+    let verification: VerificationResult;
+    try {
+      verification = await tracer.traceStage('verify', 'VerificationEngine',
+        () => this.verify(understanding, plan, grounding, input), 0, undefined);
+      moduleStatus.verification = "ready";
+    } catch (e: unknown) {
+      const err = e as Error;
+      moduleStatus.verification = "failed";
+      degradedModules.push("verification");
+      degradedReasons.verification = `${err.message}\n${err.stack}`;
+      console.error(`[RIC:Module] verification failed: ${err.message}`, err.stack);
+      verification = FAILED_VERIFICATION;
+    }
 
-    let confidence = this.confidenceAggregator.aggregate(understanding, grounding, verification, plan);
+    // ---- Confidence + Replan Loop ----
+    let confidence: OverallConfidence;
+    try {
+      confidence = this.confidenceAggregator.aggregate(understanding, grounding, verification, plan);
+    } catch (e: unknown) {
+      const err = e as Error;
+      console.error(`[RIC:Module] confidence aggregation failed: ${err.message}`, err.stack);
+      confidence = FAILED_CONFIDENCE;
+    }
 
-    const CONFIDENCE_THRESHOLD = 0.75;
+    const REFINEMENT_THRESHOLD = 0.75;
     const MAX_REPLAN_ITERATIONS = 2;
     let replanCount = 0;
     const refinementHistory: RefinementEntry[] = [];
 
-    while (confidence.overall < CONFIDENCE_THRESHOLD && replanCount < MAX_REPLAN_ITERATIONS) {
+    while (
+      moduleStatus.understanding === "ready" &&
+      moduleStatus.planning === "ready" &&
+      moduleStatus.grounding === "ready" &&
+      confidence.overall < REFINEMENT_THRESHOLD &&
+      replanCount < MAX_REPLAN_ITERATIONS
+    ) {
       replanCount++;
       const beforeConfidence = confidence.overall;
       const beforeTaskCount = plan.tasks.length;
       const beforeFailedChecks = verification.checks.filter(c => c.state !== 'verified').map(c => c.check);
       const oldPlan = plan;
 
-      plan = await this.retrievalPlanner.replan(plan, verification, grounding, understanding);
+      try {
+        plan = await this.retrievalPlanner.replan(plan, verification, grounding, understanding);
+      } catch (e: unknown) {
+        const err = e as Error;
+        console.error(`[RIC:Module] replan failed: ${err.message}`, err.stack);
+        break;
+      }
 
-      grounding = await tracer.traceStage('ground-replan', 'GroundingLayer',
-        () => this.groupAndRetrieve(plan), 0.9, undefined);
+      try {
+        grounding = await tracer.traceStage('ground-replan', 'GroundingLayer',
+          () => this.groupAndRetrieve(plan), 0.9, undefined);
+      } catch { /* use existing grounding */ }
 
-      verification = await tracer.traceStage('verify-replan', 'VerificationEngine',
-        () => this.verify(understanding, plan, grounding, input), 0, undefined);
+      try {
+        verification = await tracer.traceStage('verify-replan', 'VerificationEngine',
+          () => this.verify(understanding, plan, grounding, input), 0, undefined);
+      } catch { /* use existing verification */ }
 
-      confidence = this.confidenceAggregator.aggregate(understanding, grounding, verification, plan);
+      try {
+        confidence = this.confidenceAggregator.aggregate(understanding, grounding, verification, plan);
+      } catch { /* use existing confidence */ }
 
       const afterFailedChecks = verification.checks.filter(c => c.state !== 'verified').map(c => c.check);
       const changedCaps = plan.tasks
@@ -209,22 +335,63 @@ export class RuntimeIntelligenceCore {
         triggeredBy: this.findLowestConfidenceComponent(confidence),
       });
 
-      if (confidence.overall >= CONFIDENCE_THRESHOLD) break;
+      if (confidence.overall >= REFINEMENT_THRESHOLD) break;
     }
 
-    if (confidence.overall < CONFIDENCE_THRESHOLD) {
-      this.degraded = true;
+    // ---- Learning: store successful plans ----
+    if (confidence.overall >= 0.8 && plan.tasks.length > 0) {
+      try {
+        this.pastPlanMemory.store(plan, understanding, confidence.overall);
+      } catch { /* non-critical */ }
     }
 
-    if (confidence.overall >= 0.8) {
-      this.pastPlanMemory.store(plan, understanding, confidence.overall);
+    // ---- Trace, Evidence, Budget ----
+    let trace: RuntimeTrace;
+    let evidence: Evidence[];
+    let budget: RuntimeBudget;
+    try {
+      trace = tracer.getTrace();
+      evidence = tracer.getEvidence();
+      budget = tracer.getBudget({ understand: 2000, plan: 3000, ground: 2000, verify: 500, assemble: 300 });
+    } catch {
+      trace = { stages: [], totalDurationMs: 0 };
+      evidence = [];
+      budget = { limits: {}, exceeded: false, exceededStages: [] };
     }
 
-    const trace = tracer.getTrace();
-    const evidence = tracer.getEvidence();
-    const budget = tracer.getBudget({ understand: 2000, plan: 3000, ground: 2000, verify: 500, assemble: 300 });
+    const isDegraded = degradedModules.length > 0 || budget.exceeded;
+    const degradedReason = this.buildDegradedReason(budget, replanCount, degradedModules, degradedReasons);
+    const assemblyStatus = degradedModules.length === 0 && !budget.exceeded ? "full"
+      : (degradedModules.length <= 3 ? "partial" : "minimal");
 
-    this.degraded = this.degraded || budget.exceeded;
+    // ---- Build Context ----
+    let awarenessBrief: any = undefined;
+    try {
+      const brief = await this.awarenessEngine.collectBrief().catch(() => undefined);
+      if (brief) {
+        awarenessBrief = {
+          summary: brief.summary,
+          overallHealth: brief.overallHealth,
+          overallConfidence: brief.overallConfidence,
+          awarenessScore: brief.awarenessScore,
+          nextAttention: brief.nextAttention,
+          businessSituation: {
+            summary: brief.businessSituation.summary,
+            riskLevel: brief.businessSituation.riskLevel,
+            trend: brief.businessSituation.trend,
+            focus: brief.businessSituation.focus,
+          },
+          systemSituation: {
+            summary: brief.systemSituation.summary,
+            health: brief.systemSituation.health,
+            degradedServices: brief.systemSituation.degradedServices,
+            runtimeState: brief.systemSituation.runtimeState,
+          },
+          criticalSignalCount: brief.criticalSignals.length,
+          warningCount: brief.warnings.length,
+        };
+      }
+    } catch { /* non-critical */ }
 
     const context = this.contextBuilder.build(
       understanding,
@@ -235,58 +402,56 @@ export class RuntimeIntelligenceCore {
       version,
       contractId,
       createdAt,
-      this.degraded,
-      this.buildDegradedReason(budget, replanCount),
+      isDegraded,
+      degradedReason,
       trace,
       evidence,
       budget,
-      awarenessBrief ? {
-        summary: awarenessBrief.summary,
-        overallHealth: awarenessBrief.overallHealth,
-        overallConfidence: awarenessBrief.overallConfidence,
-        awarenessScore: awarenessBrief.awarenessScore,
-        nextAttention: awarenessBrief.nextAttention,
-        businessSituation: {
-          summary: awarenessBrief.businessSituation.summary,
-          riskLevel: awarenessBrief.businessSituation.riskLevel,
-          trend: awarenessBrief.businessSituation.trend,
-          focus: awarenessBrief.businessSituation.focus,
-        },
-        systemSituation: {
-          summary: awarenessBrief.systemSituation.summary,
-          health: awarenessBrief.systemSituation.health,
-          degradedServices: awarenessBrief.systemSituation.degradedServices,
-          runtimeState: awarenessBrief.systemSituation.runtimeState,
-        },
-        criticalSignalCount: awarenessBrief.criticalSignals.length,
-        warningCount: awarenessBrief.warnings.length,
-      } : undefined,
+      awarenessBrief,
       refinementHistory,
       erpContexts ?? undefined,
       operationalState ?? undefined,
+      moduleStatus,
+      degradedModules,
+      degradedReasons,
+      assemblyStatus,
+      timeCtx,
     );
 
-    this.metricsStore.recordRequest(
-      understanding.domain.primary,
-      confidence.overall,
-      confidence.verification,
-      this.degraded,
-      replanCount,
-    );
+    // ---- Metrics + Reflection + Evidence Store ----
+    try {
+      this.metricsStore.recordRequest(
+        understanding.domain.primary,
+        confidence.overall,
+        confidence.verification,
+        isDegraded,
+        replanCount,
+      );
+    } catch { /* non-critical */ }
 
-    const reflection = this.reflectionEngine.reflect(
-      confidence.overall,
-      verification,
-      refinementHistory,
-      this.degraded,
-      this.metricsStore,
-      trace.stages,
-    );
+    try {
+      const reflection = this.reflectionEngine.reflect(
+        confidence.overall,
+        verification,
+        refinementHistory,
+        isDegraded,
+        this.metricsStore,
+        trace.stages,
+      );
+      try { this.evidenceStore.record(reflection); } catch { /* non-critical */ }
+    } catch { /* non-critical */ }
 
-    const evidenceEntries = this.evidenceStore.record(reflection);
+    // ---- Freeze Contract ----
+    let frozen: RuntimeContext;
+    try {
+      frozen = freezeContract(context);
+    } catch (e: unknown) {
+      const err = e as Error;
+      console.error(`[RIC:Contract] freezeContract failed: ${err.message}`, err.stack);
+      frozen = context;
+    }
 
-    const frozen = freezeContract(context);
-    this.diagnostics.recordContract(frozen);
+    try { this.diagnostics.recordContract(frozen); } catch { /* non-critical */ }
     return frozen;
   }
 
@@ -315,11 +480,19 @@ export class RuntimeIntelligenceCore {
     return this.verificationEngine.verify(understanding, plan, grounding, this.tools);
   }
 
-  private buildDegradedReason(budget: RuntimeBudget, replanCount: number): string | undefined {
+  private buildDegradedReason(
+    budget: RuntimeBudget,
+    replanCount: number,
+    degradedModules: string[],
+    degradedReasons: Record<string, string>,
+  ): string | undefined {
     const reasons: string[] = [];
     if (budget.exceeded) reasons.push(`Budget exceeded: ${budget.exceededStages.join(', ')}`);
     if (replanCount > 0) reasons.push(`Replanned (${replanCount} iteration${replanCount > 1 ? 's' : ''})`);
-    if (this.degraded) reasons.push('Low confidence after replan');
+    for (const mod of degradedModules) {
+      const r = degradedReasons[mod];
+      reasons.push(`${mod}: ${r ? r.split('\n')[0] : 'unknown error'}`);
+    }
     return reasons.length > 0 ? reasons.join('; ') : undefined;
   }
 
@@ -334,11 +507,7 @@ export class RuntimeIntelligenceCore {
   }
 
   public isDegraded(): boolean {
-    return this.degraded;
-  }
-
-  public setDegraded(d: boolean): void {
-    this.degraded = d;
+    return false;
   }
 
   public getCapabilityGraph(): CapabilityGraph {

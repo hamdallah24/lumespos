@@ -9,7 +9,6 @@ import { cmoRuntime } from '../../executive-runtime/executives/CMO';
 import { caioRuntime } from '../../executive-runtime/executives/CAIO';
 import { ckoRuntime } from '../../executive-runtime/executives/CKO';
 import { chroRuntime } from '../../executive-runtime/executives/CHRO';
-import { mapContextForRole } from '../../executive-context/ExecutiveContextAdapter';
 import { DelegationEngine } from '../../executive-runtime/orchestration/DelegationEngine';
 import { ExecutionWorkspace } from '../../executive-runtime/orchestration/ExecutionWorkspace';
 import { getExecutionHistory } from '../../executive-runtime/orchestration/ExecutionHistory';
@@ -21,6 +20,10 @@ import type { DecisionObject } from '../../executive-runtime/types';
 import { BIContextBuilder } from '../../business-os/bi/context/BIContextBuilder';
 import { ExecutiveBIAdapter } from '../../business-os/bi/context/ExecutiveBIAdapter';
 import { BIFeedbackEngine } from '../../business-os/bi/feedback/BIFeedbackEngine';
+import { validateContext } from './contracts/ContextValidator';
+import { getTruthEngine } from '../../business-os/truth/TruthEngine';
+import type { TruthEngineResult } from '../../business-os/truth/TruthEngine';
+import { executiveReason } from './execution/ExecutiveReasoner';
 
 export interface ExecuteMessageParams {
   message: string;
@@ -61,6 +64,9 @@ export interface ExecuteMessageResult {
   ricActive?: boolean;
   runtimeContext?: RuntimeContext;
   executiveContext?: ExecutiveContext;
+  truthScore?: number;
+  truthValid?: boolean;
+  truthErrors?: number;
 }
 
 interface GatewayInput {
@@ -96,35 +102,43 @@ const EXECUTIVES: Record<string, ExecFn> = {
     return { success: r.success, text: r.text, pipeline: r.pipeline || [], toolsUsed: r.toolsUsed, filesRead: r.filesRead, decision: (r as any).decision };
   },
   COO: async (p) => {
-    const ctx = mapContextForRole("COO", p.runtimeContext as RuntimeContext);
-    const r = await cooRuntime.execute({ message: p.message, userId: p.userId, branchId: p.branchId, onProgress: p.onProgress, context: ctx });
+    const r = await cooRuntime.execute({ message: p.message, userId: p.userId, branchId: p.branchId, onProgress: p.onProgress, context: p.runtimeContext as any });
     return { success: r.success, text: r.text, pipeline: r.pipeline || [], decision: r.decision };
   },
   CFO: async (p) => {
-    const ctx = mapContextForRole("CFO", p.runtimeContext as RuntimeContext);
-    const r = await cfoRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, context: ctx });
+    const r = await cfoRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, context: p.runtimeContext as any });
     return { success: r.success, text: r.text, pipeline: r.pipeline || [], decision: r.decision };
   },
   CMO: async (p) => {
-    const ctx = mapContextForRole("CMO", p.runtimeContext as RuntimeContext);
-    const r = await cmoRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, context: ctx });
+    const r = await cmoRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, context: p.runtimeContext as any });
     return { success: r.success, text: r.text, pipeline: r.pipeline || [], decision: r.decision };
   },
   CAIO: async (p) => {
-    const ctx = mapContextForRole("CAIO", p.runtimeContext as RuntimeContext);
-    const r = await caioRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, context: ctx });
+    const r = await caioRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, context: p.runtimeContext as any });
     return { success: r.success, text: r.text, pipeline: r.pipeline || [], decision: r.decision };
   },
   CHRO: async (p) => {
-    const ctx = mapContextForRole("CHRO", p.runtimeContext as RuntimeContext);
-    const r = await chroRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, context: ctx });
+    const r = await chroRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, context: p.runtimeContext as any });
     return { success: r.success, text: r.text, pipeline: r.pipeline || [], decision: r.decision };
   },
   CKO: async (p) => {
-    const r = await ckoRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress });
+    const r = await ckoRuntime.execute({ message: p.message, userId: p.userId, onProgress: p.onProgress, context: p.runtimeContext as any });
     return { success: r.success, text: r.text, pipeline: r.pipeline || [] };
   },
 };
+
+function buildErrorResult(name: string, text: string, pipeline: string[], durationMs: number): ExecuteMessageResult {
+  return {
+    success: false,
+    text,
+    runtime: name,
+    pipeline,
+    metrics: {
+      runtime: name, tokensUsed: 0, toolsCalled: 0, durationMs,
+      delegated: false, verificationPassed: false, knowledgeWritten: false,
+    },
+  };
+}
 
 function buildResult(name: string, raw: { success: boolean; text: string; pipeline?: string[]; decision?: any; toolsUsed?: number; filesRead?: string[] }, durationMs: number): ExecuteMessageResult {
   return {
@@ -166,7 +180,8 @@ export class RuntimeGateway {
       }
       this.ricReady = true;
       getExecutionEngine().initialize();
-    } catch {
+    } catch (initErr: any) {
+      console.error(`[RuntimeGateway:Init] RIC initialization failed: ${initErr.message}`, initErr.stack);
       this.ricReady = false;
     }
   }
@@ -197,8 +212,8 @@ export class RuntimeGateway {
     const workspace = new ExecutionWorkspace(requestId, input.message, input.userId, input.branchId || 1);
     workspace.emit("thinking", { stage: "initialized", requestId });
 
-    let runtimeContext: RuntimeContext | null = null;
-    let executiveContext: ExecutiveContext | null = null;
+    let runtimeContext: RuntimeContext | undefined;
+    let executiveContext: ExecutiveContext | undefined;
     let decision: DecisionObject | null = null;
     let executionResult: any = null;
     let finalText = "";
@@ -212,7 +227,7 @@ export class RuntimeGateway {
       if (this.ricReady) {
         try {
           const adapter = getRICAdapter();
-          const cacheKey = `grounding:${input.userId}:${input.branchId || 1}`;
+          const cacheKey = `grounding:${input.userId}:${input.branchId ?? 'all'}`;
           runtimeContext = cache.getGrounding<RuntimeContext>(cacheKey);
           if (!runtimeContext) {
             runtimeContext = await adapter.assemble({
@@ -222,13 +237,12 @@ export class RuntimeGateway {
             });
             cache.setGrounding(cacheKey, runtimeContext, 30000);
           }
-          executiveContext = adapter.getExecutiveContext();
+          executiveContext = adapter.getExecutiveContext() ?? undefined;
           workspace.setRuntimeContext(runtimeContext);
           pipeline.push("Grounding");
-        } catch {
-          runtimeContext = null;
-          executiveContext = null;
-          workspace.addReasoning("RIC unavailable, proceeding without runtime context");
+        } catch (ricErr: any) {
+          console.error(`[RuntimeGateway:RIC] Assembly failed: ${ricErr.message}`, ricErr.stack);
+          workspace.addReasoning("RIC assembly degraded, proceeding with partial context");
         }
       }
       workspace.emit("thinking", { stage: "ric", completed: true });
@@ -249,25 +263,51 @@ export class RuntimeGateway {
       if (this.ricReady) {
         try {
           const adapter = getRICAdapter();
-          const enrichedContext = adapter.getExecutiveContext(target);
+          const enrichedContext = adapter.getExecutiveContext(target) ?? undefined;
           if (enrichedContext) {
             executiveContext = enrichedContext;
           }
-        } catch { }
+        } catch (injErr: any) {
+          console.error(`[RuntimeGateway:Inject] executive context enrichment failed: ${injErr.message}`, injErr.stack);
+        }
       }
 
       // === STAGE 2.5: BI Context Enrichment ===
       try {
         const biBuilder = new BIContextBuilder();
-        const biCtx = await biBuilder.build({ executives: target, message: input.message });
+        const biCtx = await biBuilder.build(runtimeContext);
         const biAdapter = new ExecutiveBIAdapter();
         if (executiveContext) {
           (executiveContext as any).businessIntelligence = biCtx;
           (executiveContext as any).executiveBI = biAdapter.map(target, biCtx);
         }
+        if (runtimeContext) {
+          (runtimeContext as any).__businessIntelligence = biCtx;
+          (runtimeContext as any).__executiveBI = biAdapter.map(target, biCtx);
+        }
         pipeline.push("BI-Enrich");
-      } catch (biErr) {
+      } catch (biErr: any) {
+        console.error(`[RuntimeGateway:BI] BI enrichment failed: ${biErr.message}`, biErr.stack);
         pipeline.push("BI-Skip");
+      }
+
+      // === STAGE 2.6: Context Validation ===
+      {
+        const vr = validateContext(target, runtimeContext);
+        workspace.addReasoning(vr.message);
+        if (!vr.valid) {
+          const msg = `[Validator] ${vr.message}`;
+          console.error(msg);
+          emitEvent(input, "validation", "failed", vr);
+          pipeline.push("ValidationFailed");
+          return buildErrorResult(target, msg, [...pipeline, "ValidationFailed"], Date.now() - t0);
+        }
+        if (vr.degraded.length > 0) {
+          workspace.addReasoning(`Context degraded: ${vr.degraded.join(", ")}`);
+          pipeline.push("ValidationDegraded");
+        } else {
+          pipeline.push("ValidationPassed");
+        }
       }
 
       // === STAGE 3: Execute Primary Executive ===
@@ -290,7 +330,7 @@ export class RuntimeGateway {
         onExecutionEvent: input.onExecutionEvent,
         onEvent: input.onEvent,
         executiveContext: executiveContext ? (executiveContext as unknown as Record<string, unknown>) : undefined,
-        runtimeContext: runtimeContext ?? undefined,
+        runtimeContext,
       });
 
       decision = raw.decision || null;
@@ -303,6 +343,40 @@ export class RuntimeGateway {
 
       emitEvent(input, "executive", "complete", { decision: !!decision, text: raw.text?.slice(0, 100) });
       workspace.addThinking(`Executive ${target} selesai`);
+
+      // === STAGE 3.5: Truth Validation ===
+      let truthResult: TruthEngineResult | null = null;
+      if (raw.text && runtimeContext) {
+        try {
+          emitEvent(input, "truth", "start", { executive: target });
+          const engine = getTruthEngine();
+          truthResult = await engine.validateWithRepair(
+            raw.text,
+            runtimeContext,
+            target,
+            input.message,
+            async (prompt: string) => {
+              const r = await executiveReason({ persona: prompt, context: "", userId: input.userId });
+              return { content: r.content };
+            },
+          );
+          if (!truthResult.valid) {
+            console.warn(`[TruthEngine] ${target} validation FAILED — score: ${truthResult.score.score}, errors: ${truthResult.validation.errors.length}`);
+            workspace.addReasoning(`[Truth] Validasi gagal: skor ${truthResult.score.score}, ${truthResult.validation.errors.length} kesalahan`);
+            raw.text = truthResult.repair?.text ?? raw.text;
+          } else {
+            console.log(`[TruthEngine] ${target} validation PASSED — score: ${truthResult.score.score}`);
+            workspace.addReasoning(`[Truth] Validasi lulus: skor ${truthResult.score.score}`);
+          }
+          pipeline.push(`TruthValidation:${truthResult.valid ? 'PASS' : 'FAIL'}`);
+          emitEvent(input, "truth", "complete", { valid: truthResult.valid, score: truthResult.score.score });
+        } catch (truthErr: any) {
+          console.error(`[TruthEngine] Validation error for ${target}: ${truthErr.message}`, truthErr.stack);
+          pipeline.push("TruthValidation-Error");
+        }
+      } else {
+        pipeline.push("TruthValidation-Skip");
+      }
 
       // === STAGE 4: Execute Supporting Executives (in parallel) ===
       if (supporting.length > 0) {
@@ -318,12 +392,14 @@ export class RuntimeGateway {
                 message: `[Consultation from ${target}] ${input.message}`,
                 userId: input.userId,
                 branchId: input.branchId,
-                runtimeContext: runtimeContext ?? undefined,
+                runtimeContext,
               });
               if (supResult.text) {
                 finalText += `\n\n**${exec}**: ${supResult.text}`;
               }
-            } catch { }
+            } catch (supErr: any) {
+              console.error(`[RuntimeGateway:Support] Supporting executive ${exec} failed: ${supErr.message}`, supErr.stack);
+            }
           });
         await Promise.allSettled(supportingPromises);
         emitEvent(input, "executive", "complete", { supporting: true });
@@ -391,7 +467,8 @@ export class RuntimeGateway {
             },
           );
           pipeline.push("OutcomeTrack");
-        } catch {
+        } catch (outErr: any) {
+          console.error(`[RuntimeGateway:Outcome] Outcome tracking failed: ${outErr.message}`, outErr.stack);
           pipeline.push("OutcomeTrack-Error");
         }
       }
@@ -407,6 +484,11 @@ export class RuntimeGateway {
         (result as any).runtimeContext = runtimeContext;
         (result as any).executiveContext = executiveContext;
         (result as any).ricActive = true;
+      }
+      if (truthResult) {
+        result.truthScore = truthResult.score.score;
+        result.truthValid = truthResult.valid;
+        result.truthErrors = truthResult.validation.errors.length;
       }
 
       // Record history and metrics
@@ -447,7 +529,9 @@ export class RuntimeGateway {
             fallbackResult.workspace = workspace.snapshot();
             metricFallback(metrics, fallbackTarget, fallbackRaw, durationMs);
             return fallbackResult;
-          } catch { }
+          } catch (fallbackErr: any) {
+            console.error(`[RuntimeGateway:Fallback] CEO fallback also failed: ${fallbackErr.message}`, fallbackErr.stack);
+          }
         }
       }
 
@@ -504,7 +588,9 @@ function metricFallback(metrics: ReturnType<typeof getMetricsCollector>, target:
       confidence: 0, executive: target, action: "fallback",
       success: raw.success, timestamp: new Date().toISOString(),
     });
-  } catch { }
+  } catch (mErr: any) {
+    console.error(`[RuntimeGateway:Metric] Fallback metric recording failed: ${mErr.message}`);
+  }
 }
 
 let instance: RuntimeGateway | null = null;

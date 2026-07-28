@@ -3,6 +3,8 @@
 // Phase 1: Foundation — Shared Types & Interfaces
 // ============================================================
 
+import type { BusinessTimeContext } from '../business-os/temporal/BusinessTimeContext';
+
 // ===== Entity Types =====
 
 export interface Entity {
@@ -437,12 +439,19 @@ export interface RefinementEntry {
 
 // ===== Slices (RuntimeContext Building Blocks) =====
 
+export type ModuleStatusValue = "ready" | "degraded" | "failed" | "skipped";
+export type AssemblyStatus = "full" | "partial" | "minimal";
+
 export interface ContextMetadata {
   version: string;
   contractId: string;
   createdAt: number;
   degraded: boolean;
   degradedReason?: string;
+  assemblyStatus?: AssemblyStatus;
+  moduleStatus?: Record<string, ModuleStatusValue>;
+  degradedModules?: string[];
+  degradedReasons?: Record<string, string>;
 }
 
 export interface IntelligenceSlice {
@@ -536,6 +545,7 @@ export interface RuntimeContext {
   awareness?: AwarenessSlice;
   refinementHistory?: RefinementEntry[];
   runtime: RuntimeSlice;
+  time: BusinessTimeContext;
   erpContexts?: Record<string, unknown>;
   operationalState?: {
     inventory?: unknown;

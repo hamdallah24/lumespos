@@ -1,6 +1,8 @@
 import { ExecutiveWorkspaceManager } from "../workspace/ExecutiveWorkspaceManager";
 import { computeMetrics, getAllSessions, getHistoryEntries, CouncilEngine } from "../council";
 import type { CouncilSession } from "../council/types";
+import { getTruthAudit } from "../truth/TruthAudit";
+import { computeHealthSummary } from "../truth/TruthScore";
 
 export interface ExecutiveOverview {
   executive: string;
@@ -14,6 +16,13 @@ export interface ExecutiveOverview {
   recommendationCount: number;
   executionSuccessRate: number;
   lastActive: string;
+}
+
+export interface TruthScoreEntry {
+  executive: string;
+  score: number;
+  totalMismatches: number;
+  lastUpdated: string;
 }
 
 export interface FounderDashboard {
@@ -33,6 +42,9 @@ export interface FounderDashboard {
   pendingRecommendationsCount: number;
   overallHealth: string;
   updatedAt: string;
+  truthScores?: TruthScoreEntry[];
+  truthIntegrity?: string;
+  averageTruthScore?: number;
 }
 
 export interface DailyBrief {
@@ -86,6 +98,33 @@ export class FounderWorkspace {
 
     const health = executives.length >= 8 && activeObjectives > 0 && pendingApprovals < 10 ? "healthy" : "needs_attention";
 
+    let truthScores: TruthScoreEntry[] = [];
+    let truthIntegrity = 'unknown';
+    let averageTruthScore = 100;
+    try {
+      const audit = getTruthAudit();
+      const patterns = audit.getFailurePatterns();
+      const mostHallucinated = audit.getMostHallucinatedExecutives();
+      if (mostHallucinated.length > 0) {
+        truthScores = mostHallucinated.map(h => ({
+          executive: h.executive,
+          score: h.avgScore,
+          totalMismatches: h.totalMismatches,
+          lastUpdated: new Date().toISOString(),
+        }));
+        const summary = computeHealthSummary(mostHallucinated.map(h => ({
+          executive: h.executive,
+          score: h.avgScore,
+          deductions: [],
+          totalMismatches: h.totalMismatches,
+          periodLabel: '',
+          timestamp: new Date().toISOString(),
+        })));
+        truthIntegrity = summary.integrity;
+        averageTruthScore = summary.averageScore;
+      }
+    } catch { /* truth audit not available */ }
+
     return {
       executives: overviews,
       totalObjectives: allObjectives,
@@ -103,6 +142,9 @@ export class FounderWorkspace {
       pendingRecommendationsCount: pendingRecs,
       overallHealth: health,
       updatedAt: new Date().toISOString(),
+      truthScores: truthScores.length > 0 ? truthScores : undefined,
+      truthIntegrity,
+      averageTruthScore,
     };
   }
 

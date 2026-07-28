@@ -1,5 +1,6 @@
 import { db } from "@workspace/db";
-import { eq, and, gte, lte, sum, count, desc, sql } from "drizzle-orm";
+import { eq, and, gte, lte, sum, count, desc, sql, between } from "drizzle-orm";
+import type { BusinessTimeContext } from "../business-os/temporal/BusinessTimeContext";
 import {
   ordersTable, orderItemsTable,
   productsTable, productVariantsTable,
@@ -127,27 +128,47 @@ export class ERPGroundingProvider {
     };
   }
 
-  async getFinanceData(branchId?: number, period?: string): Promise<RawFinanceData> {
+  async getFinanceData(branchId?: number, ctx?: BusinessTimeContext): Promise<RawFinanceData> {
     const accountList = await db.select().from(accountsTable).limit(200);
 
-    const today = startOfDay();
-    const periodStart = period === "month" ? daysAgo(30) : today;
+    const periodStart = ctx?.from ?? daysAgo(6);
+    const periodEnd = ctx?.to ?? new Date();
 
-    const [revenueResult] = await db.select({
-      total: sum(ordersTable.total),
-    }).from(ordersTable)
-      .where(and(
-        gte(ordersTable.createdAt, periodStart),
-        branchId ? eq(ordersTable.branchId, branchId) : undefined,
-      ));
+    let revenueTotal = 0;
+    let totalOrders = 0;
+    try {
+      const [revRow] = await db.select({
+        total: sum(ordersTable.total),
+        count: count(ordersTable.id),
+      }      ).from(ordersTable)
+        .where(and(
+          eq(ordersTable.status, 'completed'),
+          gte(ordersTable.createdAt, periodStart),
+          lte(ordersTable.createdAt, periodEnd),
+          branchId ? eq(ordersTable.branchId, branchId) : undefined,
+        ));
+      revenueTotal = Number(revRow?.total) || 0;
+      totalOrders = Number(revRow?.count) || 0;
+    } catch (e) {
+      console.error(`[ERP] Revenue query failed:`, e);
+    }
 
-    const [expenseResult] = await db.select({
-      total: sum(expensesTable.amount),
-    }).from(expensesTable)
-      .where(and(
-        gte(expensesTable.createdAt, periodStart),
-        branchId ? eq(expensesTable.branchId, branchId) : undefined,
-      ));
+    let expenseTotal = 0;
+    try {
+      // Using Drizzle ORM — expensesTable.amount resolves correctly (numeric column)
+      // No raw SQL needed here; only trial balance has the drizzle bug.
+      const [expRow] = await db.select({
+        total: sum(expensesTable.amount),
+      }).from(expensesTable)
+        .where(and(
+          gte(expensesTable.createdAt, periodStart),
+          lte(expensesTable.createdAt, periodEnd),
+          branchId ? eq(expensesTable.branchId, branchId) : undefined,
+        ));
+      expenseTotal = Number(expRow?.total) || 0;
+    } catch (e) {
+      console.error(`[ERP] Expense query failed:`, e);
+    }
 
     const accounts: RawAccount[] = accountList.map(a => ({
       code: a.code || "",
@@ -156,11 +177,23 @@ export class ERPGroundingProvider {
       normalBalance: (a as any).normalBalance || "debit",
     }));
 
-    const [trialBalanceResult] = await db.select({
-      debitSum: sum(ledgerEntriesTable.debitAmount),
-      creditSum: sum(ledgerEntriesTable.creditAmount),
-    }).from(ledgerEntriesTable)
-      .where(gte(ledgerEntriesTable.createdAt, periodStart));
+    let debitSum = 0;
+    let creditSum = 0;
+    try {
+      // RAW SQL: Drizzle ORM's sum(ledgerEntriesTable.debit) generates sum() with empty column name.
+      // This is a drizzle-orm@0.45.2 bug where numeric column references resolve to undefined.
+      // Revert to Drizzle ORM when the bug is fixed in drizzle-orm.
+      const trialResult = await db.execute(
+        sql`SELECT COALESCE(SUM(debit), 0) AS "debitSum", COALESCE(SUM(credit), 0) AS "creditSum" FROM "ledger_entries" WHERE "created_at" >= ${periodStart} AND "created_at" <= ${periodEnd}`
+      );
+      const row = (trialResult as any).rows?.[0];
+      if (row) {
+        debitSum = Number(row.debitSum) || 0;
+        creditSum = Number(row.creditSum) || 0;
+      }
+    } catch (e) {
+      console.error(`[ERP] Trial balance raw query failed:`, e);
+    }
 
     const trialBalance: RawTrialBalanceEntry[] = accounts.slice(0, 20).map(a => ({
       accountCode: a.code,
@@ -182,16 +215,26 @@ export class ERPGroundingProvider {
       lastClosed: (periods[0] as any).lastClosed || undefined,
     } : { id: 0, name: "current", status: "open", startDate: "", endDate: "" };
 
-    return {
-      accounts,
-      trialBalance,
-      cashFlow: [],
-      balanceSheet: [],
-      profitLoss: [],
-      period: currentPeriod,
-      revenueTotal: Number(revenueResult?.total) || 0,
-      expenseTotal: Number(expenseResult?.total) || 0,
-    };
+      return {
+          accounts,
+          trialBalance,
+          cashFlow: [],
+          balanceSheet: [],
+          profitLoss: [],
+          period: currentPeriod,
+          revenueTotal,
+          expenseTotal,
+          revenue: revenueTotal,
+          totalOrders,
+          averageOrderValue: totalOrders > 0 ? Math.round(revenueTotal / totalOrders) : 0,
+          totalExpenses: expenseTotal,
+          grossProfit: 0,
+          grossMargin: 0,
+          netProfit: 0,
+          cashPosition: 0,
+          expenseTrend: [],
+          financialRisks: [],
+        };
   }
 
   async getHRData(branchId?: number): Promise<RawHRData> {
@@ -290,14 +333,15 @@ export class ERPGroundingProvider {
     };
   }
 
-  async getSalesData(branchId?: number, period?: string): Promise<RawSalesData> {
-    const today = startOfDay();
-    const periodStart = period === "month" ? daysAgo(30) : daysAgo(7);
+  async getSalesData(branchId?: number, ctx?: BusinessTimeContext): Promise<RawSalesData> {
+    const timeFrom = ctx?.from ?? daysAgo(6);
+    const timeTo = ctx?.to ?? new Date();
 
     const orderList = await db.select()
       .from(ordersTable)
       .where(and(
-        gte(ordersTable.createdAt, periodStart),
+        gte(ordersTable.createdAt, timeFrom),
+        lte(ordersTable.createdAt, timeTo),
         branchId ? eq(ordersTable.branchId, branchId) : undefined,
       ))
       .orderBy(desc(ordersTable.createdAt))
@@ -309,10 +353,61 @@ export class ERPGroundingProvider {
       revenue: sum(orderItemsTable.subtotal),
     }).from(orderItemsTable)
       .innerJoin(productsTable, eq(orderItemsTable.productId, productsTable.id))
-      .where(gte(orderItemsTable.createdAt, periodStart))
+      .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+      .where(and(
+        gte(ordersTable.createdAt, timeFrom),
+        lte(ordersTable.createdAt, timeTo),
+        branchId ? eq(ordersTable.branchId, branchId) : undefined,
+      ))
       .groupBy(productsTable.name)
       .orderBy(desc(sql`sum(${orderItemsTable.quantity})`))
       .limit(10);
+
+    const branchList = await db.select({ id: branchesTable.id, name: branchesTable.name, location: branchesTable.location })
+      .from(branchesTable).orderBy(branchesTable.id);
+    const branchMap = new Map(branchList.map(b => [b.id, b]));
+
+    const perBranchData: {
+      branchId: number; branchName: string; location: string;
+      totalRevenue: number; totalOrders: number;
+      topProducts: { productName: string; quantity: number; revenue: number }[];
+    }[] = [];
+
+    const branchIds = [...new Set(orderList.map(o => Number((o as any).branchId) || branchId || 1))].filter(Boolean) as number[];
+    for (const bid of branchIds) {
+      const branchOrders = orderList.filter(o => (Number((o as any).branchId) || branchId || 1) === bid);
+      const branch = branchMap.get(bid);
+
+      let branchTopProducts: typeof topProducts = [];
+        try {
+          branchTopProducts = await db.select({
+            productName: productsTable.name,
+            quantity: sum(orderItemsTable.quantity),
+            revenue: sum(orderItemsTable.subtotal),
+          }).from(orderItemsTable)
+            .innerJoin(productsTable, eq(orderItemsTable.productId, productsTable.id))
+            .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+            .where(and(
+              gte(ordersTable.createdAt, timeFrom),
+              lte(ordersTable.createdAt, timeTo),
+              eq(ordersTable.branchId, bid),
+            ))
+            .groupBy(productsTable.name)
+            .orderBy(desc(sql`sum(${orderItemsTable.quantity})`))
+            .limit(5);
+        } catch { /* skip per-branch top products on error */ }
+
+      perBranchData.push({
+        branchId: bid,
+        branchName: branch?.name || `Cabang ${bid}`,
+        location: branch?.location || "",
+        totalRevenue: branchOrders.reduce((s, o) => s + Number(o.total), 0),
+        totalOrders: branchOrders.length,
+        topProducts: branchTopProducts.map(p => ({
+          productName: p.productName, quantity: Number(p.quantity) || 0, revenue: Number(p.revenue) || 0,
+        })),
+      });
+    }
 
     return {
       orders: orderList.map(o => ({
@@ -327,12 +422,15 @@ export class ERPGroundingProvider {
         quantity: Number(p.quantity) || 0,
         revenue: Number(p.revenue) || 0,
       })),
-      periodStart: periodStart.toISOString(),
-      periodEnd: new Date().toISOString(),
+      branches: branchList.map(b => ({ id: b.id, name: b.name, location: b.location })),
+      perBranch: perBranchData,
+      periodLabel: ctx?.label || '7 Hari Terakhir',
+      periodStart: timeFrom.toISOString(),
+      periodEnd: timeTo.toISOString(),
     };
   }
 
-  async readAll(domains: string[], branchId?: number, period?: string): Promise<Record<string, any>> {
+  async readAll(domains: string[], branchId?: number, ctx?: BusinessTimeContext): Promise<Record<string, any>> {
     const results: Record<string, any> = {};
 
     await Promise.all(domains.map(async (domain) => {
@@ -354,7 +452,7 @@ export class ERPGroundingProvider {
             results.production = await this.getProductionData(branchId);
             break;
           case "sales":
-            results.sales = await this.getSalesData(branchId, period);
+            results.sales = await this.getSalesData(branchId, ctx);
             break;
         }
       } catch (err) {

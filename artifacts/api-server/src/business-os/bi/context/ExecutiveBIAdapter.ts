@@ -41,14 +41,14 @@ export class ExecutiveBIAdapter {
     return {
       inventoryForecast: {
         stockoutRisk: stockoutKpi && stockoutKpi.value > 3 ? "high" : stockoutKpi && stockoutKpi.value > 1 ? "medium" : "low",
-        reorderPoint: turnoverKpi ? Math.round(turnoverKpi.value * 7) : 100,
+        reorderPoint: turnoverKpi ? Math.round(turnoverKpi.value * 7) : null,
         daysUntilStockout: stockoutForecast ? Math.round(stockoutForecast.forecast7d) : null,
       },
-      warehouseHealth: pickingKpi ? pickingKpi.value : 95,
+      warehouseHealth: pickingKpi?.value ?? null,
       productionTrend: {
-        yield: yieldKpi?.value ?? 95,
-        oee: bi.kpis.find(k => k.kpiId === "kpi_oee")?.value ?? 85,
-        waste: wasteKpi?.value ?? 5,
+        yield: yieldKpi?.value ?? null,
+        oee: bi.kpis.find(k => k.kpiId === "kpi_oee")?.value ?? null,
+        waste: wasteKpi?.value ?? null,
       },
       supplierRisk: bi.alerts.filter(a => a.message.toLowerCase().includes("supplier") || a.message.toLowerCase().includes("purchasing")).map(a => ({ supplier: a.kpiName, risk: a.severity })),
       stockPrediction: stockoutKpi && stockoutKpi.value > 3 ? "Stok perlu perhatian" : "Stok dalam kondisi baik",
@@ -64,10 +64,10 @@ export class ExecutiveBIAdapter {
 
     return {
       cashForecast: {
-        runway: cashForecast?.forecast30d ?? 30,
+        runway: cashForecast?.forecast30d ?? null,
         criticalDate: cashKpi && cashKpi.value < 0 ? new Date(Date.now() + 7 * 86400000).toISOString() : null,
       },
-      cashRunway: cashKpi?.value ?? 30,
+      cashRunway: cashKpi?.value ?? null,
       marginTrend: {
         gross: grossKpi?.value ?? 0,
         net: netKpi?.value ?? 0,
@@ -76,7 +76,7 @@ export class ExecutiveBIAdapter {
       expenseVariance: [
         { category: "operational", variance: ((expenseKpi?.value ?? 0) - (expenseKpi?.previousValue ?? 0)) / (expenseKpi?.previousValue || 1) * 100, isSignificant: Math.abs(((expenseKpi?.value ?? 0) - (expenseKpi?.previousValue ?? 0)) / (expenseKpi?.previousValue || 1)) > 0.1 },
       ],
-      financialHealth: bi.health.dimensions.find(d => d.dimension === "finance")?.score ?? 80,
+      financialHealth: bi.health.dimensions.find(d => d.dimension === "finance")?.score ?? null,
     };
   }
 
@@ -108,29 +108,29 @@ export class ExecutiveBIAdapter {
         trend: turnoverKpi && turnoverKpi.previousValue ? (turnoverKpi.value > turnoverKpi.previousValue ? "meningkat" : "menurun") : "stabil",
       },
       attendanceTrend: {
-        rate: attendKpi?.value ?? 100,
+        rate: attendKpi?.value ?? null,
         trend: attendKpi && attendKpi.previousValue ? (attendKpi.value > attendKpi.previousValue ? "membaik" : "menurun") : "stabil",
       },
       productivityTrend: {
         value: prodKpi?.value ?? 0,
         trend: prodKpi && prodKpi.previousValue ? (prodKpi.value > prodKpi.previousValue ? "meningkat" : "menurun") : "stabil",
       },
-      hiringForecast: [{ needs: Math.max(0, Math.round((turnoverKpi?.value ?? 5) / 100 * 50)), months: 3 }],
+      hiringForecast: [{ needs: Math.max(0, Math.round((turnoverKpi?.value ?? 0) / 100 * 50)), months: 3 }],
     };
   }
 
   toCKO(bi: BIContext): CKOBIContext {
     return {
-      learningTrend: { completion: 75, trend: "stabil" },
+      learningTrend: { completion: null, trend: "stabil" },
       knowledgeGap: bi.narratives.filter(n => n.type === "warning").map(n => n.headline).slice(0, 3),
-      documentationHealth: 80,
+      documentationHealth: null,
     };
   }
 
   toCAIO(bi: BIContext): CAIOBIContext {
     return {
-      automationTrend: { coverage: 60, trend: "meningkat" },
-      modelAccuracy: 85,
+      automationTrend: { coverage: null, trend: "meningkat" },
+      modelAccuracy: null,
       agentPerformance: [],
     };
   }
@@ -138,10 +138,10 @@ export class ExecutiveBIAdapter {
   toCTO(bi: BIContext): CTOBIContext {
     const uptimeKpi = bi.kpis.find(k => k.kpiId === "kpi_uptime");
     return {
-      deploymentHealth: uptimeKpi?.value ?? 99.5,
+      deploymentHealth: uptimeKpi?.value ?? null,
       bugTrend: { count: bi.alerts.filter(a => a.dimension === "platform").length, trend: "stabil" },
-      technicalDebt: { score: 30, items: [] },
-      uptimeForecast: uptimeKpi?.value ?? 99.5,
+      technicalDebt: { score: null, items: [] },
+      uptimeForecast: uptimeKpi?.value ?? null,
     };
   }
 

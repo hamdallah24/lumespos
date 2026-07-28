@@ -23,7 +23,7 @@ import { getExecutionEngine } from "../../../ai/runtime/execution/ExecutionEngin
 import { getFoundationProvider } from "../../../ai/runtime/foundation";
 // CTO_OUTPUT_SCHEMA removed — EIOS 4.1 uses metadata-based identity + foundation
 import { resolveTools } from "../../../ai/runtime/execution/tool-registry";
-import { missionContextRegistry } from "../../../knowledge/MissionContextRegistry";
+
 import { CAPABILITY_TOOLS, getDefaultCapabilities } from "../../../ai/runtime/execution/execution-capabilities";
 import { consultantRuntime, consultantDiscovery } from "../../../programs/consultant";
 import { auditEngine } from "../../../governance/core";
@@ -70,7 +70,7 @@ const KEYWORD_TRANSLATIONS: Record<string, string[]> = {
   migrasi: ["migration", "migrasi", "schema"],
 };
 
-async function fetchContext(message: string, userId?: number): Promise<{ text: string; filePaths: string[] }> {
+async function fetchContext(message: string, userId?: number, runtimeContext?: import('../../../runtime-intelligence-core/types').RuntimeContext): Promise<{ text: string; filePaths: string[] }> {
   const blocks: string[] = [];
   const seen = new Set<string>();
   const matchedTargets: string[] = [];
@@ -119,24 +119,23 @@ async function fetchContext(message: string, userId?: number): Promise<{ text: s
     }
   } catch { /* CKO file selection unavailable */ }
 
-  const indices = await missionContextRegistry.getRelevant("general", message);
-  if (indices.length > 0) {
+  const repoFiles = runtimeContext?.grounding?.repository || [];
+  if (repoFiles.length > 0) {
     const fetchedPairs: string[] = [];
     const fetchedPaths: string[] = [];
 
-    for (const idx of indices.slice(0, 5)) {
-      const content = await missionContextRegistry.getContent(idx.path);
-      if (content && content.length > 10) {
-        if (!seen.has(idx.path)) { seen.add(idx.path); }
-        fetchedPaths.push(idx.path);
-        matchedTargets.push(idx.path);
-        fetchedPairs.push(`\n\n[FILE: ${idx.path}]:\n\`\`\`\n${content.slice(0, 8000)}\n\`\`\``);
+    for (const file of repoFiles.slice(0, 5)) {
+      if (file.content && file.content.length > 10) {
+        if (!seen.has(file.path)) { seen.add(file.path); }
+        fetchedPaths.push(file.path);
+        matchedTargets.push(file.path);
+        fetchedPairs.push(`\n\n[FILE: ${file.path}]:\n\`\`\`\n${file.content.slice(0, 8000)}\n\`\`\``);
       }
     }
 
     if (fetchedPaths.length > 0) {
       const manifestLines = fetchedPaths.map((p, i) => `${i + 1}. ${p}`);
-      blocks.push(`📋 FILE DARI REGISTRY:\n${manifestLines.join("\n")}\n${fetchedPairs.join("")}`);
+      blocks.push(`📋 FILE DARI REPOSITORY:\n${manifestLines.join("\n")}\n${fetchedPairs.join("")}`);
     }
   }
 
@@ -242,7 +241,7 @@ async function execute(task: CTOTask, execContract?: ExecutionContract): Promise
     const enrichedForFetch = searchTerms.length > 0
       ? `${task.message} ${searchTerms.join(" ")}`
       : task.message;
-    try { fileContext = await fetchContext(enrichedForFetch, task.userId); } catch (e: any) { console.error("[CTO] fetchContext error:", e.message); }
+    try { fileContext = await fetchContext(enrichedForFetch, task.userId, task.runtimeContext); } catch (e: any) { console.error("[CTO] fetchContext error:", e.message); }
     // Gunakan RIC RuntimeContext jika tersedia (CKO sudah deprecated)
     const rc = task.runtimeContext;
     if (rc?.grounding?.repository?.length) {

@@ -6,6 +6,31 @@ import { DemandForecast } from "./DemandForecast";
 import { StaffForecast } from "./StaffForecast";
 import { ScenarioForecast } from "./ScenarioForecast";
 
+function isRevenue(metric: string): boolean {
+  const m = metric.toLowerCase();
+  return m.includes("revenue") || m.includes("sale") || m.includes("income") || m.includes("aov") || m.includes("order");
+}
+
+function isCash(metric: string): boolean {
+  const m = metric.toLowerCase();
+  return m.includes("cash") || m.includes("burn") || m.includes("ebitda") || m.includes("expense") || m.includes("margin") || m.includes("capital") || m.includes("dso") || m.includes("profit");
+}
+
+function isInventory(metric: string): boolean {
+  const m = metric.toLowerCase();
+  return m.includes("inventory") || m.includes("stock") || m.includes("dead") || m.includes("waste") || m.includes("warehouse") || m.includes("picking") || m.includes("packing") || m.includes("shipping");
+}
+
+function isHR(metric: string): boolean {
+  const m = metric.toLowerCase();
+  return m.includes("attendance") || m.includes("turnover") || m.includes("headcount") || m.includes("productivity") || m.includes("overtime") || m.includes("employee") || m.includes("staff") || m.includes("hire");
+}
+
+function isDemand(metric: string): boolean {
+  const m = metric.toLowerCase();
+  return m.includes("demand") || m.includes("customer") || m.includes("cac") || m.includes("roas") || m.includes("conversion") || m.includes("engagement") || m.includes("retention") || m.includes("churn") || m.includes("lead") || m.includes("ltv") || m.includes("nps");
+}
+
 export class ForecastEngine {
   revenue = new RevenueForecast();
   cash = new CashForecast();
@@ -16,14 +41,71 @@ export class ForecastEngine {
 
   forecast(metric: string, dimension: Dimension, values: number[]): ForecastResult {
     const currentValue = values.length > 0 ? values[values.length - 1] : 0;
-    const forecast7d = this.revenue.forecast7d(values);
-    const forecast30d = this.revenue.forecast30d(values);
-    const forecast90d = this.revenue.forecast90d(values);
-    const forecast365d = this.revenue.forecast365d(values);
-    const confidence = this.revenue.getConfidence(values);
     const trend = this.determineTrend(values);
-    const seasonalityFactor = this.calcSeasonality(values);
-    const warnings = this.generateWarnings(values, forecast30d, trend);
+    const warnings = this.generateWarnings(values, trend);
+
+    let forecast7d: number;
+    let forecast30d: number;
+    let forecast90d: number;
+    let forecast365d: number;
+    let confidence: number;
+    let seasonalityFactor: number;
+
+    if (isRevenue(metric)) {
+      forecast7d = this.revenue.forecast7d(values);
+      forecast30d = this.revenue.forecast30d(values);
+      forecast90d = this.revenue.forecast90d(values);
+      forecast365d = this.revenue.forecast365d(values);
+      confidence = this.revenue.getConfidence(values);
+      seasonalityFactor = this.calcSeasonality(values);
+    } else if (isCash(metric)) {
+      forecast7d = this.revenue.forecast7d(values);
+      forecast30d = this.revenue.forecast30d(values);
+      forecast90d = this.revenue.forecast90d(values);
+      forecast365d = this.revenue.forecast365d(values);
+      confidence = this.revenue.getConfidence(values);
+      seasonalityFactor = 0;
+    } else if (isInventory(metric)) {
+      if (metric === "kpi_stockout_rate") {
+        const { daysUntilStockout } = this.inventory.forecastStockout(currentValue, values.length >= 30 ? values.slice(-30) : values, 7);
+        forecast7d = daysUntilStockout === Infinity ? 0 : daysUntilStockout;
+        forecast30d = daysUntilStockout === Infinity ? 0 : daysUntilStockout * 4;
+        forecast90d = daysUntilStockout === Infinity ? 0 : daysUntilStockout * 12;
+        forecast365d = daysUntilStockout === Infinity ? 0 : daysUntilStockout * 52;
+        confidence = daysUntilStockout === Infinity ? 0.3 : 0.5;
+      } else {
+        forecast7d = this.revenue.forecast7d(values);
+        forecast30d = this.revenue.forecast30d(values);
+        forecast90d = this.revenue.forecast90d(values);
+        forecast365d = this.revenue.forecast365d(values);
+        confidence = this.revenue.getConfidence(values);
+      }
+      seasonalityFactor = 0;
+    } else if (isHR(metric)) {
+      const headcountResult = this.staff.forecastHeadcount(currentValue, 0.1, 0.05, 12);
+      const lastFc = headcountResult[headcountResult.length - 1]?.headcount ?? currentValue;
+      forecast7d = currentValue;
+      forecast30d = lastFc;
+      forecast90d = lastFc;
+      forecast365d = lastFc;
+      confidence = values.length < 3 ? 0.3 : 0.5;
+      seasonalityFactor = 0;
+    } else if (isDemand(metric)) {
+      const demandResult = this.demand.forecast(values, 30);
+      forecast7d = demandResult.forecast[0] ?? currentValue;
+      forecast30d = demandResult.forecast[demandResult.forecast.length - 1] ?? currentValue;
+      forecast90d = forecast30d;
+      forecast365d = forecast30d;
+      confidence = demandResult.confidence;
+      seasonalityFactor = 0;
+    } else {
+      forecast7d = this.revenue.forecast7d(values);
+      forecast30d = this.revenue.forecast30d(values);
+      forecast90d = this.revenue.forecast90d(values);
+      forecast365d = this.revenue.forecast365d(values);
+      confidence = this.revenue.getConfidence(values);
+      seasonalityFactor = this.calcSeasonality(values);
+    }
 
     return {
       metric,
@@ -129,10 +211,10 @@ export class ForecastEngine {
     return avg1 === 0 ? 0 : Math.round(((avg2 - avg1) / avg1) * 100) / 100;
   }
 
-  private generateWarnings(values: number[], forecast: number, trend: Trend): string[] {
+  private generateWarnings(values: number[], trend: Trend): string[] {
     const warnings: string[] = [];
-    if (trend === "down" && forecast < (values[values.length - 1] || 0)) {
-      warnings.push("Declining trend with negative forecast outlook.");
+    if (trend === "down") {
+      warnings.push("Declining trend detected.");
     }
     if (trend === "volatile") {
       warnings.push("High volatility detected. Forecast confidence may be reduced.");

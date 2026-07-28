@@ -20,8 +20,8 @@ export class KPIEngine {
     this.benchmark = new KPIBenchmark();
   }
 
-  calculateAll(workspace: any): { values: KPIValue[]; alerts: KPIAlert[]; trends: KPITrend[] } {
-    const values = this.calculator.calculateAll(workspace);
+  calculateAll(runtimeContext: any): { values: KPIValue[]; alerts: KPIAlert[]; trends: KPITrend[] } {
+    const values = this.calculator.calculateAll(runtimeContext);
     const alerts: KPIAlert[] = [];
     const trends: KPITrend[] = [];
 
@@ -38,8 +38,8 @@ export class KPIEngine {
     return { values, alerts, trends };
   }
 
-  calculateById(kpiId: string, workspace: any): { value: KPIValue; alert: KPIAlert | null; trend: KPITrend } {
-    const value = this.calculator.calculate(kpiId, workspace);
+  calculateById(kpiId: string, runtimeContext: any): { value: KPIValue; alert: KPIAlert | null; trend: KPITrend } {
+    const value = this.calculator.calculate(kpiId, runtimeContext);
     this.history.record(value);
 
     const alert = this.threshold.evaluate(value.value, value.kpiId, value.higherIsBetter);
@@ -69,8 +69,8 @@ export class KPIEngine {
     return this.getAlerts().filter(a => a.severity === severity);
   }
 
-  getDashboardData(executive: string, workspace: any): { values: KPIValue[]; alerts: KPIAlert[]; trends: KPITrend[] } {
-    const values = this.calculator.calculateForExecutive(executive, workspace);
+  getDashboardData(executive: string, runtimeContext: any): { values: KPIValue[]; alerts: KPIAlert[]; trends: KPITrend[] } {
+    const values = this.calculator.calculateForExecutive(executive, runtimeContext);
     const alerts: KPIAlert[] = [];
     const trends: KPITrend[] = [];
 

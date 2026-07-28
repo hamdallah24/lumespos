@@ -2,7 +2,7 @@
 // Delegates to consultantRuntime for core advisory, adds EIOS knowledge recording.
 
 import { executiveReason } from "../../../ai/runtime/execution/ExecutiveReasoner";
-import { councilSessionManager } from "../../../executive-council";
+
 import { consultantRuntime, type CKOTargets } from "../../../programs/consultant";
 import { CognitiveEngine, recordTrace } from "../../cognition";
 import { memoryProvider } from "../../memory-provider";
@@ -71,14 +71,18 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
     pipeline.push("CouncilSecretary");
     task.onProgress?.("📋 CKO: Menyusun laporan council...");
     try {
-      const log = councilSessionManager.getAll();
-      const recentSessions = log.slice(-5);
-      const summary = recentSessions.map((s: { sessionId?: string; status?: string; decisions?: { length: number } }) =>
-        `- Council ${s.sessionId || "?"}: ${s.status || "?"} — ${s.decisions?.length || 0} keputusan`
-      ).join("\n");
+      const operational = task.runtimeContext?.grounding?.operational || [];
+      const councilSessions = operational.filter(o => o.type === "council");
+      const recentSessions = councilSessions.slice(-5);
+      const summary = recentSessions.length > 0
+        ? recentSessions.map(s => {
+          const d = s.data as Record<string, any> | undefined;
+          return `- Council ${d?.sessionId || "?"}: ${d?.status || "?"} — ${(d?.decisions as any[])?.length || 0} keputusan`;
+        }).join("\n")
+        : "Belum ada sesi council tercatat.";
       return {
         success: true,
-        text: `📋 **Council Activity Log**\n\n${summary || "Belum ada sesi council tercatat."}\n\n> — CKO · Council Secretary`,
+        text: `📋 **Council Activity Log**\n\n${summary}\n\n> — CKO · Council Secretary`,
         pipeline,
       };
     } catch {

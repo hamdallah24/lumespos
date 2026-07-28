@@ -1,23 +1,11 @@
 import { getIdentity } from "../../../ai/runtime/identity";
 import { getFoundationProvider } from "../../../ai/runtime/foundation";
-import { consultantDomain } from "../../../programs/consultant";
 import { executiveReason } from "../../../ai/runtime/execution/ExecutiveReasoner";
-import { BriefGenerator, type ExecutiveBrief } from "../../core";
-import { ApprovalFormatter } from "../../core";
 import type { ExecutiveDecision } from "../../../eios-runtime/contracts/PipelineContracts";
-import { GovernanceProvider } from "../../../governance/providers";
-import { PlanProvider } from "../../../execution-planner/providers";
-import { CommunicationProvider } from "../../../communication-runtime/providers";
-import { KnowledgeProvider } from "../../../knowledge-platform/providers";
-import { auditEngine } from "../../../governance/core";
-import { CognitiveEngine, recordTrace } from "../../cognition";
-import { memoryProvider } from "../../memory-provider";
-import { writeDecisionToMemory } from "../../memory-provider/decision-hook";
-import type { COOContext } from "../../../executive-context/types";
 import type { DecisionObject } from "../../types";
+import type { RuntimeContext } from "../../../runtime-intelligence-core/types";
 
 const COO_IDENTITY = getIdentity("COO")!;
-const cooCognitive = new CognitiveEngine();
 
 const EXECUTION_ACTIONS = [
   "add_stock", "reduce_stock", "correct_stock", "loss_correction",
@@ -69,7 +57,7 @@ interface ExecutiveTask {
   userId: number;
   branchId?: number;
   onProgress?: (msg: string) => void;
-  context: COOContext;
+  context: RuntimeContext;
 }
 
 interface ExecutiveResult {
@@ -92,108 +80,155 @@ function getFoundationCharter(): string {
   return parts.join("\n\n");
 }
 
-function getCKOAdvisory(): string {
-  try {
-    return consultantDomain.advisor("COO operational context", "coo_advisory");
-  } catch {
-    return "";
-  }
+function getBriefFromContext(context: RuntimeContext, branchId?: number): string {
+  return `Cabang: ${branchId ?? 'Semua cabang'}\nPeriode: ${context.time?.label || '7 Hari Terakhir'}`;
 }
 
-async function getCOOBrief(context: COOContext, branchId?: number): Promise<ExecutiveBrief> {
-  const branch = context.branches.find(b => b.id === branchId);
-  const brief = BriefGenerator.generate({
-    role: "COO",
-    branchId,
-    branchName: branch?.name ?? "",
-    situations: [],
-    objectives: [],
-    plans: PlanProvider.getAll(),
-    knowledge: KnowledgeProvider.searchAll(""),
-  });
-  return brief;
-}
-
-async function handleApprove(situationId: string, optionId: string, branchId?: number): Promise<string> {
-  const governance = GovernanceProvider.canExecute("COO", "approve", "situation");
-  if (!governance.allow) return `Tidak bisa approve: ${governance.reason}`;
-
-  auditEngine.log({ actor: "COO", action: `approve_${optionId}`, resource: `situation:${situationId}`, result: "allowed", reason: governance.reason, metadata: { branchId } });
-
+async function handleApprove(situationId: string, optionId: string, _context: RuntimeContext, _branchId?: number): Promise<string> {
   if (optionId === "approve") {
-    KnowledgeProvider.ingestEpisode({ eventType: "approval", eventId: situationId, context: `COO approved situation ${situationId}`, outcome: "success", domain: "operations", topic: "approval", summary: `COO approved situation ${situationId}` });
-    return `Situasi ${situationId} telah disetujui. Keputusan dicatat dan dikomunikasikan ke tim terkait.`;
+    return `Situasi ${situationId} telah disetujui. Keputusan akan dieksekusi melalui ExecutionEngine.`;
   }
   if (optionId === "reject") {
-    KnowledgeProvider.ingestEpisode({ eventType: "rejection", eventId: situationId, context: `COO rejected situation ${situationId}`, outcome: "failure", domain: "operations", topic: "rejection", summary: `COO rejected situation ${situationId}` });
     return `Situasi ${situationId} telah ditolak. Alasan akan ditinjau lebih lanjut.`;
   }
   if (optionId === "escalate") {
-    CommunicationProvider.dispatch({ channel: "notification", recipient: "founder", content: `COO mengeskalasi situasi ${situationId} — memerlukan keputusan Founder.` });
-    KnowledgeProvider.ingestEpisode({ eventType: "escalation", eventId: situationId, context: `COO escalated situation ${situationId} to Founder`, outcome: "neutral", domain: "operations", topic: "escalation", summary: `Situation ${situationId} escalated to Founder by COO` });
     return `Situasi ${situationId} telah dieskalasi ke Founder untuk keputusan.`;
   }
   return "Opsi tidak dikenal.";
 }
 
-function buildStatusContext(context: COOContext): string {
+function buildStatusContext(context: RuntimeContext): string {
   const parts: string[] = [];
-  const inv = context.inventory;
-  const sales = context.sales;
-  const alerts = context.alerts;
+  const bi = (context as any).__businessIntelligence;
+  const execBI = (context as any).__executiveBI;
 
-  if (sales.today.revenue > 0) {
-    parts.push(`## Penjualan Hari Ini\nTotal: Rp${sales.today.revenue.toLocaleString("id-ID")}\nTransaksi: ${sales.today.orders}`);
+  if (!bi || !bi.kpis) {
+    parts.push("## BI Data Tidak Tersedia");
+    return parts.join("\n\n");
   }
-  if (sales.period.revenue > 0) {
-    parts.push(`## Penjualan Periode (${sales.period.label})\nTotal: Rp${sales.period.revenue.toLocaleString("id-ID")}\nTransaksi: ${sales.period.orders}`);
+
+  const { kpis, health, forecasts, analytics, narratives, alerts } = bi;
+
+  const kpiVal = (id: string) => { const k = kpis.find((k: any) => k.kpiId === id); return k ? k.value : null; };
+  const kpiStr = (id: string, label: string, fmt?: (v: number) => string) => {
+    const v = kpiVal(id);
+    if (v === null || v === 0) return null;
+    return `- ${label}: ${fmt ? fmt(v) : v}`;
+  };
+
+  const rev = kpiVal("kpi_revenue");
+  const orders = kpiVal("kpi_orders");
+  const aov = kpiVal("kpi_aov");
+
+  if (rev !== null && rev > 0) {
+    parts.push(`## Ringkasan Penjualan`);
+    if (rev) parts.push(`- Revenue: Rp${Number(rev).toLocaleString("id-ID")}`);
+    if (orders) parts.push(`- Orders: ${orders}`);
+    if (aov) parts.push(`- Rata-rata Nilai Order: Rp${Number(aov).toLocaleString("id-ID")}`);
   }
-  if (sales.topProducts.length > 0) {
-    parts.push(`## Produk Terlaris\n${sales.topProducts.slice(0, 5).map(p => `- ${p.name}: ${p.sold} terjual (Rp${p.revenue.toLocaleString("id-ID")})`).join("\n")}`);
+
+  const invTurnover = kpiVal("kpi_inventory_turnover");
+  const invValue = kpiVal("kpi_inventory_value");
+  const stockoutRate = kpiVal("kpi_stockout_rate");
+  const wastePct = kpiVal("kpi_waste_pct");
+  const yield1 = kpiVal("kpi_yield");
+  const pickAcc = kpiVal("kpi_picking_accuracy");
+  const warehouseCap = kpiVal("kpi_warehouse_capacity");
+  const suppOnTime = kpiVal("kpi_supplier_on_time");
+
+  const invLines = [kpiStr("kpi_inventory_value", "Nilai Inventory", (v: number) => `Rp${Number(v).toLocaleString("id-ID")}`),
+    kpiStr("kpi_inventory_turnover", "Perputaran Stok"),
+    kpiStr("kpi_stockout_rate", "Stockout Rate"),
+    kpiStr("kpi_waste_pct", "Waste", (v: number) => `${v}%`),
+    kpiStr("kpi_yield", "Production Yield", (v: number) => `${v}%`),
+    kpiStr("kpi_picking_accuracy", "Akurasi Picking", (v: number) => `${v}%`),
+    kpiStr("kpi_warehouse_capacity", "Kapasitas Gudang", (v: number) => `${v}%`),
+    kpiStr("kpi_supplier_on_time", "Supplier On-Time", (v: number) => `${v}%`),
+  ].filter(Boolean);
+  if (invLines.length > 0) parts.push(`## KPI Operasional\n${invLines.join("\n")}`);
+
+  if (health?.dimensions) {
+    const opDims = health.dimensions.filter((d: any) =>
+      ["inventory", "warehouse", "production", "purchasing"].includes(d.dimension));
+    if (opDims.length > 0) {
+      parts.push(`## Skor Kesehatan\n${opDims.map((d: any) =>
+        `- ${d.dimension}: ${d.score}/100 (${d.status})`).join("\n")}`);
+    }
   }
-  if (inv.criticalItems?.length > 0) {
-    parts.push(`## Stok Kritis\n${inv.criticalItems.map(i => `- ${i.name}: ${i.stock}/${i.reorderPoint} ${i.unit} di ${i.warehouse}`).join("\n")}`);
+
+  if (execBI) {
+    if (execBI.stockPrediction) parts.push(`## Prediksi Stok\n${execBI.stockPrediction}`);
+    if (execBI.warehouseHealth !== null && execBI.warehouseHealth !== undefined) {
+      parts.push(`## Kesehatan Gudang: ${execBI.warehouseHealth}/100`);
+    }
+    if (execBI.inventoryForecast?.stockoutRisk) {
+      parts.push(`## Risiko Stockout: ${execBI.inventoryForecast.stockoutRisk.toUpperCase()}`);
+    }
+    if (execBI.productionTrend) {
+      const pt = execBI.productionTrend;
+      const prodLines: string[] = [];
+      if (pt.yield !== null) prodLines.push(`- Yield: ${pt.yield}%`);
+      if (pt.oee !== null) prodLines.push(`- OEE: ${pt.oee}%`);
+      if (pt.waste !== null) prodLines.push(`- Waste: ${pt.waste}%`);
+      if (prodLines.length > 0) parts.push(`## Produksi\n${prodLines.join("\n")}`);
+    }
+    if (execBI.supplierRisk?.length > 0) {
+      parts.push(`## Risiko Supplier\n${execBI.supplierRisk.map((s: any) =>
+        `- ${s.supplier}: ${s.risk}`).join("\n")}`);
+    }
   }
-  if (inv.stockRisks?.length > 0) {
-    parts.push(`## Risiko Stok\n${inv.stockRisks.map(r => `- ${r.item}: ${r.description}`).join("\n")}`);
+
+  if (forecasts?.length > 0) {
+    const invForecasts = forecasts.filter((f: any) =>
+      ["inventory", "warehouse", "production", "purchasing", "sales"].includes(f.dimension));
+    if (invForecasts.length > 0) {
+      parts.push(`## Proyeksi\n${invForecasts.slice(0, 5).map((f: any) =>
+        `- ${f.metric}: 30d=${f.forecast30d}, confidence=${(f.confidence * 100).toFixed(0)}%`).join("\n")}`);
+    }
   }
-  if (inv.health) {
-    parts.push(`## Kesehatan Inventory: ${inv.health.toUpperCase()}`);
+
+  if (narratives?.length > 0) {
+    const opNarratives = narratives.filter((n: any) =>
+      ["inventory", "warehouse", "production", "purchasing", "sales"].includes(n.dimension));
+    if (opNarratives.length > 0) {
+      parts.push(`## Insight Operasional\n${opNarratives.slice(0, 3).map((n: any) =>
+        `- [${n.type}] ${n.headline}`).join("\n")}`);
+    }
   }
-  if (inv.movementSummary) {
-    parts.push(`## Pergerakan Stok (24 jam)\nMasuk: ${inv.movementSummary.last24h.in} | Keluar: ${inv.movementSummary.last24h.out} | Adjust: ${inv.movementSummary.last24h.adjust}`);
+
+  if (alerts?.length > 0) {
+    const opAlerts = alerts.filter((a: any) =>
+      ["inventory", "warehouse", "production", "purchasing", "sales"].includes(a.dimension));
+    if (opAlerts.length > 0) {
+      parts.push(`## Alert\n${opAlerts.slice(0, 5).map((a: any) =>
+        `- [${a.severity}] ${a.kpiName}: ${a.message}`).join("\n")}`);
+    }
   }
-  if (context.branches.length > 0) {
-    parts.push(`## Cabang\n${context.branches.map(b => `- ID ${b.id}: ${b.name}${b.location ? ` (${b.location})` : ""}`).join("\n")}`);
-  }
-  if (alerts.length > 0) {
-    parts.push(`## Alert\n${alerts.map(a => `[${a.severity.toUpperCase()}] ${a.message}`).join("\n")}`);
-  }
+
   return parts.join("\n\n");
 }
 
-async function handleStatus(context: COOContext, query: string, branchId?: number): Promise<string> {
+async function handleStatus(context: RuntimeContext, query: string): Promise<string> {
   const contextStr = buildStatusContext(context);
   const responsePrompt = `${COO_BRIEF_PROMPT}\n\n{OPERATIONAL_CONTEXT}\n${contextStr}`;
   const llmResponse = (await executiveReason({ persona: responsePrompt, context: query, userId: 0 })).content;
   return llmResponse;
 }
 
-async function handleAction(action: string, params: Record<string, unknown>, branchId: number): Promise<{ decision: DecisionObject | null; text: string }> {
+async function handleAction(action: string, params: Record<string, unknown>, branchId: number, context: RuntimeContext): Promise<{ decision: DecisionObject | null; text: string }> {
   if (!EXECUTION_ACTIONS.includes(action)) {
     return { decision: null, text: `Aksi "${action}" tidak dikenal.` };
   }
 
-  const governance = GovernanceProvider.canExecute("COO", action, "operation");
-  if (!governance.allow) {
-    CommunicationProvider.dispatch({ channel: "notification", recipient: "founder", content: `COO mencoba ${action} tapi ditolak: ${governance.reason}` });
-    return { decision: null, text: `Tidak bisa menjalankan: ${governance.reason}` };
+  const safeToExecute = context.runtime?.confidence?.safeToExecute ?? true;
+  if (!safeToExecute) {
+    return { decision: null, text: `Tidak bisa menjalankan: confidence terlalu rendah untuk eksekusi.` };
   }
 
   const decision: DecisionObject = {
     decisionId: `coo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     executive: "COO",
-    confidence: 0.85,
+    confidence: context.runtime?.confidence?.overall ?? 0.8,
     reasoning: `COO memutuskan ${action} dengan parameter ${JSON.stringify(params)}`,
     action,
     parameters: params,
@@ -222,14 +257,12 @@ function buildDecisionFromExec(text: string, action: string, params: Record<stri
   };
 }
 
-async function handleQuestion(query: string): Promise<string> {
-  const knowledge = KnowledgeProvider.searchAll(query);
-  const bestPractices = KnowledgeProvider.getBestPractices();
-  const context = [
-    knowledge.length > 0 ? `# Pengetahuan Relevan\n${knowledge.slice(0, 3).map(k => `- ${k.summary}`).join("\n")}` : "",
-    bestPractices.length > 0 ? `# Best Practices\n${bestPractices.slice(0, 3).map(b => `- [${b.domain}] ${b.summary}`).join("\n")}` : "",
-  ].filter(Boolean).join("\n\n");
-  const prompt = `# Identitas\nKamu adalah **Direktur Operasional (COO)** Lume's Everywhere.\n\n${context}\n\nJawab pertanyaan user berdasarkan pengetahuan di atas. Jika tidak tahu, akui dengan jujur.`;
+async function handleQuestion(query: string, context: RuntimeContext): Promise<string> {
+  const knowledgeEntries = context.grounding?.knowledge || [];
+  const knowledgeBlock = knowledgeEntries.length > 0
+    ? `# Pengetahuan Relevan\n${knowledgeEntries.slice(0, 3).map(k => `- ${k.content?.slice(0, 200) || k.id}`).join("\n")}`
+    : "";
+  const prompt = `# Identitas\nKamu adalah **Direktur Operasional (COO)** Lume's Everywhere.\n\n${knowledgeBlock}\n\nJawab pertanyaan user berdasarkan pengetahuan di atas. Jika tidak tahu, akui dengan jujur.`;
   const llmResponse = (await executiveReason({ persona: prompt, context: query, userId: 0 })).content;
   return llmResponse;
 }
@@ -243,36 +276,7 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
   pipeline.push("Identity");
   const directiveContent = getDirective();
   const foundationCharter = getFoundationCharter();
-  const ckoAdvisory = getCKOAdvisory();
-  const brief = await getCOOBrief(task.context, branchId);
-
-  let memoryCtx = null;
-  try {
-    memoryCtx = await memoryProvider.read({
-      executive: "COO",
-      query: task.message,
-      domain: "operations",
-      memoryScope: "project",
-      maxTokens: 1500,
-    });
-  } catch (e: any) {
-    console.log(`[PIPELINE:COO:MemoryProvider] error: ${e.message}`);
-  }
-
-  let cognitiveResult = null;
-  try {
-    cognitiveResult = await cooCognitive.think({
-      role: "COO",
-      query: task.message,
-      context: { branchId, memoryContext: memoryCtx },
-    });
-    recordTrace("COO", task.message, cognitiveResult.trace);
-    await writeDecisionToMemory("COO", task.message, cognitiveResult);
-    pipeline.push("CognitiveEngine");
-    task.onProgress?.("🧠 COO: Cognitive reasoning completed");
-  } catch (e: any) {
-    console.log(`[PIPELINE:COO:CognitiveEngine] error: ${e.message}`);
-  }
+  const briefContext = getBriefFromContext(task.context, branchId);
 
   pipeline.push("IntentClassification");
   const intentResponse = (await executiveReason({ persona: COO_INTENT_PROMPT, context: task.message, userId })).content;
@@ -292,46 +296,39 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
 
   if (intentType === "approve") {
     pipeline.push("ApprovalHandler");
-    executionResult = await handleApprove(intentData.situationId || "unknown", intentData.optionId || "approve", branchId);
+    executionResult = await handleApprove(intentData.situationId || "unknown", intentData.optionId || "approve", task.context, branchId);
     return { success: true, text: executionResult, pipeline, decision: null };
   }
 
   if (intentType === "status") {
     pipeline.push("BriefConsumer");
-    executionResult = await handleStatus(task.context, intentData.query || task.message, branchId);
+    executionResult = await handleStatus(task.context, intentData.query || task.message);
     return { success: true, text: executionResult, pipeline, decision: null };
   }
 
   if (intentType === "action") {
     pipeline.push("ExecuteAction");
-    const { decision, text } = await handleAction(intentData.action, intentData.params || {}, branchId);
+    const { decision, text } = await handleAction(intentData.action, intentData.params || {}, branchId, task.context);
     return { success: true, text: text || `Aksi ${intentData.action} akan dieksekusi.`, pipeline, decision };
   }
 
   if (intentType === "question") {
     pipeline.push("KnowledgeRecorder");
-    executionResult = await handleQuestion(intentData.query || task.message);
+    executionResult = await handleQuestion(intentData.query || task.message, task.context);
     return { success: true, text: executionResult, pipeline, decision: null };
   }
 
   pipeline.push("LLM");
   const contextStr = buildStatusContext(task.context);
-  const briefContext = `# Brief Hari Ini\n${JSON.stringify(brief, null, 2).slice(0, 3000)}`;
-  const cognitiveContext = cognitiveResult?.trace
-    ? `\n## Cognitive Analysis\nRole: COO | Confidence: ${cognitiveResult.decision.confidence.overall}% | Recommendation: ${cognitiveResult.recommendation.summary.slice(0, 500)}`
-    : "";
-  const memoryBlock = memoryCtx ? [memoryCtx.workingMemory, memoryCtx.recentDecisions, memoryCtx.episodicMemory, memoryCtx.knowledgeContext].filter(Boolean).join("\n") : "";
 
   const systemPrompt = [
     `# Identitas\nKamu adalah **Direktur Operasional (COO)** Lume's Everywhere — jaringan F&B.`,
     `\n## BATASAN KETAT\n- Kamu TIDAK BOLEH mengarang data operasional\n- Kamu TIDAK BOLEH membuat estimasi atau asumsi\n- Kamu TIDAK BOLEH membuat nama produk palsu\n- Kamu TIDAK BISA mengubah harga tanpa approval\n- Kamu TIDAK BISA mengubah resep tanpa approval`,
-    `\n${briefContext}`,
+    `\n## Periode Laporan\n${task.context.time?.label || '7 Hari Terakhir'} (${new Date(task.context.time?.from).toLocaleDateString('id-ID')} — ${new Date(task.context.time?.to).toLocaleDateString('id-ID')})`,
+    `\n## Brief\n${briefContext}`,
     `\n${contextStr}`,
     directiveContent ? `\n## Arahan COO\n${directiveContent.slice(0, 2000)}` : "",
     foundationCharter ? `\n${foundationCharter}` : "",
-    ckoAdvisory ? `\n## CKO Advisory — Pengetahuan Organisasi\n${ckoAdvisory}` : "",
-    memoryBlock ? `\n## Memory Context\n${memoryBlock}` : "",
-    cognitiveContext,
     `\n## Aksi Bisnis yang Tersedia\n${EXECUTION_ACTIONS.map(a => `- ${a}`).join("\n")}`,
     `\n${COO_EXECUTION_SCHEMA}`,
   ].filter(Boolean).join("\n");
@@ -403,16 +400,14 @@ async function execute(task: ExecutiveTask): Promise<ExecutiveResult> {
   };
 }
 
-async function decide(brief: ExecutiveBrief, _context?: Record<string, unknown>): Promise<ExecutiveDecision> {
-  const criticalCount = brief.pendingApprovals.length;
-  const actionCount = brief.actionItems.length;
+async function decide(context: RuntimeContext): Promise<ExecutiveDecision> {
+  const bi = (context as any).__businessIntelligence;
+  const alerts = bi?.alerts || [];
+  const criticalCount = alerts.filter((a: any) => a.severity === "critical").length;
   if (criticalCount > 0) {
-    return { role: "COO", action: "approve", reasoning: `${criticalCount} pending approvals from brief — ${brief.summary}`, confidence: 85, payload: { pendingApprovals: brief.pendingApprovals } };
+    return { role: "COO", action: "approve", reasoning: `${criticalCount} critical alerts — requires attention`, confidence: 85, payload: { alerts } };
   }
-  if (actionCount > 0) {
-    return { role: "COO", action: "execute_action_items", reasoning: `${actionCount} action items identified from brief — prioritizing operational tasks`, confidence: 75, payload: { actionItems: brief.actionItems } };
-  }
-  return { role: "COO", action: "monitor", reasoning: `No critical items — ${brief.summary}`, confidence: 90 };
+  return { role: "COO", action: "monitor", reasoning: `Operations normal — ${context.time?.label || 'current period'}`, confidence: 90 };
 }
 
 function health() {
@@ -421,9 +416,9 @@ function health() {
 
 export const cooRuntime = {
   name: "COORuntime",
-  version: "3.1.0",
+  version: "3.2.0",
   capabilities: ["inventory-management", "sales-tracking", "product-management", "branch-operations"],
-  dependencies: ["Identity", "FoundationProvider", "CKO", "BriefGenerator", "GovernanceProvider", "CommunicationRuntime", "KnowledgePlatform"],
+  dependencies: ["Identity", "FoundationProvider", "RuntimeContext"],
   health,
   execute,
   decide,

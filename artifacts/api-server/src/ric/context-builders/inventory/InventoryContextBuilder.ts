@@ -21,10 +21,9 @@ export class InventoryContextBuilder implements ContextBuilder<RawInventoryData,
     }
 
     const criticalItems = this.findCriticalItems(input);
-    const health = criticalItems.length > 10 ? "critical" : criticalItems.length > 3 ? "warning" : "healthy";
 
     const context: InventoryContext = {
-      health,
+      health: "healthy",
       criticalItems,
       warehouseUtilization: input.warehouses.map(w => ({
         warehouseId: w.id,

@@ -14,7 +14,7 @@ import { getFoundationProvider } from "../../../ai/runtime/foundation";
 import { assemble } from "../../../ai/runtime/prompt-assembler";
 import { EXECUTIVE_OUTPUT_SCHEMA } from "../../../routes/ai-prompts";
 import type { ExecutionContract } from "../../../eios-runtime/contracts/PipelineContracts";
-import { aiMissionService } from "../../../services/ai-mission-service";
+import { getExecutionEngine } from "../../../ai/runtime/execution/ExecutionEngine";
 import { missionRuntime } from "../../../ai/runtime/mission-engine";
 import { missionEngine } from "../../../ai/runtime/mission-background-engine";
 import { consultantRuntime } from "../../../programs/consultant";
@@ -327,9 +327,10 @@ async function execute(ctx: CEOContext, execContract?: ExecutionContract): Promi
       missionRuntime.transition(rtMission.id, "UNDERSTANDING");
       missionRuntime.transition(rtMission.id, "PLANNING");
       missionRuntime.transition(rtMission.id, "DELEGATED");
-      const dbId = await aiMissionService.create(ctx.userId, rtMission.title, ctx.message, "cto", spec.estimatedComplexity, "DELEGATED");
+      const execResult = await getExecutionEngine().execute({ toolName: "createMission", args: { userId: ctx.userId, title: rtMission.title, objective: ctx.message, mode: "cto", complexity: spec.estimatedComplexity || "medium", status: "DELEGATED" } });
+      const dbId = execResult.success ? JSON.parse(execResult.output as string).id : null;
       const stored = missionRuntime.get(rtMission.id);
-      if (stored) stored.dbMissionId = dbId;
+      if (stored && dbId) stored.dbMissionId = dbId;
       missionEngine.triggerTick();
       rawText = `✅ **Misi ${rtMission.id} (DB#${dbId}) dibuat** berdasarkan diskusi kita. Misi sedang diproses, hasil akan muncul di chat ini otomatis.`;
     } else {

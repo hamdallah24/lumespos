@@ -32,12 +32,12 @@ export class BIContextBuilder {
     this.cache = new BIContextCache();
   }
 
-  async build(workspaceData?: any): Promise<BIContext> {
+  async build(runtimeContext?: any): Promise<BIContext> {
     const cached = this.cache.get("full");
     if (cached) return cached as BIContext;
 
-    const ws = workspaceData ?? {};
-    const kpiResult = this.kpi.calculateAll(ws);
+    const rc = runtimeContext ?? {};
+    const kpiResult = this.kpi.calculateAll(rc);
     const kpiValues = kpiResult.values;
     const alerts = kpiResult.alerts;
 
@@ -80,9 +80,9 @@ export class BIContextBuilder {
     return ctx;
   }
 
-  async buildForced(workspaceData?: any): Promise<BIContext> {
+  async buildForced(runtimeContext?: any): Promise<BIContext> {
     this.cache.clear("full");
-    return this.build(workspaceData);
+    return this.build(runtimeContext);
   }
 
   getLastContext(): BIContext | null {

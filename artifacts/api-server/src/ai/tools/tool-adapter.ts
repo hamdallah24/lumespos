@@ -8,6 +8,7 @@ import { existsSync } from "fs";
 import { readdir, stat, readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname, resolve } from "path";
 import { promisify } from "util";
+import { aiMissionService } from "../../services/ai-mission-service";
 import { execSync } from "child_process";
 import { db, ordersTable, orderItemsTable, expensesTable, productsTable, ingredientsTable, semiFinishedTable, currentInventoryTable, shiftAuditsTable } from "@workspace/db";
 import { eq, gte, lte, and, sum, count, sql, desc } from "drizzle-orm";
@@ -556,6 +557,7 @@ export const LOCAL_TOOLS: ToolDef[] = [
   { name: "getOrderHistory", description: "Get recent orders.", parameters: { type: "object", properties: { branchId: { type: "number" }, limit: { type: "number" } } } },
   { name: "getExpenseList", description: "Get expense list.", parameters: { type: "object", properties: { branchId: { type: "number" }, limit: { type: "number" }, startDate: { type: "string" }, endDate: { type: "string" } } } },
   { name: "getShiftAuditSummary", description: "Get shift audit summary.", parameters: { type: "object", properties: { branchId: { type: "number" } } } },
+  { name: "createMission", description: "Create a new mission in the system (write operation). Routes through ExecutionEngine per Truth Bound Rule 4.", parameters: { type: "object", properties: { userId: { type: "number" }, title: { type: "string" }, objective: { type: "string" }, mode: { type: "string" }, complexity: { type: "string" }, status: { type: "string" } }, required: ["userId", "title", "objective"] } },
 ];
 
 // ── Tool Labels ──
@@ -654,6 +656,10 @@ export async function executeToolCall(name: string, args: Record<string, any>): 
     case "sshExec": {
       const r = await sshExec(args.command || "");
       return r || "Error: SSH command gagal atau tidak ada output.";
+    }
+    case "createMission": {
+      const dbId = await aiMissionService.create(args.userId, args.title, args.objective, args.mode || "cto", args.complexity || "medium", args.status || "CREATED");
+      return JSON.stringify({ id: dbId, success: true });
     }
     // Business data tools
     default: {

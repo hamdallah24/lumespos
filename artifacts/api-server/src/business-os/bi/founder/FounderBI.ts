@@ -21,12 +21,12 @@ export class FounderBI {
     this.feedbackEngine = new BIFeedbackEngine();
   }
 
-  async ask(question: string, workspaceData?: any): Promise<{
+  async ask(question: string, runtimeContext?: any): Promise<{
     answer: string;
     snapshot: CompanySnapshot | null;
     biContext: BIContext | null;
   }> {
-    const bi = await this.biBuilder.build(workspaceData);
+    const bi = await this.biBuilder.build(runtimeContext);
     const snapshot = this.founderDashboard.getFullDashboard(
       bi.kpis, bi.health, bi.forecasts, bi.narratives,
       {} as any,

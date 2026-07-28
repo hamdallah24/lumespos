@@ -230,9 +230,21 @@ export interface RawProductSales {
   revenue: number;
 }
 
+export interface RawBranchSales {
+  branchId: number;
+  branchName: string;
+  location: string;
+  totalRevenue: number;
+  totalOrders: number;
+  topProducts: { productName: string; quantity: number; revenue: number }[];
+}
+
 export interface RawSalesData {
   orders: RawOrderSummary[];
   topProducts: RawProductSales[];
+  branches: { id: number; name: string; location: string | null }[];
+  perBranch: RawBranchSales[];
+  periodLabel: string;
   periodStart: string;
   periodEnd: string;
 }
@@ -289,11 +301,23 @@ export interface ProductionContext {
   timestamp: number;
 }
 
+export interface BranchSalesSummary {
+  branchId: number;
+  branchName: string;
+  location: string;
+  totalRevenue: number;
+  totalOrders: number;
+  todayRevenue: number;
+  todayOrders: number;
+  topProducts: { name: string; sold: number; revenue: number }[];
+}
+
 export interface SalesContext {
   today: { revenue: number; orders: number; avgOrderValue: number };
-  period: { revenue: number; orders: number; growth: number; label: string };
+  period: { revenue: number; orders: number; growth: number; label: string; from?: string; to?: string };
   topProducts: { name: string; sold: number; revenue: number; trend: string }[];
   comparisons: { vsYesterday: { revenuePercent: number; ordersPercent: number }; vsLastWeek: { revenuePercent: number; ordersPercent: number } };
+  branches: BranchSalesSummary[];
   timestamp: number;
 }
 

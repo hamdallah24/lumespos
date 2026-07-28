@@ -128,19 +128,27 @@ async function boot(): Promise<void> {
     // Phase 4: EIOS Runtime bootstrap (initializes ALL layers — stages, observers, profiles, registries, governance)
     const { initializeEIOSRuntime, schedulePipeline, ExecutiveDispatchRegistry } = await import("./eios-runtime");
 
-    await initializeEIOSRuntime();
+    try {
+      await initializeEIOSRuntime();
+    } catch (err) {
+      logger.warn({ err }, "[EIOS] Runtime bootstrap failed — continuing with Business OS initialization");
+    }
 
-    ExecutiveDispatchRegistry.register({ role: "CEO", decide: ceoRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CTO", decide: ctoProgram.decide });
-    ExecutiveDispatchRegistry.register({ role: "CFO", decide: cfoRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CMO", decide: cmoRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CAIO", decide: caioRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CKO", decide: ckoRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CHRO", decide: chroRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "COO", decide: cooRuntime.decide });
+    try {
+      ExecutiveDispatchRegistry.register({ role: "CEO", decide: ceoRuntime.decide });
+      ExecutiveDispatchRegistry.register({ role: "CTO", decide: ctoProgram.decide });
+      ExecutiveDispatchRegistry.register({ role: "CFO", decide: cfoRuntime.decide as any });
+      ExecutiveDispatchRegistry.register({ role: "CMO", decide: cmoRuntime.decide as any });
+      ExecutiveDispatchRegistry.register({ role: "CAIO", decide: caioRuntime.decide as any });
+      ExecutiveDispatchRegistry.register({ role: "CKO", decide: ckoRuntime.decide });
+      ExecutiveDispatchRegistry.register({ role: "CHRO", decide: chroRuntime.decide as any });
+      ExecutiveDispatchRegistry.register({ role: "COO", decide: cooRuntime.decide as any });
 
-    schedulePipeline(30000);
-    logger.info("[EIOS] Runtime v4.1.1 active — 11 stages, 6 observers, 7 profiles, 8 executives");
+      schedulePipeline(30000);
+      logger.info("[EIOS] Runtime v4.1.1 active — 11 stages, 6 observers, 7 profiles, 8 executives");
+    } catch (err) {
+      logger.warn({ err }, "[EIOS] Executive dispatch registration failed — continuing");
+    }
 
     // T12.1: Initialize Business OS — activates Runtime, RIC, Capability, Events, Workspace, Council, Execution
     try {

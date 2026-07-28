@@ -22,19 +22,19 @@ export interface CEOBIContext {
 }
 
 export interface COOBIContext {
-  inventoryForecast: { stockoutRisk: string; reorderPoint: number; daysUntilStockout: number | null };
-  warehouseHealth: number;
-  productionTrend: { yield: number; oee: number; waste: number };
+  inventoryForecast: { stockoutRisk: string; reorderPoint: number | null; daysUntilStockout: number | null };
+  warehouseHealth: number | null;
+  productionTrend: { yield: number | null; oee: number | null; waste: number | null };
   supplierRisk: { supplier: string; risk: string }[];
   stockPrediction: string;
 }
 
 export interface CFOContextBI {
-  cashForecast: { runway: number; criticalDate: string | null };
-  cashRunway: number;
-  marginTrend: { gross: number; net: number; trend: string };
+  cashForecast: { runway: number | null; criticalDate: string | null };
+  cashRunway: number | null;
+  marginTrend: { gross: number | null; net: number | null; trend: string };
   expenseVariance: { category: string; variance: number; isSignificant: boolean }[];
-  financialHealth: number;
+  financialHealth: number | null;
 }
 
 export interface CMOBIContext {
@@ -46,29 +46,29 @@ export interface CMOBIContext {
 }
 
 export interface CHROBIContext {
-  turnoverPrediction: { rate: number; trend: string };
-  attendanceTrend: { rate: number; trend: string };
-  productivityTrend: { value: number; trend: string };
+  turnoverPrediction: { rate: number | null; trend: string };
+  attendanceTrend: { rate: number | null; trend: string };
+  productivityTrend: { value: number | null; trend: string };
   hiringForecast: { needs: number; months: number }[];
 }
 
 export interface CKOBIContext {
-  learningTrend: { completion: number; trend: string };
+  learningTrend: { completion: number | null; trend: string };
   knowledgeGap: string[];
-  documentationHealth: number;
+  documentationHealth: number | null;
 }
 
 export interface CAIOBIContext {
-  automationTrend: { coverage: number; trend: string };
-  modelAccuracy: number;
+  automationTrend: { coverage: number | null; trend: string };
+  modelAccuracy: number | null;
   agentPerformance: { agent: string; score: number }[];
 }
 
 export interface CTOBIContext {
-  deploymentHealth: number;
+  deploymentHealth: number | null;
   bugTrend: { count: number; trend: string };
-  technicalDebt: { score: number; items: string[] };
-  uptimeForecast: number;
+  technicalDebt: { score: number | null; items: string[] };
+  uptimeForecast: number | null;
 }
 
 export type ExecutiveBIContext = CEOBIContext | COOBIContext | CFOContextBI | CMOBIContext | CHROBIContext | CKOBIContext | CAIOBIContext | CTOBIContext;
