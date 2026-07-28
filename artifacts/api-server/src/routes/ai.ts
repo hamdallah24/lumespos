@@ -26,7 +26,7 @@ router.post("/ai/chat", requireRole("owner"), async (req, res) => {
 
     const user = req.user!;
     const rawClean = message.trim();
-    const defaultBranchId = user.branchId || 1;
+    const defaultBranchId = user.branchId || undefined;
     const m = mode || "bisnis";
     const uid = user.id;
 

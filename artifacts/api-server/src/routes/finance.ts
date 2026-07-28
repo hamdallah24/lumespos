@@ -847,4 +847,78 @@ router.use("/finance/transactions", async (req, res, next) => {
   next();
 });
 
+// ── ERP-INT-01: Inventory Event Replay ──
+router.post("/finance/replay-events", requireAuth, async (req, res) => {
+  try {
+    const { fromSequence } = req.body as { fromSequence?: number };
+    const startSeq = fromSequence || 0;
+
+    const { processEventsFrom } = await import("../finance/services/inventoryEventSubscriber");
+    const result = await processEventsFrom(startSeq, (processed, _total) => {
+      if (processed % 10 === 0) console.log(`[Replay] ${processed} events processed...`);
+    });
+
+    return res.json({
+      success: true,
+      fromSequence: startSeq,
+      processed: result.processed,
+      failed: result.failed,
+      message: `Replay complete: ${result.processed} processed, ${result.failed} failed`,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ERP-INT-01: Inventory ↔ Finance Reconciliation ──
+router.get("/finance/reconciliation", requireAuth, async (_req, res) => {
+  try {
+    // FIFO Inventory Value (total value of all open FIFO layers)
+    const [fifoValue] = await db
+      .select({ value: sql<string>`COALESCE(SUM(${sql`fifo_layers.quantity`}::numeric * ${sql`fifo_layers.unit_cost`}::numeric), 0)` })
+      .from(sql`fifo_layers`)
+      .where(sql`${sql`fifo_layers.closed_at`} IS NULL`);
+
+    // General Ledger Inventory Value (sum of all inventory account balances)
+    const [invAccounts] = await db
+      .select({ code: accountsTable.code, name: accountsTable.name, balance: accountsTable.balance })
+      .from(accountsTable)
+      .where(sql`${accountsTable.code} LIKE '14%'`);
+
+    // Count finance transactions from inventory events
+    const [invTxCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(sql`finance_transactions`)
+      .where(sql`source_module = 'inventory'`);
+
+    // Count inventory events
+    const [invEventCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(eventStoreTable)
+      .where(sql`${eventStoreTable.eventType} LIKE 'inventory.%'`);
+
+    const inventoryValue = parseFloat(fifoValue?.value || "0");
+    const glValue = invAccounts.reduce((sum, a) => sum + parseFloat(a.balance || "0"), 0);
+    const difference = inventoryValue - glValue;
+
+    return res.json({
+      reconciliation: {
+        fifoValue: inventoryValue,
+        generalLedger: glValue,
+        difference,
+        isBalanced: Math.abs(difference) < 0.01,
+      },
+      inventoryAccounts: invAccounts,
+      counts: {
+        financeTransactions: invTxCount?.count || 0,
+        inventoryEvents: invEventCount?.count || 0,
+        missingEvents: Math.max(0, (invEventCount?.count || 0) - (invTxCount?.count || 0)),
+      },
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 export default router;

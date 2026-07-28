@@ -3,7 +3,8 @@ import POSPlaceholder from "@/components/desktop/apps/POSPlaceholder";
 import FinancePlaceholder from "@/components/desktop/apps/FinancePlaceholder";
 import InventoryApp from "@/components/desktop/apps/InventoryApp";
 import CRMPlaceholder from "@/components/desktop/apps/CRMPlaceholder";
-import HRPlaceholder from "@/components/desktop/apps/HRPlaceholder";
+import HRApp from "@/components/desktop/apps/HRApp";
+import PurchasingApp from "@/components/desktop/apps/PurchasingApp";
 import AIChatPlaceholder from "@/components/desktop/apps/AIChatPlaceholder";
 import MarketplacePlaceholder from "@/components/desktop/apps/MarketplacePlaceholder";
 import SettingsPlaceholder from "@/components/desktop/apps/SettingsPlaceholder";
@@ -56,9 +57,23 @@ export const appRegistry: AppDefinition[] = [
     title: "HR",
     icon: "UserCog",
     color: "#DC2626",
-    component: HRPlaceholder,
-    defaultWidth: 800,
-    defaultHeight: 500,
+    component: HRApp,
+    defaultWidth: 1200,
+    defaultHeight: 750,
+    minWidth: 900,
+    minHeight: 500,
+    category: "business",
+  },
+  {
+    id: "purchasing",
+    title: "Purchasing",
+    icon: "ShoppingCart",
+    color: "#EA580C",
+    component: PurchasingApp,
+    defaultWidth: 1200,
+    defaultHeight: 750,
+    minWidth: 900,
+    minHeight: 500,
     category: "business",
   },
   {
@@ -103,6 +118,6 @@ export function getAppById(id: string): AppDefinition | undefined {
 
 export function getDockApps(): AppDefinition[] {
   return appRegistry.filter((app) =>
-    ["pos", "finance", "inventory", "crm", "hr", "ai-chat", "marketplace", "settings"].includes(app.id)
+    ["pos", "finance", "inventory", "purchasing", "hr", "crm", "ai-chat", "marketplace", "settings"].includes(app.id)
   );
 }

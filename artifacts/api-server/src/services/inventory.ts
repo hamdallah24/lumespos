@@ -4,83 +4,11 @@ import {
   semiFinishedTable,
   recipesTable,
   currentInventoryTable,
-  warehousesTable,
 } from "@workspace/db";
 import { and, eq, sql } from "drizzle-orm";
 
 export type Executor = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type ItemType = "ingredient" | "semi_finished";
-
-async function getDefaultWarehouseId(tx: Executor, branchId: number): Promise<number> {
-  const [wh] = await tx.select({ id: warehousesTable.id }).from(warehousesTable).where(eq(warehousesTable.branchId, branchId)).limit(1);
-  if (wh) return wh.id;
-  const [created] = await tx.insert(warehousesTable).values({
-    branchId, code: `WH-DEF-${branchId}`, name: `Default WH ${branchId}`, type: "branch",
-  }).returning({ id: warehousesTable.id });
-  return created.id;
-}
-
-/** Read the cost_price_per_unit for an item. */
-export async function getUnitCost(tx: Executor, itemType: ItemType, itemId: number): Promise<number> {
-  if (itemType === "ingredient") {
-    const [row] = await tx
-      .select({ c: ingredientsTable.costPricePerUnit })
-      .from(ingredientsTable)
-      .where(eq(ingredientsTable.id, itemId));
-    return row ? parseFloat(row.c) : 0;
-  }
-  const [row] = await tx
-    .select({ c: semiFinishedTable.costPricePerUnit })
-    .from(semiFinishedTable)
-    .where(eq(semiFinishedTable.id, itemId));
-  return row ? parseFloat(row.c) : 0;
-}
-
-export type AdjustInventoryResult = { newStock: number; previousStock: number };
-
-/** Upsert current_inventory by delta (can be negative). Returns the new stock level and previous stock. */
-export async function adjustInventory(
-  tx: Executor,
-  branchId: number,
-  itemType: ItemType,
-  itemId: number,
-  delta: number,
-  warehouseId?: number,
-): Promise<AdjustInventoryResult> {
-  const whId = warehouseId || (await getDefaultWarehouseId(tx, branchId));
-
-  const [existing] = await tx
-    .select()
-    .from(currentInventoryTable)
-    .where(
-      and(
-        eq(currentInventoryTable.branchId, branchId),
-        eq(currentInventoryTable.warehouseId, whId),
-        eq(currentInventoryTable.itemType, itemType),
-        eq(currentInventoryTable.itemId, itemId),
-      ),
-    );
-
-  if (!existing) {
-    const newStock = delta;
-    await tx.insert(currentInventoryTable).values({
-      branchId,
-      warehouseId: whId,
-      itemType,
-      itemId,
-      currentStock: String(newStock),
-    });
-    return { newStock, previousStock: 0 };
-  }
-
-  const previousStock = parseFloat(existing.currentStock);
-  const newStock = previousStock + delta;
-  await tx
-    .update(currentInventoryTable)
-    .set({ currentStock: String(newStock) })
-    .where(eq(currentInventoryTable.id, existing.id));
-  return { newStock, previousStock };
-}
 
 export async function getInventoryStock(
   tx: Executor,
@@ -101,45 +29,12 @@ export async function getInventoryStock(
   return row ? parseFloat(row.s) : 0;
 }
 
-/**
- * Moving average for raw materials on stock-in.
- * new_cost = ((oldStock * oldPrice) + purchaseTotal) / (oldStock + newQty)
- */
-export async function applyMovingAverage(
-  tx: Executor,
-  branchId: number,
-  ingredientId: number,
-  newQty: number,
-  purchaseTotal: number,
-): Promise<number> {
-  const [ing] = await tx
-    .select()
-    .from(ingredientsTable)
-    .where(eq(ingredientsTable.id, ingredientId));
-  if (!ing) return 0;
-
-  const oldStock = await getInventoryStock(tx, branchId, "ingredient", ingredientId);
-  const oldPrice = parseFloat(ing.costPricePerUnit);
-  const denom = oldStock + newQty;
-  const newCost = denom > 0 ? (oldStock * oldPrice + purchaseTotal) / denom : oldPrice;
-
-  await tx
-    .update(ingredientsTable)
-    .set({ costPricePerUnit: String(newCost) })
-    .where(eq(ingredientsTable.id, ingredientId));
-
-  return newCost;
-}
-
 export type RecipeRow = {
   componentType: ItemType;
   componentId: number;
   quantity: number;
 };
 
-// ============================================================
-// FUNGSI getRecipeRows YANG SUDAH DIPERBAIKI
-// ============================================================
 export async function getRecipeRows(
   tx: Executor,
   parentType: "product" | "semi_finished" | "product_variant",
@@ -155,61 +50,11 @@ export async function getRecipeRows(
       )
     );
   
-  console.log(`[getRecipeRows] ${parentType}:${parentId} -> found ${rows.length} rows`);
-  
   return rows.map((r) => ({
     componentType: r.componentType as ItemType,
     componentId: r.componentId,
     quantity: parseFloat(r.quantity),
   }));
-}
-
-/**
- * COGS for one unit of a parent = sum(component unit cost * recipe qty).
- */
-export async function computeUnitCogs(
-  tx: Executor,
-  parentType: "product" | "semi_finished" | "product_variant",
-  parentId: number,
-): Promise<number> {
-  const rows = await getRecipeRows(tx, parentType, parentId);
-  let cost = 0;
-  for (const r of rows) {
-    const unitCost = await getUnitCost(tx, r.componentType, r.componentId);
-    cost += unitCost * r.quantity;
-  }
-  return cost;
-}
-
-/**
- * Deduct direct recipe components for selling `qty` of a product or product variant.
- * Returns total COGS of the deducted components.
- */
-export async function deductForProduct(
-  tx: Executor,
-  branchId: number,
-  productId: number,
-  qty: number,
-  productVariantId?: number | null,
-): Promise<number> {
-  let rows: RecipeRow[] = [];
-
-  if (productVariantId) {
-    rows = await getRecipeRows(tx, "product_variant", productVariantId);
-  }
-
-  if (rows.length === 0) {
-    rows = await getRecipeRows(tx, "product", productId);
-  }
-
-  let cogs = 0;
-  for (const r of rows) {
-    const deductQty = r.quantity * qty;
-    const unitCost = await getUnitCost(tx, r.componentType, r.componentId);
-    cogs += unitCost * deductQty;
-    await adjustInventory(tx, branchId, r.componentType, r.componentId, -deductQty);
-  }
-  return cogs;
 }
 
 export const LOW_STOCK_DEFAULT = 200;

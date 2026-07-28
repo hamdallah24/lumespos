@@ -13,6 +13,7 @@ export interface InventoryEvent {
   referenceId?: number;
   stockCardId: number;
   description?: string;
+  itemName?: string;
 }
 
 export async function publishEvent(event: InventoryEvent): Promise<void> {
@@ -26,6 +27,7 @@ export async function publishEvent(event: InventoryEvent): Promise<void> {
       warehouseId: event.warehouseId,
       itemType: event.itemType,
       itemId: event.itemId,
+      itemName: event.itemName,
       quantity: event.quantity,
       totalCost: event.totalCost,
       unitCost: event.unitCost,

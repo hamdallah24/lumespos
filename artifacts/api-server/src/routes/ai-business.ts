@@ -3,20 +3,12 @@
 // ─────────────────────────────────────────────────────────────
 import { db, ingredientsTable, semiFinishedTable, productsTable, productVariantsTable, expensesTable, ordersTable, orderItemsTable, stockAdjustmentsTable, recipesTable, currentInventoryTable, shiftAuditsTable, usersTable, branchesTable } from "@workspace/db";
 import { eq, and, gte, lte, lt, sum, desc, sql, ilike } from "drizzle-orm";
-import { listInventoryForBranch, adjustInventory, applyMovingAverage, getRecipeRows, getInventoryStock } from "../services/inventory";
+import { listInventoryForBranch, getRecipeRows, getInventoryStock } from "../services/inventory";
+import { createMovement, MOVEMENT_TYPES } from "../inventory/services/movementService";
 import { EventPublisher } from "../event-bus";
 import { createStockAdjustedEvent, createStockCorrectedEvent, createProductCreatedEvent, createExpenseRecordedEvent, createIngredientConsumedEvent, createBatchProducedEvent, createRecipeChangedEvent, createPriceChangedEvent } from "../events";
 
 // ── HELPERS ──
-async function getComponentCost(tx: any, componentType: string, componentId: number): Promise<number> {
-  if (componentType === "semi_finished") {
-    const [sf] = await tx.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, componentId));
-    return sf ? parseFloat(sf.c) : 0;
-  }
-  const [ing] = await tx.select({ c: ingredientsTable.costPricePerUnit }).from(ingredientsTable).where(eq(ingredientsTable.id, componentId));
-  return ing ? parseFloat(ing.c) : 0;
-}
-
 async function getCurrentStockLocal(tx: any, branchId: number, itemId: number): Promise<number> {
   const [stock] = await tx.select({ s: currentInventoryTable.currentStock }).from(currentInventoryTable)
     .where(and(eq(currentInventoryTable.itemType, "semi_finished"), eq(currentInventoryTable.itemId, itemId), eq(currentInventoryTable.branchId, branchId)));
@@ -98,15 +90,18 @@ export async function executeOperation(action: string, params: Record<string, an
           : (await db.select({ u: semiFinishedTable.unit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, itemId)).limit(1))[0]?.u;
         if (baseUnit) qty = normalizeQty(Number(qty), unit, baseUnit);
       }
-      await db.transaction(async (tx) => {
-        await adjustInventory(tx, bid, it, itemId, qty);
-        if (price && price > 0) await applyMovingAverage(tx, bid, itemId, qty, price);
-        await tx.insert(stockAdjustmentsTable).values({
-          branchId: bid, itemType: it, itemId,
-          adjustmentType: "in", quantity: String(qty),
-          purchasePriceTotal: price > 0 ? String(price) : null,
-          notes: `via COO: tambah stok` + (price > 0 ? ` (Rp ${price.toLocaleString("id-ID")})` : ""),
-        });
+      const unitCost = price && price > 0 ? price / qty : undefined;
+      await createMovement({
+        branchId: bid, itemType: it, itemId,
+        movementType: MOVEMENT_TYPES.STOCK_OPNAME,
+        quantity: Number(qty), unitCost,
+        description: `via COO: tambah stok` + (price > 0 ? ` (Rp ${price.toLocaleString("id-ID")})` : ""),
+      });
+      await db.insert(stockAdjustmentsTable).values({
+        branchId: bid, itemType: it, itemId,
+        adjustmentType: "in", quantity: String(qty),
+        purchasePriceTotal: price > 0 ? String(price) : null,
+        notes: `via COO: tambah stok` + (price > 0 ? ` (Rp ${price.toLocaleString("id-ID")})` : ""),
       });
       const [afterStock] = await db.select({ s: currentInventoryTable.currentStock }).from(currentInventoryTable)
         .where(and(eq(currentInventoryTable.itemType, it), eq(currentInventoryTable.itemId, itemId), eq(currentInventoryTable.branchId, bid))).limit(1);
@@ -133,12 +128,15 @@ export async function executeOperation(action: string, params: Record<string, an
           : (await db.select({ u: semiFinishedTable.unit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, itemId)).limit(1))[0]?.u;
         if (baseUnit) qty = normalizeQty(Number(qty), unit, baseUnit);
       }
-      await db.transaction(async (tx) => {
-        await adjustInventory(tx, bid, it, itemId, -qty);
-        await tx.insert(stockAdjustmentsTable).values({
-          branchId: bid, itemType: it, itemId, adjustmentType: "out",
-          quantity: String(qty), notes: `via COO: kurangi stok`,
-        });
+      await createMovement({
+        branchId: bid, itemType: it, itemId,
+        movementType: MOVEMENT_TYPES.WASTE_DAMAGE,
+        quantity: Number(qty),
+        description: "via COO: kurangi stok",
+      });
+      await db.insert(stockAdjustmentsTable).values({
+        branchId: bid, itemType: it, itemId, adjustmentType: "out",
+        quantity: String(qty), notes: "via COO: kurangi stok",
       });
       const [afterStock] = await db.select({ s: currentInventoryTable.currentStock }).from(currentInventoryTable)
         .where(and(eq(currentInventoryTable.itemType, it), eq(currentInventoryTable.itemId, itemId), eq(currentInventoryTable.branchId, bid))).limit(1);
@@ -170,12 +168,26 @@ export async function executeOperation(action: string, params: Record<string, an
       if (!found) return "Item tidak ditemukan.";
       const delta = target - found.currentStock;
       const adjType = delta >= 0 ? "in" : "loss";
-      await db.transaction(async (tx) => {
-        await adjustInventory(tx, bid, it, itemId, delta);
-        await tx.insert(stockAdjustmentsTable).values({
-          branchId: bid, itemType: it, itemId, adjustmentType: adjType,
-          quantity: String(Math.abs(delta)), notes: `via COO: koreksi stok jadi ${target}`,
-        });
+      const corrType = delta >= 0 ? MOVEMENT_TYPES.STOCK_OPNAME : MOVEMENT_TYPES.WASTE_DAMAGE;
+      let corrUnitCost: number | undefined;
+      if (delta > 0) {
+        if (it === "ingredient") {
+          const [row] = await db.select({ c: ingredientsTable.costPricePerUnit }).from(ingredientsTable).where(eq(ingredientsTable.id, itemId));
+          corrUnitCost = row ? parseFloat(row.c) : undefined;
+        } else if (it === "semi_finished") {
+          const [row] = await db.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, itemId));
+          corrUnitCost = row ? parseFloat(row.c) : undefined;
+        }
+      }
+      await createMovement({
+        branchId: bid, itemType: it, itemId,
+        movementType: corrType, quantity: Math.abs(delta),
+        unitCost: corrUnitCost,
+        description: `via COO: koreksi stok jadi ${target}`,
+      });
+      await db.insert(stockAdjustmentsTable).values({
+        branchId: bid, itemType: it, itemId, adjustmentType: adjType,
+        quantity: String(Math.abs(delta)), notes: `via COO: koreksi stok jadi ${target}`,
       });
       EventPublisher.publish(createStockCorrectedEvent({
         branchId: bid, itemType: it, itemId: Number(itemId),
@@ -200,12 +212,15 @@ export async function executeOperation(action: string, params: Record<string, an
           : (await db.select({ u: semiFinishedTable.unit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, itemId)).limit(1))[0]?.u;
         if (baseUnit) qty = normalizeQty(Number(qty), unit, baseUnit);
       }
-      await db.transaction(async (tx) => {
-        await adjustInventory(tx, bid, it, itemId, -qty);
-        await tx.insert(stockAdjustmentsTable).values({
-          branchId: bid, itemType: it, itemId, adjustmentType: "loss",
-          quantity: String(-qty), notes: `via COO: koreksi hilang`,
-        });
+      await createMovement({
+        branchId: bid, itemType: it, itemId,
+        movementType: MOVEMENT_TYPES.WASTE_DAMAGE,
+        quantity: Number(qty),
+        description: "via COO: koreksi hilang",
+      });
+      await db.insert(stockAdjustmentsTable).values({
+        branchId: bid, itemType: it, itemId, adjustmentType: "loss",
+        quantity: String(-qty), notes: "via COO: koreksi hilang",
       });
       return "ok";
     }
@@ -430,22 +445,31 @@ export async function executeOperation(action: string, params: Record<string, an
       }
       if (!itemId || !producedWeight) return "Parameter tidak lengkap.";
       let totalCost = 0;
-      await db.transaction(async (tx) => {
-        const recipe = await getRecipeRows(tx, "semi_finished", itemId);
-        if (recipe.length === 0) throw new Error("Resep belum diisi.");
-        for (const r of recipe) {
-          const c = await getComponentCost(tx, r.componentType, r.componentId);
-          totalCost += c * r.quantity;
-          await adjustInventory(tx, bid, r.componentType, r.componentId, -r.quantity);
-        }
-        const hpp = totalCost / producedWeight;
-        const oldStock = await getCurrentStockLocal(tx, bid, itemId);
-        const [sf] = await tx.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, itemId));
-        const oldHpp = parseFloat(sf?.c || "0");
-        const avg = (oldStock * oldHpp + totalCost) / (oldStock + producedWeight);
-        await adjustInventory(tx, bid, "semi_finished", itemId, producedWeight);
-        await tx.update(semiFinishedTable).set({ costPricePerUnit: String(avg) }).where(eq(semiFinishedTable.id, itemId));
+      const recipe = await getRecipeRows(db as any, "semi_finished", itemId);
+      if (recipe.length === 0) return "Resep belum diisi.";
+      for (const r of recipe) {
+        const result = await createMovement({
+          branchId: bid, itemType: r.componentType, itemId: r.componentId,
+          movementType: MOVEMENT_TYPES.RECIPE_CONSUMPTION,
+          quantity: r.quantity,
+          referenceType: "production", referenceId: Number(itemId),
+          description: "via COO: produksi",
+        });
+        totalCost += result.totalCost;
+      }
+      const hpp = producedWeight > 0 ? totalCost / producedWeight : 0;
+      await createMovement({
+        branchId: bid, itemType: "semi_finished", itemId: Number(itemId),
+        movementType: MOVEMENT_TYPES.PRODUCTION_OUTPUT,
+        quantity: Number(producedWeight), unitCost: hpp,
+        referenceType: "production", referenceId: Number(itemId),
+        description: "via COO: produksi",
       });
+      const oldStock = await getCurrentStockLocal(db as any, bid, itemId);
+      const [sf] = await db.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, itemId));
+      const oldHpp = parseFloat(sf?.c || "0");
+      const avg = (oldStock + producedWeight) > 0 ? (oldStock * oldHpp + totalCost) / (oldStock + producedWeight) : hpp;
+      await db.update(semiFinishedTable).set({ costPricePerUnit: String(avg) }).where(eq(semiFinishedTable.id, itemId));
       const sfName = await db.select({ name: semiFinishedTable.name }).from(semiFinishedTable).where(eq(semiFinishedTable.id, itemId)).limit(1);
       EventPublisher.publish(createBatchProducedEvent({
         branchId: bid, semiFinishedId: Number(itemId),

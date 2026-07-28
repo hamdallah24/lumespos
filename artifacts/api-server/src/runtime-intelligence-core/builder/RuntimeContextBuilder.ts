@@ -10,7 +10,10 @@ import type {
   OverallConfidence,
   ToolSuggestion,
   RefinementEntry,
+  ModuleStatusValue,
+  AssemblyStatus,
 } from '../types';
+import type { BusinessTimeContext } from '../../business-os/temporal/BusinessTimeContext';
 import { isRepositoryCapability, isMemoryCapability } from '../grounding/CapabilityRouter';
 
 interface AwarenessInput {
@@ -42,6 +45,13 @@ export class RuntimeContextBuilder {
     budget: RuntimeBudget,
     awareness?: AwarenessInput,
     refinementHistory?: RefinementEntry[],
+    erpContexts?: Record<string, unknown>,
+    operationalState?: { inventory?: unknown; finance?: unknown; people?: unknown; suppliers?: unknown; production?: unknown; sales?: unknown; timestamp: number },
+    moduleStatus?: Record<string, ModuleStatusValue>,
+    degradedModules?: string[],
+    degradedReasons?: Record<string, string>,
+    assemblyStatus?: AssemblyStatus,
+    time?: BusinessTimeContext,
   ): RuntimeContext {
     return {
       metadata: {
@@ -50,6 +60,10 @@ export class RuntimeContextBuilder {
         createdAt,
         degraded,
         degradedReason,
+        assemblyStatus,
+        moduleStatus,
+        degradedModules,
+        degradedReasons,
       },
       intelligence: {
         goal: understanding.goal,
@@ -124,6 +138,16 @@ export class RuntimeContextBuilder {
         budget,
         confidence,
         reasoningTrace: [],
+      },
+      erpContexts: erpContexts ?? undefined,
+      operationalState: operationalState ?? undefined,
+      time: time ?? {
+        mode: 'last_7_days',
+        from: new Date(Date.now() - 6 * 86400000),
+        to: new Date(),
+        timezone: 'Asia/Jakarta',
+        label: '7 Hari Terakhir',
+        comparison: { enabled: true, mode: 'previous_period' },
       },
     };
   }

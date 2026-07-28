@@ -19,6 +19,7 @@ import { chroRuntime } from "./executive-runtime/executives/CHRO";
 
 // Finance Engine - subscribe to events + default Chart of Accounts
 import "./finance/services/eventHandlers";
+import "./inventory/services/orderConsumer";
 import { initializeDefaultCOA } from "./finance/services/chartOfAccounts";
 
 // ── Process-level crash handlers ──
@@ -45,6 +46,10 @@ function gracefulShutdown(signal: string, error?: unknown) {
       try {
         const { shutdownEIOSRuntime } = await import("./eios-runtime");
         await shutdownEIOSRuntime();
+      } catch { }
+      try {
+        const { stopSubscriber } = await import("./finance/services/inventoryEventSubscriber");
+        stopSubscriber();
       } catch { }
       doExit(error ? 1 : 0);
     });
@@ -92,6 +97,15 @@ async function boot(): Promise<void> {
       logger.warn({ err }, "[Finance] Default COA initialization skipped");
     }
 
+    // Phase 0.6: Start Inventory Event Subscriber (Finance polls event_store)
+    try {
+      const { startSubscriber } = await import("./finance/services/inventoryEventSubscriber");
+      await startSubscriber();
+      logger.info("[Finance] Inventory Event Subscriber started — polling for inventory events");
+    } catch (err) {
+      logger.warn({ err }, "[Finance] Inventory Event Subscriber start skipped");
+    }
+
     // Phase 1: Foundation Load
     const { getFoundationProvider } = await import("./ai/runtime/foundation");
     const provider = getFoundationProvider();
@@ -114,29 +128,37 @@ async function boot(): Promise<void> {
     // Phase 4: EIOS Runtime bootstrap (initializes ALL layers — stages, observers, profiles, registries, governance)
     const { initializeEIOSRuntime, schedulePipeline, ExecutiveDispatchRegistry } = await import("./eios-runtime");
 
-    await initializeEIOSRuntime();
-
-    ExecutiveDispatchRegistry.register({ role: "CEO", decide: ceoRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CTO", decide: ctoProgram.decide });
-    ExecutiveDispatchRegistry.register({ role: "CFO", decide: cfoRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CMO", decide: cmoRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CAIO", decide: caioRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CKO", decide: ckoRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "CHRO", decide: chroRuntime.decide });
-    ExecutiveDispatchRegistry.register({ role: "COO", decide: cooRuntime.decide });
-
-    schedulePipeline(30000);
-    logger.info("[EIOS] Runtime v4.1.1 active — 11 stages, 6 observers, 7 profiles, 8 executives");
-
-    // T12.1: Initialize Runtime Intelligence Core (RIC) — cognitive kernel
     try {
-      const { initializeRIC } = await import("./runtime-intelligence-core/RICAdapter");
-      await initializeRIC(process.cwd());
-      logger.info("[RIC] Runtime Intelligence Core initialized — Awareness, Understanding, Planning, Grounding, Verification active");
+      await initializeEIOSRuntime();
+    } catch (err) {
+      logger.warn({ err }, "[EIOS] Runtime bootstrap failed — continuing with Business OS initialization");
+    }
+
+    try {
+      ExecutiveDispatchRegistry.register({ role: "CEO", decide: ceoRuntime.decide });
+      ExecutiveDispatchRegistry.register({ role: "CTO", decide: ctoProgram.decide });
+      ExecutiveDispatchRegistry.register({ role: "CFO", decide: cfoRuntime.decide as any });
+      ExecutiveDispatchRegistry.register({ role: "CMO", decide: cmoRuntime.decide as any });
+      ExecutiveDispatchRegistry.register({ role: "CAIO", decide: caioRuntime.decide as any });
+      ExecutiveDispatchRegistry.register({ role: "CKO", decide: ckoRuntime.decide });
+      ExecutiveDispatchRegistry.register({ role: "CHRO", decide: chroRuntime.decide as any });
+      ExecutiveDispatchRegistry.register({ role: "COO", decide: cooRuntime.decide as any });
+
+      schedulePipeline(30000);
+      logger.info("[EIOS] Runtime v4.1.1 active — 11 stages, 6 observers, 7 profiles, 8 executives");
+    } catch (err) {
+      logger.warn({ err }, "[EIOS] Executive dispatch registration failed — continuing");
+    }
+
+    // T12.1: Initialize Business OS — activates Runtime, RIC, Capability, Events, Workspace, Council, Execution
+    try {
+      const { initializeBusinessOS } = await import("./business-os/bootstrap");
+      await initializeBusinessOS(process.cwd());
+      logger.info("[BusinessOS] Business OS initialized — Runtime, RIC, Capability, Events, Workspace, Council, Execution active");
       const { registerExecutionEngine } = await import("./runtime-intelligence-core/RICAdapter");
       registerExecutionEngine();
     } catch (err) {
-      logger.warn({ err }, "[RIC] Runtime Intelligence Core initialization skipped");
+      logger.warn({ err }, "[BusinessOS] Business OS initialization skipped");
     }
 
     // ECP-037 P1: Activate Knowledge Pipeline

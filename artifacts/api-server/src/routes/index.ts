@@ -31,6 +31,11 @@ import storageRouter from "./storage";
 import aiRouter from "./ai";
 import migrateRouter from "./migrate";
 import financeRouter from "./finance";
+import itemsRouter from "./items";
+import uomsRouter from "./uoms";
+import binsRouter from "./bins";
+import agingRouter from "../inventory/routes/aging";
+import analyticsRouter from "../inventory/routes/analytics";
 
 const router = Router();
 
@@ -66,5 +71,10 @@ router.use("/", storageRouter);
 router.use("/", aiRouter);
 router.use("/", migrateRouter);
 router.use("/", financeRouter);
+router.use("/", itemsRouter);
+router.use("/", uomsRouter);
+router.use("/", binsRouter);
+router.use("/", agingRouter);
+router.use("/", analyticsRouter);
 
 export default router;

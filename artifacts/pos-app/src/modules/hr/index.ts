@@ -1,3 +1,11 @@
 export { default as EmployeeListPage } from "./pages/EmployeeListPage";
+export { default as HRWorkspace } from "./pages/HRWorkspace";
+export { default as EmployeeWorkspace } from "./pages/EmployeeWorkspace";
+export { default as DepartmentWorkspace } from "./pages/DepartmentWorkspace";
+export { default as PositionWorkspace } from "./pages/PositionWorkspace";
+export { default as OrgWorkspace } from "./pages/OrgWorkspace";
+export { default as AttendanceWorkspace } from "./pages/AttendanceWorkspace";
+export { default as LeaveWorkspace } from "./pages/LeaveWorkspace";
+export { default as CompanyInitWizard } from "./pages/CompanyInitWizard";
 export * from "./hooks/useHr";
 export * from "./types";

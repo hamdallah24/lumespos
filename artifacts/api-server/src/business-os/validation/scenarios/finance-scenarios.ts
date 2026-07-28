@@ -1,0 +1,60 @@
+import type { BusinessScenario } from "../types";
+
+export const financeScenarios: BusinessScenario[] = [
+  {
+    id: "fin-001", name: "Cash Negative", domain: "finance",
+    description: "Saldo kas di bawah minimum, pembayaran terancam gagal",
+    trigger: { type: "event", eventType: "finance.cash_negative", data: { currentBalance: -2500000, minRequired: 10000000, accountId: "ACC-001", accountName: "Operasional", branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CFO", expectedCapabilities: ["cap_finance"],
+    expectedActions: ["EmergencyFundTransfer", "FreezeSpending"], expectedEvents: ["finance.cash_crisis_handled"],
+    priority: "critical", tags: ["finance", "cash", "emergency"],
+  },
+  {
+    id: "fin-002", name: "Budget Exceeded", domain: "finance",
+    description: "Anggaran departemen telah melampaui batas",
+    trigger: { type: "event", eventType: "finance.budget_exceeded", data: { department: "Marketing", budget: 50000000, actual: 62500000, overshoot: 12500000, period: "Q3-2026", branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CFO", expectedCapabilities: ["cap_finance"],
+    expectedActions: ["BudgetReview", "CostOptimization"], expectedEvents: ["finance.budget_reviewed", "finance.cost_plan"],
+    priority: "high", tags: ["finance", "budget", "overspend"],
+  },
+  {
+    id: "fin-003", name: "Profit Drop Analysis", domain: "finance",
+    description: "Profit margin turun dibanding bulan lalu",
+    trigger: { type: "event", eventType: "finance.profit_drop", data: { currentMargin: 12.5, prevMargin: 18.3, dropPct: 31.7, revenue: 350000000, costs: 306250000, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CFO", expectedCapabilities: ["cap_finance", "cap_sales"],
+    expectedActions: ["CostAnalysis", "PriceReview"], expectedEvents: ["finance.profit_analyzed", "finance.price_recommendation"],
+    priority: "critical", tags: ["finance", "profitability", "cost"],
+  },
+  {
+    id: "fin-004", name: "Invoice Overdue", domain: "finance",
+    description: "Pembayaran piutang melewati jatuh tempo",
+    trigger: { type: "event", eventType: "finance.invoice_overdue", data: { invoiceId: "INV-2026-07-901", customerId: 404, customerName: "PT Abadi Jaya", amount: 45000000, dueDate: "2026-07-15", overdueDays: 11, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CFO", expectedCapabilities: ["cap_finance", "cap_crm"],
+    expectedActions: ["CollectionReminder", "NegotiatePayment"], expectedEvents: ["finance.collection_initiated"],
+    priority: "high", tags: ["finance", "receivable", "collection"],
+  },
+  {
+    id: "fin-005", name: "Tax Deadline Approaching", domain: "finance",
+    description: "Batas pelaporan pajak sudah dekat",
+    trigger: { type: "event", eventType: "finance.tax_deadline", data: { taxType: "PPN Masa", period: "Juni 2026", deadline: "2026-07-31", daysLeft: 5, estimatedAmount: 27500000, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CFO", expectedCapabilities: ["cap_finance"],
+    expectedActions: ["PrepareTaxReport", "AllocateFunds"], expectedEvents: ["finance.tax_prepared"],
+    priority: "high", tags: ["finance", "tax", "compliance"],
+  },
+  {
+    id: "fin-006", name: "Expense Anomaly Detected", domain: "finance",
+    description: "Pengeluaran mencurigakan terdeteksi oleh sistem",
+    trigger: { type: "event", eventType: "finance.expense_anomaly", data: { category: "Travel", monthlyAvg: 5000000, currentMonth: 18500000, anomalyScore: 0.87, branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CFO", expectedCapabilities: ["cap_finance"],
+    expectedActions: ["AuditExpense", "ImplementControl"], expectedEvents: ["finance.anomaly_investigated"],
+    priority: "normal", tags: ["finance", "audit", "fraud-prevention"],
+  },
+  {
+    id: "fin-007", name: "Payroll Shortfall", domain: "finance",
+    description: "Dana payroll bulan ini tidak mencukupi",
+    trigger: { type: "event", eventType: "finance.payroll_shortfall", data: { requiredAmount: 250000000, availableAmount: 185000000, shortfall: 65000000, payDate: "2026-07-28", branchId: 1 }, branchId: 1 },
+    expectedExecutive: "CFO", expectedCapabilities: ["cap_finance", "cap_hr"],
+    expectedActions: ["SecureBridgeLoan", "PrioritizePayments"], expectedEvents: ["finance.payroll_secured"],
+    priority: "critical", tags: ["finance", "payroll", "hr"],
+  },
+];

@@ -1,6 +1,5 @@
-import { db, stockCardTable, currentInventoryTable } from "@workspace/db";
+import { db, stockCardTable, currentInventoryTable, ingredientsTable, semiFinishedTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
-import { eq, and } from "drizzle-orm";
 import { getLastStockCardEntry } from "./stockCardService";
 import { createFifoLayer, consumeFifo } from "./fifoCostingService";
 import { ensureDefaultWarehouse } from "./warehouseService";
@@ -52,6 +51,7 @@ export interface MovementParams {
   batchId?: string;
   description?: string;
   createdBy?: number;
+  itemName?: string;
 }
 
 export interface MovementResult {
@@ -68,10 +68,39 @@ export async function createMovement(params: MovementParams): Promise<MovementRe
   const qty = Math.abs(params.quantity);
   const warehouseId = params.warehouseId || (await ensureDefaultWarehouse(params.branchId));
 
+  // Resolve item name for event readability
+  let itemName = params.itemName;
+  if (!itemName) {
+    if (params.itemType === "ingredient") {
+      const [row] = await db.select({ name: ingredientsTable.name }).from(ingredientsTable).where(eq(ingredientsTable.id, params.itemId));
+      itemName = row?.name;
+    } else if (params.itemType === "semi_finished") {
+      const [row] = await db.select({ name: semiFinishedTable.name }).from(semiFinishedTable).where(eq(semiFinishedTable.id, params.itemId));
+      itemName = row?.name;
+    }
+  }
+
   return db.transaction(async (tx) => {
     const last = await getLastStockCardEntry(tx, params.branchId, warehouseId, params.itemType, params.itemId);
-    const qtyBefore = last?.qtyAfter ?? 0;
-    const valueBefore = last?.valueAfter ?? 0;
+    let qtyBefore = last?.qtyAfter ?? 0;
+    let valueBefore = last?.valueAfter ?? 0;
+
+    if (!last) {
+      const [invRow] = await tx
+        .select({ stock: currentInventoryTable.currentStock })
+        .from(currentInventoryTable)
+        .where(
+          and(
+            eq(currentInventoryTable.branchId, params.branchId),
+            eq(currentInventoryTable.warehouseId, warehouseId),
+            eq(currentInventoryTable.itemType, params.itemType),
+            eq(currentInventoryTable.itemId, params.itemId),
+          ),
+        );
+      if (invRow) {
+        qtyBefore = parseFloat(invRow.stock);
+      }
+    }
 
     if (direction === "out" && qty > qtyBefore) {
       throw new Error(`Insufficient stock: have ${qtyBefore}, need ${qty}`);
@@ -113,7 +142,7 @@ export async function createMovement(params: MovementParams): Promise<MovementRe
         referenceType: params.referenceType,
         referenceId: params.referenceId,
         batchId: params.batchId,
-        description: params.description,
+        description: itemName ? `[${itemName}] ${params.description || params.movementType}` : params.description,
         createdBy: params.createdBy,
       })
       .returning({ id: stockCardTable.id });
@@ -132,6 +161,7 @@ export async function createMovement(params: MovementParams): Promise<MovementRe
       warehouseId,
       itemType: params.itemType,
       itemId: params.itemId,
+      itemName,
       quantity: qty,
       totalCost: result.totalCost,
       unitCost: result.totalCost / qty,
