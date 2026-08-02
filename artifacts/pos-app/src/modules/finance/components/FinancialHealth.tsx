@@ -61,7 +61,7 @@ export default function FinancialHealth() {
   const { state: filter } = useWorkspace();
   const { branchId: defaultBranchId } = useBranch();
   const branchId = filter.branchIds.length === 1 ? filter.branchIds[0] : defaultBranchId;
-  const { data, isLoading } = useFinancialHealth(branchId ?? undefined);
+  const { data, isLoading } = useFinancialHealth(branchId ?? undefined, filter.endDate);
 
   if (isLoading) {
     return (

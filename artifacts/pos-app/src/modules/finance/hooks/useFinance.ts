@@ -128,24 +128,30 @@ export function useTimeline(filters: {
   });
 }
 
-export function useCashPosition(branchId?: number) {
+export function useCashPosition(branchId?: number, endDate?: string | null) {
   return useQuery<{ position: CashPosition; items: CashPositionItem[] }>({
-    queryKey: ["finance", "cash-position", branchId],
+    queryKey: ["finance", "cash-position", branchId, endDate || undefined],
     queryFn: async () => {
-      const params = branchId ? `?branchId=${branchId}` : "";
-      const res = await apiFetch(`/api/finance/cash-position${params}`);
+      const params = new URLSearchParams();
+      if (branchId) params.set("branchId", String(branchId));
+      if (endDate) params.set("endDate", endDate);
+      const qs = params.toString();
+      const res = await apiFetch(`/api/finance/cash-position${qs ? "?" + qs : ""}`);
       if (!res.ok) throw new Error("Gagal mengambil data cash position");
       return res.json();
     },
   });
 }
 
-export function useFinancialHealth(branchId?: number) {
+export function useFinancialHealth(branchId?: number, endDate?: string | null) {
   return useQuery<FinancialHealth>({
-    queryKey: ["finance", "health", branchId],
+    queryKey: ["finance", "health", branchId, endDate || undefined],
     queryFn: async () => {
-      const params = branchId ? `?branchId=${branchId}` : "";
-      const res = await apiFetch(`/api/finance/health${params}`);
+      const params = new URLSearchParams();
+      if (branchId) params.set("branchId", String(branchId));
+      if (endDate) params.set("endDate", endDate);
+      const qs = params.toString();
+      const res = await apiFetch(`/api/finance/health${qs ? "?" + qs : ""}`);
       if (!res.ok) throw new Error("Gagal mengambil data health");
       return res.json();
     },
@@ -153,12 +159,16 @@ export function useFinancialHealth(branchId?: number) {
   });
 }
 
-export function useInsight(branchId?: number) {
+export function useInsight(branchId?: number, startDate?: string | null, endDate?: string | null) {
   return useQuery<InsightData>({
-    queryKey: ["finance", "insight", branchId],
+    queryKey: ["finance", "insight", branchId, startDate || undefined, endDate || undefined],
     queryFn: async () => {
-      const params = branchId ? `?branchId=${branchId}` : "";
-      const res = await apiFetch(`/api/finance/insight${params}`);
+      const params = new URLSearchParams();
+      if (branchId) params.set("branchId", String(branchId));
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
+      const qs = params.toString();
+      const res = await apiFetch(`/api/finance/insight${qs ? "?" + qs : ""}`);
       if (!res.ok) throw new Error("Gagal mengambil data insight");
       return res.json();
     },

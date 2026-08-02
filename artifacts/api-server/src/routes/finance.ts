@@ -415,8 +415,8 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     };
 
     const [healthData, insightData, currentPeriod, accountingHealth] = await Promise.all([
-      branchId ? getHealthData(branchId, { cash: cashAccount?.balance || 0, bank: bankAccount?.balance || 0, ewallet: ewalletAccount?.balance || 0 }) : null,
-      branchId ? getInsightData(branchId) : null,
+      branchId ? getHealthData(branchId, { cash: cashAccount?.balance || 0, bank: bankAccount?.balance || 0, ewallet: ewalletAccount?.balance || 0 }, endDate) : null,
+      branchId ? getInsightData(branchId, startDate, endDate) : null,
       PeriodManager.getCurrentPeriod(),
       AccountingHealthCache.get({ branchIds: branchIds || (branchId ? [branchId] : undefined) }).catch(() => null),
     ]);
@@ -484,8 +484,9 @@ router.get("/finance/timeline", requireAuth, async (req, res) => {
 router.get("/finance/cash-position", requireAuth, async (req, res) => {
   try {
     const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
-    const position = await getCashPosition(branchId);
-    const items = await getCashPositionItems(branchId);
+    const endDate = req.query["endDate"] ? new Date(req.query["endDate"] as string) : undefined;
+    const position = await getCashPosition(branchId, endDate);
+    const items = await getCashPositionItems(branchId, endDate);
     return res.json({ position, items });
   } catch (err: any) {
     console.error("GET /finance/cash-position error:", err);
@@ -498,7 +499,8 @@ router.get("/finance/health", requireAuth, async (req, res) => {
     const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
     if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
 
-    const health = await getHealthData(branchId);
+    const endDate = req.query["endDate"] ? new Date(req.query["endDate"] as string) : undefined;
+    const health = await getHealthData(branchId, undefined, endDate);
     return res.json(health);
   } catch (err: any) {
     console.error("GET /finance/health error:", err);
@@ -511,7 +513,9 @@ router.get("/finance/insight", requireAuth, async (req, res) => {
     const branchId = req.query["branchId"] ? Number(req.query["branchId"]) : undefined;
     if (!branchId) return res.status(400).json({ error: "branchId wajib diisi" });
 
-    const insight = await getInsightData(branchId);
+    const startDate = req.query["startDate"] ? new Date(req.query["startDate"] as string) : undefined;
+    const endDate = req.query["endDate"] ? new Date(req.query["endDate"] as string) : undefined;
+    const insight = await getInsightData(branchId, startDate, endDate);
     return res.json(insight);
   } catch (err: any) {
     console.error("GET /finance/insight error:", err);

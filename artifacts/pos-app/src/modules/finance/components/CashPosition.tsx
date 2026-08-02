@@ -52,7 +52,7 @@ function PositionCard({
 export default function CashPosition() {
   const { state: filter } = useWorkspace();
   const branchId = filter.branchIds.length === 1 ? filter.branchIds[0] : undefined;
-  const { data, isLoading } = useCashPosition(branchId);
+  const { data, isLoading } = useCashPosition(branchId, filter.endDate);
 
   if (isLoading) {
     return (

@@ -59,7 +59,7 @@ export default function DashboardInsight() {
   const { state: filter } = useWorkspace();
   const { branchId: defaultBranchId } = useBranch();
   const branchId = filter.branchIds.length === 1 ? filter.branchIds[0] : defaultBranchId;
-  const { data, isLoading } = useInsight(branchId ?? undefined);
+  const { data, isLoading } = useInsight(branchId ?? undefined, filter.startDate, filter.endDate);
 
   if (isLoading) {
     return (

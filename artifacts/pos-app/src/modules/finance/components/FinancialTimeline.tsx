@@ -142,7 +142,7 @@ export default function FinancialTimeline() {
       page,
       limit: 20,
     }),
-    [branchId, search, category, page]
+    [branchId, defaultBranchId, filter.startDate, filter.endDate, search, category, page]
   );
 
   const { data, isLoading } = useTimeline(filters);

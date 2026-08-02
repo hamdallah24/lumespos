@@ -37,14 +37,23 @@ async function getDailyTotals(branchId: number, date: Date) {
   const endOfDay = new Date(date);
   endOfDay.setHours(23, 59, 59, 999);
 
+  return getRangeTotals(branchId, startOfDay, endOfDay);
+}
+
+async function getRangeTotals(branchId: number, start: Date, end: Date) {
+  const startDate = new Date(start);
+  startDate.setHours(0, 0, 0, 0);
+  const endDate = new Date(end);
+  endDate.setHours(23, 59, 59, 999);
+
   const rows = await db
     .select()
     .from(transactionsTable)
     .where(
       and(
         eq(transactionsTable.branchId, branchId),
-        gte(transactionsTable.createdAt, startOfDay),
-        lt(transactionsTable.createdAt, endOfDay)
+        gte(transactionsTable.createdAt, startDate),
+        lt(transactionsTable.createdAt, endDate)
       )
     );
 
@@ -72,8 +81,8 @@ async function getDailyTotals(branchId: number, date: Date) {
         and(
           eq(ordersTable.branchId, branchId),
           sql`${ordersTable.status} != 'voided'`,
-          gte(ordersTable.createdAt, startOfDay),
-          lt(ordersTable.createdAt, endOfDay)
+          gte(ordersTable.createdAt, startDate),
+          lt(ordersTable.createdAt, endDate)
         )
       );
     income = parseFloat(orderRows[0]?.total || "0");
@@ -86,16 +95,48 @@ async function getDailyTotals(branchId: number, date: Date) {
   return { income, expense, cogs };
 }
 
-export async function getInsightData(branchId: number): Promise<InsightData> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+export async function getInsightData(branchId: number, startDate?: Date, endDate?: Date): Promise<InsightData> {
+  let today: Date;
+  let yesterday: Date;
+  let todayEnd: Date;
+  let yesterdayEnd: Date;
 
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+  if (startDate && endDate) {
+    const rangeStart = new Date(startDate);
+    rangeStart.setHours(0, 0, 0, 0);
+    const rangeEnd = new Date(endDate);
+    rangeEnd.setHours(23, 59, 59, 999);
+
+    const durationDays = Math.max(
+      1,
+      Math.round((rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24)) + 1
+    );
+
+    const prevEnd = new Date(rangeStart);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    prevEnd.setHours(23, 59, 59, 999);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - (durationDays - 1));
+    prevStart.setHours(0, 0, 0, 0);
+
+    today = rangeStart;
+    todayEnd = rangeEnd;
+    yesterday = prevStart;
+    yesterdayEnd = prevEnd;
+  } else {
+    today = new Date();
+    today.setHours(0, 0, 0, 0);
+    todayEnd = new Date(today);
+    todayEnd.setHours(23, 59, 59, 999);
+    yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    yesterdayEnd = new Date(yesterday);
+    yesterdayEnd.setHours(23, 59, 59, 999);
+  }
 
   const [todayData, yesterdayData] = await Promise.all([
-    getDailyTotals(branchId, today),
-    getDailyTotals(branchId, yesterday),
+    getRangeTotals(branchId, today, todayEnd),
+    getRangeTotals(branchId, yesterday, yesterdayEnd),
   ]);
 
   const hasHistory = yesterdayData.income > 0 || yesterdayData.expense > 0 || yesterdayData.cogs > 0;

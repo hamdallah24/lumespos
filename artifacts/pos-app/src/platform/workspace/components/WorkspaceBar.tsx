@@ -33,11 +33,19 @@ const SCENARIOS: { value: WorkspaceScenario; label: string }[] = [
   { value: "historical", label: "Historis" },
 ];
 
+interface WorkspaceBarPeriod {
+  id: number;
+  name: string;
+  status: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 interface WorkspaceBarProps {
   mode?: WorkspaceBarMode;
   branches?: { id: number; name: string }[];
-  periods?: { id: number; name: string; status: string }[];
-  currentPeriod?: { id: number; name: string; status: string } | null;
+  periods?: WorkspaceBarPeriod[];
+  currentPeriod?: WorkspaceBarPeriod | null;
   showBranch?: boolean;
   showDate?: boolean;
   showPeriod?: boolean;
@@ -66,6 +74,17 @@ export default function WorkspaceBar({
     refresh,
   } = useWorkspace();
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+
+  const toDateStr = (d?: string) => (d ? d.slice(0, 10) : undefined);
+
+  const selectPeriod = (p?: WorkspaceBarPeriod | null) => {
+    if (p?.id) setAccountingPeriod(p.id);
+    else setAccountingPeriod(null);
+    const s = toDateStr(p?.startDate);
+    const e = toDateStr(p?.endDate);
+    if (s && e) setCustomDates(s, e);
+    close();
+  };
 
   const toggleBranch = (id: number) => {
     const next = state.branchIds.includes(id)
@@ -253,14 +272,14 @@ export default function WorkspaceBar({
             <>
               <div className="fixed inset-0 z-40" onClick={close} />
               <div className="absolute top-full left-0 mt-1 bg-card border border-border rounded-xl shadow-lg p-1.5 z-50">
-                <button onClick={() => { setAccountingPeriod(null); close(); }}
+                <button onClick={() => selectPeriod(currentPeriod)}
                   className={`w-full text-left px-3 py-1.5 rounded-lg text-xs ${
                     state.accountingPeriodId === null ? "bg-primary/10 text-primary font-medium" : "hover:bg-muted/50"
                   }`}>
                   Current (Open)
                 </button>
                 {periods.map((p) => (
-                  <button key={p.id} onClick={() => { setAccountingPeriod(p.id); close(); }}
+                  <button key={p.id} onClick={() => selectPeriod(p)}
                     className={`w-full text-left px-3 py-1.5 rounded-lg text-xs flex items-center gap-2 ${
                       state.accountingPeriodId === p.id ? "bg-primary/10 text-primary" : "hover:bg-muted/50"
                     }`}>

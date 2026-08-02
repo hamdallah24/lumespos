@@ -53,14 +53,12 @@ async function getAccountBalance(code: string): Promise<number> {
     : totalCredit - totalDebit;
 }
 
-async function getMonthlyTotals(branchId: number, monthsAgo: number) {
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - monthsAgo);
-  startDate.setHours(0, 0, 0, 0);
+async function getMonthlyTotals(branchId: number, monthsAgo: number, anchorDate?: Date) {
+  const anchor = anchorDate ? new Date(anchorDate) : new Date();
+  anchor.setHours(0, 0, 0, 0);
 
-  const endDate = new Date();
-  endDate.setMonth(endDate.getMonth() - monthsAgo + 1);
-  endDate.setHours(0, 0, 0, 0);
+  const startDate = new Date(anchor.getFullYear(), anchor.getMonth() - monthsAgo, 1);
+  const endDate = new Date(anchor.getFullYear(), anchor.getMonth() - monthsAgo + 1, 1);
 
   const rows = await db
     .select()
@@ -94,7 +92,7 @@ async function getMonthlyTotals(branchId: number, monthsAgo: number) {
   return { income, expense, operatingExpense };
 }
 
-export async function getHealthData(branchId: number, precomputedBalances?: { cash: number; bank: number; ewallet?: number }): Promise<HealthData> {
+export async function getHealthData(branchId: number, precomputedBalances?: { cash: number; bank: number; ewallet?: number }, anchorDate?: Date): Promise<HealthData> {
   let totalCash: number;
 
   if (precomputedBalances) {
@@ -109,8 +107,8 @@ export async function getHealthData(branchId: number, precomputedBalances?: { ca
   }
 
   const [currentMonth, lastMonth] = await Promise.all([
-    getMonthlyTotals(branchId, 0),
-    getMonthlyTotals(branchId, 1),
+    getMonthlyTotals(branchId, 0, anchorDate),
+    getMonthlyTotals(branchId, 1, anchorDate),
   ]);
 
   let cashHealthScore = 50;
