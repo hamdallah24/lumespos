@@ -316,8 +316,16 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Get active accounting period to use as default date range
+    const activePeriod = await PeriodManager.getCurrentPeriod();
+
+    // Default: use start of active period (e.g. Aug 1), not just today
+    const periodStart = activePeriod?.startDate
+      ? new Date(activePeriod.startDate)
+      : new Date(today.getFullYear(), today.getMonth(), 1); // fallback: start of current month
+
     // Build where clause for branch+date filtering
-    const dateStart = startDate || today;
+    const dateStart = startDate || periodStart;
     const dateEnd = endDate || undefined;
     const condBranch: any[] = [];
     if (branchIds && branchIds.length > 0) {
