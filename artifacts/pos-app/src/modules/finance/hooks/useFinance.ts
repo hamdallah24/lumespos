@@ -49,6 +49,7 @@ export function useFinanceDashboard(branchIds?: number[], startDate?: string | n
       }
       return res.json();
     },
+    refetchInterval: 60000,
   });
 }
 
