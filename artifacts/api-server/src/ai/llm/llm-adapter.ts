@@ -22,7 +22,14 @@ import { charsToTokens, getModelContext } from "../../memory/budget-config";
 const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
 const DEEPSEEK_BASE = process.env.DEEPSEEK_BASE_URL;
 const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat";
+const GEMINI_KEY = process.env.GOOGLE_GEMINI_API_KEY;
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const TIMEOUT_MS = 45000;
+
+function shouldFallback(status: number): boolean {
+  return [401, 402, 403, 429, 500, 502, 503].includes(status);
+}
 
 interface LLMToolCall {
   id: string;
@@ -46,6 +53,50 @@ function filterContamination(history: { role: string; content: string }[]) {
     const c = m.content || "";
     return !/KAMU ADALAH (CEO|CTO) |\[Context Budget:|\[ROLE:/i.test(c.slice(0, 300));
   });
+}
+
+// ── Gemini Fallback ──
+async function callGemini(
+  messages: any[],
+  tools: { name: string; description: string; parameters: Record<string, any> }[],
+  maxTokens: number,
+  jsonMode: boolean,
+): Promise<{ content: string; toolCalls: any[] } | null> {
+  if (!GEMINI_KEY) { console.warn("[gemini] No GOOGLE_GEMINI_API_KEY configured"); return null; }
+  try {
+    const body: any = {
+      model: GEMINI_MODEL,
+      messages,
+      max_tokens: Math.min(maxTokens, 4000),
+      temperature: 0.7,
+    };
+    if (jsonMode) body.response_format = { type: "json_object" };
+
+    const resp = await fetch(`${GEMINI_BASE}/chat/completions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${GEMINI_KEY}` },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!resp.ok) {
+      const err = await resp.text().catch(() => "");
+      console.warn(`[gemini] HTTP ${resp.status}: ${err.slice(0, 200)}`);
+      return null;
+    }
+    const json = await resp.json() as any;
+    const msg = json.choices?.[0]?.message;
+    if (!msg) return null;
+    return {
+      content: msg.content?.trim() || "",
+      toolCalls: msg.tool_calls?.map((tc: any) => ({
+        id: tc.id, name: tc.function?.name || "unknown",
+        args: JSON.parse(tc.function?.arguments || "{}"),
+      })) || [],
+    };
+  } catch (err) {
+    console.warn("[gemini] Fallback error:", (err as any)?.message);
+    return null;
+  }
 }
 
 /** Stateless single request to DeepSeek. ONE round trip. NO Governor, NO loop. */
@@ -105,6 +156,18 @@ export async function callLLMWithTools(
   if (!resp.ok) {
     const errBody = await resp.text().catch(() => "{}");
     console.error(`[ai] DeepSeek HTTP ${resp.status}: ${errBody.slice(0, 300)}`);
+    if (shouldFallback(resp.status)) {
+      console.log("[ai] Sumopod balance mungkin habis — fallback ke Gemini...");
+      const gemini = await callGemini(clean, tools, maxTokens, jsonMode);
+      if (gemini) {
+        return {
+          message: null, content: gemini.content,
+          toolCalls: gemini.toolCalls,
+          tokensUsed: 0,
+          status: gemini.toolCalls.length > 0 ? "tool_calls" : "ok",
+        };
+      }
+    }
     return { message: null, content: "", toolCalls: [], tokensUsed: 0, status: "error", errorStatus: resp.status };
   }
 
@@ -184,6 +247,14 @@ export async function callDeepSeek(
     if (!resp.ok) {
       const err = await resp.text().catch(() => "");
       console.error(`[ai] DeepSeek HTTP ${resp.status}: ${err.slice(0, 300)}`);
+      if (shouldFallback(resp.status)) {
+        console.log("[ai] Sumopod balance mungkin habis — fallback ke Gemini...");
+        const gemini = await callGemini(messages, [], safeMaxTokens, jsonMode);
+        if (gemini) {
+          await remember(userId, mode, user, gemini.content);
+          return gemini.content;
+        }
+      }
       return `ERROR: AI tidak merespon (HTTP ${resp.status}). ${err.slice(0, 100)}`;
     }
     const json = await resp.json();

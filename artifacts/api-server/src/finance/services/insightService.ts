@@ -1,4 +1,4 @@
-import { db, transactionsTable, balanceSnapshotsTable } from "@workspace/db";
+import { db, transactionsTable, balanceSnapshotsTable, ordersTable } from "@workspace/db";
 import { eq, and, sql, gte, lt } from "drizzle-orm";
 
 export interface InsightData {
@@ -52,6 +52,7 @@ async function getDailyTotals(branchId: number, date: Date) {
   let expense = 0;
   let cogs = 0;
   for (const t of rows) {
+    if (t.status === "voided") continue;
     const amount = Math.round(parseFloat(t.amount) * 100) / 100;
     if (t.type === "income") {
       income += amount;
@@ -61,6 +62,23 @@ async function getDailyTotals(branchId: number, date: Date) {
       expense += amount;
     }
   }
+
+  // Fallback: If no income in transactionsTable, fetch from ordersTable
+  if (income === 0) {
+    const orderRows = await db
+      .select({ total: sql<string>`COALESCE(SUM(${ordersTable.total}), 0)` })
+      .from(ordersTable)
+      .where(
+        and(
+          eq(ordersTable.branchId, branchId),
+          sql`${ordersTable.status} != 'voided'`,
+          gte(ordersTable.createdAt, startOfDay),
+          lt(ordersTable.createdAt, endOfDay)
+        )
+      );
+    income = parseFloat(orderRows[0]?.total || "0");
+  }
+
   income = Math.round(income * 100) / 100;
   expense = Math.round(expense * 100) / 100;
   cogs = Math.round(cogs * 100) / 100;

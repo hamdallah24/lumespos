@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, transactionsTable, journalEntriesTable, ledgerEntriesTable, accountsTable, accountingPeriodsTable } from "@workspace/db";
+import { db, transactionsTable, journalEntriesTable, ledgerEntriesTable, accountsTable, accountingPeriodsTable, ordersTable } from "@workspace/db";
 import { eq, desc, sql, and, inArray, gte, lte, isNull } from "drizzle-orm";
 import { requireAuth, requireBranchAccess, canAccessBranch } from "../middlewares/requireAuth";
 import {
@@ -354,7 +354,27 @@ router.get("/finance/dashboard", requireAuth, async (req, res) => {
       getAccountBalances(),
     ]);
 
-    const todayIncome = parseFloat(allIncomeResult[0]?.total || "0");
+    let todayIncome = parseFloat(allIncomeResult[0]?.total || "0");
+
+    // Fallback: If no finance income transactions recorded yet for this date/branch, sum up sales from ordersTable
+    if (todayIncome === 0) {
+      const orderBranchCond: any[] = [];
+      if (branchIds && branchIds.length > 0) {
+        orderBranchCond.push(inArray(ordersTable.branchId, branchIds));
+      } else if (branchId) {
+        orderBranchCond.push(eq(ordersTable.branchId, branchId));
+      }
+      orderBranchCond.push(sql`${ordersTable.status} != 'voided'`);
+      orderBranchCond.push(gte(ordersTable.createdAt, dateStart));
+      if (dateEnd) orderBranchCond.push(lte(ordersTable.createdAt, dateEnd));
+
+      const [ordersRevenue] = await db
+        .select({ total: sql<string>`COALESCE(SUM(${ordersTable.total}), 0)` })
+        .from(ordersTable)
+        .where(and(...orderBranchCond));
+
+      todayIncome = parseFloat(ordersRevenue?.total || "0");
+    }
 
     // All-branch COGS
     const allCOGSResult = allExpenseResult.find(r => r.category === "cogs");
