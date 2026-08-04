@@ -166,8 +166,17 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
                 {detail.totalCash != null && (
                   <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Penjualan Tunai</span><span className="font-semibold">{formatRp(detail.totalCash)}</span></div>
                 )}
+                {detail.totalQris != null && (
+                  <div className="flex justify-between p-2 bg-muted/50 rounded"><span>QRIS</span><span className="font-semibold">{formatRp(detail.totalQris)}</span></div>
+                )}
+                {detail.totalCard != null && (
+                  <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Online (Debit/Kartu)</span><span className="font-semibold">{formatRp(detail.totalCard)}</span></div>
+                )}
                 {totalExpenses != null && (
                   <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Pengeluaran</span><span className="font-semibold text-destructive">{formatRp(totalExpenses)}</span></div>
+                )}
+                {detail.voidedCount != null && detail.voidedCount > 0 && (
+                  <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Batal (Void)</span><span className="font-semibold text-destructive">{detail.voidedCount}× {formatRp(detail.voidedTotal ?? 0)}</span></div>
                 )}
                 {detail.expectedBalance != null && (
                   <div className="flex justify-between p-2 bg-muted/50 rounded"><span>Harapan Kas</span><span className="font-semibold">{formatRp(detail.expectedBalance)}</span></div>

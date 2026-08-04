@@ -1106,7 +1106,7 @@ components:
           type: string
           minLength: 1
 
-       product:
+    Product:
       type: object
       required: [id, name, price, branchId]
       properties:
@@ -1133,7 +1133,7 @@ components:
           type: string
           format: date-time
 
-        ProductInput:
+    ProductInput:
       type: object
       required: [name, price, branchId]
       properties:
@@ -1670,6 +1670,26 @@ components:
           format: date-time
         maxDiscrepancyPct:
           type: number
+        openingBalance:
+          type: number
+        closingBalance:
+          type: ["number", "null"]
+        expectedBalance:
+          type: ["number", "null"]
+        difference:
+          type: ["number", "null"]
+        totalCash:
+          type: ["number", "null"]
+        totalQris:
+          type: ["number", "null"]
+        totalCard:
+          type: ["number", "null"]
+        voidedCount:
+          type: ["number", "null"]
+        voidedTotal:
+          type: ["number", "null"]
+        endingCupCount:
+          type: ["number", "null"]
 
     ShiftAuditReconLine:
       type: object
@@ -1723,6 +1743,28 @@ components:
           format: date-time
         maxDiscrepancyPct:
           type: number
+        openingBalance:
+          type: number
+        closingBalance:
+          type: ["number", "null"]
+        expectedBalance:
+          type: ["number", "null"]
+        difference:
+          type: ["number", "null"]
+        totalCash:
+          type: ["number", "null"]
+        totalQris:
+          type: ["number", "null"]
+        totalCard:
+          type: ["number", "null"]
+        voidedCount:
+          type: ["number", "null"]
+        voidedTotal:
+          type: ["number", "null"]
+        endingCupCount:
+          type: ["number", "null"]
+        totalExpenses:
+          type: ["number", "null"]
         reconciliation:
           type: array
           items:

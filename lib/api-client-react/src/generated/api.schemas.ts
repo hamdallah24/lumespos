@@ -472,6 +472,14 @@ export interface ShiftAudit {
   /** @nullable */
   totalCash?: number | null;
   /** @nullable */
+  totalQris?: number | null;
+  /** @nullable */
+  totalCard?: number | null;
+  /** @nullable */
+  voidedCount?: number | null;
+  /** @nullable */
+  voidedTotal?: number | null;
+  /** @nullable */
   endingCupCount?: number | null;
   createdAt: string;
   maxDiscrepancyPct?: number;
@@ -514,6 +522,14 @@ export interface ShiftAuditDetail {
   difference?: number | null;
   /** @nullable */
   totalCash?: number | null;
+  /** @nullable */
+  totalQris?: number | null;
+  /** @nullable */
+  totalCard?: number | null;
+  /** @nullable */
+  voidedCount?: number | null;
+  /** @nullable */
+  voidedTotal?: number | null;
   /** @nullable */
   endingCupCount?: number | null;
   createdAt: string;
