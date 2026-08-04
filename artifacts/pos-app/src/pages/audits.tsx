@@ -101,6 +101,13 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
   const allRecon = detail?.reconciliation ?? [];
   const hasWarning = allRecon.some((r) => r.isWarning);
   const totalExpenses = (detail as any)?.totalExpenses ?? null;
+  let userNotes: string | null = null;
+  if (detail?.notes) {
+    try {
+      const parsed = JSON.parse(detail.notes);
+      userNotes = typeof parsed === "object" && parsed !== null ? parsed.userNotes ?? null : null;
+    } catch { userNotes = null; }
+  }
   const expectedCash = (detail?.openingBalance ?? 0) + (detail?.totalCash ?? 0) - (totalExpenses ?? 0);
   const executiveSummary = fraud?.executiveSummary;
   const fraudSummaryText = executiveSummary?.recommendation ?? fraud?.summary?.recommendation ?? "Analisis anti-fraud sedang diproses...";
@@ -195,6 +202,14 @@ function AuditDetailDialog({ auditId, branchId, onClose }: { auditId: number; br
                 </div>
               )}
             </div>
+
+            {/* ── 📝 CATATAN ── */}
+            {userNotes && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">📝 Catatan Kasir</h3>
+                <div className="p-3 rounded-lg border bg-muted/40 text-xs whitespace-pre-wrap">{userNotes}</div>
+              </div>
+            )}
 
             {/* ── 📦 REKONSILIASI STOK ── */}
             <div>
