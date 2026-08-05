@@ -72,7 +72,7 @@ export default function OSWorkspaceShell({
           </div>
         </header>
         {/* Konten workspace — menyesuaikan tinggi */}
-        <div className="flex-1 overflow-hidden">{children}</div>
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">{children}</div>
       </div>
     </BranchProvider>
   );
