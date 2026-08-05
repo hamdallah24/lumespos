@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation } from "wouter";
 import StatusBar from "./StatusBar";
 import HomeHeader from "./HomeHeader";
 import GreetingSection from "./GreetingSection";
@@ -16,6 +17,8 @@ import BottomNav, { type BottomTab } from "./BottomNav";
 import CashflowWidget from "./desktop/CashflowWidget";
 import MissionsRunningWidget from "./desktop/MissionsRunningWidget";
 import UpcomingScheduleWidget from "./desktop/UpcomingScheduleWidget";
+import HomeNavigationDrawer from "./navigation/HomeNavigationDrawer";
+import { useHomeNavigation } from "./navigation/useHomeNavigation";
 import { getAppById } from "@/lib/desktop/registry";
 
 interface HomeScreenProps {
@@ -191,7 +194,9 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
   const [activeApp, setActiveApp] = useState<string | null>(() => {
     return sessionStorage.getItem("sayq.activeApp") || null;
   });
+  const [, setLocation] = useLocation();
   const isMobile = useIsMobile();
+  const nav = useHomeNavigation();
 
   // Persist activeApp to sessionStorage (survives F5, not tab close)
   useEffect(() => {
@@ -222,6 +227,18 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
     setActiveTab(tab);
   }, []);
 
+  const handleOpenMenu = useCallback(() => nav.openDrawer(), [nav]);
+  const handleOpenNotifications = useCallback(() => nav.openDrawer(), [nav]);
+  const handleDrawerApp = useCallback((appId: string) => {
+    setActiveApp(appId);
+  }, []);
+  const handleDrawerRoute = useCallback((href: string) => {
+    setLocation(href);
+  }, [setLocation]);
+  const handleDrawerTab = useCallback((tab: "home" | "apps" | "mission" | "profile") => {
+    setActiveTab(tab);
+  }, []);
+
   const userName = user?.name || user?.email?.split("@")[0] || "User";
 
   return (
@@ -232,9 +249,18 @@ export default function HomeScreen({ user, onSignOut }: HomeScreenProps) {
       <StatusBar />
       <HomeHeader
         user={user}
-        onMenuClick={() => {}}
-        onNotificationClick={() => {}}
+        onMenuClick={handleOpenMenu}
+        onNotificationClick={handleOpenNotifications}
         onAvatarClick={() => setActiveTab("profile")}
+      />
+
+      <HomeNavigationDrawer
+        nav={nav}
+        user={user}
+        onSignOut={onSignOut}
+        onOpenApp={handleDrawerApp}
+        onNavigateRoute={handleDrawerRoute}
+        onSelectTab={handleDrawerTab}
       />
 
       <AnimatePresence mode="wait">

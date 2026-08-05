@@ -18,7 +18,11 @@ import PengeluaranPage from "./pages/pengeluaran";
 import AuditsPage from "./pages/audits";
 import EngineeringOSDashboard from "./pages/eng-os";
 import ExecutiveWorkspace from "./pages/executive";
+import BusinessIntelligencePage from "./pages/business-intelligence";
+import FounderPage from "./pages/founder";
+import SettingsPage from "./pages/settings";
 import CloudDesktopPage from "./pages/cloud-desktop";
+import OSWorkspaceShell from "@/components/desktop/OSWorkspaceShell";
 import NotFound from "@/pages/not-found";
 import { WorkspaceProvider } from "@/platform/workspace";
 import FinanceDashboard from "@/modules/finance/components/FinanceDashboard";
@@ -646,6 +650,88 @@ function InventoryWorkspaceRoute() {
   );
 }
 
+function ExecutiveRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <OSWorkspaceShell title="Executive" subtitle="CEO Runtime" color="#2563EB" logo="E">
+      <ExecutiveWorkspace />
+    </OSWorkspaceShell>
+  );
+}
+
+function EngOsRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <OSWorkspaceShell title="EngOS" subtitle="Engineering Operating System" color="#64748B" logo="E">
+      <EngineeringOSDashboard />
+    </OSWorkspaceShell>
+  );
+}
+
+function BusinessIntelligenceRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <BusinessIntelligencePage />
+  );
+}
+
+function FounderRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <FounderPage />
+  );
+}
+
+function AuditRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <OSWorkspaceShell title="Audit" subtitle="Shift audit & transaksi" color="#D97706" logo="A">
+      <AuditsPage />
+    </OSWorkspaceShell>
+  );
+}
+
+function BranchesRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <OSWorkspaceShell title="Branches" subtitle="Kelola cabang" color="#059669" logo="B">
+      <BranchesPage />
+    </OSWorkspaceShell>
+  );
+}
+
+function UsersRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <OSWorkspaceShell title="Users" subtitle="Kelola pengguna & akses" color="#7C3AED" logo="U">
+      <UsersPage />
+    </OSWorkspaceShell>
+  );
+}
+
+function SettingsRoute() {
+  const { data: me, isLoading } = useGetMe({ query: { queryKey: ["/api/users/me"], retry: 1, retryDelay: 500 } });
+  if (isLoading) return <div className="flex h-screen items-center justify-center bg-background"><div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (!me) return <Redirect to="/sign-in" />;
+  return (
+    <SettingsPage />
+  );
+}
+
 function AppRoutes() {
   return (
     <Switch>
@@ -664,10 +750,14 @@ function AppRoutes() {
       <Route path="/products" component={ProtectedApp} />
       <Route path="/audits" component={ProtectedApp} />
       <Route path="/dashboard" component={ProtectedApp} />
-      <Route path="/branches" component={ProtectedApp} />
-      <Route path="/users" component={ProtectedApp} />
-      <Route path="/eng-os" component={ProtectedApp} />
-      <Route path="/executive" component={ProtectedApp} />
+      <Route path="/executive" component={ExecutiveRoute} />
+      <Route path="/eng-os" component={EngOsRoute} />
+      <Route path="/business-intelligence" component={BusinessIntelligenceRoute} />
+      <Route path="/founder" component={FounderRoute} />
+      <Route path="/audit" component={AuditRoute} />
+      <Route path="/branches" component={BranchesRoute} />
+      <Route path="/users" component={UsersRoute} />
+      <Route path="/settings" component={SettingsRoute} />
       <Route path="/sign-in" component={() => <LoginForm mode="signin" />} />
       <Route path="/sign-up" component={() => <LoginForm mode="signup" />} />
       <Route path="/reset-password" component={ResetPasswordPage} />
