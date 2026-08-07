@@ -103,8 +103,26 @@ async function boot(): Promise<void> {
       const { initConfigCenter, getConfigCenter } = await import("./settings");
       await initConfigCenter();
       const center = getConfigCenter();
+
+      // SQL persistence: ensure tables, then hydrate committed values from a
+      // prior run (must precede env-seed so persisted values are never wiped).
+      // Non-fatal — a DB hiccup leaves the in-memory config untouched.
+      let persistenceActive = false;
+      try {
+        const { ensureSettingsTables, hydrateSettings } =
+          await import("./settings/sql-persistence");
+        const ensured = await ensureSettingsTables();
+        if (ensured) {
+          const hydrated = await hydrateSettings(center.store);
+          persistenceActive = hydrated;
+        }
+      } catch (err) {
+        logger.warn({ err }, "[ConfigCenter] SQL persistence hydrate skipped");
+      }
+
       // Seed runtime-available env values as default-scope overrides so the
       // Settings UI reflects live provider config (never mutates the Registry).
+      // Only fills empty/uncommitted values — won't clobber what was hydrated.
       const { seedEnvOverrides } = await import("./settings/env-seed");
       const seeded = await seedEnvOverrides(center);
       logger.info(
@@ -112,23 +130,20 @@ async function boot(): Promise<void> {
           fields: center.registry.list().length,
           revision: await center.store.currentRevision(),
           envSeeded: seeded,
+          sqlActive: persistenceActive,
         },
         "[ConfigCenter] Configuration Center booted — registry registered, resolver warmed",
       );
-      // SQL persistence: ensure tables, hydrate committed values from a prior
-      // run, then flush the (env-seeded) override set so it survives restarts.
-      // Non-fatal — a DB hiccup leaves the in-memory config untouched.
+
+      // Flush the (possibly env-seeded) override set so it survives restarts.
       try {
-        const { ensureSettingsTables, hydrateSettings, persistSettings } =
-          await import("./settings/sql-persistence");
-        const ensured = await ensureSettingsTables();
-        if (ensured) {
-          const hydrated = await hydrateSettings(center.store);
+        if (persistenceActive) {
+          const { persistSettings } = await import("./settings/sql-persistence");
           const persisted = await persistSettings(center.store);
-          logger.info({ hydrated, persisted }, "[ConfigCenter] SQL persistence sync complete");
+          logger.info({ persisted }, "[ConfigCenter] SQL persistence flush complete");
         }
       } catch (err) {
-        logger.warn({ err }, "[ConfigCenter] SQL persistence sync skipped");
+        logger.warn({ err }, "[ConfigCenter] SQL persistence flush skipped");
       }
     } catch (err) {
       logger.warn({ err }, "[ConfigCenter] Configuration Center init skipped");
