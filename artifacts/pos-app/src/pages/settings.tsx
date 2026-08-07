@@ -1,18 +1,15 @@
-import SettingsPlaceholder from "@/components/desktop/apps/SettingsPlaceholder";
+import SettingsWorkspace from "@/modules/settings/SettingsWorkspace";
 import OSWorkspaceShell from "@/components/desktop/OSWorkspaceShell";
 
 export default function SettingsPage() {
   return (
     <OSWorkspaceShell
       title="Settings"
-      subtitle="Konfigurasi sistem"
-      color="#64748B"
+      subtitle="Configuration Center"
+      color="#1565FF"
       logo="S"
     >
-      {/* SettingsPlaceholder dirancang untuk background gelap */}
-      <div className="h-full bg-[#0B1220]">
-        <SettingsPlaceholder />
-      </div>
+      <SettingsWorkspace />
     </OSWorkspaceShell>
   );
 }

@@ -38,3 +38,4 @@ export * from "./employeeAssignments";
 export * from "./items";
 export * from "./uoms";
 export * from "./bins";
+export * from "./settings";

@@ -1,0 +1,810 @@
+{
+  "configVersion": 1,
+  "checksum": "-277bfa6c205e0594",
+  "fieldCount": 44,
+  "fields": [
+    {
+      "key": "executives.CAIO.enabled",
+      "category": "executive",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CAIO.maxTokens",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 8000,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CAIO.model",
+      "category": "executive",
+      "type": "string",
+      "defaultValue": "deepseek-chat",
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CAIO.temperature",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 0.7,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CEO.enabled",
+      "category": "executive",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CEO.maxTokens",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 8000,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CEO.model",
+      "category": "executive",
+      "type": "string",
+      "defaultValue": "deepseek-chat",
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CEO.temperature",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 0.7,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CFO.enabled",
+      "category": "executive",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CFO.maxTokens",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 8000,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CFO.model",
+      "category": "executive",
+      "type": "string",
+      "defaultValue": "deepseek-chat",
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CFO.temperature",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 0.7,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CHRO.enabled",
+      "category": "executive",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CHRO.maxTokens",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 8000,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CHRO.model",
+      "category": "executive",
+      "type": "string",
+      "defaultValue": "deepseek-chat",
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CHRO.temperature",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 0.7,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CKO.enabled",
+      "category": "executive",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CKO.maxTokens",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 8000,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CKO.model",
+      "category": "executive",
+      "type": "string",
+      "defaultValue": "deepseek-chat",
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CKO.temperature",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 0.7,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CMO.enabled",
+      "category": "executive",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CMO.maxTokens",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 8000,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CMO.model",
+      "category": "executive",
+      "type": "string",
+      "defaultValue": "deepseek-chat",
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CMO.temperature",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 0.7,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.COO.enabled",
+      "category": "executive",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.COO.maxTokens",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 8000,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.COO.model",
+      "category": "executive",
+      "type": "string",
+      "defaultValue": "deepseek-chat",
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.COO.temperature",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 0.7,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CTO.enabled",
+      "category": "executive",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CTO.maxTokens",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 8000,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CTO.model",
+      "category": "executive",
+      "type": "string",
+      "defaultValue": "deepseek-chat",
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "executives.CTO.temperature",
+      "category": "executive",
+      "type": "number",
+      "defaultValue": 0.7,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "providers.deepseek.apiKey",
+      "category": "providers",
+      "type": "secret",
+      "defaultValue": "",
+      "allowedValues": null,
+      "scope": [
+        "default"
+      ],
+      "secret": true,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "critical",
+      "introducedVersion": "1",
+      "owner": null
+    },
+    {
+      "key": "providers.deepseek.baseUrl",
+      "category": "providers",
+      "type": "string",
+      "defaultValue": "",
+      "allowedValues": null,
+      "scope": [
+        "default"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": null
+    },
+    {
+      "key": "providers.deepseek.model",
+      "category": "providers",
+      "type": "string",
+      "defaultValue": "deepseek-chat",
+      "allowedValues": [
+        "deepseek-chat",
+        "deepseek-v4-flash"
+      ],
+      "scope": [
+        "default",
+        "workspace",
+        "branch",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "high",
+      "introducedVersion": "1",
+      "owner": "llm-adapter"
+    },
+    {
+      "key": "providers.defaultProvider",
+      "category": "providers",
+      "type": "string",
+      "defaultValue": "deepseek",
+      "allowedValues": [
+        "deepseek",
+        "gemini"
+      ],
+      "scope": [
+        "default",
+        "workspace",
+        "branch",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "llm-adapter"
+    },
+    {
+      "key": "providers.gemini.apiKey",
+      "category": "providers",
+      "type": "secret",
+      "defaultValue": "",
+      "allowedValues": null,
+      "scope": [
+        "default"
+      ],
+      "secret": true,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "llm-adapter"
+    },
+    {
+      "key": "providers.gemini.model",
+      "category": "providers",
+      "type": "string",
+      "defaultValue": "gemini-2.5-flash",
+      "allowedValues": [
+        "gemini-2.5-flash"
+      ],
+      "scope": [
+        "default",
+        "workspace",
+        "branch",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "llm-adapter"
+    },
+    {
+      "key": "providers.maxTokens",
+      "category": "providers",
+      "type": "number",
+      "defaultValue": 4000,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "branch",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "llm-adapter"
+    },
+    {
+      "key": "providers.temperature",
+      "category": "providers",
+      "type": "number",
+      "defaultValue": 0.7,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "branch",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "hot",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "llm-adapter"
+    },
+    {
+      "key": "runtime.businessIntelligence.enabled",
+      "category": "runtime",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "branch",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "business-os"
+    },
+    {
+      "key": "runtime.executive.enabled",
+      "category": "runtime",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "branch",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "executive-runtime"
+    },
+    {
+      "key": "runtime.ric.enabled",
+      "category": "runtime",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "branch",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "business-os"
+    },
+    {
+      "key": "runtime.scheduler.enabled",
+      "category": "runtime",
+      "type": "boolean",
+      "defaultValue": true,
+      "allowedValues": null,
+      "scope": [
+        "default",
+        "workspace",
+        "branch",
+        "executive"
+      ],
+      "secret": false,
+      "immutable": false,
+      "restartStrategy": "reload",
+      "criticality": "low",
+      "introducedVersion": "1",
+      "owner": "kernel"
+    }
+  ]
+}

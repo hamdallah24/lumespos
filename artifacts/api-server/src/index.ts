@@ -97,6 +97,23 @@ async function boot(): Promise<void> {
       logger.warn({ err }, "[Finance] Default COA initialization skipped");
     }
 
+    // Phase 1.5: ConfigCenter — Single Source of Truth. Must boot before any
+    // subsystem that reads configuration, so all reads go through ConfigReader.
+    try {
+      const { initConfigCenter, getConfigCenter } = await import("./settings");
+      await initConfigCenter();
+      const center = getConfigCenter();
+      logger.info(
+        {
+          fields: center.registry.list().length,
+          revision: await center.store.currentRevision(),
+        },
+        "[ConfigCenter] Configuration Center booted — registry registered, resolver warmed",
+      );
+    } catch (err) {
+      logger.warn({ err }, "[ConfigCenter] Configuration Center init skipped");
+    }
+
     // Phase 0.6: Start Inventory Event Subscriber (Finance polls event_store)
     try {
       const { startSubscriber } = await import("./finance/services/inventoryEventSubscriber");

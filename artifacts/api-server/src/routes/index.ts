@@ -36,6 +36,9 @@ import uomsRouter from "./uoms";
 import binsRouter from "./bins";
 import agingRouter from "../inventory/routes/aging";
 import analyticsRouter from "../inventory/routes/analytics";
+import settingsRouter from "../settings/api/routes";
+import ecosystemRouter from "../settings/ecosystem/routes";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 
@@ -76,5 +79,7 @@ router.use("/", uomsRouter);
 router.use("/", binsRouter);
 router.use("/", agingRouter);
 router.use("/", analyticsRouter);
+router.use("/v1/settings", requireAuth, settingsRouter);
+router.use("/v1/ecosystem", requireAuth, ecosystemRouter);
 
 export default router;
