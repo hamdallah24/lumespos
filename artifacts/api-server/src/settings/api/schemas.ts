@@ -40,9 +40,7 @@ const errorSchema = z.object({
   detail: z.unknown().optional(),
 });
 
-export const apiErrorSchema = z.discriminatedUnion("error", [
-  errorSchema,
-]);
+export const apiErrorSchema = errorSchema;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Request bodies
