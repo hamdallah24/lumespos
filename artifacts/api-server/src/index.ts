@@ -103,13 +103,33 @@ async function boot(): Promise<void> {
       const { initConfigCenter, getConfigCenter } = await import("./settings");
       await initConfigCenter();
       const center = getConfigCenter();
+      // Seed runtime-available env values as default-scope overrides so the
+      // Settings UI reflects live provider config (never mutates the Registry).
+      const { seedEnvOverrides } = await import("./settings/env-seed");
+      const seeded = await seedEnvOverrides(center);
       logger.info(
         {
           fields: center.registry.list().length,
           revision: await center.store.currentRevision(),
+          envSeeded: seeded,
         },
         "[ConfigCenter] Configuration Center booted — registry registered, resolver warmed",
       );
+      // SQL persistence: ensure tables, hydrate committed values from a prior
+      // run, then flush the (env-seeded) override set so it survives restarts.
+      // Non-fatal — a DB hiccup leaves the in-memory config untouched.
+      try {
+        const { ensureSettingsTables, hydrateSettings, persistSettings } =
+          await import("./settings/sql-persistence");
+        const ensured = await ensureSettingsTables();
+        if (ensured) {
+          const hydrated = await hydrateSettings(center.store);
+          const persisted = await persistSettings(center.store);
+          logger.info({ hydrated, persisted }, "[ConfigCenter] SQL persistence sync complete");
+        }
+      } catch (err) {
+        logger.warn({ err }, "[ConfigCenter] SQL persistence sync skipped");
+      }
     } catch (err) {
       logger.warn({ err }, "[ConfigCenter] Configuration Center init skipped");
     }

@@ -83,4 +83,15 @@ export class SettingsStore implements SettingsSource {
   get revisionCount(): number {
     return this.revisionCounter;
   }
+
+  // Hydrate from a persisted (SQL) source at boot. Overrides existing in-memory
+  // state; used by the persistence layer so committed values survive a restart
+  // without changing the in-memory runtime contract.
+  seedFromPersisted(overrides: ScopedOverrideSet[], revision: number): void {
+    this.overrides.clear();
+    for (const s of overrides) {
+      this.overrides.set(this.key(s.scope), { ...s, values: { ...s.values } });
+    }
+    this.revisionCounter = revision;
+  }
 }

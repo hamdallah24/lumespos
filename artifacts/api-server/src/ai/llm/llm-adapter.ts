@@ -19,13 +19,12 @@ import {
 } from "../runtime/validator";
 import { charsToTokens, getModelContext } from "../../memory/budget-config";
 
-const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY;
-const DEEPSEEK_BASE = process.env.DEEPSEEK_BASE_URL;
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || "deepseek-chat";
-const GEMINI_KEY = process.env.GOOGLE_GEMINI_API_KEY;
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/openai";
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 const TIMEOUT_MS = 45000;
+// Provider values now resolve through ConfigCenter (env-seeded at boot), with
+// process.env fallback. DEEPSEEK_KEY/BASE/MODEL and GEMINI_KEY/MODEL above are
+// superseded by getLLMConfig(); keep the import token for the ConfigReader path.
+import { getLLMConfig } from "./llm-config";
 
 function shouldFallback(status: number): boolean {
   return [401, 402, 403, 429, 500, 502, 503].includes(status);
@@ -62,19 +61,20 @@ async function callGemini(
   maxTokens: number,
   jsonMode: boolean,
 ): Promise<{ content: string; toolCalls: any[] } | null> {
-  if (!GEMINI_KEY) { console.warn("[gemini] No GOOGLE_GEMINI_API_KEY configured"); return null; }
+  const cfg = await getLLMConfig();
+  if (!cfg.geminiKey) { console.warn("[gemini] No GOOGLE_GEMINI_API_KEY configured"); return null; }
   try {
     const body: any = {
-      model: GEMINI_MODEL,
+      model: cfg.geminiModel,
       messages,
       max_tokens: Math.min(maxTokens, 4000),
-      temperature: 0.7,
+      temperature: cfg.temperature ?? 0.7,
     };
     if (jsonMode) body.response_format = { type: "json_object" };
 
     const resp = await fetch(`${GEMINI_BASE}/chat/completions`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${GEMINI_KEY}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${cfg.geminiKey}` },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
     });
@@ -108,9 +108,10 @@ export async function callLLMWithTools(
   jsonMode = false,
   onToken?: (token: string) => void,
 ): Promise<LLMResult> {
-  const key = DEEPSEEK_KEY;
-  const base = DEEPSEEK_BASE;
-  const model = DEEPSEEK_MODEL;
+  const cfg = await getLLMConfig();
+  const key = cfg.deepseekKey;
+  const base = cfg.deepseekBase;
+  const model = cfg.deepseekModel;
   if (!key || !base) return { message: null, content: "", toolCalls: [], tokensUsed: 0, status: "error", errorStatus: 500 };
 
   let clean = sanitizeMessages(messages);
@@ -127,8 +128,8 @@ export async function callLLMWithTools(
 
   // ADR-010 Phase 7: Adaptive token estimation based on model density
   const promptChars = clean.reduce((s: number, m: any) => s + (typeof m.content === "string" ? m.content.length : JSON.stringify(m).length), 0);
-  const promptTokensEstimate = charsToTokens(promptChars, DEEPSEEK_MODEL);
-  const modelLimit = getModelContext(DEEPSEEK_MODEL);
+  const promptTokensEstimate = charsToTokens(promptChars, model);
+  const modelLimit = getModelContext(model);
   const safeMaxTokens = Math.min(maxTokens, Math.max(500, modelLimit - promptTokensEstimate));
   console.log("[LLM-REQ]", "chars=" + promptChars + " promptTok=" + promptTokensEstimate + " safeMax=" + safeMaxTokens + " tools=" + tools.length);
 
@@ -137,7 +138,7 @@ export async function callLLMWithTools(
     function: { name: t.name, description: t.description, parameters: t.parameters },
   }));
 
-  const body: any = { model, messages: clean, max_tokens: safeMaxTokens, temperature: 0.7, stream };
+  const body: any = { model, messages: clean, max_tokens: safeMaxTokens, temperature: cfg.temperature ?? 0.7, stream };
   if (jsonMode) body.response_format = { type: "json_object" };
   if (tools.length > 0) body.tools = toolsPayload;
 
@@ -209,9 +210,10 @@ export async function callDeepSeek(
   system: string, user: string, userId: number, mode: string,
   maxTokens = 800, jsonMode = false,
 ): Promise<string> {
-  const key = DEEPSEEK_KEY;
-  const base = DEEPSEEK_BASE;
-  const model = DEEPSEEK_MODEL;
+  const cfg = await getLLMConfig();
+  const key = cfg.deepseekKey;
+  const base = cfg.deepseekBase;
+  const model = cfg.deepseekModel;
   if (!key || !base) { console.error("[ai] DEEPSEEK_API_KEY or DEEPSEEK_BASE_URL not set"); return "ERROR: API key AI belum dikonfigurasi."; }
   try {
     const history = await getHistory(userId, mode);
@@ -224,12 +226,12 @@ export async function callDeepSeek(
 
     // Safe max tokens based on model context window
     const promptChars = messages.reduce((s: number, m: any) => s + (typeof m.content === "string" ? m.content.length : 0), 0);
-    const promptTokensEstimate = charsToTokens(promptChars, DEEPSEEK_MODEL);
-    const modelLimit = getModelContext(DEEPSEEK_MODEL);
+    const promptTokensEstimate = charsToTokens(promptChars, model);
+    const modelLimit = getModelContext(model);
     const safeMaxTokens = Math.min(maxTokens, Math.max(500, modelLimit - promptTokensEstimate));
     console.log(`[LLM-REQ] mode=${mode} chars=${promptChars} promptTok=${promptTokensEstimate} safeMax=${safeMaxTokens}`);
 
-    const body: any = { model, messages, max_tokens: safeMaxTokens, temperature: 0.7 };
+    const body: any = { model, messages, max_tokens: safeMaxTokens, temperature: cfg.temperature ?? 0.7 };
     if (jsonMode) body.response_format = { type: "json_object" };
 
     const controller = new AbortController();
@@ -290,7 +292,8 @@ export async function callDeepSeekWithTools(
   onImplPlan?: (plan: string) => Promise<boolean>,
 ): Promise<{ text: string; toolsUsed: number; filesRead: string[] }> {
   const ctx = new ExecutionContext(userId, mode);
-  if (!DEEPSEEK_KEY || !DEEPSEEK_BASE) { console.error("[ai] DeepSeek key/base not set"); return { text: "", toolsUsed: 0, filesRead: [] }; }
+  const cfg = await getLLMConfig();
+  if (!cfg.deepseekKey || !cfg.deepseekBase) { console.error("[ai] DeepSeek key/base not set"); return { text: "", toolsUsed: 0, filesRead: [] }; }
 
   const history = await getHistory(userId, mode, 100);
   const filteredHistory = filterContamination(history).slice(-30);
