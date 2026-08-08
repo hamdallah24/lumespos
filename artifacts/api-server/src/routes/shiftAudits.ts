@@ -833,7 +833,9 @@ router.post("/shift-audits", requireAuth, requireBranchAccess((req) => Number(re
   });
 });
 
-// Owner validates the audit: sync physical counts into live inventory
+// Owner validates the audit.
+// NOTE: stock correction happens once at shift close (see /shift/end). Verify must NOT
+// re-apply movements, otherwise verifying an older shift overwrites newer corrections.
 router.patch("/shift-audits/:id/verify", requireRole("owner", "manager"), async (req, res) => {
   const id = Number(req.params["id"]);
 
@@ -841,59 +843,6 @@ router.patch("/shift-audits/:id/verify", requireRole("owner", "manager"), async 
   if (!audit) {
     res.status(404).json({ error: "Not found" });
     return;
-  }
-
-  const actual = (audit.actualStockJson as StockEntry[] | null) ?? [];
-  const errors: string[] = [];
-
-  for (const a of actual) {
-    const [existing] = await db
-      .select({ currentStock: currentInventoryTable.currentStock })
-      .from(currentInventoryTable)
-      .where(
-        and(
-          eq(currentInventoryTable.branchId, audit.branchId),
-          eq(currentInventoryTable.itemType, a.itemType),
-          eq(currentInventoryTable.itemId, a.itemId),
-        ),
-      );
-
-    const currentStock = existing ? parseFloat(existing.currentStock) : 0;
-    const delta = a.quantity - currentStock;
-    if (Math.abs(delta) < 0.01) continue;
-
-    const movementType = delta > 0 ? MOVEMENT_TYPES.STOCK_OPNAME : MOVEMENT_TYPES.WASTE_DAMAGE;
-    const qty = Math.abs(delta);
-    let unitCost: number | undefined;
-    if (delta > 0) {
-      if (a.itemType === "ingredient") {
-        const [row] = await db.select({ c: ingredientsTable.costPricePerUnit }).from(ingredientsTable).where(eq(ingredientsTable.id, a.itemId));
-        unitCost = row ? parseFloat(row.c) : undefined;
-      } else if (a.itemType === "semi_finished") {
-        const [row] = await db.select({ c: semiFinishedTable.costPricePerUnit }).from(semiFinishedTable).where(eq(semiFinishedTable.id, a.itemId));
-        unitCost = row ? parseFloat(row.c) : undefined;
-      }
-    }
-    try {
-      await createMovement({
-        branchId: audit.branchId,
-        itemType: a.itemType,
-        itemId: a.itemId,
-        movementType,
-        quantity: qty,
-        unitCost,
-        referenceType: "shift_audit_verify",
-        referenceId: id,
-        description: `Owner verify shift #${id} — ${a.name}`,
-      });
-    } catch (mvErr: any) {
-      console.error(`[Verify] Movement failed for ${a.name}:`, mvErr.message);
-      errors.push(`${a.name}: ${mvErr.message}`);
-    }
-  }
-
-  if (errors.length > 0) {
-    console.error(`[Verify] ${errors.length} item(s) gagal:`, errors.join("; "));
   }
 
   const [updated] = await db
